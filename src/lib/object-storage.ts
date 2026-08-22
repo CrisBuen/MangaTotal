@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { del, list, put } from "@vercel/blob";
+import { del, get, list, put } from "@vercel/blob";
 import { getStorageProvider } from "./env";
 import { STORAGE_ROOT, contentTypeFor, resolveStoragePath } from "./storage";
 
@@ -11,7 +11,9 @@ import { STORAGE_ROOT, contentTypeFor, resolveStoragePath } from "./storage";
  * traduce esas claves al proveedor configurado:
  *
  *   - STORAGE_PROVIDER="local" (default): disco en `storage/`, igual que antes.
- *   - STORAGE_PROVIDER="blob": Vercel Blob (BLOB_READ_WRITE_TOKEN).
+ *   - STORAGE_PROVIDER="blob": Vercel Blob privado (BLOB_READ_WRITE_TOKEN).
+ *     Los blobs son privados: nunca hay URL pública, todo se sirve vía
+ *     /api/images con lectura autenticada del lado del servidor.
  */
 
 export interface ObjectStorage {
@@ -65,7 +67,7 @@ const localStorageAdapter: ObjectStorage = {
 const blobStorageAdapter: ObjectStorage = {
   async putObject(key, data, contentType) {
     await put(key, data, {
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType,
@@ -74,22 +76,22 @@ const blobStorageAdapter: ObjectStorage = {
     });
   },
 
-  async getPublicUrl(key) {
-    const found = await findBlob(key);
-    return found?.url ?? null;
+  async getPublicUrl() {
+    return null; // store privado: siempre se sirve vía /api/images
   },
 
   async readObject(key) {
-    const found = await findBlob(key);
-    if (!found) return null;
-    const res = await fetch(found.url);
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
+    try {
+      const result = await get(key, { access: "private" });
+      if (!result.stream) return null;
+      return Buffer.from(await new Response(result.stream).arrayBuffer());
+    } catch {
+      return null;
+    }
   },
 
   async deleteObject(key) {
-    const found = await findBlob(key);
-    if (found) await del(found.url).catch(() => {});
+    await del(key).catch(() => {});
   },
 
   async deletePrefix(prefix) {
@@ -104,17 +106,6 @@ const blobStorageAdapter: ObjectStorage = {
     } while (cursor);
   },
 };
-
-/** Resuelve la URL del blob por su clave exacta, o null si no existe. */
-async function findBlob(key: string): Promise<{ url: string } | null> {
-  try {
-    const page = await list({ prefix: key, limit: 10 });
-    const match = page.blobs.find((b) => b.pathname === key);
-    return match ? { url: match.url } : null;
-  } catch {
-    return null;
-  }
-}
 
 function normalizePrefix(prefix: string): string {
   return prefix.endsWith("/") ? prefix : prefix + "/";

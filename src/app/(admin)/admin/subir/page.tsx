@@ -113,7 +113,7 @@ export default function SubirPage() {
         try {
           // nombre seguro: el nombre real del zip viaja en originalFilename
           const blob = await upload(`_uploads/${Date.now()}.zip`, file, {
-            access: "public",
+            access: "private",
             handleUploadUrl: "/api/admin/upload/blob",
             multipart: true,
             onUploadProgress: ({ percentage }) => setUploadPct(Math.round(percentage)),
@@ -122,7 +122,7 @@ export default function SubirPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              blobUrl: blob.url,
+              blobPathname: blob.pathname,
               originalFilename: file.name,
               seriesId: seriesId || undefined,
               newSeriesTitle: seriesId ? undefined : newSeriesTitle.trim(),

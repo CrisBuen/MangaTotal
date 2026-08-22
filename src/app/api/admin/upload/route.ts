@@ -1,18 +1,8 @@
-import { del } from "@vercel/blob";
+import { del, get } from "@vercel/blob";
 import { NextRequest, NextResponse, after } from "next/server";
 import { getSessionAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MAX_ZIP_BYTES, processZip, type IngestOptions } from "@/lib/ingest";
-
-/** Solo URLs del propio store de Vercel Blob (evita traer archivos ajenos). */
-function isVercelBlobUrl(raw: string): boolean {
-  try {
-    const url = new URL(raw);
-    return url.protocol === "https:" && url.hostname.endsWith(".blob.vercel-storage.com");
-  } catch {
-    return false;
-  }
-}
 
 // tiempo extra para procesar el zip tras responder (Vercel, ver after())
 export const maxDuration = 300;
@@ -26,13 +16,13 @@ export async function POST(req: NextRequest) {
   const admin = await getSessionAdmin();
   if (!admin) return NextResponse.json({ error: "Solo admin" }, { status: 403 });
 
-  // dos modos: multipart clásico (dev/local), o JSON con la URL de un zip
+  // dos modos: multipart clásico (dev/local), o JSON con la clave de un zip
   // ya subido directo a Vercel Blob (evita el límite de body de ~4.5 MB)
   const isJson = (req.headers.get("content-type") ?? "").includes("application/json");
 
   let buffer: Buffer;
   let originalFilename: string;
-  let tempBlobUrl: string | null = null;
+  let tempBlobKey: string | null = null;
   let fields: {
     seriesId?: string;
     newSeriesTitle?: string;
@@ -42,24 +32,27 @@ export async function POST(req: NextRequest) {
   };
 
   if (isJson) {
-    let body: { blobUrl?: string; originalFilename?: string } & typeof fields;
+    let body: { blobPathname?: string; originalFilename?: string } & typeof fields;
     try {
       body = await req.json();
     } catch {
       return NextResponse.json({ error: "Body inválido" }, { status: 400 });
     }
-    if (!body.blobUrl || !isVercelBlobUrl(body.blobUrl)) {
-      return NextResponse.json({ error: "URL de blob inválida" }, { status: 400 });
+    const pathname = String(body.blobPathname ?? "");
+    if (!pathname.startsWith("_uploads/") || pathname.includes("..")) {
+      return NextResponse.json({ error: "Clave de blob inválida" }, { status: 400 });
     }
     originalFilename = String(body.originalFilename ?? "").trim() || "capitulo.zip";
     fields = body;
 
-    const res = await fetch(body.blobUrl);
-    if (!res.ok) {
+    try {
+      const result = await get(pathname, { access: "private" });
+      if (!result.stream) throw new Error("sin contenido");
+      buffer = Buffer.from(await new Response(result.stream).arrayBuffer());
+    } catch {
       return NextResponse.json({ error: "No se pudo leer el zip subido" }, { status: 400 });
     }
-    buffer = Buffer.from(await res.arrayBuffer());
-    tempBlobUrl = body.blobUrl;
+    tempBlobKey = pathname;
   } else {
     let form: FormData;
     try {
@@ -139,7 +132,7 @@ export async function POST(req: NextRequest) {
       })
       .finally(async () => {
         // el zip temporal en _uploads/ ya no hace falta
-        if (tempBlobUrl) await del(tempBlobUrl).catch(() => {});
+        if (tempBlobKey) await del(tempBlobKey).catch(() => {});
       })
   );
 

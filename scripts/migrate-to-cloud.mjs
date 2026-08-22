@@ -243,7 +243,7 @@ async function migrateFiles() {
     }
     const data = await readFile(abs);
     await put(key, data, {
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType,
