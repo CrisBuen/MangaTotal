@@ -1,0 +1,53 @@
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionAdmin } from "@/lib/auth";
+import { getStorageProvider } from "@/lib/env";
+import { MAX_ZIP_BYTES } from "@/lib/ingest";
+
+/**
+ * POST /api/admin/upload/blob — emite tokens para que el navegador suba el
+ * .zip directo a Vercel Blob, sin pasar por la función (límite de body de
+ * ~4.5 MB en Vercel). Solo admin; el zip queda en _uploads/ temporalmente
+ * hasta que /api/admin/upload lo procesa y lo borra.
+ */
+export async function POST(request: NextRequest) {
+  if (getStorageProvider() !== "blob") {
+    return NextResponse.json(
+      { error: "Subida directa no disponible: STORAGE_PROVIDER no es blob" },
+      { status: 400 }
+    );
+  }
+
+  const body = (await request.json()) as HandleUploadBody;
+
+  try {
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        const admin = await getSessionAdmin();
+        if (!admin) throw new Error("Solo admin");
+        if (!pathname.startsWith("_uploads/") || !pathname.toLowerCase().endsWith(".zip")) {
+          throw new Error("Solo se aceptan .zip en _uploads/");
+        }
+        return {
+          allowedContentTypes: [
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/octet-stream",
+          ],
+          maximumSizeInBytes: MAX_ZIP_BYTES,
+          addRandomSuffix: true,
+        };
+      },
+      // el cliente avisa por su cuenta a /api/admin/upload con la URL
+      onUploadCompleted: async () => {},
+    });
+    return NextResponse.json(jsonResponse);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "No se pudo autorizar la subida" },
+      { status: 400 }
+    );
+  }
+}

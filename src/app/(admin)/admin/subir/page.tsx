@@ -1,7 +1,12 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+
+// por encima de esto, el body no pasa por la función en Vercel (límite ~4.5 MB):
+// se sube directo a Blob y el servidor procesa desde ahí
+const DIRECT_UPLOAD_THRESHOLD = 4 * 1024 * 1024;
 
 interface SeriesOption {
   id: number;
@@ -96,17 +101,48 @@ export default function SubirPage() {
     if (!chapterNumber.trim() || !Number.isFinite(parseFloat(chapterNumber)))
       return setError("Número de capítulo inválido (ej: 1, 1.5, 2)");
 
-    const form = new FormData();
-    form.set("file", file);
-    if (seriesId) form.set("seriesId", seriesId);
-    else form.set("newSeriesTitle", newSeriesTitle.trim());
-    form.set("type", type);
-    form.set("chapterNumber", chapterNumber.trim());
-    if (chapterTitle.trim()) form.set("chapterTitle", chapterTitle.trim());
-
     setUploading(true);
     try {
-      const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+      let res: Response | null = null;
+
+      if (file.size > DIRECT_UPLOAD_THRESHOLD) {
+        // subida directa navegador → Vercel Blob (token firmado, solo admin);
+        // si no está disponible (dev local) se cae al modo multipart de abajo
+        try {
+          const blob = await upload(`_uploads/${file.name}`, file, {
+            access: "public",
+            handleUploadUrl: "/api/admin/upload/blob",
+            multipart: true,
+          });
+          res = await fetch("/api/admin/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              blobUrl: blob.url,
+              originalFilename: file.name,
+              seriesId: seriesId || undefined,
+              newSeriesTitle: seriesId ? undefined : newSeriesTitle.trim(),
+              type,
+              chapterNumber: chapterNumber.trim(),
+              chapterTitle: chapterTitle.trim() || undefined,
+            }),
+          });
+        } catch {
+          res = null;
+        }
+      }
+
+      if (!res) {
+        const form = new FormData();
+        form.set("file", file);
+        if (seriesId) form.set("seriesId", seriesId);
+        else form.set("newSeriesTitle", newSeriesTitle.trim());
+        form.set("type", type);
+        form.set("chapterNumber", chapterNumber.trim());
+        if (chapterTitle.trim()) form.set("chapterTitle", chapterTitle.trim());
+        res = await fetch("/api/admin/upload", { method: "POST", body: form });
+      }
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "No se pudo subir el archivo");
