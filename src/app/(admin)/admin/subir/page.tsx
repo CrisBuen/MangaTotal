@@ -108,7 +108,8 @@ export default function SubirPage() {
 
       if (file.size > DIRECT_UPLOAD_THRESHOLD) {
         // subida directa navegador → Vercel Blob (token firmado, solo admin);
-        // si no está disponible (dev local) se cae al modo multipart de abajo
+        // solo si el servidor dice "no disponible" (dev local) se cae al
+        // modo multipart de abajo — cualquier otro error se muestra
         try {
           const blob = await upload(`_uploads/${file.name}`, file, {
             access: "public",
@@ -129,7 +130,12 @@ export default function SubirPage() {
               chapterTitle: chapterTitle.trim() || undefined,
             }),
           });
-        } catch {
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!msg.includes("no disponible")) {
+            setError(`Falló la subida directa: ${msg}`);
+            return;
+          }
           res = null;
         }
       }
