@@ -83,7 +83,7 @@ const blobStorageAdapter: ObjectStorage = {
   async readObject(key) {
     try {
       const result = await get(key, { access: "private" });
-      if (!result.stream) return null;
+      if (!result?.stream) return null;
       return Buffer.from(await new Response(result.stream).arrayBuffer());
     } catch {
       return null;

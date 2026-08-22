@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const result = await get(pathname, { access: "private" });
-      if (!result.stream) throw new Error("sin contenido");
+      if (!result?.stream) throw new Error("sin contenido");
       buffer = Buffer.from(await new Response(result.stream).arrayBuffer());
     } catch {
       return NextResponse.json({ error: "No se pudo leer el zip subido" }, { status: 400 });
