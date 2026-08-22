@@ -44,6 +44,7 @@ export default function SubirPage() {
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<JobStatus | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -113,6 +114,7 @@ export default function SubirPage() {
             access: "public",
             handleUploadUrl: "/api/admin/upload/blob",
             multipart: true,
+            onUploadProgress: ({ percentage }) => setUploadPct(Math.round(percentage)),
           });
           res = await fetch("/api/admin/upload", {
             method: "POST",
@@ -154,6 +156,7 @@ export default function SubirPage() {
       setError("No se pudo conectar con el servidor");
     } finally {
       setUploading(false);
+      setUploadPct(null);
     }
   }
 
@@ -262,7 +265,13 @@ export default function SubirPage() {
           disabled={processing}
           className="w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {uploading ? "Subiendo..." : processing ? "Procesando..." : "Subir y procesar"}
+          {uploading
+            ? uploadPct !== null
+              ? `Subiendo... ${uploadPct}%`
+              : "Subiendo..."
+            : processing
+              ? "Procesando..."
+              : "Subir y procesar"}
         </button>
       </form>
 
