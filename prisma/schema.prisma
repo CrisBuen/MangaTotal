@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   Int               @id @default(autoincrement())
+  nickname             String            @unique
+  passwordHash         String            @map("password_hash")
+  birthdate            DateTime?
+  isAdmin              Boolean           @default(false) @map("is_admin")
+  showAdultContent     Boolean           @default(false) @map("show_adult_content")
+  preferredReadingMode String            @default("cascade") @map("preferred_reading_mode")
+  avatarPath           String?           @map("avatar_path")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  progress             ReadingProgress[]
+  favorites            Favorite[]
+
+  @@map("users")
+}
+
+model Series {
+  id             Int               @id @default(autoincrement())
+  title          String
+  originalTitle  String?           @map("original_title")
+  slug           String            @unique
+  type           String            @default("normal") // normal | adult
+  description    String?
+  coverImagePath String?           @map("cover_image_path")
+  status         String            @default("ongoing") // ongoing | completed | dropped
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  chapters       Chapter[]
+  favorites      Favorite[]
+  progress       ReadingProgress[]
+  ingestionJobs  IngestionJob[]
+
+  @@index([type])
+  @@map("series")
+}
+
+model Chapter {
+  id            Int               @id @default(autoincrement())
+  seriesId      Int               @map("series_id")
+  number        Float
+  title         String?
+  sourceZipName String            @map("source_zip_name")
+  pageCount     Int               @default(0) @map("page_count")
+  uploadedAt    DateTime          @default(now()) @map("uploaded_at")
+  series        Series            @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  pages         Page[]
+  progress      ReadingProgress[]
+  ingestionJobs IngestionJob[]
+
+  @@index([seriesId, number])
+  @@map("chapters")
+}
+
+model Page {
+  id             Int     @id @default(autoincrement())
+  chapterId      Int     @map("chapter_id")
+  pageNumber     Int     @map("page_number")
+  filePath       String  @map("file_path")
+  width          Int
+  height         Int
+  fileSizeBytes  Int     @map("file_size_bytes")
+  checksumSha256 String  @map("checksum_sha256")
+  chapter        Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([chapterId, pageNumber])
+  @@map("pages")
+}
+
+model ReadingProgress {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  seriesId       Int      @map("series_id")
+  chapterId      Int      @map("chapter_id")
+  lastPageNumber Int      @map("last_page_number")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series         Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  chapter        Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seriesId])
+  @@index([userId, updatedAt])
+  @@map("reading_progress")
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  seriesId  Int      @map("series_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seriesId])
+  @@map("favorites")
+}
+
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("announcements")
+}
+
+model IngestionJob {
+  id               Int       @id @default(autoincrement())
+  originalFilename String    @map("original_filename")
+  status           String    @default("pending") // pending | processing | success | error
+  errorMessage     String?   @map("error_message")
+  seriesId         Int?      @map("series_id")
+  chapterId        Int?      @map("chapter_id")
+  startedAt        DateTime  @default(now()) @map("started_at")
+  finishedAt       DateTime? @map("finished_at")
+  series           Series?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  chapter          Chapter?  @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  @@map("ingestion_jobs")
+}
