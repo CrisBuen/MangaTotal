@@ -1,9 +1,7 @@
-import fs from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { STORAGE_ROOT } from "@/lib/storage";
+import { getObjectStorage } from "@/lib/object-storage";
 
 /**
  * GET /api/series/:slug — serie + capítulos (con progreso del usuario).
@@ -122,9 +120,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ slug: st
   if (!series) return NextResponse.json({ error: "Serie no encontrada" }, { status: 404 });
 
   await db.series.delete({ where: { id } });
-  await fs
-    .rm(path.join(STORAGE_ROOT, series.slug), { recursive: true, force: true })
-    .catch(() => {});
+  await getObjectStorage().deletePrefix(series.slug).catch(() => {});
 
   return new NextResponse(null, { status: 204 });
 }

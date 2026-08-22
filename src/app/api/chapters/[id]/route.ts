@@ -1,10 +1,8 @@
-import fs from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getObjectStorage } from "@/lib/object-storage";
 import { chapterFolderName } from "@/lib/slug";
-import { STORAGE_ROOT } from "@/lib/storage";
 
 /** DELETE /api/chapters/:id — solo admin; borra también los archivos. */
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -20,11 +18,8 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   if (!chapter) return NextResponse.json({ error: "Capítulo no encontrado" }, { status: 404 });
 
   await db.chapter.delete({ where: { id } });
-  await fs
-    .rm(path.join(STORAGE_ROOT, chapter.series.slug, chapterFolderName(chapter.number)), {
-      recursive: true,
-      force: true,
-    })
+  await getObjectStorage()
+    .deletePrefix([chapter.series.slug, chapterFolderName(chapter.number)].join("/"))
     .catch(() => {});
 
   return new NextResponse(null, { status: 204 });

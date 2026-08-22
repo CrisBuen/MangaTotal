@@ -1,11 +1,11 @@
 import AdmZip from "adm-zip";
 import { createHash } from "crypto";
-import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { db } from "./db";
+import { getObjectStorage } from "./object-storage";
 import { chapterFolderName, slugify } from "./slug";
-import { STORAGE_ROOT } from "./storage";
+import { contentTypeFor } from "./storage";
 
 /** Tamaño máximo aceptado por zip (configurable, ver docs/04 §4.3). */
 export const MAX_ZIP_BYTES = 500 * 1024 * 1024;
@@ -52,9 +52,10 @@ interface ExtractedPage {
  * registrado en el job (docs/04 §4.5 — nunca falla en silencio).
  */
 export async function processZip(jobId: number, zipBuffer: Buffer, opts: IngestOptions): Promise<void> {
-  // carpeta del capítulo ya escrita en disco, para revertir si algo falla después
-  let chapterDir: string | null = null;
-  let coverAbs: string | null = null;
+  const storage = getObjectStorage();
+  // prefijo del capítulo ya subido, para revertir si algo falla después
+  let chapterPrefix: string | null = null;
+  let coverKey: string | null = null;
 
   try {
     await db.ingestionJob.update({ where: { id: jobId }, data: { status: "processing" } });
@@ -145,10 +146,9 @@ export async function processZip(jobId: number, zipBuffer: Buffer, opts: IngestO
       }
     }
 
-    // ── 6. Copiar páginas byte a byte a storage/{serie}/{capitulo}/ ──────
+    // ── 6. Copiar páginas byte a byte al almacenamiento {serie}/{capitulo}/ ──
     const folder = chapterFolderName(opts.chapterNumber);
-    chapterDir = path.join(STORAGE_ROOT, series.slug, folder);
-    await fs.mkdir(chapterDir, { recursive: true });
+    chapterPrefix = [series.slug, folder].join("/");
 
     const pageRows: {
       pageNumber: number;
@@ -161,7 +161,6 @@ export async function processZip(jobId: number, zipBuffer: Buffer, opts: IngestO
 
     for (let i = 0; i < pages.length; i++) {
       const fileName = String(i + 1).padStart(4, "0") + pages[i].ext;
-      await fs.writeFile(path.join(chapterDir, fileName), pages[i].data);
 
       // sharp solo lee metadatos acá — nunca modifica la página original
       let width = 0;
@@ -174,9 +173,12 @@ export async function processZip(jobId: number, zipBuffer: Buffer, opts: IngestO
         throw new IngestError(`La página "${pages[i].name}" está corrupta o no es una imagen válida`);
       }
 
+      const key = [chapterPrefix, fileName].join("/");
+      await storage.putObject(key, pages[i].data, contentTypeFor(fileName) ?? "application/octet-stream");
+
       pageRows.push({
         pageNumber: i + 1,
-        filePath: [series.slug, folder, fileName].join("/"),
+        filePath: key,
         width,
         height,
         fileSizeBytes: pages[i].data.length,
@@ -187,13 +189,13 @@ export async function processZip(jobId: number, zipBuffer: Buffer, opts: IngestO
     // ── 7. Miniatura de portada (solo si la serie no tiene) ──────────────
     let coverImagePath = series.coverImagePath;
     if (!coverImagePath) {
-      const coverName = "cover.jpg";
-      coverAbs = path.join(STORAGE_ROOT, series.slug, coverName);
-      await sharp(pages[0].data)
+      const coverBuffer = await sharp(pages[0].data)
         .resize({ width: 480, withoutEnlargement: true })
         .jpeg({ quality: 85 })
-        .toFile(coverAbs);
-      coverImagePath = [series.slug, coverName].join("/");
+        .toBuffer();
+      coverKey = [series.slug, "cover.jpg"].join("/");
+      await storage.putObject(coverKey, coverBuffer, "image/jpeg");
+      coverImagePath = coverKey;
     }
 
     // ── 8. Publicar en la base (transacción) ─────────────────────────────
@@ -228,8 +230,8 @@ export async function processZip(jobId: number, zipBuffer: Buffer, opts: IngestO
     });
   } catch (err) {
     // revertir archivos ya copiados antes de marcar el error (docs/04 §4.5)
-    if (chapterDir) await fs.rm(chapterDir, { recursive: true, force: true }).catch(() => {});
-    if (coverAbs) await fs.rm(coverAbs, { force: true }).catch(() => {});
+    if (chapterPrefix) await storage.deletePrefix(chapterPrefix).catch(() => {});
+    if (coverKey) await storage.deleteObject(coverKey).catch(() => {});
 
     const message =
       err instanceof IngestError ? err.message : "Error interno durante la ingesta";

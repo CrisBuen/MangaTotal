@@ -1,6 +1,7 @@
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { db } from "./db";
+import { getSessionSecret } from "./env";
 
 export interface SessionData {
   userId?: number;
@@ -11,20 +12,22 @@ export interface SessionData {
 export const SESSION_COOKIE_NAME = "lector_total_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 días
 
-export const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_SECRET as string,
-  cookieName: SESSION_COOKIE_NAME,
-  ttl: SESSION_TTL_SECONDS,
-  cookieOptions: {
-    httpOnly: true,
-    sameSite: "lax",
-    // uso privado en localhost/LAN, sin HTTPS
-    secure: false,
-  },
-};
+export function getSessionOptions(): SessionOptions {
+  return {
+    password: getSessionSecret(),
+    cookieName: SESSION_COOKIE_NAME,
+    ttl: SESSION_TTL_SECONDS,
+    cookieOptions: {
+      httpOnly: true,
+      sameSite: "lax",
+      // HTTPS en producción (Vercel); localhost/LAN sin HTTPS en desarrollo
+      secure: process.env.NODE_ENV === "production",
+    },
+  };
+}
 
 export async function getSession() {
-  return getIronSession<SessionData>(await cookies(), sessionOptions);
+  return getIronSession<SessionData>(await cookies(), getSessionOptions());
 }
 
 /** Usuario actual desde la cookie de sesión, o null si no hay sesión válida. */

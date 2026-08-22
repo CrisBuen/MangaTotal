@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getSessionAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MAX_ZIP_BYTES, processZip, type IngestOptions } from "@/lib/ingest";
+
+// tiempo extra para procesar el zip tras responder (Vercel, ver after())
+export const maxDuration = 300;
 
 /**
  * POST /api/admin/upload — multipart/form-data:
@@ -69,10 +72,13 @@ export async function POST(req: NextRequest) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  // procesamiento asíncrono: el frontend hace polling del jobId
-  processZip(job.id, buffer, opts).catch((err) => {
-    console.error("[ingesta] error no capturado, job", job.id, err);
-  });
+  // procesamiento asíncrono: el frontend hace polling del jobId.
+  // after() mantiene viva la función serverless hasta terminar (Vercel).
+  after(
+    processZip(job.id, buffer, opts).catch((err) => {
+      console.error("[ingesta] error no capturado, job", job.id, err);
+    })
+  );
 
   return NextResponse.json({ jobId: job.id }, { status: 202 });
 }

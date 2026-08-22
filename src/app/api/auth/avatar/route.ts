@@ -1,10 +1,8 @@
-import fs from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import sharp from "sharp";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { STORAGE_ROOT } from "@/lib/storage";
+import { getObjectStorage } from "@/lib/object-storage";
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -41,19 +39,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "El archivo no es una imagen válida" }, { status: 400 });
   }
 
-  const dir = path.join(STORAGE_ROOT, "avatars");
-  await fs.mkdir(dir, { recursive: true });
+  const storage = getObjectStorage();
 
   // nombre con timestamp para que el cache del navegador no muestre el viejo
   const fileName = `u${user.id}-${Date.now()}.webp`;
-  await fs.writeFile(path.join(dir, fileName), processed);
+  const avatarPath = `avatars/${fileName}`;
+  await storage.putObject(avatarPath, processed, "image/webp");
 
   // borrar el avatar anterior si existía
   if (user.avatarPath) {
-    await fs.rm(path.join(STORAGE_ROOT, user.avatarPath), { force: true }).catch(() => {});
+    await storage.deleteObject(user.avatarPath).catch(() => {});
   }
 
-  const avatarPath = `avatars/${fileName}`;
   await db.user.update({ where: { id: user.id }, data: { avatarPath } });
 
   return NextResponse.json({ avatar_path: avatarPath });
@@ -65,7 +62,7 @@ export async function DELETE() {
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   if (user.avatarPath) {
-    await fs.rm(path.join(STORAGE_ROOT, user.avatarPath), { force: true }).catch(() => {});
+    await getObjectStorage().deleteObject(user.avatarPath).catch(() => {});
     await db.user.update({ where: { id: user.id }, data: { avatarPath: null } });
   }
 

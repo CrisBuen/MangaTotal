@@ -1,0 +1,50 @@
+/**
+ * Validación de variables de entorno (docs deployment-vercel.md).
+ * Cada getter lanza un error claro si falta la variable, para que el
+ * primer error real aparezca en los logs de Vercel en lugar de un
+ * "server-side exception" genérico.
+ */
+
+export type StorageProvider = "local" | "blob";
+
+export function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      "SESSION_SECRET no está configurada o tiene menos de 32 caracteres. " +
+        "Definila en las variables de entorno (Vercel → Settings → Environment Variables)."
+    );
+  }
+  return secret;
+}
+
+export function getStorageProvider(): StorageProvider {
+  const provider = (process.env.STORAGE_PROVIDER ?? "local").toLowerCase();
+  if (provider !== "local" && provider !== "blob") {
+    throw new Error(
+      `STORAGE_PROVIDER inválido: "${provider}". Valores soportados: "local" | "blob".`
+    );
+  }
+  if (provider === "blob" && !process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error(
+      'STORAGE_PROVIDER="blob" requiere BLOB_READ_WRITE_TOKEN (Vercel → Storage → Blob).'
+    );
+  }
+  return provider;
+}
+
+/** Verifica que DATABASE_URL exista y apunte a Postgres cuando corresponde. */
+export function assertDatabaseUrl(): void {
+  // durante `next build` no hay conexión real: se valida solo en runtime
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL no está configurada.");
+  }
+  if (process.env.NODE_ENV === "production" && !/^postgres(ql)?:\/\//.test(url)) {
+    throw new Error(
+      "DATABASE_URL debe ser una conexión Postgres (postgresql://...) en producción."
+    );
+  }
+}
