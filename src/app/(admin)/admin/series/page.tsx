@@ -11,6 +11,7 @@ interface AdminSeries {
   description: string | null;
   status: string;
   chapter_count: number;
+  tags: { id: number; name: string; slug: string }[];
 }
 
 const inputClass =
@@ -22,6 +23,7 @@ const emptyForm = {
   type: "normal",
   description: "",
   status: "ongoing",
+  tags: "",
 };
 
 export default function AdminSeriesPage() {
@@ -48,6 +50,7 @@ export default function AdminSeriesPage() {
       type: s.type,
       description: s.description ?? "",
       status: s.status,
+      tags: (s.tags ?? []).map((t) => t.name).join(", "),
     });
     setError(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -69,6 +72,10 @@ export default function AdminSeriesPage() {
           type: form.type,
           description: form.description.trim() || null,
           status: form.status,
+          tags: form.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -149,6 +156,17 @@ export default function AdminSeriesPage() {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-zinc-400">
+            Tags (separados por coma, sin límite)
+          </label>
+          <input
+            className={inputClass}
+            value={form.tags}
+            onChange={(e) => setForm({ ...form, tags: e.target.value })}
+            placeholder="ej: milf, romance, escolar, comedia"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-400">
             Descripción (opcional)
           </label>
           <textarea
@@ -190,7 +208,7 @@ export default function AdminSeriesPage() {
           </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-zinc-800">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[560px] text-left text-sm">
               <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
                 <tr>
                   <th className="px-4 py-2.5">Título</th>
@@ -203,7 +221,21 @@ export default function AdminSeriesPage() {
               <tbody className="divide-y divide-zinc-800">
                 {series.map((s) => (
                   <tr key={s.id} className="bg-zinc-950/50">
-                    <td className="px-4 py-2.5 font-medium">{s.title}</td>
+                    <td className="px-4 py-2.5 font-medium">
+                      {s.title}
+                      {s.tags?.length > 0 && (
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          {s.tags.map((t) => (
+                            <span
+                              key={t.id}
+                              className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400"
+                            >
+                              {t.name}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5">
                       {s.type === "adult" ? (
                         <span className="rounded bg-red-600/20 px-1.5 py-0.5 text-[11px] font-semibold text-red-400">

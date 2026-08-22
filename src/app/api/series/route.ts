@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { slugify } from "@/lib/slug";
+import { normalizeTagNames, publicTag, setSeriesTags } from "@/lib/tags";
 
 /**
- * GET /api/series?type=normal|adult&search=&favorites=true&all=true
+ * GET /api/series?type=normal|adult&search=&favorites=true&all=true&tag=slug
  * Accesible sin sesión (visitante): solo sección normal, sin favoritos.
  */
 export async function GET(req: NextRequest) {
@@ -31,11 +32,19 @@ export async function GET(req: NextRequest) {
   }
 
   if (search) {
-    where.OR = [{ title: { contains: search } }, { originalTitle: { contains: search } }];
+    where.OR = [
+      { title: { contains: search, mode: "insensitive" } },
+      { originalTitle: { contains: search, mode: "insensitive" } },
+    ];
   }
   if (favorites) {
     if (!user) return NextResponse.json([]);
     where.favorites = { some: { userId: user.id } };
+  }
+
+  const tagSlug = params.get("tag")?.trim();
+  if (tagSlug) {
+    where.tags = { some: { slug: tagSlug } };
   }
 
   const series = await db.series.findMany({
@@ -44,6 +53,7 @@ export async function GET(req: NextRequest) {
     include: {
       _count: { select: { chapters: true } },
       favorites: { where: { userId: user?.id ?? -1 }, select: { id: true } },
+      tags: { orderBy: { name: "asc" } },
     },
   });
 
@@ -59,6 +69,7 @@ export async function GET(req: NextRequest) {
       status: s.status,
       chapter_count: s._count.chapters,
       is_favorite: s.favorites.length > 0,
+      tags: s.tags.map(publicTag),
       updated_at: s.updatedAt,
     }))
   );
@@ -76,6 +87,7 @@ export async function POST(req: NextRequest) {
     type?: string;
     description?: string;
     status?: string;
+    tags?: string[];
   };
   try {
     body = await req.json();
@@ -107,6 +119,10 @@ export async function POST(req: NextRequest) {
       status,
     },
   });
+
+  if (body.tags !== undefined) {
+    await setSeriesTags(series.id, normalizeTagNames(body.tags));
+  }
 
   return NextResponse.json({ series }, { status: 201 });
 }

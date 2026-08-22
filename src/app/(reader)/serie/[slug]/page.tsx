@@ -25,6 +25,7 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
       },
       favorites: { where: { userId } },
       progress: { where: { userId }, include: { chapter: true } },
+      tags: { orderBy: { name: "asc" } },
     },
   });
 
@@ -69,6 +70,19 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
             {STATUS_LABEL[series.status] ?? series.status} · {series.chapters.length} capítulo
             {series.chapters.length === 1 ? "" : "s"}
           </p>
+          {series.tags.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {series.tags.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/biblioteca?tag=${encodeURIComponent(t.slug)}`}
+                  className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-0.5 text-xs text-zinc-300 transition hover:border-violet-500 hover:text-violet-300"
+                >
+                  {t.name}
+                </Link>
+              ))}
+            </div>
+          )}
           {series.description && (
             <p className="mb-4 whitespace-pre-line text-sm text-zinc-300">{series.description}</p>
           )}

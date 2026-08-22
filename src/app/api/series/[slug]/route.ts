@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getObjectStorage } from "@/lib/object-storage";
+import { normalizeTagNames, publicTag, setSeriesTags } from "@/lib/tags";
 
 /**
  * GET /api/series/:slug — serie + capítulos (con progreso del usuario).
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
         },
       },
       favorites: { where: { userId: user?.id ?? -1 }, select: { id: true } },
+      tags: { orderBy: { name: "asc" } },
     },
   });
 
@@ -40,6 +42,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
     cover_image_path: series.coverImagePath,
     status: series.status,
     is_favorite: series.favorites.length > 0,
+    tags: series.tags.map(publicTag),
     chapters: series.chapters.map((c) => ({
       id: c.id,
       number: c.number,
@@ -72,6 +75,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ slug: str
     type?: string;
     description?: string | null;
     status?: string;
+    tags?: string[];
   };
   try {
     body = await req.json();
@@ -101,6 +105,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ slug: str
   }
 
   const updated = await db.series.update({ where: { id }, data });
+
+  if (body.tags !== undefined) {
+    await setSeriesTags(id, normalizeTagNames(body.tags));
+  }
+
   return NextResponse.json({ series: updated });
 }
 

@@ -51,7 +51,7 @@ export function JobsTable() {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-800">
-      <table className="w-full text-left text-sm">
+      <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
           <tr>
             <th className="px-4 py-2.5">Archivo</th>
@@ -68,7 +68,7 @@ export function JobsTable() {
               <td className="max-w-[220px] truncate px-4 py-2.5 font-mono text-xs">
                 {j.original_filename}
               </td>
-              <td className="px-4 py-2.5">{j.series?.title ?? "—"}</td>
+              <td className="max-w-[220px] truncate px-4 py-2.5">{j.series?.title ?? "—"}</td>
               <td className="px-4 py-2.5">{j.chapter_number ?? "—"}</td>
               <td className="px-4 py-2.5">
                 <span

@@ -38,9 +38,19 @@ model Series {
   favorites      Favorite[]
   progress       ReadingProgress[]
   ingestionJobs  IngestionJob[]
+  tags           Tag[]
 
   @@index([type])
   @@map("series")
+}
+
+model Tag {
+  id     Int      @id @default(autoincrement())
+  name   String   @unique
+  slug   String   @unique
+  series Series[]
+
+  @@map("tags")
 }
 
 model Chapter {

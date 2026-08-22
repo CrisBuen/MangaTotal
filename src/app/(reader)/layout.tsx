@@ -10,11 +10,11 @@ export default async function ReaderLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-          <Link href="/biblioteca" className="text-lg font-bold text-violet-400">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:gap-4">
+          <Link href="/biblioteca" className="whitespace-nowrap text-lg font-bold text-violet-400">
             Lector Total
           </Link>
-          <nav className="flex items-center gap-1 text-sm">
+          <nav className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-sm">
             <Link
               href="/biblioteca"
               className="rounded-lg px-3 py-1.5 text-zinc-300 transition hover:bg-zinc-800"

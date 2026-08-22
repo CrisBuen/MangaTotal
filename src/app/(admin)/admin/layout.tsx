@@ -19,30 +19,30 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-          <Link href="/admin" className="text-lg font-bold text-violet-400">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+          <Link href="/admin" className="whitespace-nowrap text-lg font-bold text-violet-400">
             Lector Total <span className="text-xs font-normal text-zinc-500">admin</span>
           </Link>
-          <nav className="flex items-center gap-1 text-sm">
+          <div className="ml-auto flex items-center gap-2 sm:order-last">
+            <Link
+              href="/biblioteca"
+              className="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+            >
+              Biblioteca
+            </Link>
+            <LogoutButton />
+          </div>
+          <nav className="-mx-1 flex w-full items-center gap-1 overflow-x-auto text-sm sm:w-auto">
             {links.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
-                className="rounded-lg px-3 py-1.5 text-zinc-300 transition hover:bg-zinc-800"
+                className="whitespace-nowrap rounded-lg px-3 py-1.5 text-zinc-300 transition hover:bg-zinc-800"
               >
                 {l.label}
               </Link>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
-            <Link
-              href="/biblioteca"
-              className="rounded-lg px-3 py-1.5 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
-            >
-              Ir a la biblioteca
-            </Link>
-            <LogoutButton />
-          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>

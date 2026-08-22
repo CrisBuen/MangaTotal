@@ -22,6 +22,13 @@ interface Me {
   show_adult_content?: boolean;
 }
 
+interface TagChip {
+  id: number;
+  name: string;
+  slug: string;
+  series_count: number;
+}
+
 type Filter = "todo" | "normal" | "adult" | "favoritos";
 
 export default function BibliotecaPage() {
@@ -31,6 +38,8 @@ export default function BibliotecaPage() {
   const [news, setNews] = useState<Announcement[] | null>(null);
   const [filter, setFilter] = useState<Filter>("todo");
   const [search, setSearch] = useState("");
+  const [tags, setTags] = useState<TagChip[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   const loggedIn = Boolean(me?.nickname);
 
@@ -47,23 +56,43 @@ export default function BibliotecaPage() {
       .then((r) => r.json())
       .then((d) => Array.isArray(d) && setNews(d))
       .catch(() => setNews([]));
+    fetch("/api/tags")
+      .then((r) => r.json())
+      .then((d) => Array.isArray(d) && setTags(d))
+      .catch(() => {});
+    // llegar con /biblioteca?tag=xxx (desde los chips de una serie)
+    const urlTag = new URLSearchParams(window.location.search).get("tag");
+    if (urlTag) setSelectedTag(urlTag);
   }, []);
 
+  // el filtro por tag muestra catálogo aunque la pestaña sea "Todo"
+  const showCatalog = filter !== "todo" || selectedTag !== null;
+
   const load = useCallback(async () => {
-    if (filter === "todo") return;
+    if (!showCatalog) return;
     const params = new URLSearchParams();
     if (filter === "normal" || filter === "adult") params.set("type", filter);
     if (filter === "favoritos") params.set("favorites", "true");
     if (search.trim()) params.set("search", search.trim());
+    if (selectedTag) params.set("tag", selectedTag);
     const res = await fetch(`/api/series?${params}`);
     if (res.ok) setSeries(await res.json());
-  }, [filter, search]);
+  }, [filter, search, selectedTag, showCatalog]);
+
+  function toggleTag(slug: string) {
+    const next = selectedTag === slug ? null : slug;
+    setSelectedTag(next);
+    const url = new URL(window.location.href);
+    if (next) url.searchParams.set("tag", next);
+    else url.searchParams.delete("tag");
+    window.history.replaceState(null, "", url.toString());
+  }
 
   useEffect(() => {
     setSeries(null);
     const t = setTimeout(load, search ? 250 : 0);
     return () => clearTimeout(t);
-  }, [load, search, filter]);
+  }, [load, search, filter, selectedTag]);
 
   const filters: { key: Filter; label: string }[] = [
     { key: "todo", label: "Todo" },
@@ -99,7 +128,7 @@ export default function BibliotecaPage() {
         )}
       </div>
 
-      {filter === "todo" ? (
+      {!showCatalog ? (
         <>
           <section>
             <h2 className="mb-3 text-lg font-semibold text-zinc-200">Noticias</h2>
@@ -153,6 +182,33 @@ export default function BibliotecaPage() {
         </>
       ) : (
         <>
+          {tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-xs font-medium uppercase text-zinc-500">Tags</span>
+              {tags.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => toggleTag(t.slug)}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
+                    selectedTag === t.slug
+                      ? "border-violet-500 bg-violet-600/20 text-violet-300"
+                      : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-violet-500 hover:text-violet-300"
+                  }`}
+                >
+                  {t.name} <span className="text-zinc-500">{t.series_count}</span>
+                </button>
+              ))}
+              {selectedTag && (
+                <button
+                  onClick={() => toggleTag(selectedTag)}
+                  className="rounded-full px-2 py-0.5 text-xs text-zinc-500 hover:text-zinc-300"
+                >
+                  ✕ limpiar
+                </button>
+              )}
+            </div>
+          )}
+
           {/* "Continuar leyendo" vive dentro de su catálogo (Normal o +18), nunca en Todo */}
           {loggedIn &&
             (filter === "normal" || filter === "adult") &&

@@ -74,7 +74,7 @@ export default function AdminUsuariosPage() {
         <p className="py-6 text-center text-sm text-zinc-500">Cargando...</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-zinc-800">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
               <tr>
                 <th className="px-4 py-2.5">Apodo</th>
