@@ -30,12 +30,9 @@ export async function POST(request: NextRequest) {
         if (!pathname.startsWith("_uploads/") || !pathname.toLowerCase().endsWith(".zip")) {
           throw new Error("Solo se aceptan .zip en _uploads/");
         }
+        // sin allowedContentTypes: Windows reporta MIME variados para .zip
+        // y la extensión ya se validó arriba
         return {
-          allowedContentTypes: [
-            "application/zip",
-            "application/x-zip-compressed",
-            "application/octet-stream",
-          ],
           maximumSizeInBytes: MAX_ZIP_BYTES,
           addRandomSuffix: true,
         };

@@ -111,7 +111,8 @@ export default function SubirPage() {
         // solo si el servidor dice "no disponible" (dev local) se cae al
         // modo multipart de abajo — cualquier otro error se muestra
         try {
-          const blob = await upload(`_uploads/${file.name}`, file, {
+          // nombre seguro: el nombre real del zip viaja en originalFilename
+          const blob = await upload(`_uploads/${Date.now()}.zip`, file, {
             access: "public",
             handleUploadUrl: "/api/admin/upload/blob",
             multipart: true,
