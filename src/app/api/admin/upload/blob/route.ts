@@ -1,19 +1,19 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionAdmin } from "@/lib/auth";
-import { getStorageProvider } from "@/lib/env";
 import { MAX_ZIP_BYTES } from "@/lib/ingest";
 
 /**
  * POST /api/admin/upload/blob — emite tokens para que el navegador suba el
  * .zip directo a Vercel Blob, sin pasar por la función (límite de body de
  * ~4.5 MB en Vercel). Solo admin; el zip queda en _uploads/ temporalmente
- * hasta que /api/admin/upload lo procesa y lo borra.
+ * hasta que /api/admin/upload lo procesa y lo borra. Funciona también con
+ * STORAGE_PROVIDER="r2": Blob solo hace de buzón temporal de los zips.
  */
 export async function POST(request: NextRequest) {
-  if (getStorageProvider() !== "blob") {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json(
-      { error: "Subida directa no disponible: STORAGE_PROVIDER no es blob" },
+      { error: "Subida directa no disponible: falta BLOB_READ_WRITE_TOKEN" },
       { status: 400 }
     );
   }

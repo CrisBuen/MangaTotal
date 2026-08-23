@@ -1,5 +1,13 @@
 import fs from "fs/promises";
 import path from "path";
+import {
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { del, get, list, put } from "@vercel/blob";
 import { getStorageProvider } from "./env";
 import { STORAGE_ROOT, contentTypeFor, resolveStoragePath } from "./storage";
@@ -111,8 +119,92 @@ function normalizePrefix(prefix: string): string {
   return prefix.endsWith("/") ? prefix : prefix + "/";
 }
 
+// ── Cloudflare R2 (API S3) ─────────────────────────────────────────────────
+let r2Client: S3Client | null = null;
+
+function getR2(): { client: S3Client; bucket: string } {
+  if (!r2Client) {
+    r2Client = new S3Client({
+      region: "auto",
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
+      },
+    });
+  }
+  return { client: r2Client, bucket: process.env.R2_BUCKET as string };
+}
+
+const r2StorageAdapter: ObjectStorage = {
+  async putObject(key, data, contentType) {
+    const { client, bucket } = getR2();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: data,
+        ContentType: contentType,
+        // el archivo nunca cambia una vez subido (docs/07 §7.4)
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+  },
+
+  async getPublicUrl() {
+    return null; // bucket privado: siempre se sirve vía /api/images
+  },
+
+  async readObject(key) {
+    const { client, bucket } = getR2();
+    try {
+      const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      if (!res.Body) return null;
+      return Buffer.from(await res.Body.transformToByteArray());
+    } catch {
+      return null;
+    }
+  },
+
+  async deleteObject(key) {
+    const { client, bucket } = getR2();
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })).catch(() => {});
+  },
+
+  async deletePrefix(prefix) {
+    const { client, bucket } = getR2();
+    let token: string | undefined;
+    do {
+      const page = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: normalizePrefix(prefix),
+          ContinuationToken: token,
+        })
+      );
+      const keys = (page.Contents ?? [])
+        .map((o) => o.Key)
+        .filter((k): k is string => Boolean(k));
+      if (keys.length > 0) {
+        await client
+          .send(
+            new DeleteObjectsCommand({
+              Bucket: bucket,
+              Delete: { Objects: keys.map((Key) => ({ Key })) },
+            })
+          )
+          .catch(() => {});
+      }
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+  },
+};
+
 export function getObjectStorage(): ObjectStorage {
-  return getStorageProvider() === "blob" ? blobStorageAdapter : localStorageAdapter;
+  const provider = getStorageProvider();
+  if (provider === "r2") return r2StorageAdapter;
+  if (provider === "blob") return blobStorageAdapter;
+  return localStorageAdapter;
 }
 
 export { STORAGE_ROOT, contentTypeFor };

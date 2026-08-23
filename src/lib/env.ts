@@ -5,7 +5,7 @@
  * "server-side exception" genérico.
  */
 
-export type StorageProvider = "local" | "blob";
+export type StorageProvider = "local" | "blob" | "r2";
 
 export function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
@@ -20,15 +20,22 @@ export function getSessionSecret(): string {
 
 export function getStorageProvider(): StorageProvider {
   const provider = (process.env.STORAGE_PROVIDER ?? "local").toLowerCase();
-  if (provider !== "local" && provider !== "blob") {
+  if (provider !== "local" && provider !== "blob" && provider !== "r2") {
     throw new Error(
-      `STORAGE_PROVIDER inválido: "${provider}". Valores soportados: "local" | "blob".`
+      `STORAGE_PROVIDER inválido: "${provider}". Valores soportados: "local" | "blob" | "r2".`
     );
   }
   if (provider === "blob" && !process.env.BLOB_READ_WRITE_TOKEN) {
     throw new Error(
       'STORAGE_PROVIDER="blob" requiere BLOB_READ_WRITE_TOKEN (Vercel → Storage → Blob).'
     );
+  }
+  if (provider === "r2") {
+    for (const name of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"]) {
+      if (!process.env[name]) {
+        throw new Error(`STORAGE_PROVIDER="r2" requiere la variable ${name}.`);
+      }
+    }
   }
   return provider;
 }
