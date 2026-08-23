@@ -40,6 +40,7 @@ export default function BibliotecaPage() {
   const [search, setSearch] = useState("");
   const [tags, setTags] = useState<TagChip[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
 
   const loggedIn = Boolean(me?.nickname);
 
@@ -60,10 +61,32 @@ export default function BibliotecaPage() {
       .then((r) => r.json())
       .then((d) => Array.isArray(d) && setTags(d))
       .catch(() => {});
-    // llegar con /biblioteca?tag=xxx (desde los chips de una serie)
-    const urlTag = new URLSearchParams(window.location.search).get("tag");
+    // restaurar el estado desde la URL: pestaña activa, tag y búsqueda
+    // (así "atrás" desde una serie vuelve a la misma sección)
+    const params = new URLSearchParams(window.location.search);
+    const urlFilter = params.get("f");
+    if (urlFilter && ["normal", "adult", "favoritos"].includes(urlFilter)) {
+      setFilter(urlFilter as Filter);
+    }
+    const urlTag = params.get("tag");
     if (urlTag) setSelectedTag(urlTag);
+    const urlSearch = params.get("q");
+    if (urlSearch) setSearch(urlSearch);
+    setRestored(true);
   }, []);
+
+  // reflejar el estado en la URL (replaceState: no ensucia el historial)
+  useEffect(() => {
+    if (!restored) return;
+    const url = new URL(window.location.href);
+    if (filter !== "todo") url.searchParams.set("f", filter);
+    else url.searchParams.delete("f");
+    if (selectedTag) url.searchParams.set("tag", selectedTag);
+    else url.searchParams.delete("tag");
+    if (search.trim()) url.searchParams.set("q", search.trim());
+    else url.searchParams.delete("q");
+    window.history.replaceState(null, "", url.toString());
+  }, [restored, filter, selectedTag, search]);
 
   // el filtro por tag muestra catálogo aunque la pestaña sea "Todo"
   const showCatalog = filter !== "todo" || selectedTag !== null;
@@ -80,12 +103,7 @@ export default function BibliotecaPage() {
   }, [filter, search, selectedTag, showCatalog]);
 
   function toggleTag(slug: string) {
-    const next = selectedTag === slug ? null : slug;
-    setSelectedTag(next);
-    const url = new URL(window.location.href);
-    if (next) url.searchParams.set("tag", next);
-    else url.searchParams.delete("tag");
-    window.history.replaceState(null, "", url.toString());
+    setSelectedTag(selectedTag === slug ? null : slug);
   }
 
   useEffect(() => {
