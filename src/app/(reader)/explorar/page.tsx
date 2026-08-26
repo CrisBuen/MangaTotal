@@ -27,6 +27,12 @@ const ORDERS = [
   { key: "title", label: "A–Z" },
 ];
 
+const ORIGINS = [
+  { key: "ja", label: "Manga" },
+  { key: "ko", label: "Manhwa" },
+  { key: "zh", label: "Manhua" },
+];
+
 const STATUSES = [
   { key: "ongoing", label: "En curso" },
   { key: "completed", label: "Completada" },
@@ -48,6 +54,7 @@ export default function ExplorarPage() {
   const [error, setError] = useState(false);
   const [order, setOrder] = useState("latest");
   const [status, setStatus] = useState<string[]>([]);
+  const [origin, setOrigin] = useState<string[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -62,6 +69,7 @@ export default function ExplorarPage() {
   const load = useCallback(async () => {
     setError(false);
     const params = new URLSearchParams({ lang, offset: String(offset), order });
+    for (const o of origin) params.append("origin", o);
     for (const s of status) params.append("status", s);
     for (const g of selectedGenres) params.append("tag", g);
     if (search.trim()) params.set("q", search.trim());
@@ -75,7 +83,7 @@ export default function ExplorarPage() {
       setError(true);
       setSeries([]);
     }
-  }, [lang, search, offset, order, status, selectedGenres]);
+  }, [lang, search, offset, order, status, selectedGenres, origin]);
 
   useEffect(() => {
     setSeries(null);
@@ -86,13 +94,13 @@ export default function ExplorarPage() {
   // cambiar cualquier filtro vuelve a la primera página
   useEffect(() => {
     setOffset(0);
-  }, [lang, search, order, status, selectedGenres]);
+  }, [lang, search, order, status, selectedGenres, origin]);
 
   function toggleIn(list: string[], value: string, set: (v: string[]) => void) {
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   }
 
-  const activeFilters = status.length + selectedGenres.length;
+  const activeFilters = status.length + selectedGenres.length + origin.length;
 
   const page = Math.floor(offset / 24) + 1;
   const lastPage = Math.max(1, Math.ceil(Math.min(total, 9500) / 24));
@@ -156,6 +164,27 @@ export default function ExplorarPage() {
         <Surface className="space-y-5 p-5">
           <div>
             <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              Tipo
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {ORIGINS.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => toggleIn(origin, o.key, setOrigin)}
+                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                    origin.includes(o.key)
+                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      : "border-line text-subtle hover:text-ink"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
               Estado
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -203,6 +232,7 @@ export default function ExplorarPage() {
               onClick={() => {
                 setStatus([]);
                 setSelectedGenres([]);
+                setOrigin([]);
               }}
               className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
             >

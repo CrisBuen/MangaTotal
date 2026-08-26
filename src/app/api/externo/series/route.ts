@@ -32,6 +32,16 @@ export async function GET(req: NextRequest) {
   for (const l of langs) qs.append("availableTranslatedLanguage[]", l);
   for (const r of allowedRatings(seeAdult)) qs.append("contentRating[]", r);
 
+  // origen: manga (ja), manhwa (ko), manhua (zh + zh-hk)
+  for (const origin of params.getAll("origin")) {
+    if (origin === "ja") qs.append("originalLanguage[]", "ja");
+    else if (origin === "ko") qs.append("originalLanguage[]", "ko");
+    else if (origin === "zh") {
+      qs.append("originalLanguage[]", "zh");
+      qs.append("originalLanguage[]", "zh-hk");
+    }
+  }
+
   // estado de publicación (uno o varios)
   for (const s of params.getAll("status")) {
     if (["ongoing", "completed", "hiatus", "cancelled"].includes(s)) {
