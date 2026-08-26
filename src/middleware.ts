@@ -11,6 +11,7 @@ const PUBLIC_EXACT = new Set([
   "/",
   "/biblioteca",
   "/explorar",
+  "/anime",
   "/login",
   "/registro",
   "/api/auth/login",
@@ -26,6 +27,9 @@ const PUBLIC_PREFIXES = [
   "/api/images/",
   "/api/series/",
   "/api/externo/series",
+  // el catálogo de anime se navega como visitante; la lista exige sesión
+  "/anime/",
+  "/api/anime",
 ];
 
 interface SessionData {

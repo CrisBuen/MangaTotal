@@ -19,6 +19,7 @@ model User {
   createdAt            DateTime          @default(now()) @map("created_at")
   progress             ReadingProgress[]
   favorites            Favorite[]
+  animeEntries         AnimeEntry[]
 
   @@map("users")
 }
@@ -42,6 +43,26 @@ model Series {
 
   @@index([type])
   @@map("series")
+}
+
+/// Seguimiento de anime del usuario (catálogo de AniList, sin alojar video).
+model AnimeEntry {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  anilistId       Int      @map("anilist_id")
+  title           String
+  coverUrl        String?  @map("cover_url")
+  totalEpisodes   Int?     @map("total_episodes")
+  status          String   @default("watching") // watching | planned | completed | dropped
+  episodesWatched Int      @default(0) @map("episodes_watched")
+  score           Int?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, anilistId])
+  @@index([userId, status])
+  @@map("anime_entries")
 }
 
 model Tag {
