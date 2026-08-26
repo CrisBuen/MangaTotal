@@ -41,7 +41,9 @@ export function HomeExperience() {
   useEffect(() => {
     Promise.all([
       fetch("/api/auth/me").then((response) => (response.ok ? response.json() : {})).catch(() => ({})),
-      fetch("/api/series?type=normal")
+      // sin type: el visitante ve solo la sección normal y el usuario con
+      // +18 activado ve todo (la API aplica la preferencia por su cuenta)
+      fetch("/api/series")
         .then(async (response) => {
           if (!response.ok) throw new Error("catalog");
           return response.json();

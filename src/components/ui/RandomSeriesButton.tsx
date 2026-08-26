@@ -11,7 +11,7 @@ export function RandomSeriesButton() {
     if (busy) return;
     setBusy(true);
     try {
-      const response = await fetch("/api/series?type=normal");
+      const response = await fetch("/api/series");
       const series = response.ok ? await response.json() : [];
       if (Array.isArray(series) && series.length > 0) {
         const selected = series[Math.floor(Math.random() * series.length)];
