@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/Feedback";
+import { fieldControlClass } from "@/components/ui/Field";
+import { SectionHeading } from "@/components/ui/Surface";
 
 interface AdminSeries {
   id: number;
@@ -14,8 +18,7 @@ interface AdminSeries {
   tags: { id: number; name: string; slug: string }[];
 }
 
-const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-violet-500";
+const inputClass = fieldControlClass;
 
 const emptyForm = {
   title: "",
@@ -101,19 +104,20 @@ export default function AdminSeriesPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-xl font-bold">Series</h1>
+    <div className="space-y-10" data-od-id="admin-series-page">
+      <SectionHeading eyebrow="Catálogo" title="Series" description="Creá, editá y organizá el archivo publicado." />
 
       <form
         onSubmit={onSubmit}
-        className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5"
+        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
+        data-od-id="series-form"
       >
-        <h2 className="text-sm font-semibold text-zinc-300">
+        <h2 className="text-3xl text-ink">
           {editingId ? "Editar serie" : "Crear serie nueva"}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">Título</label>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Título</label>
             <input
               className={inputClass}
               value={form.title}
@@ -121,7 +125,7 @@ export default function AdminSeriesPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
               Título original (opcional)
             </label>
             <input
@@ -131,7 +135,7 @@ export default function AdminSeriesPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">Sección</label>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Sección</label>
             <select
               className={inputClass}
               value={form.type}
@@ -142,7 +146,7 @@ export default function AdminSeriesPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">Estado</label>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Estado</label>
             <select
               className={inputClass}
               value={form.status}
@@ -155,7 +159,7 @@ export default function AdminSeriesPage() {
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">
+          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
             Tags (separados por coma, sin límite)
           </label>
           <input
@@ -166,7 +170,7 @@ export default function AdminSeriesPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">
+          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
             Descripción (opcional)
           </label>
           <textarea
@@ -176,40 +180,38 @@ export default function AdminSeriesPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
         <div className="flex gap-2">
-          <button
+          <Button
             disabled={busy}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-50"
+            variant="primary"
           >
             {editingId ? "Guardar cambios" : "Crear serie"}
-          </button>
+          </Button>
           {editingId && (
-            <button
+            <Button
               type="button"
               onClick={() => {
                 setEditingId(null);
                 setForm({ ...emptyForm });
               }}
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500"
+              variant="secondary"
             >
               Cancelar
-            </button>
+            </Button>
           )}
         </div>
       </form>
 
       <section>
         {series === null ? (
-          <p className="py-6 text-center text-sm text-zinc-500">Cargando...</p>
+          <p className="py-6 text-center text-sm text-subtle">Cargando…</p>
         ) : series.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-800 py-8 text-center text-sm text-zinc-500">
-            No hay series todavía.
-          </p>
+          <EmptyState title="No hay series todavía" description="Creá la primera serie con el formulario superior." />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-800">
+          <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
             <table className="w-full min-w-[560px] text-left text-sm">
-              <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
+              <thead className="border-b border-line bg-[var(--surface-raised)] text-[10px] uppercase tracking-[0.1em] text-subtle">
                 <tr>
                   <th className="px-4 py-2.5">Título</th>
                   <th className="px-4 py-2.5">Sección</th>
@@ -218,9 +220,9 @@ export default function AdminSeriesPage() {
                   <th className="px-4 py-2.5"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y-2 divide-line">
                 {series.map((s) => (
-                  <tr key={s.id} className="bg-zinc-950/50">
+                  <tr key={s.id} className="bg-panel hover:bg-[var(--surface-raised)]">
                     <td className="px-4 py-2.5 font-medium">
                       {s.title}
                       {s.tags?.length > 0 && (
@@ -228,7 +230,7 @@ export default function AdminSeriesPage() {
                           {s.tags.map((t) => (
                             <span
                               key={t.id}
-                              className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400"
+                              className="border border-line px-1.5 py-0.5 text-[10px] text-subtle"
                             >
                               {t.name}
                             </span>
@@ -238,25 +240,25 @@ export default function AdminSeriesPage() {
                     </td>
                     <td className="px-4 py-2.5">
                       {s.type === "adult" ? (
-                        <span className="rounded bg-red-600/20 px-1.5 py-0.5 text-[11px] font-semibold text-red-400">
+                        <span className="border border-danger px-1.5 py-0.5 text-[11px] font-semibold text-danger">
                           +18
                         </span>
                       ) : (
-                        <span className="text-zinc-400">Normal</span>
+                        <span className="text-subtle">Normal</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-zinc-400">{s.status}</td>
-                    <td className="px-4 py-2.5 text-zinc-400">{s.chapter_count}</td>
+                    <td className="px-4 py-2.5 text-subtle">{s.status}</td>
+                    <td className="px-4 py-2.5 font-mono text-subtle">{s.chapter_count}</td>
                     <td className="px-4 py-2.5 text-right">
                       <button
                         onClick={() => startEdit(s)}
-                        className="mr-2 text-xs text-violet-400 hover:underline"
+                        className="mr-3 min-h-11 text-xs font-bold uppercase tracking-[0.08em] text-ink underline underline-offset-4"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => onDelete(s)}
-                        className="text-xs text-red-400 hover:underline"
+                        className="min-h-11 text-xs font-bold uppercase tracking-[0.08em] text-danger underline underline-offset-4"
                       >
                         Borrar
                       </button>

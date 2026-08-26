@@ -3,6 +3,9 @@
 import { upload } from "@vercel/blob/client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { fieldControlClass } from "@/components/ui/Field";
+import { SectionHeading } from "@/components/ui/Surface";
 
 // por encima de esto, el body no pasa por la función en Vercel (límite ~4.5 MB):
 // se sube directo a Blob y el servidor procesa desde ahí
@@ -23,8 +26,7 @@ interface JobStatus {
   series_title: string | null;
 }
 
-const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-violet-500";
+const inputClass = fieldControlClass;
 
 /** Convención opcional de nombre: NombreSerie_Cap01.zip (docs/04 §4.4). */
 function parseZipName(name: string): { seriesTitle: string; chapterNumber: string } | null {
@@ -170,29 +172,33 @@ export default function SubirPage() {
   const processing = uploading || job?.status === "pending" || job?.status === "processing";
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Subir capítulo</h1>
-        <p className="text-sm text-zinc-500">
+    <div className="mx-auto max-w-3xl space-y-10" data-od-id="admin-upload-page">
+      <SectionHeading
+        eyebrow="Ingesta ZIP"
+        title="Subir capítulo"
+        description="Publicá un archivo exportado de Koharu y seguí su procesamiento."
+      />
+      <div className="border-l-2 border-line pl-4">
+        <p className="text-sm text-subtle">
           Subí el .zip exportado de Koharu (páginas .png/.jpg/.webp numeradas). Convención
-          opcional de nombre: <code className="text-violet-300">NombreSerie_Cap01.zip</code>{" "}
+          opcional de nombre: <code className="font-bold text-ink">NombreSerie_Cap01.zip</code>{" "}
           autocompleta el formulario.
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+      <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border border-line bg-panel p-6" data-od-id="zip-upload-form">
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Archivo .zip</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Archivo .zip</label>
           <input
             type="file"
             accept=".zip"
             onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-            className="w-full text-sm text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-violet-500"
+            className="w-full rounded-xl border border-line bg-panel p-2 text-sm text-subtle file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-accent file:bg-[var(--accent-soft)] file:px-3 file:text-xs file:font-bold file:uppercase file:text-accent hover:file:bg-[var(--accent)] hover:file:text-canvas"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Serie existente</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Serie existente</label>
           <select
             value={seriesId}
             onChange={(e) => setSeriesId(e.target.value)}
@@ -210,7 +216,7 @@ export default function SubirPage() {
         {!seriesId && (
           <>
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-400">
+              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
                 Título de la serie nueva
               </label>
               <input
@@ -221,15 +227,15 @@ export default function SubirPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-400">Sección</label>
-              <div className="flex rounded-lg bg-zinc-800 p-0.5">
+              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Sección</label>
+              <div className="flex rounded-xl border border-line bg-panel p-1">
                 {(["normal", "adult"] as const).map((t) => (
                   <button
                     type="button"
                     key={t}
                     onClick={() => setType(t)}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-sm transition ${
-                      type === t ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+                    className={`min-h-11 flex-1 px-3 text-xs font-bold uppercase tracking-[0.08em] transition ${
+                      type === t ? "rounded-lg bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]" : "rounded-lg text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                     }`}
                   >
                     {t === "normal" ? "Normal" : "+18"}
@@ -242,7 +248,7 @@ export default function SubirPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
               Número de capítulo
             </label>
             <input
@@ -254,7 +260,7 @@ export default function SubirPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
               Título del capítulo (opcional)
             </label>
             <input
@@ -266,11 +272,13 @@ export default function SubirPage() {
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
 
-        <button
+        <Button
           disabled={processing}
-          className="w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+          variant="primary"
+          className="w-full"
+          data-od-id="zip-upload-submit"
         >
           {uploading
             ? uploadPct !== null
@@ -279,24 +287,25 @@ export default function SubirPage() {
             : processing
               ? "Procesando..."
               : "Subir y procesar"}
-        </button>
+        </Button>
       </form>
 
       {job && (
         <div
           className={`rounded-xl border p-4 text-sm ${
             job.status === "success"
-              ? "border-green-700 bg-green-600/10 text-green-300"
+              ? "border-success text-success"
               : job.status === "error"
-                ? "border-red-700 bg-red-600/10 text-red-300"
-                : "border-zinc-700 bg-zinc-900 text-zinc-300"
+                ? "border-danger text-danger"
+                : "border-warning text-warning"
           }`}
+          role="status"
         >
           {job.status === "pending" || job.status === "processing" ? (
-            <p>⏳ Procesando... (job #{job.id})</p>
+            <p>Procesando ingesta #{job.id}…</p>
           ) : job.status === "success" ? (
             <p>
-              ✅ Capítulo publicado en{" "}
+              Capítulo publicado en{" "}
               {job.series_slug ? (
                 <Link href={`/serie/${job.series_slug}`} className="font-semibold underline">
                   {job.series_title ?? "la serie"}
@@ -307,7 +316,7 @@ export default function SubirPage() {
               .
             </p>
           ) : (
-            <p>❌ Error: {job.error_message ?? "desconocido"}</p>
+            <p>Error: {job.error_message ?? "desconocido"}</p>
           )}
         </div>
       )}

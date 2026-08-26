@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Feedback";
+import { fieldControlClass } from "@/components/ui/Field";
+import { SectionHeading, Surface } from "@/components/ui/Surface";
 
 interface Me {
   nickname: string;
@@ -11,8 +15,7 @@ interface Me {
   birthdate: string | null;
 }
 
-const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-violet-500";
+const inputClass = fieldControlClass;
 
 export default function PerfilPage() {
   const [me, setMe] = useState<Me | null>(null);
@@ -124,14 +127,19 @@ export default function PerfilPage() {
     }
   }
 
-  if (!me) return <p className="py-12 text-center text-zinc-500">Cargando...</p>;
+  if (!me) return <p className="py-12 text-center text-subtle">Cargando…</p>;
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-4xl space-y-10" data-od-id="profile-page">
+      <SectionHeading
+        eyebrow="Cuenta"
+        title="Perfil"
+        description="Administrá tu identidad, preferencias de contenido y forma de lectura."
+      />
       {/* cabecera con avatar estilo red social */}
-      <div className="flex items-center gap-4">
+      <section className="grid gap-6 border-b-2 border-line pb-8 sm:grid-cols-[auto_1fr] sm:items-center" data-od-id="profile-identity">
         <div className="relative">
-          <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-violet-600 bg-zinc-800">
+          <div className="h-28 w-28 overflow-hidden rounded-2xl border border-accent bg-panel shadow-[var(--glow)]">
             {me.avatar_path ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -140,7 +148,7 @@ export default function PerfilPage() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-violet-400">
+              <div className="flex h-full w-full items-center justify-center font-display text-5xl font-bold text-ink">
                 {me.nickname.charAt(0).toUpperCase()}
               </div>
             )}
@@ -149,9 +157,10 @@ export default function PerfilPage() {
             onClick={() => fileRef.current?.click()}
             disabled={avatarBusy}
             title="Cambiar foto de perfil"
-            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-sm text-white shadow transition hover:bg-violet-500 disabled:opacity-50"
+            className="absolute bottom-2 right-2 min-h-11 rounded-xl border border-line bg-panel px-3 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)] disabled:opacity-50"
+            data-od-id="avatar-upload-trigger"
           >
-            ✎
+            Cambiar
           </button>
           <input
             ref={fileRef}
@@ -164,64 +173,66 @@ export default function PerfilPage() {
             }}
           />
         </div>
-        <div>
-          <h1 className="text-xl font-bold">{me.nickname}</h1>
-          <p className="text-sm text-zinc-500">
+        <div className="min-w-0">
+          <h2 className="truncate text-5xl leading-none text-ink">{me.nickname}</h2>
+          <p className="mt-2 text-sm text-subtle">
             {me.is_admin && "administrador · "}
             {me.birthdate && new Date(me.birthdate).toLocaleDateString("es-AR")}
           </p>
           {me.avatar_path && (
-            <button
+            <Button
               onClick={removeAvatar}
               disabled={avatarBusy}
-              className="mt-1 text-xs text-zinc-500 hover:text-red-400"
+              variant="ghost"
+              size="sm"
+              className="mt-2"
             >
               Quitar foto
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-      {avatarError && <p className="text-sm text-red-400">{avatarError}</p>}
+      </section>
+      {avatarError && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{avatarError}</p>}
 
       {/* preferencias */}
-      <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-        <h2 className="text-sm font-semibold text-zinc-300">Preferencias</h2>
-        <div className="flex items-center justify-between gap-4">
+      <Surface className="space-y-6 p-6" data-od-id="profile-preferences">
+        <h2 className="text-3xl text-ink">Preferencias</h2>
+        <div className="flex items-center justify-between gap-6 border-t-2 border-line pt-5">
           <div>
-            <p className="text-sm font-medium">Mostrar contenido +18</p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-sm font-bold text-ink">Mostrar contenido +18</p>
+            <p className="mt-1 text-xs text-subtle">
               Filtro de biblioteca: activa la sección de doujinshi/+18.
             </p>
           </div>
           <button
             onClick={() => update({ show_adult_content: !me.show_adult_content })}
-            className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${
-              me.show_adult_content ? "bg-violet-600" : "bg-zinc-700"
+            className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
+              me.show_adult_content ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
             }`}
             aria-pressed={me.show_adult_content}
           >
             <span
-              className={`block h-5 w-5 rounded-full bg-white transition ${
-                me.show_adult_content ? "translate-x-5" : ""
+              className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
+                me.show_adult_content ? "translate-x-6" : ""
               }`}
             />
           </button>
         </div>
 
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col justify-between gap-4 border-t-2 border-line pt-5 sm:flex-row sm:items-center">
           <div>
-            <p className="text-sm font-medium">Modo de lectura preferido</p>
-            <p className="text-xs text-zinc-500">Con el que se abre cada capítulo.</p>
+            <p className="text-sm font-bold text-ink">Modo de lectura preferido</p>
+            <p className="mt-1 text-xs text-subtle">Con el que se abre cada capítulo.</p>
           </div>
-          <div className="flex rounded-lg bg-zinc-800 p-0.5">
+          <div className="flex rounded-xl border border-line bg-panel p-1">
             {(["cascade", "rtl"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => update({ preferred_reading_mode: m })}
-                className={`rounded-md px-3 py-1 text-xs transition ${
+                className={`min-h-11 px-3 text-xs font-bold uppercase tracking-[0.08em] transition ${
                   me.preferred_reading_mode === m
-                    ? "bg-violet-600 text-white"
-                    : "text-zinc-400 hover:text-zinc-200"
+                    ? "rounded-lg bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]"
+                    : "rounded-lg text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                 }`}
               >
                 {m === "cascade" ? "Cascada" : "RTL"}
@@ -230,17 +241,18 @@ export default function PerfilPage() {
           </div>
         </div>
 
-        {saved && <p className="text-xs text-green-400">Guardado ✓</p>}
-      </div>
+        {saved && <Badge tone="success">Guardado</Badge>}
+      </Surface>
 
       {/* cambio de contraseña */}
       <form
         onSubmit={changePassword}
-        className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5"
+        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
+        data-od-id="password-form"
       >
-        <h2 className="text-sm font-semibold text-zinc-300">Cambiar contraseña</h2>
+        <h2 className="text-3xl text-ink">Cambiar contraseña</h2>
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Contraseña actual</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Contraseña actual</label>
           <input
             className={inputClass}
             type="password"
@@ -252,7 +264,7 @@ export default function PerfilPage() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
               Contraseña nueva
             </label>
             <input
@@ -265,7 +277,7 @@ export default function PerfilPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">Repetir nueva</label>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Repetir nueva</label>
             <input
               className={inputClass}
               type="password"
@@ -276,14 +288,15 @@ export default function PerfilPage() {
             />
           </div>
         </div>
-        {pwError && <p className="text-sm text-red-400">{pwError}</p>}
-        {pwOk && <p className="text-sm text-green-400">Contraseña actualizada ✓</p>}
-        <button
+        {pwError && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{pwError}</p>}
+        {pwOk && <p className="text-sm text-success">Contraseña actualizada</p>}
+        <Button
           disabled={pwBusy}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-50"
+          variant="primary"
+          data-od-id="password-submit"
         >
           {pwBusy ? "Guardando..." : "Cambiar contraseña"}
-        </button>
+        </Button>
       </form>
     </div>
   );

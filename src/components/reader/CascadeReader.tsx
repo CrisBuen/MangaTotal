@@ -30,7 +30,7 @@ export function CascadeReader({
     if (scrolledRef.current || initialPage <= 1) return;
     const el = pageRefs.current.get(initialPage);
     if (el) {
-      el.scrollIntoView({ block: "start" });
+      window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top });
       scrolledRef.current = true;
     }
   }, [initialPage]);
@@ -53,7 +53,7 @@ export function CascadeReader({
   }, [onPageVisible, pages.length]);
 
   return (
-    <div ref={containerRef} className="mx-auto flex max-w-3xl flex-col items-center">
+    <div ref={containerRef} className="mx-auto flex max-w-3xl flex-col items-center" data-od-id="cascade-reader">
       {pages.map((p, i) => (
         <div
           key={p.pageNumber}
@@ -81,19 +81,19 @@ export function CascadeReader({
         </div>
       ))}
 
-      <div className="flex w-full flex-col items-center gap-3 py-10">
-        <p className="text-sm text-zinc-500">Fin del capítulo</p>
+      <div className="flex w-full flex-col items-center gap-4 border-t border-line py-12">
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Fin del capítulo</p>
         {nextChapter ? (
           <Link
             href={`/leer/${nextChapter.id}`}
-            className="rounded-lg bg-violet-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-violet-500"
+            className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 text-xs font-bold uppercase tracking-[0.08em] text-canvas shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
           >
             Siguiente capítulo ({nextChapter.number}) →
           </Link>
         ) : (
           <Link
             href={`/serie/${seriesSlug}`}
-            className="rounded-lg border border-zinc-700 px-5 py-2 text-sm text-zinc-300 transition hover:border-zinc-500"
+            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-5 text-xs font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)]"
           >
             Volver a la serie
           </Link>

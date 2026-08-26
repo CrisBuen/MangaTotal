@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/Feedback";
+import { fieldControlClass } from "@/components/ui/Field";
+import { SectionHeading } from "@/components/ui/Surface";
 
 interface Announcement {
   id: number;
@@ -9,8 +13,7 @@ interface Announcement {
   created_at: string;
 }
 
-const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-violet-500";
+const inputClass = fieldControlClass;
 
 export default function AdminNoticiasPage() {
   const [news, setNews] = useState<Announcement[] | null>(null);
@@ -77,23 +80,18 @@ export default function AdminNoticiasPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-bold">Noticias</h1>
-        <p className="text-sm text-zinc-500">
-          Anuncios y novedades que aparecen en la pestaña "Todo" de la biblioteca.
-        </p>
-      </div>
+    <div className="space-y-10" data-od-id="admin-news-page">
+      <SectionHeading eyebrow="Comunicación" title="Noticias" description="Anuncios y novedades que aparecen en la pestaña Todo de la biblioteca." />
 
       <form
         onSubmit={onSubmit}
-        className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5"
+        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
       >
-        <h2 className="text-sm font-semibold text-zinc-300">
+        <h2 className="text-3xl text-ink">
           {editingId ? "Editar noticia" : "Publicar noticia nueva"}
         </h2>
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Título</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Título</label>
           <input
             className={inputClass}
             value={title}
@@ -102,7 +100,7 @@ export default function AdminNoticiasPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Contenido</label>
+          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Contenido</label>
           <textarea
             className={inputClass}
             rows={4}
@@ -111,51 +109,49 @@ export default function AdminNoticiasPage() {
             placeholder="Contale a los lectores qué se viene..."
           />
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
         <div className="flex gap-2">
-          <button
+          <Button
             disabled={busy}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-50"
+            variant="primary"
           >
             {editingId ? "Guardar cambios" : "Publicar"}
-          </button>
+          </Button>
           {editingId && (
-            <button
+            <Button
               type="button"
               onClick={reset}
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500"
+              variant="secondary"
             >
               Cancelar
-            </button>
+            </Button>
           )}
         </div>
       </form>
 
       {news === null ? (
-        <p className="py-6 text-center text-sm text-zinc-500">Cargando...</p>
+        <p className="py-6 text-center text-sm text-subtle">Cargando…</p>
       ) : news.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-zinc-800 py-8 text-center text-sm text-zinc-500">
-          No publicaste ninguna noticia todavía.
-        </p>
+        <EmptyState title="No publicaste noticias" description="La próxima publicación aparecerá aquí y en la biblioteca." />
       ) : (
-        <div className="space-y-3">
+        <div className="border-b-2 border-line">
           {news.map((n) => (
-            <article key={n.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <article key={n.id} className="border-t-2 border-line py-5">
               <div className="mb-1 flex items-baseline justify-between gap-3">
-                <h3 className="font-semibold">{n.title}</h3>
-                <span className="shrink-0 text-xs text-zinc-500">
+                <h3 className="text-xl text-ink">{n.title}</h3>
+                <span className="shrink-0 font-mono text-[10px] text-subtle">
                   {new Date(n.created_at).toLocaleDateString("es-AR")}
                 </span>
               </div>
-              <p className="mb-3 whitespace-pre-line text-sm text-zinc-300">{n.body}</p>
+              <p className="mb-3 whitespace-pre-line text-sm text-subtle">{n.body}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => startEdit(n)}
-                  className="text-xs text-violet-400 hover:underline"
+                  className="min-h-11 text-xs font-bold uppercase text-ink underline underline-offset-4"
                 >
                   Editar
                 </button>
-                <button onClick={() => remove(n)} className="text-xs text-red-400 hover:underline">
+                <button onClick={() => remove(n)} className="min-h-11 text-xs font-bold uppercase text-danger underline underline-offset-4">
                   Borrar
                 </button>
               </div>

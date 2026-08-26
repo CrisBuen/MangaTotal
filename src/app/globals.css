@@ -4,10 +4,108 @@
 
 :root {
   color-scheme: dark;
+  --bg: oklch(10.5% 0.015 285);
+  --surface: oklch(16.5% 0.025 285);
+  --fg: oklch(96.5% 0.012 290);
+  --muted: oklch(72% 0.025 285);
+  --border: oklch(42% 0.11 300 / 0.36);
+  --accent: oklch(72% 0.22 302);
+  --success: oklch(76% 0.16 158);
+  --warning: oklch(79% 0.16 82);
+  --danger: oklch(68% 0.21 24);
+  --font-display: "Bahnschrift", "Avenir Next", "Trebuchet MS", sans-serif;
+  --font-body: "Aptos", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  --focus-ring: color-mix(in oklch, var(--accent) 76%, var(--surface));
+  --surface-raised: oklch(22% 0.035 292);
+  --surface-soft: oklch(14% 0.02 286);
+  --accent-hover: oklch(78% 0.2 302);
+  --accent-soft: color-mix(in oklch, var(--accent) 16%, transparent);
+  --glow: 0 0 34px color-mix(in oklch, var(--accent) 24%, transparent);
+}
+
+html {
+  min-width: 320px;
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 78% -12%, color-mix(in oklch, var(--accent) 12%, transparent), transparent 34rem),
+    var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+
+@keyframes neon-pulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* scrollbar discreto para el modo cascada */
@@ -16,12 +114,12 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: theme("colors.zinc.950");
+  background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: theme("colors.zinc.700");
+  background: var(--border);
   border-radius: 5px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: theme("colors.zinc.600");
+  background: var(--muted);
 }

@@ -116,52 +116,56 @@ export function Reader({
   return (
     <div
       ref={containerRef}
-      className={`min-h-screen bg-zinc-950 text-zinc-100 ${
+      className={`min-h-screen bg-canvas text-ink ${
         isFullscreen ? "h-screen overflow-y-auto" : ""
       }`}
+      data-od-id="reader-shell"
     >
       {/* barra superior del lector */}
       <header
-        className={`sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur transition-opacity ${
+        className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] backdrop-blur-xl transition-opacity ${
           showBar ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-2">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-3 py-2 sm:px-5">
           <Link
             href={`/serie/${series.slug}`}
-            className="shrink-0 rounded-lg px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+            className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold uppercase tracking-[0.08em] text-subtle transition hover:bg-[var(--surface-raised)] hover:text-ink"
+            data-od-id="reader-back-link"
           >
             ← Volver
           </Link>
           <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-sm font-medium">
+            <p className="truncate font-display text-lg font-bold leading-tight text-ink">
               {series.title} — Cap. {chapter.number}
               {chapter.title ? `: ${chapter.title}` : ""}
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2" data-od-id="reader-controls">
             {mode === "rtl" && (
-              <span className="hidden text-xs text-zinc-500 sm:inline">
+              <span className="hidden font-mono text-[10px] uppercase tracking-[0.08em] text-subtle sm:inline">
                 página {currentPage} / {chapter.pageCount}
               </span>
             )}
-            <div className="flex rounded-lg bg-zinc-900 p-0.5">
+            <div className="flex rounded-xl border border-line bg-panel p-1">
               <button
                 onClick={() => changeMode("cascade")}
                 title="Cascada (scroll vertical)"
-                className={`rounded-md px-2.5 py-1 text-xs transition ${
-                  mode === "cascade" ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+                className={`min-h-11 px-2.5 text-[10px] font-bold uppercase tracking-[0.08em] transition ${
+                  mode === "cascade" ? "rounded-lg bg-accent text-canvas shadow-[var(--glow)]" : "rounded-lg text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                 }`}
+                aria-pressed={mode === "cascade"}
               >
                 Cascada
               </button>
               <button
                 onClick={() => changeMode("rtl")}
                 title="Página a página, derecha → izquierda"
-                className={`rounded-md px-2.5 py-1 text-xs transition ${
-                  mode === "rtl" ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+                className={`min-h-11 px-2.5 text-[10px] font-bold uppercase tracking-[0.08em] transition ${
+                  mode === "rtl" ? "rounded-lg bg-accent text-canvas shadow-[var(--glow)]" : "rounded-lg text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                 }`}
+                aria-pressed={mode === "rtl"}
               >
                 RTL
               </button>
@@ -172,9 +176,9 @@ export function Reader({
       </header>
 
       {/* barra lateral fina de progreso (docs/06 §6.2) */}
-      <div className="fixed right-0 top-0 z-40 h-full w-1 bg-zinc-900">
+      <div className="fixed right-0 top-0 z-40 h-full w-1 bg-[var(--surface-raised)]" aria-hidden="true">
         <div
-          className="w-full bg-violet-600 transition-[height] duration-300"
+          className="w-full bg-accent transition-[height] duration-300"
           style={{ height: `${progressPct}%` }}
         />
       </div>
@@ -205,7 +209,8 @@ export function Reader({
       {isFullscreen && controlsVisible && (
         <button
           onClick={toggleFullscreen}
-          className="fixed bottom-4 right-4 z-50 rounded-full border border-zinc-700 bg-zinc-900/90 px-4 py-2 text-sm text-zinc-200 shadow-lg"
+          className="fixed bottom-4 right-4 z-50 min-h-11 rounded-xl border border-line bg-panel px-4 text-xs font-bold uppercase tracking-[0.08em] text-ink shadow-xl transition hover:border-accent hover:bg-[var(--surface-raised)]"
+          data-od-id="exit-fullscreen-button"
         >
           Salir (Esc)
         </button>

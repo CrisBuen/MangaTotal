@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AuthCard, buttonClass, inputClass } from "@/components/ui/AuthCard";
+import { Field } from "@/components/ui/Field";
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -50,9 +51,9 @@ export default function RegistroPage() {
   return (
     <AuthCard title="Creá tu cuenta (la primera cuenta será administradora)">
       <form onSubmit={onSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Apodo</label>
+        <Field id="register-nickname" label="Apodo" hint="Sin espacios; mínimo 2 caracteres.">
           <input
+            id="register-nickname"
             className={inputClass}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
@@ -61,12 +62,10 @@ export default function RegistroPage() {
             autoFocus
             required
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">
-            Contraseña (mínimo 8 caracteres)
-          </label>
+        </Field>
+        <Field id="register-password" label="Contraseña" hint="Mínimo 8 caracteres.">
           <input
+            id="register-password"
             className={inputClass}
             type="password"
             value={password}
@@ -74,30 +73,25 @@ export default function RegistroPage() {
             autoComplete="new-password"
             required
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">
-            Fecha de nacimiento
-          </label>
+        </Field>
+        <Field id="register-birthdate" label="Fecha de nacimiento" hint="Solo se usa para precargar tus preferencias.">
           <input
+            id="register-birthdate"
             className={inputClass}
             type="date"
             value={birthdate}
             onChange={(e) => setBirthdate(e.target.value)}
             required
           />
-          <p className="mt-1 text-[11px] text-zinc-500">
-            Dato personal — solo se usa para precargar tus preferencias.
-          </p>
-        </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <button className={buttonClass} disabled={loading}>
+        </Field>
+        {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
+        <button className={buttonClass} disabled={loading} data-od-id="register-submit">
           {loading ? "Creando cuenta..." : "Crear cuenta"}
         </button>
       </form>
-      <p className="mt-4 text-center text-sm text-zinc-400">
+      <p className="mt-5 text-center text-sm text-subtle">
         ¿Ya tenés cuenta?{" "}
-        <Link href="/login" className="text-violet-400 hover:underline">
+        <Link href="/login" className="font-bold text-ink underline underline-offset-4">
           Iniciá sesión
         </Link>
       </p>

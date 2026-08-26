@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 export function FavoriteButton({
   seriesId,
@@ -32,16 +33,14 @@ export function FavoriteButton({
   }
 
   return (
-    <button
+    <Button
       onClick={toggle}
       disabled={busy}
-      className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-        fav
-          ? "border-amber-500 bg-amber-500/10 text-amber-400"
-          : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-      }`}
+      variant={fav ? "secondary" : "ghost"}
+      aria-pressed={fav}
+      data-od-id="favorite-toggle"
     >
       {fav ? "★ En favoritos" : "☆ Agregar a favoritos"}
-    </button>
+    </Button>
   );
 }

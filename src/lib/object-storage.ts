@@ -127,6 +127,8 @@ function getR2(): { client: S3Client; bucket: string } {
     r2Client = new S3Client({
       region: "auto",
       endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      // el certificado de R2 no cubre el bucket como subdominio
+      forcePathStyle: true,
       credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,

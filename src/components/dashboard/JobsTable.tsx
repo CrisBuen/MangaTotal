@@ -14,10 +14,10 @@ interface Job {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-zinc-600/30 text-zinc-300",
-  processing: "bg-blue-600/20 text-blue-300",
-  success: "bg-green-600/20 text-green-400",
-  error: "bg-red-600/20 text-red-400",
+  pending: "border-line text-subtle",
+  processing: "border-warning text-warning",
+  success: "border-success text-success",
+  error: "border-danger text-danger",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -41,18 +41,18 @@ export function JobsTable() {
     return () => clearInterval(t);
   }, [load]);
 
-  if (jobs === null) return <p className="py-6 text-center text-sm text-zinc-500">Cargando...</p>;
+  if (jobs === null) return <p className="py-6 text-center text-sm text-subtle">Cargando…</p>;
   if (jobs.length === 0)
     return (
-      <p className="rounded-xl border border-dashed border-zinc-800 py-8 text-center text-sm text-zinc-500">
+      <p className="rounded-2xl border border-dashed border-line py-8 text-center text-sm text-subtle">
         Todavía no subiste ningún .zip.
       </p>
     );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-800">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
       <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
+        <thead className="border-b border-line bg-[var(--surface-raised)] text-[10px] uppercase tracking-[0.1em] text-subtle">
           <tr>
             <th className="px-4 py-2.5">Archivo</th>
             <th className="px-4 py-2.5">Serie</th>
@@ -62,9 +62,9 @@ export function JobsTable() {
             <th className="px-4 py-2.5">Fecha</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800">
+        <tbody className="divide-y-2 divide-line">
           {jobs.map((j) => (
-            <tr key={j.id} className="bg-zinc-950/50">
+            <tr key={j.id} className="bg-panel hover:bg-[var(--surface-raised)]">
               <td className="max-w-[220px] truncate px-4 py-2.5 font-mono text-xs">
                 {j.original_filename}
               </td>
@@ -72,17 +72,17 @@ export function JobsTable() {
               <td className="px-4 py-2.5">{j.chapter_number ?? "—"}</td>
               <td className="px-4 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                  className={`border px-1.5 py-0.5 text-[11px] font-semibold ${
                     STATUS_STYLE[j.status] ?? ""
                   }`}
                 >
                   {STATUS_LABEL[j.status] ?? j.status}
                 </span>
               </td>
-              <td className="max-w-[260px] truncate px-4 py-2.5 text-xs text-red-400">
+              <td className="max-w-[260px] truncate px-4 py-2.5 text-xs text-danger">
                 {j.error_message ?? ""}
               </td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-xs text-zinc-500">
+              <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[10px] text-subtle">
                 {new Date(j.started_at).toLocaleString("es-AR")}
               </td>
             </tr>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AuthCard, buttonClass, inputClass } from "@/components/ui/AuthCard";
+import { Field } from "@/components/ui/Field";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,9 +40,9 @@ export default function LoginPage() {
   return (
     <AuthCard title="Iniciá sesión para entrar a tu biblioteca">
       <form onSubmit={onSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Apodo</label>
+        <Field id="login-nickname" label="Apodo">
           <input
+            id="login-nickname"
             className={inputClass}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
@@ -49,10 +50,10 @@ export default function LoginPage() {
             autoFocus
             required
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">Contraseña</label>
+          </Field>
+        <Field id="login-password" label="Contraseña">
           <input
+            id="login-password"
             className={inputClass}
             type="password"
             value={password}
@@ -60,15 +61,15 @@ export default function LoginPage() {
             autoComplete="current-password"
             required
           />
-        </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <button className={buttonClass} disabled={loading}>
+          </Field>
+        {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
+        <button className={buttonClass} disabled={loading} data-od-id="login-submit">
           {loading ? "Entrando..." : "Entrar"}
         </button>
       </form>
-      <p className="mt-4 text-center text-sm text-zinc-400">
+      <p className="mt-5 text-center text-sm text-subtle">
         ¿No tenés cuenta?{" "}
-        <Link href="/registro" className="text-violet-400 hover:underline">
+        <Link href="/registro" className="font-bold text-ink underline underline-offset-4">
           Registrate
         </Link>
       </p>

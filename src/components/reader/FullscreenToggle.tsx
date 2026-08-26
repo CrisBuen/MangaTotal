@@ -15,9 +15,10 @@ export function FullscreenToggle({
     <button
       onClick={onToggle}
       title={isFullscreen ? "Salir de pantalla completa (Esc)" : "Pantalla completa"}
-      className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-300 transition hover:border-zinc-500"
+      className="min-h-11 rounded-xl border border-line bg-panel px-3 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)]"
+      data-od-id="fullscreen-toggle"
     >
-      {isFullscreen ? "⛶ Salir" : "⛶"}
+      {isFullscreen ? "Salir" : "Pantalla completa"}
     </button>
   );
 }

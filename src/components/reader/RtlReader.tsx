@@ -62,7 +62,7 @@ export function RtlReader({
   if (!page) return null;
 
   return (
-    <div className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center">
+    <div className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center" data-od-id="rtl-reader">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         key={page.pageNumber}
@@ -85,20 +85,20 @@ export function RtlReader({
       />
 
       {atEnd && (
-        <div className="absolute bottom-16 z-10 flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/95 px-6 py-4 shadow-xl">
-          <p className="text-sm text-zinc-400">Fin del capítulo</p>
+        <div className="absolute bottom-16 z-10 flex flex-col items-center gap-3 rounded-2xl border border-line bg-[color-mix(in_oklch,var(--bg)_90%,transparent)] px-6 py-5 shadow-2xl backdrop-blur-xl">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Fin del capítulo</p>
           <div className="flex gap-2">
             {nextChapter && (
               <Link
                 href={`/leer/${nextChapter.id}`}
-                className="rounded-lg bg-violet-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-violet-500"
+                className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-4 text-xs font-bold uppercase tracking-[0.08em] text-canvas shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
               >
                 ← Capítulo {nextChapter.number}
               </Link>
             )}
             <Link
               href={`/serie/${seriesSlug}`}
-              className="rounded-lg border border-zinc-700 px-4 py-1.5 text-sm text-zinc-300 transition hover:border-zinc-500"
+              className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-4 text-xs font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)]"
             >
               Volver a la serie
             </Link>
@@ -110,7 +110,7 @@ export function RtlReader({
         <div className="absolute left-3 top-3 z-10">
           <Link
             href={`/leer/${prevChapter.id}`}
-            className="rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-500"
+            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] px-3 text-xs font-bold text-ink backdrop-blur-lg transition hover:border-accent hover:bg-panel"
           >
             Capítulo anterior ({prevChapter.number}) →
           </Link>

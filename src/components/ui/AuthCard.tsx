@@ -1,17 +1,29 @@
+import { buttonStyles } from "./Button";
+import { fieldControlClass } from "./Field";
+import { Surface } from "./Surface";
+
 export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
-        <h1 className="mb-1 text-center text-2xl font-bold text-violet-400">Lector Total</h1>
-        <p className="mb-6 text-center text-sm text-zinc-400">{title}</p>
+    <main
+      className="flex min-h-screen items-center justify-center bg-canvas p-4 sm:p-6"
+      data-od-id="auth-layout"
+    >
+      <Surface className="w-full max-w-md border-accent p-7 shadow-[var(--glow)] sm:p-10" data-od-id="auth-card">
+        <div className="mb-8 border-b border-line pb-6">
+          <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
+            Acceso privado
+          </p>
+          <h1 className="font-display text-5xl font-black uppercase leading-[0.88] tracking-[-0.06em] text-ink sm:text-6xl">
+            MangaTotal
+          </h1>
+          <p className="mt-4 text-sm text-subtle">{title}</p>
+        </div>
         {children}
-      </div>
+      </Surface>
     </main>
   );
 }
 
-export const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-violet-500";
+export const inputClass = fieldControlClass;
 
-export const buttonClass =
-  "w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50";
+export const buttonClass = buttonStyles({ variant: "primary", className: "w-full" });

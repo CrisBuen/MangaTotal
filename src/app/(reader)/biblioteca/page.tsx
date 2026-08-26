@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SeriesCard, type SeriesSummary } from "@/components/library/SeriesCard";
+import { buttonStyles } from "@/components/ui/Button";
+import { EmptyState, Skeleton } from "@/components/ui/Feedback";
+import { fieldControlClass } from "@/components/ui/Field";
+import { SectionHeading, Surface } from "@/components/ui/Surface";
 
 interface ContinueItem {
   series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
@@ -34,6 +38,7 @@ type Filter = "todo" | "normal" | "adult" | "favoritos";
 export default function BibliotecaPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [series, setSeries] = useState<SeriesSummary[] | null>(null);
+  const [seriesError, setSeriesError] = useState(false);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [news, setNews] = useState<Announcement[] | null>(null);
   const [filter, setFilter] = useState<Filter>("todo");
@@ -98,8 +103,15 @@ export default function BibliotecaPage() {
     if (filter === "favoritos") params.set("favorites", "true");
     if (search.trim()) params.set("search", search.trim());
     if (selectedTag) params.set("tag", selectedTag);
-    const res = await fetch(`/api/series?${params}`);
-    if (res.ok) setSeries(await res.json());
+    setSeriesError(false);
+    try {
+      const res = await fetch(`/api/series?${params}`);
+      if (!res.ok) throw new Error("catalog");
+      setSeries(await res.json());
+    } catch {
+      setSeries([]);
+      setSeriesError(true);
+    }
   }, [filter, search, selectedTag, showCatalog]);
 
   function toggleTag(slug: string) {
@@ -116,21 +128,30 @@ export default function BibliotecaPage() {
     { key: "todo", label: "Todo" },
     { key: "normal", label: "Normal" },
     ...(me?.show_adult_content ? [{ key: "adult" as Filter, label: "+18" }] : []),
-    ...(loggedIn ? [{ key: "favoritos" as Filter, label: "★ Favoritos" }] : []),
+    ...(loggedIn ? [{ key: "favoritos" as Filter, label: "Favoritos" }] : []),
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-bold">Biblioteca</h1>
-        <div className="flex gap-1 rounded-lg bg-zinc-900 p-1">
+    <div className="space-y-12 sm:space-y-16" data-od-id="library-page">
+      <SectionHeading
+        eyebrow="Catálogo MangaTotal"
+        title="Biblioteca"
+        description="Explorá tus series, retomá lecturas y encontrá contenido por categoría."
+      />
+      <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
+        <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Secciones de biblioteca">
           {filters.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`rounded-md px-3 py-1 text-sm transition ${
-                filter === f.key ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+              className={`relative min-h-11 shrink-0 rounded-xl px-4 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
+                filter === f.key
+                  ? "bg-[var(--accent-soft)] text-accent shadow-[var(--glow)] ring-1 ring-accent"
+                  : "text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
               }`}
+              role="tab"
+              aria-selected={filter === f.key}
+              data-od-id={`library-filter-${f.key}`}
             >
               {f.label}
             </button>
@@ -140,43 +161,50 @@ export default function BibliotecaPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar serie..."
-            className="ml-auto w-full max-w-xs rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm placeholder-zinc-500 outline-none focus:border-violet-500"
+            placeholder="Buscar serie…"
+            className={`sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
+            aria-label="Buscar serie"
+            data-od-id="library-search"
           />
         )}
-      </div>
+      </section>
 
       {!showCatalog ? (
         <>
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-zinc-200">Noticias</h2>
+          <section data-od-id="library-news">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <h2 className="font-display text-4xl font-black uppercase leading-none text-ink sm:text-5xl">Noticias</h2>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Actualizaciones</span>
+            </div>
             {news === null ? (
-              <p className="py-8 text-center text-sm text-zinc-500">Cargando...</p>
-            ) : news.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-zinc-800 py-12 text-center text-zinc-500">
-                <p className="text-lg">No hay noticias por ahora</p>
-                <p className="mt-1 text-sm">
-                  Acá van a aparecer los anuncios y las novedades de la página.
-                </p>
+              <div className="space-y-3" aria-label="Cargando noticias">
+                <Skeleton className="h-24" />
+                <Skeleton className="h-24" />
               </div>
+            ) : news.length === 0 ? (
+              <EmptyState
+                title="No hay noticias por ahora"
+                description="Los anuncios y novedades de MangaTotal aparecerán en esta sección."
+              />
             ) : (
-              <div className="space-y-3">
+              <div className="grid gap-4 lg:grid-cols-2">
                 {news.map((n) => (
                   <article
                     key={n.id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900 p-5"
+                    className="grid gap-3 rounded-2xl border border-line bg-panel p-6 sm:grid-cols-[minmax(0,1fr)_auto]"
+                    data-od-id={`announcement-${n.id}`}
                   >
-                    <div className="mb-1 flex items-baseline justify-between gap-3">
-                      <h3 className="font-semibold text-zinc-100">{n.title}</h3>
-                      <span className="shrink-0 text-xs text-zinc-500">
+                    <div className="contents">
+                      <h3 className="text-xl font-bold leading-tight text-ink">{n.title}</h3>
+                      <time className="shrink-0 font-mono text-[11px] text-subtle" dateTime={n.created_at}>
                         {new Date(n.created_at).toLocaleDateString("es-AR", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
                         })}
-                      </span>
+                      </time>
                     </div>
-                    <p className="whitespace-pre-line text-sm text-zinc-300">{n.body}</p>
+                    <p className="max-w-3xl whitespace-pre-line text-sm leading-6 text-subtle sm:col-span-2">{n.body}</p>
                   </article>
                 ))}
               </div>
@@ -184,44 +212,48 @@ export default function BibliotecaPage() {
           </section>
 
           {!loggedIn && (
-            <section className="rounded-xl border border-violet-900/50 bg-violet-950/20 p-5 text-center">
-              <p className="text-sm text-zinc-300">
-                <Link href="/registro" className="font-semibold text-violet-400 hover:underline">
+            <Surface className="grid gap-5 border-accent p-6 shadow-[var(--glow)] sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
+              <p className="text-sm text-subtle">
+                <Link href="/registro" className="font-bold text-ink underline underline-offset-4">
                   Creá tu cuenta
                 </Link>{" "}
                 o{" "}
-                <Link href="/login" className="font-semibold text-violet-400 hover:underline">
+                <Link href="/login" className="font-bold text-ink underline underline-offset-4">
                   iniciá sesión
                 </Link>{" "}
                 para leer, guardar tu progreso y marcar favoritos.
               </p>
-            </section>
+              <Link href="/registro" className={buttonStyles({ variant: "primary", size: "sm" })}>
+                Crear cuenta
+              </Link>
+            </Surface>
           )}
         </>
       ) : (
         <>
           {tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs font-medium uppercase text-zinc-500">Tags</span>
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-panel p-4" data-od-id="library-tags">
+              <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Etiquetas</span>
               {tags.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => toggleTag(t.slug)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
+                  className={`min-h-9 border px-3 text-xs transition ${
                     selectedTag === t.slug
-                      ? "border-violet-500 bg-violet-600/20 text-violet-300"
-                      : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-violet-500 hover:text-violet-300"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]"
+                      : "border-line bg-transparent text-subtle hover:border-accent hover:text-ink"
                   }`}
+                  aria-pressed={selectedTag === t.slug}
                 >
-                  {t.name} <span className="text-zinc-500">{t.series_count}</span>
+                  {t.name} <span className="font-mono opacity-70">{t.series_count}</span>
                 </button>
               ))}
               {selectedTag && (
                 <button
                   onClick={() => toggleTag(selectedTag)}
-                  className="rounded-full px-2 py-0.5 text-xs text-zinc-500 hover:text-zinc-300"
+                  className={buttonStyles({ variant: "ghost", size: "sm" })}
                 >
-                  ✕ limpiar
+                  Limpiar
                 </button>
               )}
             </div>
@@ -232,17 +264,20 @@ export default function BibliotecaPage() {
             (filter === "normal" || filter === "adult") &&
             continues.some((c) => c.series.type === filter) && (
               <section>
-                <h2 className="mb-3 text-lg font-semibold text-zinc-200">Continuar leyendo</h2>
-                <div className="flex gap-3 overflow-x-auto pb-2">
+                <div className="mb-5 flex items-end justify-between gap-4">
+                  <h2 className="font-display text-4xl font-black uppercase leading-none text-ink">Continuar leyendo</h2>
+                  <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-subtle">Tu progreso</span>
+                </div>
+                <div className="flex gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5" data-od-id="continue-reading-list">
                   {continues
                     .filter((c) => c.series.type === filter)
                     .map((c) => (
                       <Link
                         key={c.series.id}
                         href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
-                        className="w-32 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 transition hover:border-violet-600"
+                        className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       >
-                        <div className="aspect-[2/3] bg-zinc-800">
+                        <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
                           {c.series.cover_image_path && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -253,9 +288,9 @@ export default function BibliotecaPage() {
                             />
                           )}
                         </div>
-                        <div className="p-2">
-                          <p className="truncate text-xs font-medium">{c.series.title}</p>
-                          <p className="text-[11px] text-zinc-500">
+                        <div className="pt-3">
+                          <p className="truncate font-display text-lg font-semibold text-ink">{c.series.title}</p>
+                          <p className="mt-1 font-mono text-[10px] text-subtle">
                             Cap. {c.chapter.number} · pág. {c.lastPageNumber}/{c.chapter.page_count}
                           </p>
                         </div>
@@ -266,9 +301,23 @@ export default function BibliotecaPage() {
             )}
 
           {series === null ? (
-            <p className="py-12 text-center text-zinc-500">Cargando...</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:grid-cols-5" aria-label="Cargando catálogo">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="aspect-[2/3]" />
+              ))}
+            </div>
+          ) : seriesError ? (
+            <EmptyState
+              title="No se pudo cargar el catálogo"
+              description="Revisá la conexión con la base de datos y volvé a intentarlo."
+              action={
+                <button type="button" onClick={load} className={buttonStyles({ variant: "secondary" })}>
+                  Reintentar
+                </button>
+              }
+            />
           ) : series.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-zinc-800 py-16 text-center text-zinc-500">
+            <div className="border border-dashed border-line bg-panel py-16 text-center text-subtle">
               {filter === "favoritos" ? (
                 <>
                   <p className="mb-1 text-lg">Todavía no tenés favoritos</p>
@@ -282,7 +331,7 @@ export default function BibliotecaPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:grid-cols-5" data-od-id="series-grid">
               {series.map((s) => (
                 <SeriesCard key={s.id} series={s} />
               ))}

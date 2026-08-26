@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { EmptyState } from "@/components/ui/Feedback";
+import { SectionHeading } from "@/components/ui/Surface";
 
 interface AdminUser {
   id: number;
@@ -59,23 +61,19 @@ export default function AdminUsuariosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Usuarios</h1>
-        <p className="text-sm text-zinc-500">
-          Cuentas de confianza de tu red local. Para crear una nueva, esa persona entra a{" "}
-          <span className="text-violet-300">/registro</span> desde tu red.
-        </p>
-      </div>
+    <div className="space-y-10" data-od-id="admin-users-page">
+      <SectionHeading eyebrow="Acceso" title="Usuarios" description="Cuentas de confianza de tu red local. Las cuentas nuevas se crean desde /registro." />
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
 
       {users === null ? (
-        <p className="py-6 text-center text-sm text-zinc-500">Cargando...</p>
+        <p className="py-6 text-center text-sm text-subtle">Cargando…</p>
+      ) : users.length === 0 ? (
+        <EmptyState title="No hay usuarios" description="Las cuentas registradas aparecerán en esta tabla." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-800">
+        <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
           <table className="w-full min-w-[560px] text-left text-sm">
-            <thead className="bg-zinc-900 text-xs uppercase text-zinc-500">
+            <thead className="border-b border-line bg-[var(--surface-raised)] text-[10px] uppercase tracking-[0.1em] text-subtle">
               <tr>
                 <th className="px-4 py-2.5">Apodo</th>
                 <th className="px-4 py-2.5">Rol</th>
@@ -84,26 +82,26 @@ export default function AdminUsuariosPage() {
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800">
+            <tbody className="divide-y-2 divide-line">
               {users.map((u) => (
-                <tr key={u.id} className="bg-zinc-950/50">
+                <tr key={u.id} className="bg-panel hover:bg-[var(--surface-raised)]">
                   <td className="px-4 py-2.5 font-medium">
                     {u.nickname}
-                    {me?.id === u.id && <span className="ml-1 text-xs text-zinc-500">(vos)</span>}
+                    {me?.id === u.id && <span className="ml-1 text-xs text-subtle">(vos)</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     {u.is_admin ? (
-                      <span className="rounded bg-violet-600/20 px-1.5 py-0.5 text-[11px] font-semibold text-violet-300">
+                      <span className="rounded-full border border-accent bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-accent">
                         Admin
                       </span>
                     ) : (
-                      <span className="text-zinc-400">Lector</span>
+                      <span className="text-subtle">Lector</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-zinc-400">
+                  <td className="px-4 py-2.5 text-subtle">
                     {u.show_adult_content ? "Sí" : "No"}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-zinc-500">
+                  <td className="px-4 py-2.5 font-mono text-[10px] text-subtle">
                     {new Date(u.created_at).toLocaleDateString("es-AR")}
                   </td>
                   <td className="px-4 py-2.5 text-right">
@@ -111,13 +109,13 @@ export default function AdminUsuariosPage() {
                       <>
                         <button
                           onClick={() => toggleAdmin(u)}
-                          className="mr-2 text-xs text-violet-400 hover:underline"
+                          className="mr-3 min-h-11 text-xs font-bold uppercase text-ink underline underline-offset-4"
                         >
                           {u.is_admin ? "Quitar admin" : "Hacer admin"}
                         </button>
                         <button
                           onClick={() => remove(u)}
-                          className="text-xs text-red-400 hover:underline"
+                          className="min-h-11 text-xs font-bold uppercase text-danger underline underline-offset-4"
                         >
                           Borrar
                         </button>
