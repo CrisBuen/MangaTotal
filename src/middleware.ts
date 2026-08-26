@@ -10,14 +10,23 @@ const TTL = 60 * 60 * 24 * 30;
 const PUBLIC_EXACT = new Set([
   "/",
   "/biblioteca",
+  "/explorar",
   "/login",
   "/registro",
   "/api/auth/login",
   "/api/auth/register",
   "/api/series",
   "/api/announcements",
+  "/api/tags",
 ]);
-const PUBLIC_PREFIXES = ["/serie/", "/api/images/", "/api/series/"];
+// el catálogo externo se navega como visitante; leer capítulos exige sesión
+const PUBLIC_PREFIXES = [
+  "/serie/",
+  "/externo/",
+  "/api/images/",
+  "/api/series/",
+  "/api/externo/series",
+];
 
 interface SessionData {
   userId?: number;

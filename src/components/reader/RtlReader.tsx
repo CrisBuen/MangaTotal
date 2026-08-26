@@ -15,6 +15,7 @@ export function RtlReader({
   nextChapter,
   prevChapter,
   seriesSlug,
+  seriesHref,
 }: {
   pages: ReaderPage[];
   currentPage: number;
@@ -22,6 +23,8 @@ export function RtlReader({
   nextChapter: ChapterLink | null;
   prevChapter: ChapterLink | null;
   seriesSlug: string;
+  /** Destino del botón "Volver": series externas no tienen slug propio. */
+  seriesHref?: string;
 }) {
   const total = pages.length;
   const page = pages[currentPage - 1];
@@ -97,7 +100,7 @@ export function RtlReader({
               </Link>
             )}
             <Link
-              href={`/serie/${seriesSlug}`}
+              href={seriesHref ?? `/serie/${seriesSlug}`}
               className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-4 text-xs font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)]"
             >
               Volver a la serie

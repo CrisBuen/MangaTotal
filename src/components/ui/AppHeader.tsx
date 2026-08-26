@@ -32,6 +32,7 @@ export function AppHeader({
       : [
           { href: "/", label: "Inicio", exact: true },
           { href: "/biblioteca", label: "Biblioteca", exact: true },
+          { href: "/explorar", label: "Explorar" },
           { href: "/#categorias", label: "Categorías" },
           { href: "/#noticias", label: "Noticias" },
         ];

@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
+import {
+  LANG_GROUPS,
+  mdFetch,
+  publicChapter,
+  publicManga,
+  type MdChapter,
+  type MdManga,
+} from "@/lib/mangadex";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * GET /api/externo/series/:id?lang=es — ficha de una serie de MangaDex con
+ * su lista de capítulos en el idioma pedido (orden por número).
+ */
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const user = await getSessionUser();
+  const seeAdult = Boolean(user?.showAdultContent || user?.isAdmin);
+
+  const { id } = await ctx.params;
+  if (!UUID_RE.test(id)) {
+    return NextResponse.json({ error: "Id inválido" }, { status: 400 });
+  }
+
+  const lang = req.nextUrl.searchParams.get("lang") ?? "es";
+  const langs = LANG_GROUPS[lang] ?? LANG_GROUPS.es;
+
+  try {
+    const mangaRes = await mdFetch<{ data: MdManga }>(
+      `/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`,
+      300
+    );
+    const series = publicManga(mangaRes.data);
+
+    if (series.is_adult && !seeAdult) {
+      return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
+    }
+
+    // los capítulos vienen paginados de a 100; traemos hasta 500
+    const chapters: MdChapter[] = [];
+    for (let offset = 0; offset < 500; offset += 100) {
+      const qs = new URLSearchParams();
+      qs.set("limit", "100");
+      qs.set("offset", String(offset));
+      qs.set("manga", id);
+      qs.set("order[chapter]", "asc");
+      qs.append("includes[]", "scanlation_group");
+      for (const l of langs) qs.append("translatedLanguage[]", l);
+      for (const r of ["safe", "suggestive", "erotica", "pornographic"]) {
+        qs.append("contentRating[]", r);
+      }
+
+      const page = await mdFetch<{ data: MdChapter[]; total: number }>(
+        `/chapter?${qs.toString()}`,
+        120
+      );
+      chapters.push(...page.data);
+      if (chapters.length >= page.total) break;
+    }
+
+    return NextResponse.json({
+      series,
+      chapters: chapters.map(publicChapter),
+    });
+  } catch (err) {
+    console.error("[externo] ficha", err);
+    return NextResponse.json({ error: "No se pudo cargar la serie" }, { status: 502 });
+  }
+}
