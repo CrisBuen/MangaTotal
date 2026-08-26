@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { retryThroughProxy } from "./pageImage";
 import type { ChapterLink, ReaderPage } from "./types";
 
 /**
@@ -80,6 +81,8 @@ export function CascadeReader({
             // el resto lazy (el navegador precarga con margen las que vienen)
             loading={Math.abs(i + 1 - initialPage) <= 3 ? "eager" : "lazy"}
             draggable={false}
+            referrerPolicy="no-referrer"
+            onError={(e) => retryThroughProxy(e.currentTarget)}
           />
         </div>
       ))}

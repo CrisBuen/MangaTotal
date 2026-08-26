@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import {
   LANG_GROUPS,
+  groupChaptersByNumber,
   mdFetch,
   publicChapter,
   publicManga,
@@ -60,9 +61,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       if (chapters.length >= page.total) break;
     }
 
+    const all = chapters.map(publicChapter);
     return NextResponse.json({
       series,
-      chapters: chapters.map(publicChapter),
+      // una fila por número, con todas las versiones de cada grupo
+      chapters: groupChaptersByNumber(all),
+      // capítulos que el grupo aloja en su sitio: se enlazan aparte
+      external: all.filter((c) => c.external_url),
     });
   } catch (err) {
     console.error("[externo] ficha", err);

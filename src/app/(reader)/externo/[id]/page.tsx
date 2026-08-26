@@ -26,10 +26,17 @@ interface ExternalChapter {
   group: string | null;
 }
 
+interface ChapterEntry {
+  number: string | null;
+  chosen: ExternalChapter;
+  versions: ExternalChapter[];
+}
+
 export default function ExternalSeriePage(props: { params: Promise<{ id: string }> }) {
   const { id } = use(props.params);
   const [series, setSeries] = useState<ExternalSeries | null>(null);
-  const [chapters, setChapters] = useState<ExternalChapter[]>([]);
+  const [chapters, setChapters] = useState<ChapterEntry[]>([]);
+  const [openVersions, setOpenVersions] = useState<string | null>(null);
   const [lang, setLang] = useState("es");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +88,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
 
   if (!series) return null;
 
-  const readable = chapters.filter((c) => !c.external_url);
+  const readable = chapters;
 
   return (
     <div className="space-y-10">
@@ -151,7 +158,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
           <div className="flex flex-wrap items-center gap-3">
             {readable.length > 0 && (
               <Link
-                href={`/leer-externo/${readable[0].id}`}
+                href={`/leer-externo/${readable[0].chosen.id}`}
                 className="rounded-xl bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:opacity-90"
               >
                 Empezar a leer
@@ -187,37 +194,59 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
           </Surface>
         ) : (
           <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-            {chapters.map((c) => {
-              const label = `Capítulo ${c.number ?? "?"}${c.title ? `: ${c.title}` : ""}`;
-              const inner = (
-                <div className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink">{label}</p>
-                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
-                      {c.group ?? "Grupo desconocido"} · {c.lang}
-                      {c.pages > 0 ? ` · ${c.pages} págs.` : ""}
-                    </p>
-                  </div>
-                  {c.external_url ? (
-                    <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-subtle">
-                      Externo ↗
-                    </span>
-                  ) : (
-                    <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
-                      Leer →
-                    </span>
-                  )}
-                </div>
-              );
+            {chapters.map((entry) => {
+              const c = entry.chosen;
+              const key = entry.number ?? c.id;
+              const label = `Capítulo ${entry.number ?? "?"}${c.title ? `: ${c.title}` : ""}`;
+              const isOpen = openVersions === key;
 
               return (
-                <li key={c.id}>
-                  {c.external_url ? (
-                    <a href={c.external_url} target="_blank" rel="noopener noreferrer">
-                      {inner}
-                    </a>
-                  ) : (
-                    <Link href={`/leer-externo/${c.id}`}>{inner}</Link>
+                <li key={key}>
+                  <div className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]">
+                    <Link href={`/leer-externo/${c.id}`} className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">{label}</p>
+                      <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                        {c.group ?? "Grupo desconocido"} · {c.pages} págs.
+                      </p>
+                    </Link>
+
+                    {entry.versions.length > 1 && (
+                      <button
+                        onClick={() => setOpenVersions(isOpen ? null : key)}
+                        className="shrink-0 rounded-lg border border-line px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-subtle transition hover:border-accent hover:text-ink"
+                      >
+                        {entry.versions.length} versiones {isOpen ? "▲" : "▼"}
+                      </button>
+                    )}
+
+                    <Link
+                      href={`/leer-externo/${c.id}`}
+                      className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent"
+                    >
+                      Leer →
+                    </Link>
+                  </div>
+
+                  {isOpen && (
+                    <ul className="border-t border-line bg-[var(--surface-raised)]">
+                      {entry.versions.map((v) => (
+                        <li key={v.id}>
+                          <Link
+                            href={`/leer-externo/${v.id}`}
+                            className="flex items-center gap-3 px-8 py-2.5 transition hover:bg-[color-mix(in_oklch,var(--accent)_10%,transparent)]"
+                          >
+                            <span className="min-w-0 flex-1 truncate font-mono text-[10px] uppercase tracking-[0.1em] text-subtle">
+                              {v.group ?? "Grupo desconocido"} · {v.pages} págs.
+                            </span>
+                            {v.id === c.id && (
+                              <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                                Predeterminada
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </li>
               );

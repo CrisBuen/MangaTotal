@@ -20,6 +20,25 @@ const LANGS = [
   { key: "en", label: "Inglés" },
 ];
 
+const ORDERS = [
+  { key: "latest", label: "Novedades" },
+  { key: "popular", label: "Populares" },
+  { key: "rating", label: "Mejor valoradas" },
+  { key: "title", label: "A–Z" },
+];
+
+const STATUSES = [
+  { key: "ongoing", label: "En curso" },
+  { key: "completed", label: "Completada" },
+  { key: "hiatus", label: "En pausa" },
+  { key: "cancelled", label: "Cancelada" },
+];
+
+interface Genre {
+  id: string;
+  name: string;
+}
+
 export default function ExplorarPage() {
   const [series, setSeries] = useState<ExternalSeries[] | null>(null);
   const [lang, setLang] = useState("es");
@@ -27,10 +46,24 @@ export default function ExplorarPage() {
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState(false);
+  const [order, setOrder] = useState("latest");
+  const [status, setStatus] = useState<string[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/externo/generos")
+      .then((r) => r.json())
+      .then((d) => Array.isArray(d) && setGenres(d))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     setError(false);
-    const params = new URLSearchParams({ lang, offset: String(offset) });
+    const params = new URLSearchParams({ lang, offset: String(offset), order });
+    for (const s of status) params.append("status", s);
+    for (const g of selectedGenres) params.append("tag", g);
     if (search.trim()) params.set("q", search.trim());
     try {
       const res = await fetch(`/api/externo/series?${params}`);
@@ -42,7 +75,7 @@ export default function ExplorarPage() {
       setError(true);
       setSeries([]);
     }
-  }, [lang, search, offset]);
+  }, [lang, search, offset, order, status, selectedGenres]);
 
   useEffect(() => {
     setSeries(null);
@@ -50,10 +83,16 @@ export default function ExplorarPage() {
     return () => clearTimeout(t);
   }, [load, search]);
 
-  // cambiar idioma o búsqueda vuelve a la primera página
+  // cambiar cualquier filtro vuelve a la primera página
   useEffect(() => {
     setOffset(0);
-  }, [lang, search]);
+  }, [lang, search, order, status, selectedGenres]);
+
+  function toggleIn(list: string[], value: string, set: (v: string[]) => void) {
+    set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  }
+
+  const activeFilters = status.length + selectedGenres.length;
 
   const page = Math.floor(offset / 24) + 1;
   const lastPage = Math.max(1, Math.ceil(Math.min(total, 9500) / 24));
@@ -80,6 +119,31 @@ export default function ExplorarPage() {
             </button>
           ))}
         </div>
+        <select
+          value={order}
+          onChange={(e) => setOrder(e.target.value)}
+          disabled={Boolean(search.trim())}
+          className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent disabled:opacity-40"
+          title={search.trim() ? "Al buscar, el orden es por relevancia" : "Ordenar por"}
+        >
+          {ORDERS.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+            activeFilters > 0
+              ? "border-accent bg-[var(--accent-soft)] text-accent"
+              : "border-line text-subtle hover:text-ink"
+          }`}
+        >
+          Filtros {activeFilters > 0 ? `(${activeFilters})` : ""}
+        </button>
+
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -87,6 +151,66 @@ export default function ExplorarPage() {
           className="ml-auto w-full max-w-sm rounded-xl border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
         />
       </div>
+
+      {showFilters && (
+        <Surface className="space-y-5 p-5">
+          <div>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              Estado
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {STATUSES.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => toggleIn(status, s.key, setStatus)}
+                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                    status.includes(s.key)
+                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      : "border-line text-subtle hover:text-ink"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {genres.length > 0 && (
+            <div>
+              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+                Géneros
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {genres.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => toggleIn(selectedGenres, g.id, setSelectedGenres)}
+                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                      selectedGenres.includes(g.id)
+                        ? "border-accent bg-[var(--accent-soft)] text-accent"
+                        : "border-line text-subtle hover:text-ink"
+                    }`}
+                  >
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeFilters > 0 && (
+            <button
+              onClick={() => {
+                setStatus([]);
+                setSelectedGenres([]);
+              }}
+              className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+            >
+              ✕ Limpiar filtros
+            </button>
+          )}
+        </Surface>
+      )}
 
       {error && (
         <Surface className="p-6 text-center text-sm text-subtle">

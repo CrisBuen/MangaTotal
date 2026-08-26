@@ -1,7 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { ExternalReader } from "@/components/reader/ExternalReader";
-import { mdFetch, publicChapter, type MdChapter } from "@/lib/mangadex";
+import {
+  LANG_GROUPS,
+  groupChaptersByNumber,
+  mdFetch,
+  publicChapter,
+  type MdChapter,
+} from "@/lib/mangadex";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -54,6 +60,50 @@ export default async function LeerExternoPage(props: {
 
   if (pages.length === 0) notFound();
 
+  // capítulos vecinos: se calculan sobre la lista agrupada por número, así
+  // "siguiente" siempre cae en una versión legible (nunca una rota o vacía)
+  let prevChapter: { id: string; number: string | null } | null = null;
+  let nextChapter: { id: string; number: string | null } | null = null;
+
+  if (seriesId) {
+    try {
+      const langs = LANG_GROUPS[chapter.lang.startsWith("es") ? "es" : "en"] ?? LANG_GROUPS.es;
+      const all: MdChapter[] = [];
+      for (let offset = 0; offset < 500; offset += 100) {
+        const qs = new URLSearchParams();
+        qs.set("limit", "100");
+        qs.set("offset", String(offset));
+        qs.set("manga", seriesId);
+        qs.set("order[chapter]", "asc");
+        qs.append("includes[]", "scanlation_group");
+        for (const l of langs) qs.append("translatedLanguage[]", l);
+        for (const r of ["safe", "suggestive", "erotica", "pornographic"]) {
+          qs.append("contentRating[]", r);
+        }
+        const page = await mdFetch<{ data: MdChapter[]; total: number }>(
+          `/chapter?${qs.toString()}`,
+          120
+        );
+        all.push(...page.data);
+        if (all.length >= page.total) break;
+      }
+
+      const entries = groupChaptersByNumber(all.map(publicChapter));
+      // el capítulo abierto puede ser una versión alternativa: se ubica por número
+      const index = entries.findIndex(
+        (e) => e.versions.some((v) => v.id === chapterId) || e.number === chapter.number
+      );
+      if (index >= 0) {
+        const before = entries[index - 1];
+        const after = entries[index + 1];
+        if (before) prevChapter = { id: before.chosen.id, number: before.number };
+        if (after) nextChapter = { id: after.chosen.id, number: after.number };
+      }
+    } catch {
+      // sin vecinos: el lector muestra solo "volver a la serie"
+    }
+  }
+
   return (
     <ExternalReader
       chapter={{
@@ -64,6 +114,8 @@ export default async function LeerExternoPage(props: {
       }}
       seriesId={seriesId}
       pages={pages}
+      prevChapter={prevChapter}
+      nextChapter={nextChapter}
       initialMode={user.preferredReadingMode === "rtl" ? "rtl" : "cascade"}
     />
   );

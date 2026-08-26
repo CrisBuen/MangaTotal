@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect } from "react";
+import { retryThroughProxy } from "./pageImage";
 import type { ChapterLink, ReaderPage } from "./types";
 
 /**
@@ -73,6 +74,8 @@ export function RtlReader({
         alt={`Página ${page.pageNumber}`}
         className="max-h-[calc(100vh-5.5rem)] w-auto max-w-full select-none object-contain"
         draggable={false}
+        referrerPolicy="no-referrer"
+        onError={(e) => retryThroughProxy(e.currentTarget)}
       />
 
       {/* zonas de click: derecha = siguiente, izquierda = anterior */}

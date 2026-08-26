@@ -110,6 +110,64 @@ export function publicManga(m: MdManga) {
   };
 }
 
+export type PublicChapter = ReturnType<typeof publicChapter>;
+
+/** Un número de capítulo con todas las versiones que lo tradujeron. */
+export interface ChapterEntry {
+  number: string | null;
+  /** Versión elegida por defecto (grupo más constante en la serie). */
+  chosen: PublicChapter;
+  versions: PublicChapter[];
+}
+
+/**
+ * MangaDex publica el mismo capítulo traducido por varios grupos. Para que
+ * la lista sea legible y "siguiente capítulo" nunca caiga en una versión
+ * rota, se agrupa por número y se elige una versión por defecto:
+ * la del grupo que más capítulos tradujo de esa serie (el más constante),
+ * descartando siempre las versiones sin páginas o alojadas fuera.
+ */
+export function groupChaptersByNumber(chapters: PublicChapter[]): ChapterEntry[] {
+  const readable = chapters.filter((c) => !c.external_url && c.pages > 0);
+
+  const groupWeight = new Map<string, number>();
+  for (const c of readable) {
+    const key = c.group ?? "?";
+    groupWeight.set(key, (groupWeight.get(key) ?? 0) + 1);
+  }
+
+  const byNumber = new Map<string, PublicChapter[]>();
+  for (const c of readable) {
+    const key = c.number ?? "?";
+    const list = byNumber.get(key);
+    if (list) list.push(c);
+    else byNumber.set(key, [c]);
+  }
+
+  const entries: ChapterEntry[] = [];
+  for (const [number, versions] of byNumber) {
+    versions.sort((a, b) => {
+      const w = (groupWeight.get(b.group ?? "?") ?? 0) - (groupWeight.get(a.group ?? "?") ?? 0);
+      if (w !== 0) return w;
+      // a igual constancia, la versión más completa
+      if (b.pages !== a.pages) return b.pages - a.pages;
+      return b.published_at.localeCompare(a.published_at);
+    });
+    entries.push({ number: number === "?" ? null : number, chosen: versions[0], versions });
+  }
+
+  entries.sort((a, b) => {
+    const na = parseFloat(a.number ?? "");
+    const nb = parseFloat(b.number ?? "");
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+    if (Number.isFinite(na)) return -1;
+    if (Number.isFinite(nb)) return 1;
+    return 0;
+  });
+
+  return entries;
+}
+
 export function publicChapter(c: MdChapter) {
   const group = c.relationships.find((r) => r.type === "scanlation_group");
   return {

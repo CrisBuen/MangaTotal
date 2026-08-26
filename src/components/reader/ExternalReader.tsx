@@ -21,15 +21,24 @@ interface ExternalChapterInfo {
  * (cascada / RTL, pantalla completa, barra de progreso), pero las páginas
  * vienen de los servidores de MangaDex y no hay progreso persistido.
  */
+interface ExternalChapterLink {
+  id: string;
+  number: string | null;
+}
+
 export function ExternalReader({
   chapter,
   seriesId,
   pages,
+  prevChapter,
+  nextChapter,
   initialMode,
 }: {
   chapter: ExternalChapterInfo;
   seriesId: string | null;
   pages: ReaderPage[];
+  prevChapter?: ExternalChapterLink | null;
+  nextChapter?: ExternalChapterLink | null;
   initialMode: ReadingMode;
 }) {
   const [mode, setMode] = useState<ReadingMode>(initialMode);
@@ -157,6 +166,32 @@ export function ExternalReader({
             seriesSlug=""
             seriesHref={backHref}
           />
+        )}
+      </div>
+
+      {/* navegación entre capítulos: siempre a una versión legible */}
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-3 px-4 pb-12 pt-2">
+        {prevChapter && (
+          <Link
+            href={`/leer-externo/${prevChapter.id}`}
+            className="rounded-xl border border-line bg-panel px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-ink transition hover:border-accent"
+          >
+            ← Capítulo {prevChapter.number ?? "anterior"}
+          </Link>
+        )}
+        <Link
+          href={backHref}
+          className="rounded-xl border border-line px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-subtle transition hover:border-accent hover:text-ink"
+        >
+          Ver capítulos
+        </Link>
+        {nextChapter && (
+          <Link
+            href={`/leer-externo/${nextChapter.id}`}
+            className="rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bg)] transition hover:opacity-90"
+          >
+            Capítulo {nextChapter.number ?? "siguiente"} →
+          </Link>
         )}
       </div>
 

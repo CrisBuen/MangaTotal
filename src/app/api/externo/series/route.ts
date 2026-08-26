@@ -31,11 +31,29 @@ export async function GET(req: NextRequest) {
   qs.append("includes[]", "cover_art");
   for (const l of langs) qs.append("availableTranslatedLanguage[]", l);
   for (const r of allowedRatings(seeAdult)) qs.append("contentRating[]", r);
+
+  // estado de publicación (uno o varios)
+  for (const s of params.getAll("status")) {
+    if (["ongoing", "completed", "hiatus", "cancelled"].includes(s)) {
+      qs.append("status[]", s);
+    }
+  }
+  // géneros: ids de tag de MangaDex
+  for (const t of params.getAll("tag")) {
+    if (/^[0-9a-f-]{36}$/i.test(t)) qs.append("includedTags[]", t);
+  }
+
+  const order = params.get("order") ?? "latest";
   if (q) {
     qs.set("title", q);
   } else {
-    qs.set("order[latestUploadedChapter]", "desc");
     qs.set("hasAvailableChapters", "true");
+  }
+  if (!q) {
+    if (order === "popular") qs.set("order[followedCount]", "desc");
+    else if (order === "rating") qs.set("order[rating]", "desc");
+    else if (order === "title") qs.set("order[title]", "asc");
+    else qs.set("order[latestUploadedChapter]", "desc");
   }
 
   try {
