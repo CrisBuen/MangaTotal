@@ -84,11 +84,13 @@ export function Reader({
   }, []);
 
   // ── pantalla completa ──────────────────────────────────────────────────
+  // pantalla completa sobre el documento, no sobre este contenedor: así
+  // sobrevive al pasar de capítulo (el contenedor se desmonta, el documento no)
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     } else {
-      containerRef.current?.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => {});
     }
   }, []);
 
@@ -98,6 +100,8 @@ export function Reader({
       setIsFullscreen(fs);
       setControlsVisible(!fs ? true : false);
     }
+    // al entrar ya en pantalla completa (venimos del capítulo anterior)
+    onChange();
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
@@ -116,9 +120,7 @@ export function Reader({
   return (
     <div
       ref={containerRef}
-      className={`min-h-screen bg-canvas text-ink ${
-        isFullscreen ? "h-screen overflow-y-auto" : ""
-      }`}
+      className="min-h-screen bg-canvas text-ink"
       data-od-id="reader-shell"
     >
       {/* barra superior del lector */}

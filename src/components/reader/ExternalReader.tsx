@@ -60,9 +60,11 @@ export function ExternalReader({
     }).catch(() => {});
   }, []);
 
+  // pantalla completa sobre el documento, no sobre este contenedor: así
+  // sobrevive al pasar de capítulo (el contenedor se desmonta, el documento no)
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else containerRef.current?.requestFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -71,6 +73,8 @@ export function ExternalReader({
       setIsFullscreen(fs);
       setControlsVisible(!fs);
     }
+    // al entrar ya en pantalla completa (venimos del capítulo anterior)
+    onChange();
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
@@ -89,7 +93,7 @@ export function ExternalReader({
   return (
     <div
       ref={containerRef}
-      className={`min-h-screen bg-canvas text-ink ${isFullscreen ? "h-screen overflow-y-auto" : ""}`}
+      className="min-h-screen bg-canvas text-ink"
     >
       <header
         className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] backdrop-blur transition-opacity ${
