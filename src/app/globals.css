@@ -97,6 +97,12 @@ textarea {
   50% { opacity: 1; }
 }
 
+/* entrada suave de la portada al rotar el destacado del inicio */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 0.7; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

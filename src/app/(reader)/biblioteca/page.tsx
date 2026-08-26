@@ -97,7 +97,6 @@ export default function BibliotecaPage() {
   const showCatalog = filter !== "todo" || selectedTag !== null;
 
   const load = useCallback(async () => {
-    if (!showCatalog) return;
     const params = new URLSearchParams();
     if (filter === "normal" || filter === "adult") params.set("type", filter);
     if (filter === "favoritos") params.set("favorites", "true");
@@ -112,11 +111,17 @@ export default function BibliotecaPage() {
       setSeries([]);
       setSeriesError(true);
     }
-  }, [filter, search, selectedTag, showCatalog]);
+  }, [filter, search, selectedTag]);
 
   function toggleTag(slug: string) {
     setSelectedTag(selectedTag === slug ? null : slug);
   }
+
+  // en Normal/+18 se acota a esa sección; en Todo y Favoritos se ve completo
+  const continuesVisible =
+    filter === "normal" || filter === "adult"
+      ? continues.filter((c) => c.series.type === filter)
+      : continues;
 
   useEffect(() => {
     setSeries(null);
@@ -157,19 +162,96 @@ export default function BibliotecaPage() {
             </button>
           ))}
         </div>
-        {filter !== "todo" && (
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar serie…"
-            className={`sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
-            aria-label="Buscar serie"
-            data-od-id="library-search"
-          />
-        )}
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar serie…"
+          className={`sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
+          aria-label="Buscar serie"
+          data-od-id="library-search"
+        />
       </section>
 
-      {!showCatalog ? (
+      {/* Categorías: destino del enlace "Categorías" del menú */}
+      {tags.length > 0 && (
+        <section id="categorias" className="scroll-mt-28" data-od-id="library-tags">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+              Categorías
+            </h2>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              Explorar
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-panel p-4">
+            {tags.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => toggleTag(t.slug)}
+                className={`min-h-9 border px-3 text-xs transition ${
+                  selectedTag === t.slug
+                    ? "border-accent bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]"
+                    : "border-line bg-transparent text-subtle hover:border-accent hover:text-ink"
+                }`}
+                aria-pressed={selectedTag === t.slug}
+              >
+                {t.name} <span className="font-mono opacity-70">{t.series_count}</span>
+              </button>
+            ))}
+            {selectedTag && (
+              <button
+                onClick={() => toggleTag(selectedTag)}
+                className={buttonStyles({ variant: "ghost", size: "sm" })}
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Continuar leyendo */}
+      {loggedIn && continuesVisible.length > 0 && (
+        <section data-od-id="continue-reading">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+              Continuar leyendo
+            </h2>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              Tu progreso
+            </span>
+          </div>
+          <div className="flex gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5" data-od-id="continue-reading-list">
+            {continuesVisible.map((c) => (
+              <Link
+                key={c.series.id}
+                href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
+                className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  {c.series.cover_image_path && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/images/${c.series.cover_image_path}`}
+                      alt={c.series.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  )}
+                </div>
+                <div className="pt-3">
+                  <p className="truncate font-display text-lg font-semibold text-ink">{c.series.title}</p>
+                  <p className="mt-1 font-mono text-[10px] text-subtle">
+                    Cap. {c.chapter.number} · pág. {c.lastPageNumber}/{c.chapter.page_count}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!showCatalog && (
         <>
           <section data-od-id="library-news">
             <div className="mb-6 flex items-end justify-between gap-4">
@@ -229,76 +311,17 @@ export default function BibliotecaPage() {
             </Surface>
           )}
         </>
-      ) : (
-        <>
-          {tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-panel p-4" data-od-id="library-tags">
-              <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Etiquetas</span>
-              {tags.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => toggleTag(t.slug)}
-                  className={`min-h-9 border px-3 text-xs transition ${
-                    selectedTag === t.slug
-                      ? "border-accent bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]"
-                      : "border-line bg-transparent text-subtle hover:border-accent hover:text-ink"
-                  }`}
-                  aria-pressed={selectedTag === t.slug}
-                >
-                  {t.name} <span className="font-mono opacity-70">{t.series_count}</span>
-                </button>
-              ))}
-              {selectedTag && (
-                <button
-                  onClick={() => toggleTag(selectedTag)}
-                  className={buttonStyles({ variant: "ghost", size: "sm" })}
-                >
-                  Limpiar
-                </button>
-              )}
-            </div>
-          )}
+      )}
 
-          {/* "Continuar leyendo" vive dentro de su catálogo (Normal o +18), nunca en Todo */}
-          {loggedIn &&
-            (filter === "normal" || filter === "adult") &&
-            continues.some((c) => c.series.type === filter) && (
-              <section>
-                <div className="mb-5 flex items-end justify-between gap-4">
-                  <h2 className="font-display text-4xl font-black uppercase leading-none text-ink">Continuar leyendo</h2>
-                  <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-subtle">Tu progreso</span>
-                </div>
-                <div className="flex gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5" data-od-id="continue-reading-list">
-                  {continues
-                    .filter((c) => c.series.type === filter)
-                    .map((c) => (
-                      <Link
-                        key={c.series.id}
-                        href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
-                        className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                      >
-                        <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
-                          {c.series.cover_image_path && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={`/api/images/${c.series.cover_image_path}`}
-                              alt={c.series.title}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          )}
-                        </div>
-                        <div className="pt-3">
-                          <p className="truncate font-display text-lg font-semibold text-ink">{c.series.title}</p>
-                          <p className="mt-1 font-mono text-[10px] text-subtle">
-                            Cap. {c.chapter.number} · pág. {c.lastPageNumber}/{c.chapter.page_count}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                </div>
-              </section>
-            )}
+      <section data-od-id="library-catalog">
+        <div className="mb-5 flex items-end justify-between gap-4">
+            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+              {showCatalog ? "Catálogo" : "Últimas actualizaciones"}
+            </h2>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              MangaTotal
+            </span>
+          </div>
 
           {series === null ? (
             <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:grid-cols-5" aria-label="Cargando catálogo">
@@ -337,8 +360,7 @@ export default function BibliotecaPage() {
               ))}
             </div>
           )}
-        </>
-      )}
+      </section>
     </div>
   );
 }

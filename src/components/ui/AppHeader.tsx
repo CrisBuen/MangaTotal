@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { buttonStyles } from "./Button";
 import { HeaderNavLink } from "./HeaderNavLink";
-import { HeaderSearch } from "./HeaderSearch";
 import { LogoutButton } from "./LogoutButton";
 import { RandomSeriesButton } from "./RandomSeriesButton";
 
@@ -33,7 +32,7 @@ export function AppHeader({
           { href: "/", label: "Inicio", exact: true },
           { href: "/biblioteca", label: "Biblioteca", exact: true },
           { href: "/explorar", label: "Explorar" },
-          { href: "/#categorias", label: "Categorías" },
+          { href: "/biblioteca#categorias", label: "Categorías" },
           { href: "/#noticias", label: "Noticias" },
         ];
 
@@ -79,7 +78,6 @@ export function AppHeader({
         </nav>
 
         <div className="ml-auto flex min-h-11 items-center gap-1.5" data-od-id="account-actions">
-          {mode !== "admin" && <HeaderSearch />}
           {mode === "admin" && (
             <Link href="/" className={buttonStyles({ variant: "ghost", size: "sm" })}>
               <span className="sm:hidden">Sitio</span>

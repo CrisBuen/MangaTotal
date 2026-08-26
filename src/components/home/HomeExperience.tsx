@@ -31,12 +31,16 @@ interface Me {
   show_adult_content?: boolean;
 }
 
+/** Cada cuánto cambia la serie destacada del inicio. */
+const HERO_ROTATION_MS = 6000;
+
 export function HomeExperience() {
   const [series, setSeries] = useState<HomeSeries[] | null>(null);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[] | null>(null);
   const [me, setMe] = useState<Me>({});
   const [catalogError, setCatalogError] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -66,17 +70,24 @@ export function HomeExperience() {
     });
   }, []);
 
-  const featured = series?.[0] ?? null;
-  const categories = useMemo(() => {
-    const map = new Map<string, { name: string; slug: string; count: number }>();
-    for (const item of series ?? []) {
-      for (const tag of item.tags ?? []) {
-        const current = map.get(tag.slug);
-        map.set(tag.slug, { name: tag.name, slug: tag.slug, count: (current?.count ?? 0) + 1 });
-      }
-    }
-    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 10);
-  }, [series]);
+  // el hero rota entre las series propias más recientes, una cada 6 s
+  const highlights = useMemo(() => (series ?? []).slice(0, 6), [series]);
+
+  useEffect(() => {
+    if (highlights.length < 2) return;
+    const timer = setInterval(
+      () => setHighlightIndex((index) => (index + 1) % highlights.length),
+      HERO_ROTATION_MS
+    );
+    return () => clearInterval(timer);
+  }, [highlights.length]);
+
+  // si el catálogo se acorta, no quedar apuntando fuera de rango
+  useEffect(() => {
+    setHighlightIndex((index) => (index < highlights.length ? index : 0));
+  }, [highlights.length]);
+
+  const featured = highlights[highlightIndex] ?? null;
 
   return (
     <div className="space-y-20 sm:space-y-24" data-od-id="home-page">
@@ -88,9 +99,10 @@ export function HomeExperience() {
           <div className="absolute inset-y-0 right-0 w-full md:w-[58%]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              key={featured.id}
               src={`/api/images/${featured.cover_image_path}`}
               alt={featured.title}
-              className="h-full w-full object-cover object-center opacity-70"
+              className="h-full w-full animate-[fadeIn_600ms_ease-out] object-cover object-center opacity-70"
             />
           </div>
         )}
@@ -131,10 +143,28 @@ export function HomeExperience() {
                 <Link href={`/serie/${featured.slug}`} className={buttonStyles({ variant: "primary" })} data-od-id="hero-series-cta">
                   Ver serie
                 </Link>
-                <Link href="/biblioteca?f=normal" className={buttonStyles({ variant: "secondary" })}>
+                <Link href="/biblioteca" className={buttonStyles({ variant: "secondary" })}>
                   Explorar catálogo
                 </Link>
               </div>
+
+              {highlights.length > 1 && (
+                <div className="mt-8 flex items-center gap-2" data-od-id="hero-dots">
+                  {highlights.map((item, index) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setHighlightIndex(index)}
+                      aria-label={`Ver ${item.title}`}
+                      aria-current={index === highlightIndex}
+                      className={`h-1.5 rounded-full transition-all ${
+                        index === highlightIndex
+                          ? "w-8 bg-accent shadow-[var(--glow)]"
+                          : "w-3 bg-[var(--surface-raised)] hover:bg-subtle"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -152,73 +182,6 @@ export function HomeExperience() {
             </>
           )}
         </div>
-      </section>
-
-      <section data-od-id="home-latest">
-        <SectionTitle eyebrow="Catálogo" title="Últimas actualizaciones" href="/biblioteca?f=normal" />
-        {series === null ? (
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="aspect-[2/3]" />)}
-          </div>
-        ) : series.length === 0 ? (
-          <EmptyState title="No hay series publicadas" description="Las series disponibles aparecerán aquí automáticamente." />
-        ) : (
-          <div className="flex snap-x gap-5 overflow-x-auto pb-5">
-            {series.slice(0, 10).map((item) => (
-              <div key={item.id} className="w-[min(68vw,14rem)] shrink-0 snap-start sm:w-52">
-                <SeriesCard series={item} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {continues.length > 0 && (
-        <section data-od-id="home-continue-reading">
-          <SectionTitle eyebrow="Tu progreso" title="Continuar leyendo" href="/biblioteca?f=normal" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {continues.slice(0, 6).map((item) => (
-              <Link
-                key={`${item.series.id}-${item.chapter.id}`}
-                href={`/leer/${item.chapter.id}?page=${item.lastPageNumber}`}
-                className="group flex min-h-32 overflow-hidden rounded-2xl border border-line bg-panel transition hover:border-accent hover:shadow-[var(--glow)]"
-              >
-                <div className="w-24 shrink-0 bg-[var(--surface-raised)]">
-                  {item.series.cover_image_path && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={`/api/images/${item.series.cover_image_path}`} alt={item.series.title} className="h-full w-full object-cover" />
-                  )}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-center p-4">
-                  <p className="truncate font-display text-lg font-bold text-ink group-hover:text-accent">{item.series.title}</p>
-                  <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-subtle">
-                    Cap. {item.chapter.number} · pág. {item.lastPageNumber}/{item.chapter.page_count}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section id="categorias" data-od-id="home-categories">
-        <SectionTitle eyebrow="Explorar" title="Categorías" href="/biblioteca?f=normal" />
-        {categories.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {categories.map((category) => (
-              <Link
-                key={category.slug}
-                href={`/biblioteca?tag=${encodeURIComponent(category.slug)}`}
-                className="group flex min-h-24 items-center justify-between rounded-2xl border border-line bg-panel px-5 transition hover:border-accent hover:bg-[var(--accent-soft)]"
-              >
-                <span className="font-display text-lg font-bold text-ink group-hover:text-accent">{category.name}</span>
-                <span className="font-mono text-[10px] text-subtle">{category.count}</span>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <EmptyState title="Sin categorías disponibles" description="Las etiquetas asignadas a las series aparecerán en esta sección." />
-        )}
       </section>
 
       <section className="grid gap-5 md:grid-cols-2" data-od-id="home-library-access">
