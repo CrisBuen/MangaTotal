@@ -38,19 +38,48 @@ REPORTAR EL ARCHIVO A MICROSOFT COMO FALSO POSITIVO.
 
   1. Entrar a:  https://www.microsoft.com/en-us/wdsi/filesubmission
   2. Elegir "Software developer" (desarrollador de software).
-  3. Subir el archivo  public/descargas/MangaTotal-windows-setup.exe
-  4. En el motivo, marcar "Incorrectly detected" (detección incorrecta).
-  5. En la descripción, algo así:
+  3. Subir el archivo:
+        D:\Pagina Web mangastotal\public\descargas\MangaTotal-windows-setup.exe
 
-       MangaTotal is an open-source manga reader built with Tauri.
-       Source code: https://github.com/CrisBuen/MangaTotal
-       The installer is detected as malware but contains no malicious code.
+  4. En "¿Qué crees que es este archivo?" marcar la SEGUNDA opción:
+        "Detectado incorrectamente como malware/malicioso"
 
-  6. Enviar.
+     OJO: NO marcar la de PUA. Defender lo detecta como troyano, no como
+     PUA, y si se elige la categoría equivocada el analista busca otra
+     cosa y rechaza el reporte.
+
+  5. Completar los dos campos con los datos de la detección:
+
+        Nombre de detección   ->  Trojan:Win32/Wacatac.B!ml
+        Versión de definición ->  (la de tu Defender, ver más abajo)
+
+  6. En "Información adicional" pegar el texto en inglés que está al final
+     de este archivo.
+
+  7. Enviar.
 
 Microsoft suele responder en 24 a 72 horas y saca la detección. Hay que
 volver a reportarlo cada vez que se publica un instalador nuevo, porque la
 detección va por el archivo exacto, no por el programa.
+
+
+---------------------------------------------------------------------------
+CÓMO SACAR LOS DATOS DE LA DETECCIÓN
+---------------------------------------------------------------------------
+
+Abrir PowerShell y pegar esto:
+
+    Get-MpThreat | Select-Object ThreatID, ThreatName
+    Get-MpComputerStatus | Select-Object AntivirusSignatureVersion
+
+Lo primero da el nombre de la detección; lo segundo, la versión de
+definición. Si el historial está vacío, primero hay que descargar el
+instalador de nuevo para que Defender lo vuelva a marcar.
+
+Qué significa el nombre: el "!ml" del final quiere decir que lo detectó un
+modelo de machine learning, o sea una corazonada, no la firma de un virus
+concreto. "Wacatac.B!ml" es la detección genérica más común de Defender
+para instaladores nuevos sin firmar. Conviene decirlo en el reporte.
 
 
 ---------------------------------------------------------------------------
@@ -106,4 +135,38 @@ LO QUE YA SE HIZO DE ESTE LADO
   ganada se perdería en cada versión.
 
 Lo que falta, y no se puede resolver con código, es la firma.
+
+
+---------------------------------------------------------------------------
+TEXTO PARA "INFORMACIÓN ADICIONAL" (copiar y pegar, va en inglés)
+---------------------------------------------------------------------------
+
+MangaTotal is an open-source manga reader for Windows. I am its developer.
+
+The installer is detected as Trojan:Win32/Wacatac.B!ml. This is a false
+positive: the file contains no malicious code.
+
+Details:
+- Public source code: https://github.com/CrisBuen/MangaTotal
+- Official download: https://manga-total.vercel.app/descargas/MangaTotal-windows-setup.exe
+- Built with Tauri 2 (Rust), packaged with NSIS, compiled from the source
+  above.
+
+What the application does: it opens a WebView window that loads
+https://manga-total.vercel.app, and it can download its own updates from
+that same domain. It does not modify system files, does not persist
+outside its installation folder, and does not contact any host other than
+manga-total.vercel.app and the manga sources the user explicitly opens.
+
+The detection appears to be a generic machine-learning heuristic (the !ml
+suffix) triggered because the installer is not yet signed with a code
+signing certificate. Please re-evaluate. Thank you.
+
+---------------------------------------------------------------------------
+
+Antes de enviar, agregarle al texto de arriba la línea del hash del
+instalador que se está subiendo. Se saca así:
+
+    Get-FileHash "D:\Pagina Web mangastotal\public\descargas\MangaTotal-windows-setup.exe" -Algorithm SHA256
+
 ===========================================================================
