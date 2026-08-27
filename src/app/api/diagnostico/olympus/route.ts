@@ -7,9 +7,13 @@ import { NextResponse } from "next/server";
  */
 export const dynamic = "force-dynamic";
 
+const SLUG = "academia-de-la-ascension-20260826-110500580";
+
 const PRUEBAS = [
   "https://olympusxyz.com/api/series?page=1",
-  "https://olympusxyz.com/api/series?page=1&type=comic",
+  `https://olympusxyz.com/api/series/${SLUG}`,
+  `https://panel.olympusxyz.com/api/series/${SLUG}/chapters?page=1`,
+  "https://media.imagesolymp.xyz/comics/226/132212/0.webp",
 ];
 
 export async function GET() {
@@ -26,19 +30,20 @@ export async function GET() {
         cache: "no-store",
       });
       const texto = await res.text();
-      let series = null;
+      let elementos = null;
       try {
         const json = JSON.parse(texto);
-        series = json?.data?.series?.data?.length ?? null;
+        const d = json?.data?.series?.data ?? json?.data;
+        elementos = Array.isArray(d) ? d.length : d ? Object.keys(d).length : null;
       } catch {
-        // respuesta no-JSON: probablemente un desafío de Cloudflare
+        // no-JSON: puede ser una imagen o un desafío de Cloudflare
       }
       resultados.push({
         url,
         status: res.status,
         ms: Date.now() - inicio,
         contentType: res.headers.get("content-type"),
-        seriesRecibidas: series,
+        elementos,
         muestra: texto.slice(0, 160),
       });
     } catch (err) {
