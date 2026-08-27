@@ -27,6 +27,9 @@ export function OlympusReader({
   prevChapter,
   nextChapter,
   initialMode,
+  source = "olympus",
+  hrefVolver,
+  hrefCapitulo,
 }: {
   chapter: { id: number; name: string; urlOriginal: string };
   serie: { slug: string; tipo: string; urlOriginal: string };
@@ -35,6 +38,11 @@ export function OlympusReader({
   prevChapter: Vecino | null;
   nextChapter: Vecino | null;
   initialMode: ReadingMode;
+  /** Fuente, para guardar el progreso en la biblioteca. */
+  source?: "olympus" | "tmo";
+  /** Enlaces propios de la fuente; por defecto, los de Olympus. */
+  hrefVolver?: string;
+  hrefCapitulo?: (id: number) => string;
 }) {
   const [mode, setMode] = useState<ReadingMode>(initialMode);
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,15 +50,16 @@ export function OlympusReader({
   const [controlsVisible, setControlsVisible] = useState(true);
 
   useProgresoExterno({
-    source: "olympus",
+    source,
     externalId: serie.slug,
     chapterId: String(chapter.id),
     chapterName: chapter.name,
   });
 
-  const volverHref = `/externo/olympus/${serie.slug}`;
-  const capituloHref = (id: number) =>
-    `/leer-externo/olympus/${id}?slug=${serie.slug}&tipo=${serie.tipo}`;
+  const volverHref = hrefVolver ?? `/externo/olympus/${serie.slug}`;
+  const capituloHref =
+    hrefCapitulo ??
+    ((id: number) => `/leer-externo/olympus/${id}?slug=${serie.slug}&tipo=${serie.tipo}`);
 
   const changeMode = useCallback((next: ReadingMode) => {
     setMode(next);

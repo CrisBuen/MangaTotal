@@ -1,0 +1,112 @@
+===========================================================================
+ ZONATMO EN MANGATOTAL — CÓMO FUNCIONA Y QUÉ HACER SI CAMBIA
+===========================================================================
+
+ZonaTMO está integrada con su permiso. Su nombre y un enlace a su sitio
+aparecen en cada serie y en cada capítulo.
+
+
+---------------------------------------------------------------------------
+POR QUÉ SOLO FUNCIONA EN LAS APPS (Android y Windows)
+---------------------------------------------------------------------------
+
+El servidor de ZonaTMO bloquea las peticiones que vienen de centros de
+datos: desde los servidores de Vercel todo responde 403, incluidas sus
+imágenes. Comprobado que el bloqueo es SOLO por IP — desde una conexión
+hogareña responde bien con cualquier programa (curl, python, un navegador).
+
+Por eso MangaTotal pide las páginas desde el dispositivo de cada persona:
+
+  · Android  -> puente nativo de Capacitor (CapacitorHttp)
+  · Windows  -> puente nativo de Tauri (plugin http)
+  · Web      -> NO disponible: el navegador no puede leer otro sitio (CORS)
+
+Es el mismo enfoque que usa Mihon, y es lo que ZonaTMO indicó por correo.
+
+En la web, la fuente "ZonaTMO" ni siquiera aparece en el selector de
+Explorar. Eso es a propósito.
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN DE DOMINIO
+---------------------------------------------------------------------------
+
+PASO 1. Editar UNA línea en:
+
+  src/lib/zonatmo.ts
+
+     export const TMO_WEB = "https://zonatmo.org";
+
+  Cambiar por el dominio nuevo, sin barra final.
+
+PASO 2. Permitir el dominio nuevo en la app de Windows.
+
+  Editar:  desktop/src-tauri/capabilities/default.json
+
+  y cambiar las dos líneas con "zonatmo.org" por el dominio nuevo:
+
+     { "url": "https://DOMINIO-NUEVO/*" },
+     { "url": "https://SERVIDOR-DE-IMAGENES/*" }
+
+  (El servidor de imágenes hoy es storage2.zonatmo.org. Para saber el nuevo:
+   abrí un capítulo en su web, clic derecho sobre una página -> "Abrir imagen
+   en pestaña nueva" y mirá el dominio.)
+
+PASO 3. Recompilar las dos apps y publicarlas:
+
+  # Windows
+  cd "D:\Pagina Web mangastotal\desktop"
+  npm run build
+  Copy-Item src-tauri\target\release\bundle\nsis\MangaTotal_0.1.0_x64-setup.exe `
+    ..\public\descargas\MangaTotal-windows-setup.exe -Force
+
+  # Android  (subir antes el número de versión, ver mobile/README.md)
+  cd "D:\Pagina Web mangastotal\mobile"
+  npx cap sync android
+  npm run patch
+  $env:JAVA_HOME = "$env:USERPROFILE\.jdks\jdk-21.0.12.1+1"
+  cd android; .\gradlew.bat assembleDebug; cd ..
+  Copy-Item android\app\build\outputs\apk\debug\app-debug.apk `
+    ..\public\descargas\MangaTotal-android.apk -Force
+
+PASO 4. git add -A ; git commit -m "Nuevo dominio de ZonaTMO" ; git push
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN EL DISEÑO DE SU SITIO
+---------------------------------------------------------------------------
+
+La lectura se hace interpretando su HTML, así que un rediseño puede
+romperla. Todo lo que hay que ajustar está junto en src/lib/zonatmo.ts:
+
+  Catálogo   -> /biblioteca?page=N
+               tarjetas:  #library-grid .element
+               enlace:    a[href]  (formato /library/{tipo}/{id}/{slug})
+               título:    h4[title]
+               portada:   img
+
+  Ficha      -> /library/{tipo}/{id}/{slug}
+               título:      h1.element-title
+               portada:     img.book-thumbnail
+               sinopsis:    .element-description
+               capítulos:   a[href*="/view_uploads/"]
+               número:      [data-chapter-number]
+
+  Capítulo   -> /view_uploads/{id}
+               páginas:     .reader-img-wrap img
+
+Para ver si algo cambió: abrí la página en Chrome, F12, y probá el selector
+en la consola, por ejemplo:
+
+  document.querySelectorAll('#library-grid .element').length
+
+
+---------------------------------------------------------------------------
+RECORDATORIOS
+---------------------------------------------------------------------------
+
+- La integración existe porque ZonaTMO dio su permiso. No sacar su nombre
+  ni los enlaces a su sitio.
+- No se aloja nada: las imágenes se cargan desde sus servidores.
+- Avisarles cuando la app esté publicada, como pidieron.
+===========================================================================

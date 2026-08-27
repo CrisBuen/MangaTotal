@@ -1,7 +1,19 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permisos base de la ventana principal",
+  "description": "Permisos de la ventana principal",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "remote": {
+    "urls": ["https://manga-total.vercel.app"]
+  },
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://zonatmo.org/*" },
+        { "url": "https://storage2.zonatmo.org/*" }
+      ]
+    }
+  ]
 }

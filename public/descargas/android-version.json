@@ -1,14 +1,14 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2",
+  "versionCode": 4,
+  "versionName": "1.3",
   "date": "2026-08-26",
   "apkUrl": "/descargas/MangaTotal-android.apk",
   "sizeMb": 4,
   "changes": [
-    "La actualización se descarga e instala dentro de la app, sin abrir el navegador",
-    "El gesto de atrás vuelve a la pantalla anterior en vez de cerrar la app",
-    "La sección +18 ahora viene desactivada al crear la cuenta",
-    "Nueva barra de navegación inferior, pensada para pantallas grandes"
+    "Nueva fuente: ZonaTMO, integrada con su permiso",
+    "Guardá series externas en tu biblioteca y seguí el progreso",
+    "Olympus: nuevos lanzamientos con todo su catálogo y filtros por género",
+    "Correcciones al leer capítulos de fuentes externas"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
