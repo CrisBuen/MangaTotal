@@ -1,15 +1,14 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1",
+  "versionCode": 3,
+  "versionName": "1.2",
   "date": "2026-08-26",
   "apkUrl": "/descargas/MangaTotal-android.apk",
   "sizeMb": 4,
   "changes": [
+    "La actualización se descarga e instala dentro de la app, sin abrir el navegador",
     "El gesto de atrás vuelve a la pantalla anterior en vez de cerrar la app",
-    "Nueva barra de navegación inferior, pensada para pantallas grandes",
-    "Arreglada la pantalla de inicio, que a veces no cargaba en el celular",
-    "La portada destacada ya no tapa el título en pantallas angostas",
-    "El botón de actualizar ahora descarga la app correctamente"
+    "La sección +18 ahora viene desactivada al crear la cuenta",
+    "Nueva barra de navegación inferior, pensada para pantallas grandes"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

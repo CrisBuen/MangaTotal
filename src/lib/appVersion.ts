@@ -65,5 +65,10 @@ export function isDismissed(versionCode: number): boolean {
  * enlaces en el navegador del sistema, que sí sabe descargar el APK.
  */
 export function downloadUrlFor(release: AndroidRelease, inApp: boolean): string {
-  return inApp && release.apkExternalUrl ? release.apkExternalUrl : release.apkUrl;
+  if (!inApp) return release.apkUrl;
+  // Desde la versión 3 la app descarga e instala por su cuenta, así que
+  // conviene el enlace del propio sitio. Las anteriores no sabían descargar:
+  // para esas se usa el dominio externo, que Capacitor manda al navegador.
+  if (installedVersionCode() >= 3) return release.apkUrl;
+  return release.apkExternalUrl ?? release.apkUrl;
 }

@@ -47,11 +47,9 @@ export async function POST(req: NextRequest) {
   const isAdmin = userCount === 0;
 
   // Precarga de la preferencia +18 según edad (dato personal, no gate legal)
-  let showAdultContent = false;
-  if (birthdate) {
-    const age = (Date.now() - birthdate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-    showAdultContent = age >= 18;
-  }
+  // La sección +18 siempre arranca apagada, incluso para mayores de edad:
+  // se activa a mano desde el perfil (requisito de las tiendas de apps).
+  const showAdultContent = false;
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await db.user.create({

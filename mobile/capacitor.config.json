@@ -11,7 +11,7 @@
     "backgroundColor": "#0a0a0f",
     "allowMixedContent": false,
     "webContentsDebuggingEnabled": false,
-    "appendUserAgent": "MangaTotalApp/2"
+    "appendUserAgent": "MangaTotalApp/3"
   },
   "plugins": {
     "StatusBar": {

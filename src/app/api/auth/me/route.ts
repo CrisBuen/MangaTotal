@@ -34,6 +34,22 @@ export async function PATCH(req: NextRequest) {
 
   const data: { showAdultContent?: boolean; preferredReadingMode?: string } = {};
   if (typeof body.show_adult_content === "boolean") {
+    // encenderla exige fecha de nacimiento cargada y 18 años cumplidos
+    if (body.show_adult_content) {
+      if (!user.birthdate) {
+        return NextResponse.json(
+          { error: "Agregá tu fecha de nacimiento para activar esta sección" },
+          { status: 403 }
+        );
+      }
+      const years = (Date.now() - user.birthdate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+      if (years < 18) {
+        return NextResponse.json(
+          { error: "Esta sección es solo para mayores de 18 años" },
+          { status: 403 }
+        );
+      }
+    }
     data.showAdultContent = body.show_adult_content;
   }
   if (body.preferred_reading_mode !== undefined) {

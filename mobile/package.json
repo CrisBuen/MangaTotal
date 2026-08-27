@@ -8,7 +8,7 @@
     "sync": "cap sync android",
     "open": "cap open android",
     "build:apk": "cd android && gradlew.bat assembleRelease",
-    "patch": "node -e \"require('fs').copyFileSync('patches/MainActivity.java','android/app/src/main/java/app/mangatotal/android/MainActivity.java')\""
+    "patch": "node scripts/patch.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0"
