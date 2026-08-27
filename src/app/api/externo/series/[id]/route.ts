@@ -39,9 +39,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
     }
 
-    // los capítulos vienen paginados de a 100; traemos hasta 500
+    // Los capítulos vienen paginados de a 100 y se recorren todos: una serie
+    // larga tiene que llegar hasta su último capítulo, no cortarse por la
+    // mitad. El total lo dice la propia respuesta.
     const chapters: MdChapter[] = [];
-    for (let offset = 0; offset < 500; offset += 100) {
+    let totalCapitulos = Infinity;
+    for (let offset = 0; offset < totalCapitulos; offset += 100) {
       const qs = new URLSearchParams();
       qs.set("limit", "100");
       qs.set("offset", String(offset));
@@ -57,8 +60,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         `/chapter?${qs.toString()}`,
         120
       );
+      totalCapitulos = page.total;
       chapters.push(...page.data);
-      if (chapters.length >= page.total) break;
+      // si deja de mandar datos, no hay más que traer
+      if (page.data.length === 0) break;
     }
 
     const all = chapters.map(publicChapter);

@@ -32,8 +32,6 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
   const { slug } = use(props.params);
   const [serie, setSerie] = useState<SerieOlympus | null>(null);
   const [capitulos, setCapitulos] = useState<CapituloOlympus[]>([]);
-  const [page, setPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
   const [error, setError] = useState(false);
   const [orden, setOrden] = useState<"asc" | "desc">("asc");
   const progreso = useProgresoSerie("olympus", slug);
@@ -41,16 +39,15 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
   const cargar = useCallback(async () => {
     setError(false);
     try {
-      const res = await fetch(`/api/externo/olympus/series/${slug}?page=${page}`);
+      const res = await fetch(`/api/externo/olympus/series/${slug}`);
       if (!res.ok) throw new Error("fallo");
       const data = await res.json();
       setSerie(data.serie);
       setCapitulos(data.chapters);
-      setLastPage(data.last_page);
     } catch {
       setError(true);
     }
-  }, [slug, page]);
+  }, [slug]);
 
   useEffect(() => {
     cargar();
@@ -202,27 +199,6 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
           ))}
         </ul>
 
-        {lastPage > 1 && (
-          <div className="mt-5 flex items-center justify-center gap-3">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-              className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
-            >
-              ← Anterior
-            </button>
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
-              {page} / {lastPage}
-            </span>
-            <button
-              disabled={page >= lastPage}
-              onClick={() => setPage(page + 1)}
-              className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
-            >
-              Siguiente →
-            </button>
-          </div>
-        )}
       </section>
 
       <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">

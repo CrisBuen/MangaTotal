@@ -246,24 +246,46 @@ export async function serie(slug: string) {
   };
 }
 
-/** Lista de capítulos (40 por página en su API). */
-export async function capitulos(slug: string, page: number) {
-  const data = await olympusFetch<{
-    data: OlyCapitulo[];
-    meta: { current_page: number; last_page: number; total: number };
-  }>(`${OLYMPUS_PANEL}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}`, 600);
+interface PaginaCapitulos {
+  data: OlyCapitulo[];
+  meta: { current_page: number; last_page: number; total: number };
+}
 
-  return {
-    chapters: data.data.map((c) => ({
-      id: c.id,
-      name: c.name,
-      published_at: c.published_at,
-      team: c.team?.name ?? OLYMPUS_NOMBRE,
-    })),
-    page: data.meta.current_page,
-    last_page: data.meta.last_page,
-    total: data.meta.total,
-  };
+const paginaDeCapitulos = (slug: string, page: number) =>
+  olympusFetch<PaginaCapitulos>(
+    `${OLYMPUS_PANEL}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}`,
+    600
+  );
+
+const aCapitulo = (c: OlyCapitulo) => ({
+  id: c.id,
+  name: c.name,
+  published_at: c.published_at,
+  team: c.team?.name ?? OLYMPUS_NOMBRE,
+});
+
+/**
+ * Todos los capítulos de una serie.
+ *
+ * Su API los manda de a 40, así que una serie larga son muchas páginas: se
+ * piden de a seis en paralelo. Devuelve la lista entera, sin cortes.
+ */
+export async function capitulos(slug: string) {
+  const primera = await paginaDeCapitulos(slug, 1);
+  const total = primera.meta.last_page;
+
+  const paginas: PaginaCapitulos[] = [primera];
+  const LOTE = 6;
+  for (let desde = 2; desde <= total; desde += LOTE) {
+    const lote = [];
+    for (let p = desde; p < desde + LOTE && p <= total; p++) {
+      lote.push(paginaDeCapitulos(slug, p).catch(() => null));
+    }
+    for (const r of await Promise.all(lote)) if (r) paginas.push(r);
+  }
+
+  const chapters = paginas.flatMap((p) => p.data.map(aCapitulo));
+  return { chapters, total: primera.meta.total };
 }
 
 /**

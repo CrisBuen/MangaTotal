@@ -330,7 +330,9 @@ const paginaCapitulos = (slug: string, page: number) =>
  */
 async function todosLosCapitulos(slug: string): Promise<CapituloTmo[]> {
   const primera = await paginaCapitulos(slug, 1);
-  const totalPaginas = Math.min(primera.pagination?.total_pages ?? 1, 60);
+  // se recorren todas las que diga su paginador: una serie larga tiene que
+  // llegar hasta el final. El tope es solo una red por si informa cualquier cosa
+  const totalPaginas = Math.min(primera.pagination?.total_pages ?? 1, 400);
 
   const paginas: PaginaCapitulos[] = [primera];
   for (let desde = 2; desde <= totalPaginas; desde += 6) {

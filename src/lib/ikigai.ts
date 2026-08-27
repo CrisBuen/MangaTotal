@@ -136,7 +136,9 @@ export async function serieIkigai(slug: string) {
   const vistos = new Set<string>();
   let primera: Document | null = null;
 
-  for (let pagina = 1; pagina <= 40; pagina++) {
+  // el corte real es la página que no suma capítulos nuevos (más abajo);
+  // este número es solo una red por si su sitio empieza a repetirse
+  for (let pagina = 1; pagina <= 300; pagina++) {
     const doc = await traerDocumento(
       `${IKIGAI_WEB}/series/${slug}/${pagina > 1 ? `?pagina=${pagina}` : ""}`
     );
