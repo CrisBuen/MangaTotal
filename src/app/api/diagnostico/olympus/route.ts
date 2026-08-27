@@ -1,25 +1,27 @@
 import { NextResponse } from "next/server";
+import { novedades } from "@/lib/olympus";
 
-/** Diagnóstico temporal: ¿responde el HTML de Olympus desde Vercel? */
+/** Diagnóstico temporal: ejecuta novedades() y devuelve el error exacto. */
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const url = "https://olympusxyz.com/capitulos?page=1";
   try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; MangaTotal/1.0)" },
-      cache: "no-store",
-    });
-    const texto = await res.text();
+    const r = await novedades(1);
     return NextResponse.json({
+      ok: true,
       region: process.env.VERCEL_REGION ?? "local",
-      status: res.status,
-      contentType: res.headers.get("content-type"),
-      bytes: texto.length,
-      tieneNuxt: texto.includes("__NUXT_DATA__"),
-      muestra: texto.slice(0, 200),
+      page: r.page,
+      last_page: r.last_page,
+      total: r.total,
+      series: r.series.length,
+      primera: r.series[0]?.title,
     });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) });
+    return NextResponse.json({
+      ok: false,
+      region: process.env.VERCEL_REGION ?? "local",
+      mensaje: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack?.split("\n").slice(0, 4).join(" | ") : null,
+    });
   }
 }
