@@ -78,7 +78,7 @@ export default function SerieTmoPage(props: {
             </h1>
             <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
               {ficha.tipo} · {ficha.capitulos.length} capítulos
-              {ficha.score ? ` · ★ ${ficha.score.toFixed(1)}` : ""}
+              {ficha.score ? ` · ★ ${ficha.score}` : ""}
             </p>
           </div>
 

@@ -133,7 +133,13 @@ export const TMO_ORDENES = [
   { id: "title", name: "Título" },
 ];
 
-const MAPA_TIPOS = new Map(TMO_TIPOS.map((t) => [t.id, t.name]));
+const MAPA_TIPOS = new Map<string, string>([
+  ...TMO_TIPOS.map((t) => [t.id, t.name] as [string, string]),
+  // duplicados que arrastran de su base vieja: no se ofrecen como filtro,
+  // pero aparecen en las fichas y hay que saber nombrarlos
+  ["12919", "One shot"],
+  ["12920", "Novela"],
+]);
 const MAPA_GENEROS = new Map(TMO_GENEROS.map((g) => [g.id, g.name]));
 
 // ── modelos ──────────────────────────────────────────────────────────────
@@ -167,9 +173,17 @@ interface ItemApi {
   status: number[] | null;
   demography: number[] | null;
   years: number[] | null;
-  score: number | null;
+  /** Llega como texto ("8.50"), no como número. */
+  score: string | number | null;
   is_erotic: number | null;
   total_chapters: number | null;
+}
+
+/** El puntaje viene como texto y a veces en cero: se devuelve ya legible. */
+function puntaje(valor: string | number | null | undefined): string | null {
+  const n = Number(valor);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n.toFixed(1);
 }
 
 function urlPortada(cover: string | null): string | null {
@@ -292,7 +306,7 @@ export async function serieTmo(tipo: string, id: string, slug: string) {
     cover_url: urlPortada(ficha.cover),
     description: ficha.overview?.trim() || null,
     generos,
-    score: ficha.score ?? null,
+    score: puntaje(ficha.score),
     esAdulto: ficha.is_erotic === 1,
     capitulos,
     url_original: `${TMO_WEB}/manga/${ficha.slug ?? slug}/`,
