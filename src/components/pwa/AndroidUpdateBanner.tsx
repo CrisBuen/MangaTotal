@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   dismissVersion,
+  downloadUrlFor,
   fetchLatestRelease,
   installedVersionCode,
   isAndroidApp,
@@ -64,8 +65,8 @@ export function AndroidUpdateBanner() {
 
       <div className="flex gap-2">
         <a
-          href={release.apkUrl}
-          download
+          href={downloadUrlFor(release, true)}
+          rel="noopener"
           onClick={() => setRelease(null)}
           className="flex-1 rounded-xl border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
         >

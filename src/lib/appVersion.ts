@@ -11,6 +11,8 @@ export interface AndroidRelease {
   versionName: string;
   date: string;
   apkUrl: string;
+  /** Copia en otro dominio: el WebView de la app no descarga del propio sitio. */
+  apkExternalUrl?: string;
   sizeMb: number;
   changes: string[];
 }
@@ -55,4 +57,13 @@ export function isDismissed(versionCode: number): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Enlace de descarga que corresponde según dónde se esté.
+ * Dentro de la app conviene el dominio externo: Capacitor abre esos
+ * enlaces en el navegador del sistema, que sí sabe descargar el APK.
+ */
+export function downloadUrlFor(release: AndroidRelease, inApp: boolean): string {
+  return inApp && release.apkExternalUrl ? release.apkExternalUrl : release.apkUrl;
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  downloadUrlFor,
   fetchLatestRelease,
   installedVersionCode,
   isAndroidApp,
@@ -70,8 +71,8 @@ export function UpdateChecker() {
             ))}
           </ul>
           <a
-            href={release.apkUrl}
-            download
+            href={downloadUrlFor(release, inApp)}
+            rel="noopener"
             className="inline-block rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
           >
             Actualizar a v{release.versionName}

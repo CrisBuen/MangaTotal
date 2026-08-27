@@ -8,6 +8,8 @@
     "El gesto de atrás vuelve a la pantalla anterior en vez de cerrar la app",
     "Nueva barra de navegación inferior, pensada para pantallas grandes",
     "Arreglada la pantalla de inicio, que a veces no cargaba en el celular",
-    "La portada destacada ya no tapa el título en pantallas angostas"
-  ]
+    "La portada destacada ya no tapa el título en pantallas angostas",
+    "El botón de actualizar ahora descarga la app correctamente"
+  ],
+  "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
