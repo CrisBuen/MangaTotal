@@ -15,7 +15,9 @@ interface Vecino {
 /** Lector de Ikigai Mangas: las páginas se piden desde el dispositivo. */
 export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> }) {
   const { id: chapterId } = use(props.params);
-  const slug = useSearchParams().get("slug") ?? "";
+  const params = useSearchParams();
+  const slug = params.get("slug") ?? "";
+  const paginaInicial = Number(params.get("page")) || 1;
 
   const [paginas, setPaginas] = useState<string[] | null>(null);
   const [vecinos, setVecinos] = useState<{ prev: Vecino | null; next: Vecino | null }>({
@@ -97,6 +99,7 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
       prevChapter={vecinos.prev}
       nextChapter={vecinos.next}
       initialMode="cascade"
+      initialPage={paginaInicial}
       source="ikigai"
       hrefVolver={"/externo/ikigai/" + slug}
       hrefCapitulo={(capId) => "/leer-externo/ikigai/" + capId + "?slug=" + slug}

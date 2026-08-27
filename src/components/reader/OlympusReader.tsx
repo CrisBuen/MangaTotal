@@ -28,6 +28,7 @@ export function OlympusReader({
   prevChapter,
   nextChapter,
   initialMode,
+  initialPage = 1,
   source = "olympus",
   hrefVolver,
   hrefCapitulo,
@@ -39,6 +40,8 @@ export function OlympusReader({
   prevChapter: Vecino | null;
   nextChapter: Vecino | null;
   initialMode: ReadingMode;
+  /** Página por la que iba la lectura, para retomarla donde quedó. */
+  initialPage?: number;
   /** Fuente, para guardar el progreso en la biblioteca. */
   source?: "olympus" | "tmo" | "ikigai" | "leercapitulo";
   /** Enlaces propios de la fuente; por defecto, los de Olympus. */
@@ -46,7 +49,7 @@ export function OlympusReader({
   hrefCapitulo?: (id: number | string) => string;
 }) {
   const [mode, setMode] = useState<ReadingMode>(initialMode);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
 
@@ -55,6 +58,7 @@ export function OlympusReader({
     externalId: serie.slug,
     chapterId: String(chapter.id),
     chapterName: chapter.name,
+    pageNumber: currentPage,
   });
 
   const volverHref = hrefVolver ?? `/externo/olympus/${serie.slug}`;
@@ -161,7 +165,7 @@ export function OlympusReader({
         {mode === "cascade" ? (
           <CascadeReader
             pages={pages}
-            initialPage={1}
+            initialPage={initialPage}
             nextChapter={null}
             seriesSlug=""
             seriesHref={volverHref}

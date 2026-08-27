@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
-import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { LC_NOMBRE, serieLc } from "@/lib/leercapitulo";
 
@@ -150,7 +150,7 @@ export default function SerieLcPage(props: {
           {capitulos.map((c) => (
             <li key={c.id}>
               <Link
-                href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}`}
+                href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${sufijoPagina(progreso, c.numero === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.numero === progreso.ultimoId,
                   progreso.ultimoNumero !== null && Number(c.numero) < progreso.ultimoNumero

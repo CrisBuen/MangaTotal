@@ -21,11 +21,13 @@ export const dynamic = "force-dynamic";
 /** Lectura de un capítulo alojado en MangaDex, dentro del lector propio. */
 export default async function LeerExternoPage(props: {
   params: Promise<{ chapterId: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { chapterId } = await props.params;
+  const { page } = await props.searchParams;
   if (!UUID_RE.test(chapterId)) notFound();
 
   let chapter;
@@ -117,6 +119,7 @@ export default async function LeerExternoPage(props: {
       prevChapter={prevChapter}
       nextChapter={nextChapter}
       initialMode={user.preferredReadingMode === "rtl" ? "rtl" : "cascade"}
+      initialPage={Number(page) || 1}
     />
   );
 }

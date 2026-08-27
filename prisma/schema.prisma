@@ -80,6 +80,7 @@ model ExternalSeries {
   type            String?
   lastChapterId   String?  @map("last_chapter_id")
   lastChapterName String?  @map("last_chapter_name")
+  lastPageNumber  Int?     @map("last_page_number")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)

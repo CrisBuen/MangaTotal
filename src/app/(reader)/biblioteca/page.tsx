@@ -7,6 +7,7 @@ import { buttonStyles } from "@/components/ui/Button";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { buscarNovedades, type Novedad } from "@/components/library/novedades";
 
 interface ContinueItem {
   series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
@@ -29,11 +30,15 @@ interface Me {
 interface SerieGuardada {
   source: string;
   external_id: string;
+  slug: string | null;
   title: string;
   cover_url: string | null;
   type: string | null;
   last_chapter_name: string | null;
+  last_page_number: number | null;
   href: string;
+  /** Al capítulo y la página donde quedó, no a la ficha. */
+  href_continuar: string;
 }
 
 interface TagChip {
@@ -57,6 +62,9 @@ export default function BibliotecaPage() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [guardadas, setGuardadas] = useState<SerieGuardada[]>([]);
+  const [novedades, setNovedades] = useState<Record<string, Novedad>>({});
+  const [revisando, setRevisando] = useState(false);
+  const [avance, setAvance] = useState({ hechas: 0, total: 0 });
 
   const loggedIn = Boolean(me?.nickname);
 
@@ -133,6 +141,29 @@ export default function BibliotecaPage() {
       setSeriesError(true);
     }
   }, [filter, search, selectedTag]);
+
+  // Revisa todas las series guardadas y pone adelante las que sacaron
+  // capítulo nuevo desde la última vez que las leíste.
+  async function actualizarTodo() {
+    if (revisando || guardadas.length === 0) return;
+    setRevisando(true);
+    setAvance({ hechas: 0, total: guardadas.length });
+    try {
+      const r = await buscarNovedades(guardadas, (hechas, total) => setAvance({ hechas, total }));
+      setNovedades(r);
+    } finally {
+      setRevisando(false);
+    }
+  }
+
+  const claveDe = (g: SerieGuardada) => `${g.source}-${g.external_id}`;
+
+  // primero las que tienen capítulos sin leer, de mayor a menor
+  const guardadasOrdenadas = [...guardadas].sort((a, b) => {
+    const sa = novedades[claveDe(a)]?.sinLeer ?? 0;
+    const sb = novedades[claveDe(b)]?.sinLeer ?? 0;
+    return sb - sa;
+  });
 
   function toggleTag(slug: string) {
     setSelectedTag(selectedTag === slug ? null : slug);
@@ -282,7 +313,7 @@ export default function BibliotecaPage() {
             {externasEmpezadas.map((g) => (
               <Link
                 key={`${g.source}-${g.external_id}`}
-                href={g.href}
+                href={g.href_continuar}
                 className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
@@ -304,6 +335,9 @@ export default function BibliotecaPage() {
                   <p className="truncate font-display text-lg font-semibold text-ink">{g.title}</p>
                   <p className="mt-1 font-mono text-[10px] text-subtle">
                     Cap. {g.last_chapter_name}
+                    {g.last_page_number && g.last_page_number > 1
+                      ? ` · pág. ${g.last_page_number}`
+                      : ""}
                   </p>
                 </div>
               </Link>
@@ -380,12 +414,25 @@ export default function BibliotecaPage() {
             <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
               Guardadas de otras fuentes
             </h2>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
-              MangaDex · Olympus
-            </span>
+            <button
+              onClick={actualizarTodo}
+              disabled={revisando}
+              title="Revisa todas tus series guardadas y adelanta las que tienen capítulos nuevos"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60"
+              data-od-id="actualizar-todo"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className={`h-3.5 w-3.5 fill-current ${revisando ? "animate-spin" : ""}`}
+                aria-hidden="true"
+              >
+                <path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
+              </svg>
+              {revisando ? `Revisando ${avance.hechas}/${avance.total}` : "Actualizar todo"}
+            </button>
           </div>
           <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
-            {guardadas.map((g) => (
+            {guardadasOrdenadas.map((g) => (
               <Link
                 key={`${g.source}-${g.external_id}`}
                 href={g.href}
@@ -403,8 +450,13 @@ export default function BibliotecaPage() {
                     />
                   )}
                   <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
-                    {g.source === "olympus" ? "Olympus" : "MangaDex"}
+                    {g.source}
                   </span>
+                  {(novedades[claveDe(g)]?.sinLeer ?? 0) > 0 && (
+                    <span className="absolute right-3 top-3 rounded-full bg-accent px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--bg)]">
+                      +{novedades[claveDe(g)].sinLeer}
+                    </span>
+                  )}
                 </div>
                 <div className="px-1 pt-4">
                   <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
@@ -412,6 +464,9 @@ export default function BibliotecaPage() {
                   </h3>
                   <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
                     {g.last_chapter_name ? `Vas por el cap. ${g.last_chapter_name}` : "Sin empezar"}
+                    {novedades[claveDe(g)]?.ultimo
+                      ? ` · último ${novedades[claveDe(g)].ultimo}`
+                      : ""}
                   </p>
                 </div>
               </Link>

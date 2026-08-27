@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
-import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { TMO_NOMBRE, serieTmo } from "@/lib/zonatmo";
 
@@ -145,7 +145,7 @@ export default function SerieTmoPage(props: {
           {capitulos.map((c) => (
             <li key={c.id}>
               <Link
-                href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}`}
+                href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}${sufijoPagina(progreso, c.id === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.id === progreso.ultimoId,
                   progreso.ultimoNumero !== null && Number(c.numero) < progreso.ultimoNumero

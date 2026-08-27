@@ -7,10 +7,23 @@ export interface ProgresoSerie {
   ultimoId: string | null;
   /** Su número, para poder marcar como leídos los anteriores. */
   ultimoNumero: number | null;
+  /** Página por la que iba dentro de ese capítulo. */
+  ultimaPagina: number | null;
   guardada: boolean;
 }
 
-const VACIO: ProgresoSerie = { ultimoId: null, ultimoNumero: null, guardada: false };
+const VACIO: ProgresoSerie = {
+  ultimoId: null,
+  ultimoNumero: null,
+  ultimaPagina: null,
+  guardada: false,
+};
+
+/** El sufijo para retomar en la página exacta, si hay que retomar. */
+export function sufijoPagina(progreso: ProgresoSerie, esActual: boolean): string {
+  if (!esActual || !progreso.ultimaPagina || progreso.ultimaPagina <= 1) return "";
+  return `page=${progreso.ultimaPagina}`;
+}
 
 /**
  * Por dónde va el usuario en una serie externa que tiene guardada.
@@ -34,6 +47,7 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
         external_id: string;
         last_chapter_id: string | null;
         last_chapter_name: string | null;
+        last_page_number: number | null;
       }[] = await res.json().catch(() => []);
 
       const serie = guardadas.find((e) => e.source === source && e.external_id === externalId);
@@ -44,6 +58,7 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
       setProgreso({
         ultimoId: serie.last_chapter_id,
         ultimoNumero: Number.isFinite(numero) ? numero : null,
+        ultimaPagina: serie.last_page_number,
         guardada: true,
       });
     })();

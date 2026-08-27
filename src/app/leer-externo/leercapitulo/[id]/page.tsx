@@ -82,6 +82,7 @@ export default function LeerLcPage(props: { params: Promise<{ id: string }> }) {
       prevChapter={capitulo.anterior ? { id: capitulo.anterior, name: capitulo.anterior } : null}
       nextChapter={capitulo.siguiente ? { id: capitulo.siguiente, name: capitulo.siguiente } : null}
       initialMode="cascade"
+      initialPage={Number(params.get("page")) || 1}
       source="leercapitulo"
       hrefVolver={volver}
       hrefCapitulo={href}

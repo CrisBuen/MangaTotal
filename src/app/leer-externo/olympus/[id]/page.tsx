@@ -7,13 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function LeerOlympusPage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ slug?: string; tipo?: string }>;
+  searchParams: Promise<{ slug?: string; tipo?: string; page?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { id: raw } = await props.params;
-  const { slug, tipo = "comic" } = await props.searchParams;
+  const { slug, tipo = "comic", page } = await props.searchParams;
   const id = parseInt(raw, 10);
   if (!Number.isInteger(id) || !slug) notFound();
 
@@ -35,6 +35,7 @@ export default async function LeerOlympusPage(props: {
       prevChapter={capitulo.prev}
       nextChapter={capitulo.next}
       initialMode={user.preferredReadingMode === "rtl" ? "rtl" : "cascade"}
+      initialPage={Number(page) || 1}
     />
   );
 }

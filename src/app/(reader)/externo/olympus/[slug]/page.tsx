@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { use } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
-import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 
 interface SerieOlympus {
@@ -167,7 +167,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
           {capitulosOrdenados.map((c) => (
             <li key={c.id}>
               <Link
-                href={`/leer-externo/olympus/${c.id}?slug=${serie.slug}&tipo=${serie.type}`}
+                href={`/leer-externo/olympus/${c.id}?slug=${serie.slug}&tipo=${serie.type}${sufijoPagina(progreso, String(c.id) === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   String(c.id) === progreso.ultimoId,
                   progreso.ultimoNumero !== null && Number(c.name) < progreso.ultimoNumero

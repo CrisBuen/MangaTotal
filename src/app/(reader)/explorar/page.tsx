@@ -293,6 +293,102 @@ export default function ExplorarPage() {
       .catch(() => {});
   }, []);
 
+  // ── estado en la URL ────────────────────────────────────────────────
+  // Sin esto, volver desde una serie te devolvía a MangaDex en la página 1
+  // y se perdía la búsqueda, los filtros y por dónde ibas.
+  const [restaurado, setRestaurado] = useState(false);
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const leer = (k: string) => p.get(k) || null;
+
+    const f = leer("fuente");
+    if (f) setFuente(f);
+    const q = leer("q");
+    if (q) setSearch(q);
+
+    const pagina = Number(leer("p")) || 1;
+    if (leer("md_order")) setOrder(leer("md_order")!);
+    if (leer("md_lang")) setLang(leer("md_lang")!);
+    if (f === "mangadex" && pagina > 1) setOffset((pagina - 1) * 24);
+
+    if (leer("oly_orden")) setOlyOrden(leer("oly_orden")!);
+    if (leer("oly_genero")) setOlyGenero(Number(leer("oly_genero")));
+    if (leer("oly_estado")) setOlyEstado(Number(leer("oly_estado")));
+    setOlyTipo(leer("oly_tipo"));
+    if (f === "olympus") setOlympusPage(pagina);
+
+    setTmoTipo(leer("tmo_tipo"));
+    setTmoDemo(leer("tmo_demo"));
+    setTmoEstado(leer("tmo_estado"));
+    setTmoGenero(leer("tmo_genero"));
+    setTmoOrden(leer("tmo_orden"));
+    if (f === "tmo") setTmoPage(pagina);
+
+    setIkiTipo(leer("iki_tipo"));
+    setIkiGenero(leer("iki_genero"));
+    if (leer("iki_orden")) setIkiOrden(leer("iki_orden")!);
+    if (f === "ikigai") setIkiPage(pagina);
+
+    setLcGenero(leer("lc_genero"));
+    setLcInicial(leer("lc_inicial"));
+    setLcLista(leer("lc_lista") ?? "");
+    if (f === "leercapitulo") setLcPage(pagina);
+
+    setRestaurado(true);
+  }, []);
+
+  // reflejar el estado en la URL (replaceState: no ensucia el historial)
+  useEffect(() => {
+    if (!restaurado) return;
+    const url = new URL(window.location.href);
+    const poner = (k: string, v: string | number | null | undefined) => {
+      if (v === null || v === undefined || v === "" || v === 0) url.searchParams.delete(k);
+      else url.searchParams.set(k, String(v));
+    };
+
+    poner("fuente", fuente === "mangadex" ? null : fuente);
+    poner("q", search.trim() || null);
+
+    const pagina =
+      fuente === "olympus"
+        ? olympusPage
+        : fuente === "tmo"
+          ? tmoPage
+          : fuente === "ikigai"
+            ? ikiPage
+            : fuente === "leercapitulo"
+              ? lcPage
+              : Math.floor(offset / 24) + 1;
+    poner("p", pagina > 1 ? pagina : null);
+
+    poner("md_order", order === "latest" ? null : order);
+    poner("md_lang", lang === "es" ? null : lang);
+    poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
+    poner("oly_genero", olyGenero);
+    poner("oly_estado", olyEstado);
+    poner("oly_tipo", olyTipo);
+    poner("tmo_tipo", tmoTipo);
+    poner("tmo_demo", tmoDemo);
+    poner("tmo_estado", tmoEstado);
+    poner("tmo_genero", tmoGenero);
+    poner("tmo_orden", tmoOrden);
+    poner("iki_tipo", ikiTipo);
+    poner("iki_genero", ikiGenero);
+    poner("iki_orden", ikiOrden === "recientes" ? null : ikiOrden);
+    poner("lc_genero", lcGenero);
+    poner("lc_inicial", lcInicial);
+    poner("lc_lista", lcLista || null);
+
+    window.history.replaceState(null, "", url.toString());
+  }, [
+    restaurado, fuente, search, offset, order, lang,
+    olympusPage, olyOrden, olyGenero, olyEstado, olyTipo,
+    tmoPage, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden,
+    ikiPage, ikiTipo, ikiGenero, ikiOrden,
+    lcPage, lcGenero, lcInicial, lcLista,
+  ]);
+
   const load = useCallback(async () => {
     setError(false);
     const params = new URLSearchParams({ lang, offset: String(offset), order });

@@ -94,6 +94,7 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
           : null
       }
       initialMode={capitulo.derechaAIzquierda ? "rtl" : "cascade"}
+      initialPage={Number(params.get("page")) || 1}
       source="tmo"
       hrefVolver={volver}
       hrefCapitulo={(capId) => `/leer-externo/tmo/${capId}?tipo=${tipo}&id=${serieId}&slug=${slug}`}

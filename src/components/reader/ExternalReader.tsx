@@ -34,6 +34,7 @@ export function ExternalReader({
   prevChapter,
   nextChapter,
   initialMode,
+  initialPage = 1,
 }: {
   chapter: ExternalChapterInfo;
   seriesId: string | null;
@@ -41,9 +42,11 @@ export function ExternalReader({
   prevChapter?: ExternalChapterLink | null;
   nextChapter?: ExternalChapterLink | null;
   initialMode: ReadingMode;
+  /** Página por la que iba la lectura, para retomarla donde quedó. */
+  initialPage?: number;
 }) {
   const [mode, setMode] = useState<ReadingMode>(initialMode);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
 
@@ -94,6 +97,7 @@ export function ExternalReader({
     externalId: seriesId ?? "",
     chapterId: chapter.id,
     chapterName: chapter.number ?? "",
+    pageNumber: currentPage,
   });
 
   const backHref = seriesId ? `/externo/${seriesId}` : "/explorar";
@@ -165,7 +169,7 @@ export function ExternalReader({
         {mode === "cascade" ? (
           <CascadeReader
             pages={pages}
-            initialPage={1}
+            initialPage={initialPage}
             nextChapter={null}
             seriesSlug=""
             seriesHref={backHref}

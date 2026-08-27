@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="oklch(10.5% 0.015 285)"/>
-  <path d="M7 7h8v18H7a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" fill="oklch(78% 0.18 302)"/>
-  <path d="M17 7h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-8V7z" fill="oklch(64% 0.25 302)"/>
-  <rect x="15" y="6" width="2" height="20" fill="oklch(16.5% 0.025 285)"/>
-</svg>
