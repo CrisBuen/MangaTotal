@@ -11,7 +11,7 @@ interface SerieOlympus {
   title: string;
   cover_url: string | null;
   status: string | null;
-  chapter_count: number;
+  chapter_count: number | null;
   type: string;
   url_original: string;
   summary: string | null;
@@ -101,7 +101,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
               {serie.title}
             </h1>
             <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
-              {[serie.status, `${serie.chapter_count} capítulos`].filter(Boolean).join(" · ")}
+              {[serie.status, serie.chapter_count !== null ? `${serie.chapter_count} capítulos` : null].filter(Boolean).join(" · ")}
             </p>
           </div>
 

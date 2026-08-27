@@ -47,8 +47,10 @@ interface SerieOlympus {
   title: string;
   cover_url: string | null;
   status: string | null;
-  chapter_count: number;
+  chapter_count: number | null;
   type: string;
+  /** Solo en "Nuevos lanzamientos": lo último que publicó Olympus. */
+  ultimos?: { id: number; name: string; published_at: string }[];
 }
 
 const FUENTES = [
@@ -568,7 +570,16 @@ export default function ExplorarPage() {
                       {s.title}
                     </h3>
                     <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
-                      {[`${s.chapter_count} caps.`, s.status].filter(Boolean).join(" · ")}
+                      {[
+                        s.ultimos?.length
+                          ? `Cap. ${s.ultimos[0].name}`
+                          : s.chapter_count !== null
+                            ? `${s.chapter_count} caps.`
+                            : null,
+                        s.status,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                   </div>
                 </Link>

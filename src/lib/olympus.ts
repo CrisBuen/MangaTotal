@@ -82,7 +82,7 @@ interface OlySerieLista {
   slug: string;
   status: { id: number; name: string } | null;
   cover: string | null;
-  chapter_count: number;
+  chapter_count?: number;
   type: string;
   total_views?: number;
   monthly_views?: number;
@@ -120,7 +120,7 @@ export function serieResumen(s: OlySerieLista) {
     title: s.name,
     cover_url: s.cover,
     status: s.status?.name ?? null,
-    chapter_count: s.chapter_count,
+    chapter_count: typeof s.chapter_count === "number" ? s.chapter_count : null,
     type: s.type,
     total_views: s.total_views ?? 0,
     monthly_views: s.monthly_views ?? 0,
@@ -214,7 +214,8 @@ function ordenar(series: SerieResumen[], orden?: string): SerieResumen[] {
   const copia = [...series];
   if (orden === "vistas") return copia.sort((a, b) => b.total_views - a.total_views);
   if (orden === "populares") return copia.sort((a, b) => b.monthly_views - a.monthly_views);
-  if (orden === "capitulos") return copia.sort((a, b) => b.chapter_count - a.chapter_count);
+  if (orden === "capitulos")
+    return copia.sort((a, b) => (b.chapter_count ?? 0) - (a.chapter_count ?? 0));
   return copia.sort((a, b) => a.title.localeCompare(b.title, "es"));
 }
 
@@ -269,15 +270,20 @@ export async function capitulos(slug: string, page: number) {
  * en vez de las imágenes reales; hay que usar este endpoint.
  */
 export async function paginas(chapterId: number, tipo: string, slug: string) {
-  const data = await olympusFetch<{
-    data: {
-      chapter: { id: number; name: string; title: string | null; pages: string[] };
-      prev_chapter: { id: number; name: string } | null;
-      next_chapter: { id: number; name: string } | null;
-    };
-  }>(`${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(slug)}/${chapterId}`, 600);
+  interface RespuestaCapitulo {
+    chapter: { id: number; name: string; title: string | null; pages: string[] };
+    prev_chapter: { id: number; name: string } | null;
+    next_chapter: { id: number; name: string } | null;
+  }
 
-  const d = data.data;
+  // esta respuesta llega en la raíz, sin el envoltorio "data" del resto
+  const data = await olympusFetch<RespuestaCapitulo & { data?: RespuestaCapitulo }>(
+    `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(slug)}/${chapterId}`,
+    600
+  );
+
+  const d = data.data ?? data;
+  if (!d?.chapter) throw new Error("Olympus no devolvió el capítulo");
   return {
     id: d.chapter.id,
     name: d.chapter.name,
