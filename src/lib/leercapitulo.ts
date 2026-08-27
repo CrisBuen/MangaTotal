@@ -21,11 +21,14 @@ export function lcDisponible(): boolean {
 }
 
 /** Pide una página de su sitio y la devuelve lista para consultar. */
-async function pedir(ruta: string): Promise<Document> {
+async function pedir(ruta: string, fresco = false): Promise<Document> {
   let html: string | null = null;
 
   try {
-    const res = await fetch(`/api/externo/leercapitulo?ruta=${encodeURIComponent(ruta)}`);
+    const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
+    const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
+      cache: fresco ? "no-store" : "default",
+    });
     if (res.ok) {
       const cuerpo = (await res.json()) as { html?: string };
       if (cuerpo.html) html = cuerpo.html;
@@ -111,7 +114,15 @@ export interface FiltrosLc {
   q?: string;
   genero?: string;
   inicial?: string;
+  /** "" = lo último agregado, "tendencias" = su carrusel destacado. */
+  lista?: string;
 }
+
+/** Las dos listas que publican en su inicio. */
+export const LC_LISTAS = [
+  { id: "", name: "Últimas actualizaciones" },
+  { id: "tendencias", name: "Tendencias" },
+];
 
 // ── catálogo ─────────────────────────────────────────────────────────────
 
@@ -136,12 +147,18 @@ function partesDeSerie(href: string): { id: string; slug: string } | null {
   return { id: partes[0], slug: partes[1] };
 }
 
-/** Convierte las tarjetas de una página de listado en series. */
-function seriesDelDocumento(doc: Document): SerieLc[] {
+/**
+ * Convierte las tarjetas de una página de listado en series.
+ *
+ * `dentro` limita la búsqueda a una zona: el inicio trae dos listas a la vez
+ * (las tendencias arriba y lo último agregado abajo) y hay que separarlas.
+ */
+function seriesDelDocumento(doc: Document, dentro?: string): SerieLc[] {
   const series: SerieLc[] = [];
   const vistos = new Set<string>();
 
-  for (const a of Array.from(doc.querySelectorAll('a[href*="/manga/"]'))) {
+  const raiz = dentro ? `${dentro} ` : "";
+  for (const a of Array.from(doc.querySelectorAll(`${raiz}a[href*="/manga/"]`))) {
     const href = a.getAttribute("href") ?? "";
     const partes = partesDeSerie(href);
     if (!partes || vistos.has(partes.id)) continue;
@@ -158,7 +175,13 @@ function seriesDelDocumento(doc: Document): SerieLc[] {
         a.getAttribute("title")?.trim() ||
         img.getAttribute("alt")?.trim() ||
         "Sin título",
-      cover_url: urlAbsoluta(img.getAttribute("src")),
+      // en el inicio las portadas van con carga diferida: la dirección
+      // real está en data-src y el src viene vacío
+      cover_url: urlAbsoluta(
+        img.getAttribute("data-src") ??
+          img.getAttribute("data-original") ??
+          img.getAttribute("src")
+      ),
       url_original: `${LC_WEB}/manga/${partes.id}/${partes.slug}/`,
     });
   }
@@ -173,20 +196,29 @@ const POR_PAGINA = 30;
  * género o inicial recorre esa lista, que es la forma de ver todo el
  * catálogo porque no publican un listado general.
  */
-export async function catalogoLc(page: number, filtros: FiltrosLc = {}) {
+export async function catalogoLc(page: number, filtros: FiltrosLc = {}, fresco = false) {
   let ruta: string;
+  let dentro: string | undefined;
+
   if (filtros.q) {
     ruta = `/?s=${encodeURIComponent(filtros.q)}`;
   } else if (filtros.genero) {
     ruta = `/genre/${filtros.genero}/?page=${page}`;
   } else if (filtros.inicial) {
     ruta = `/initial/${filtros.inicial}/?page=${page}`;
+  } else if (filtros.lista === "tendencias") {
+    // el inicio trae las tendencias arriba, en su propio carrusel
+    ruta = "/";
+    dentro = ".hot-manga";
   } else {
     ruta = "/";
+    dentro = ".mainpage-manga";
   }
 
-  const doc = await pedir(ruta);
-  const series = seriesDelDocumento(doc);
+  const doc = await pedir(ruta, fresco);
+  let series = seriesDelDocumento(doc, dentro);
+  // si su maquetado cambió y la zona no existe, se lee la página entera
+  if (series.length === 0 && dentro) series = seriesDelDocumento(doc);
 
   // su paginador no dice cuántas páginas hay: se avanza mientras la página
   // venga llena

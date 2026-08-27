@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import {
   IKIGAI_GENEROS,
@@ -14,6 +14,7 @@ import {
 import {
   LC_GENEROS,
   LC_INICIALES,
+  LC_LISTAS,
   catalogoLc,
   type SerieLc,
 } from "@/lib/leercapitulo";
@@ -124,15 +125,28 @@ export default function ExplorarPage() {
   const [lcInicial, setLcInicial] = useState<string | null>(null);
   const [lcMas, setLcMas] = useState(false);
   const [lcPaginable, setLcPaginable] = useState(false);
+  const [lcLista, setLcLista] = useState("");
+
+  // Botón de actualizar: vuelve a pedir SOLO lo que está en pantalla, y
+  // saltea la caché para que aparezcan los capítulos recién subidos.
+  const [recarga, setRecarga] = useState(0);
+  const [refrescando, setRefrescando] = useState(false);
+  const pedirFresco = useRef(false);
 
   const cargarLc = useCallback(async () => {
     setError(false);
+    const fresco = pedirFresco.current;
     try {
-      const r = await catalogoLc(lcPage, {
-        q: search.trim() || undefined,
-        genero: lcGenero ?? undefined,
-        inicial: lcInicial ?? undefined,
-      });
+      const r = await catalogoLc(
+        lcPage,
+        {
+          q: search.trim() || undefined,
+          genero: lcGenero ?? undefined,
+          inicial: lcInicial ?? undefined,
+          lista: lcLista || undefined,
+        },
+        fresco
+      );
       setLc(r.series);
       setLcMas(r.hayMas);
       setLcPaginable(r.paginable);
@@ -140,19 +154,29 @@ export default function ExplorarPage() {
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setLc([]);
+    } finally {
+      pedirFresco.current = false;
+      setRefrescando(false);
     }
-  }, [lcPage, search, lcGenero, lcInicial]);
+  }, [lcPage, search, lcGenero, lcInicial, lcLista, recarga]);
 
   useEffect(() => {
     if (fuente !== "leercapitulo") return;
-    setLc(null);
+    // al refrescar no se vacía la grilla: se reemplaza cuando llega
+    if (!pedirFresco.current) setLc(null);
     const t = setTimeout(cargarLc, search ? 400 : 0);
     return () => clearTimeout(t);
   }, [cargarLc, search, fuente]);
 
   useEffect(() => {
     setLcPage(1);
-  }, [search, fuente, lcGenero, lcInicial]);
+  }, [search, fuente, lcGenero, lcInicial, lcLista]);
+
+  const refrescar = useCallback(() => {
+    pedirFresco.current = true;
+    setRefrescando(true);
+    setRecarga((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     setIkigaiHay(ikigaiDisponible());
@@ -173,15 +197,20 @@ export default function ExplorarPage() {
 
   const cargarTmo = useCallback(async () => {
     setError(false);
+    const fresco = pedirFresco.current;
     try {
-      const r = await catalogoTmo(tmoPage, {
-        q: search.trim() || undefined,
-        tipo: tmoTipo ?? undefined,
-        demografia: tmoDemo ?? undefined,
-        estado: tmoEstado ?? undefined,
-        genero: tmoGenero ?? undefined,
-        orden: tmoOrden ?? undefined,
-      });
+      const r = await catalogoTmo(
+        tmoPage,
+        {
+          q: search.trim() || undefined,
+          tipo: tmoTipo ?? undefined,
+          demografia: tmoDemo ?? undefined,
+          estado: tmoEstado ?? undefined,
+          genero: tmoGenero ?? undefined,
+          orden: tmoOrden ?? undefined,
+        },
+        fresco
+      );
       setTmo(r.series);
       setTmoMas(r.hayMas);
       setTmoPaginas(r.totalPaginas);
@@ -189,12 +218,15 @@ export default function ExplorarPage() {
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setTmo([]);
+    } finally {
+      pedirFresco.current = false;
+      setRefrescando(false);
     }
-  }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden]);
+  }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden, recarga]);
 
   useEffect(() => {
     if (fuente !== "tmo") return;
-    setTmo(null);
+    if (!pedirFresco.current) setTmo(null);
     const t = setTimeout(cargarTmo, search ? 400 : 0);
     return () => clearTimeout(t);
   }, [cargarTmo, search, fuente]);
@@ -222,12 +254,15 @@ export default function ExplorarPage() {
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setIki([]);
+    } finally {
+      pedirFresco.current = false;
+      setRefrescando(false);
     }
-  }, [ikiPage, search, ikiTipo, ikiGenero, ikiOrden]);
+  }, [ikiPage, search, ikiTipo, ikiGenero, ikiOrden, recarga]);
 
   useEffect(() => {
     if (fuente !== "ikigai") return;
-    setIki(null);
+    if (!pedirFresco.current) setIki(null);
     const t = setTimeout(cargarIki, search ? 400 : 0);
     return () => clearTimeout(t);
   }, [cargarIki, search, fuente]);
@@ -265,8 +300,11 @@ export default function ExplorarPage() {
     for (const s of status) params.append("status", s);
     for (const g of selectedGenres) params.append("tag", g);
     if (search.trim()) params.set("q", search.trim());
+    const fresco = pedirFresco.current;
     try {
-      const res = await fetch(`/api/externo/series?${params}`);
+      const res = await fetch(`/api/externo/series?${params}`, {
+        cache: fresco ? "no-store" : "default",
+      });
       if (!res.ok) throw new Error("fallo");
       const data = await res.json();
       setSeries(data.series);
@@ -274,12 +312,15 @@ export default function ExplorarPage() {
     } catch {
       setError(true);
       setSeries([]);
+    } finally {
+      pedirFresco.current = false;
+      setRefrescando(false);
     }
-  }, [lang, search, offset, order, status, selectedGenres, origin]);
+  }, [lang, search, offset, order, status, selectedGenres, origin, recarga]);
 
   useEffect(() => {
     if (fuente !== "mangadex") return;
-    setSeries(null);
+    if (!pedirFresco.current) setSeries(null);
     const t = setTimeout(load, search ? 350 : 0);
     return () => clearTimeout(t);
   }, [load, search, fuente]);
@@ -291,8 +332,11 @@ export default function ExplorarPage() {
     if (olyGenero) params.set("genero", String(olyGenero));
     if (olyEstado) params.set("estado", String(olyEstado));
     if (olyTipo) params.set("tipo", olyTipo);
+    const fresco = pedirFresco.current;
     try {
-      const res = await fetch(`/api/externo/olympus/series?${params}`);
+      const res = await fetch(`/api/externo/olympus/series?${params}`, {
+        cache: fresco ? "no-store" : "default",
+      });
       if (!res.ok) throw new Error("fallo");
       const data = await res.json();
       setOlympus(data.series);
@@ -300,12 +344,15 @@ export default function ExplorarPage() {
     } catch {
       setError(true);
       setOlympus([]);
+    } finally {
+      pedirFresco.current = false;
+      setRefrescando(false);
     }
-  }, [olympusPage, search, olyOrden, olyGenero, olyEstado, olyTipo]);
+  }, [olympusPage, search, olyOrden, olyGenero, olyEstado, olyTipo, recarga]);
 
   useEffect(() => {
     if (fuente !== "olympus") return;
-    setOlympus(null);
+    if (!pedirFresco.current) setOlympus(null);
     const t = setTimeout(cargarOlympus, search ? 350 : 0);
     return () => clearTimeout(t);
   }, [cargarOlympus, search, fuente]);
@@ -449,6 +496,20 @@ export default function ExplorarPage() {
           </select>
         )}
 
+        {fuente === "leercapitulo" && (
+          <select
+            value={lcLista}
+            onChange={(e) => setLcLista(e.target.value)}
+            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+          >
+            {LC_LISTAS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         {fuente === "tmo" && (
           <select
             value={tmoOrden ?? ""}
@@ -479,6 +540,23 @@ export default function ExplorarPage() {
             Filtros
           </button>
         )}
+
+        <button
+          onClick={refrescar}
+          disabled={refrescando}
+          title="Volver a pedir esta lista, sin usar lo guardado"
+          className="inline-flex items-center gap-2 rounded-xl border border-line px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60"
+          data-od-id="boton-actualizar"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-3.5 w-3.5 fill-current ${refrescando ? "animate-spin" : ""}`}
+            aria-hidden="true"
+          >
+            <path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
+          </svg>
+          {refrescando ? "Actualizando" : "Actualizar"}
+        </button>
 
         <input
           value={search}

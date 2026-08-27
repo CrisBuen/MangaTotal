@@ -40,9 +40,12 @@ interface Respuesta<T> {
 }
 
 /** Pide una ruta de su API: servidor primero, dispositivo después. */
-async function pedir<T>(ruta: string): Promise<T> {
+async function pedir<T>(ruta: string, fresco = false): Promise<T> {
   try {
-    const res = await fetch(`/api/externo/tmo?ruta=${encodeURIComponent(ruta)}`);
+    const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
+    const res = await fetch(`/api/externo/tmo?${qs}`, {
+      cache: fresco ? "no-store" : "default",
+    });
     if (res.ok) {
       const cuerpo = (await res.json()) as Respuesta<T>;
       if (cuerpo.data !== undefined) return cuerpo.data;
@@ -218,7 +221,7 @@ function aSerie(item: ItemApi): SerieTmo {
 const POR_PAGINA = 24;
 
 /** Catálogo paginado, con los filtros de su biblioteca. */
-export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}) {
+export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}, fresco = false) {
   const qs = new URLSearchParams({
     page: String(page),
     postsPerPage: String(POR_PAGINA),
@@ -237,7 +240,7 @@ export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}) {
   const data = await pedir<{
     items: ItemApi[];
     pagination: { total: number; total_pages: number; current_page: number };
-  }>(`/listing/manga?${qs.toString()}`);
+  }>(`/listing/manga?${qs.toString()}`, fresco);
 
   const series = (data.items ?? []).map(aSerie);
   const totalPaginas = data.pagination?.total_pages ?? page;

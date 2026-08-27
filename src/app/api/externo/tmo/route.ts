@@ -16,7 +16,9 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 export async function GET(request: Request) {
-  const ruta = new URL(request.url).searchParams.get("ruta") ?? "";
+  const params = new URL(request.url).searchParams;
+  const ruta = params.get("ruta") ?? "";
+  const fresco = params.get("fresco") === "1";
 
   if (!ruta.startsWith("/") || ruta.includes("..") || !RUTAS_PERMITIDAS.some((p) => ruta.startsWith(p))) {
     return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
       },
       // el catálogo cambia despacio y se cachea; la ficha y el capítulo no,
       // porque el enlace de las imágenes viene firmado y caduca
-      ...(ruta.startsWith("/single/")
+      ...(fresco || ruta.startsWith("/single/")
         ? { cache: "no-store" as const }
         : { next: { revalidate: 300 } }),
     });

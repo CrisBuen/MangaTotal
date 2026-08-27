@@ -13,8 +13,26 @@ const RUTAS_PERMITIDAS = ["/", "/manga/", "/genre/", "/initial/", "/leer/"];
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+/**
+ * Sus páginas pesan más de 200 KB, casi todo publicidad y scripts que no
+ * usamos. Se recorta antes de mandarla: en una conexión lenta es la
+ * diferencia entre esperar y no esperar.
+ */
+function aligerar(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<link\b[^>]*>/gi, "")
+    .replace(/\s{2,}/g, " ");
+}
+
 export async function GET(request: Request) {
-  const ruta = new URL(request.url).searchParams.get("ruta") ?? "";
+  const params = new URL(request.url).searchParams;
+  const ruta = params.get("ruta") ?? "";
+  const fresco = params.get("fresco") === "1";
 
   if (!ruta.startsWith("/") || ruta.includes("..") || !RUTAS_PERMITIDAS.some((p) => ruta.startsWith(p))) {
     return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
@@ -27,8 +45,9 @@ export async function GET(request: Request) {
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "es-ES,es;q=0.9",
       },
-      // su catálogo cambia despacio: un rato de caché ahorra viajes
-      next: { revalidate: 300 },
+      // el catálogo cambia despacio y se cachea unos minutos; el botón de
+      // actualizar pide fresco para ver los capítulos recién subidos
+      ...(fresco ? { cache: "no-store" as const } : { next: { revalidate: 300 } }),
     });
 
     if (!res.ok) {
@@ -38,7 +57,9 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ html: await res.text() });
+    const respuesta = NextResponse.json({ html: aligerar(await res.text()) });
+    if (fresco) respuesta.headers.set("Cache-Control", "no-store");
+    return respuesta;
   } catch {
     return NextResponse.json(
       { error: "No se pudo contactar con LeerCapítulo", bloqueado: true },
