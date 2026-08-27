@@ -99,3 +99,16 @@ cd "D:\Pagina Web mangastotal\mobile\android"
 
 El APK queda en `app\build\outputs\apk\debug\app-debug.apk` y se copia a
 `public\descargas\MangaTotal-android.apk` para publicarlo en el sitio.
+
+## Parche del gesto "atrás" (`patches/MainActivity.java`)
+
+Por defecto Capacitor no maneja el historial del WebView, así que el gesto
+de atrás de Android **cierra la app** en lugar de volver a la pantalla
+anterior. `patches/MainActivity.java` corrige eso.
+
+Como la carpeta `android/` no se versiona, **después de cada
+`npm run add:android` hay que volver a copiarlo**:
+
+```powershell
+Copy-Item patches\MainActivity.java android\app\src\main\java\app\mangatotal\android\MainActivity.java -Force
+```
