@@ -19,6 +19,7 @@ const PUBLIC_EXACT = new Set([
   "/api/series",
   "/api/announcements",
   "/api/tags",
+  "/api/diagnostico/tmo",
 ]);
 // el catálogo externo se navega como visitante; leer capítulos exige sesión
 const PUBLIC_PREFIXES = [
