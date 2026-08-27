@@ -7,6 +7,8 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 const PRUEBAS = [
+  "https://zonatmo.org/api/search/suggest?query=gachiakuta",
+  "https://zonatmo.org/api/manga/1682",
   "https://zonatmo.org/biblioteca",
   "https://zonatmo.org/library/manga/1682/gachiakuta",
   "https://zonatmo.org/view_uploads/1016454",
