@@ -23,6 +23,9 @@ export function useProgresoExterno(entrada: {
 
   // la serie está guardada: hasta saberlo no se manda nada
   const guardada = useRef(false);
+  // la página con la que se entró: al abrir el capítulo se reafirma esa, no
+  // la 1, o abrir y salir borraría por dónde ibas
+  const paginaDeEntrada = useRef(pageNumber ?? 1);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ultimaPagina = useRef<number | null>(null);
 
@@ -59,7 +62,7 @@ export function useProgresoExterno(entrada: {
           type: serie.type,
           last_chapter_id: chapterId,
           last_chapter_name: chapterName,
-          last_page_number: 1,
+          last_page_number: paginaDeEntrada.current,
         }),
         keepalive: true,
       }).catch(() => {});

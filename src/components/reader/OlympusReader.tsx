@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { BotonVolver } from "./BotonVolver";
 import { CascadeReader } from "./CascadeReader";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { RtlReader } from "./RtlReader";
@@ -116,12 +117,10 @@ export function OlympusReader({
           className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-2"
           style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
         >
-          <Link
+          <BotonVolver
             href={volverHref}
             className="shrink-0 rounded-lg px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-ink"
-          >
-            ← Volver
-          </Link>
+          />
           <div className="min-w-0 flex-1 text-center">
             <p className="truncate text-sm font-medium text-ink">Capítulo {chapter.name}</p>
             {/* atribución visible en cada capítulo */}
