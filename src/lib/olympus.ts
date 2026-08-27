@@ -361,34 +361,41 @@ export async function novedades(page: number) {
   const raiz = plano[3] as Record<string, number>;
   const nodo = plano[raiz[Object.keys(raiz)[0]]] as Record<string, number>;
 
-  const resolver = (valor: unknown, nivel = 0): unknown => {
-    if (nivel > 6) return null;
-    if (typeof valor === "number") return resolver(plano[valor], nivel + 1);
-    if (Array.isArray(valor)) return valor.map((v) => resolver(v, nivel + 1));
-    if (valor && typeof valor === "object") {
+  /**
+   * En este formato TODOS los valores son índices dentro del mismo array:
+   * se desreferencia una vez y, si lo que hay es un objeto o un array, sus
+   * miembros vuelven a ser índices. (Desreferenciar de más rompía los ids,
+   * porque un id numérico se volvía a buscar como si fuera un índice.)
+   */
+  const resolver = (indice: unknown, nivel = 0): unknown => {
+    if (typeof indice !== "number" || nivel > 8) return null;
+    const v = plano[indice];
+    if (Array.isArray(v)) return v.map((i) => resolver(i, nivel + 1));
+    if (v && typeof v === "object") {
       const salida: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(valor)) salida[k] = resolver(v, nivel + 1);
+      for (const [k, i] of Object.entries(v)) salida[k] = resolver(i, nivel + 1);
       return salida;
     }
-    return valor;
+    return v ?? null;
   };
 
-  const items = (resolver(nodo.data) as (OlySerieLista & {
-    last_chapters?: { id: number; name: string; published_at: string }[];
-  })[]) ?? [];
+  const items =
+    (resolver(nodo.data) as (OlySerieLista & {
+      last_chapters?: ({ id: number; name: string; published_at: string } | null)[];
+    })[]) ?? [];
 
   return {
-    series: items.map((s) => ({
+    series: items.filter(Boolean).map((s) => ({
       ...serieResumen(s),
-      ultimos: (s.last_chapters ?? []).map((c) => ({
-        id: c.id,
-        name: c.name,
-        published_at: c.published_at,
-      })),
+      // en esta vista el estado viene como texto, no como objeto
+      status: typeof s.status === "string" ? s.status : (s.status?.name ?? null),
+      ultimos: (s.last_chapters ?? [])
+        .filter((c): c is { id: number; name: string; published_at: string } => Boolean(c))
+        .map((c) => ({ id: c.id, name: c.name, published_at: c.published_at })),
     })),
-    page: (plano[nodo.current_page] as number) ?? page,
-    last_page: (plano[nodo.last_page] as number) ?? 1,
-    total: (plano[nodo.total] as number) ?? items.length,
+    page: (resolver(nodo.current_page) as number) ?? page,
+    last_page: (resolver(nodo.last_page) as number) ?? 1,
+    total: (resolver(nodo.total) as number) ?? items.length,
   };
 }
 
