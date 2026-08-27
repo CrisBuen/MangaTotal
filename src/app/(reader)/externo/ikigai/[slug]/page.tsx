@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
+import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai } from "@/lib/ikigai";
 
@@ -12,6 +13,8 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
   const { slug } = use(props.params);
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [orden, setOrden] = useState<"asc" | "desc">("asc");
+  const progreso = useProgresoSerie("ikigai", slug);
 
   const cargar = useCallback(async () => {
     setError(null);
@@ -48,6 +51,8 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
       </p>
     );
   }
+
+  const capitulos = orden === "asc" ? ficha.capitulos : [...ficha.capitulos].reverse();
 
   return (
     <div className="space-y-8">
@@ -125,19 +130,35 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
       </div>
 
       <section>
-        <h2 className="mb-4 font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
-          Capítulos
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
+            Capítulos
+          </h2>
+          <button
+            onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
+            className="rounded-xl border border-line px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+          >
+            {orden === "asc" ? "Del 1 al último ↑" : "Del último al 1 ↓"}
+          </button>
+        </div>
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-          {ficha.capitulos.map((c) => (
+          {capitulos.map((c) => (
             <li key={c.id}>
               <Link
                 href={"/leer-externo/ikigai/" + c.id + "?slug=" + slug}
-                className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]"
+                className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
+                  c.id === progreso.ultimoId,
+                  progreso.ultimoNumero !== null && Number(c.numero) < progreso.ultimoNumero
+                )}`}
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink">
                     Capítulo {c.numero ?? "?"}
+                    {c.id === progreso.ultimoId && (
+                      <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                        vas por acá
+                      </span>
+                    )}
                   </p>
                   {c.fecha && (
                     <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">

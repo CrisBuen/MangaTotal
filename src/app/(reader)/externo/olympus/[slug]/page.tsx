@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { use } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
+import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 
 interface SerieOlympus {
@@ -34,6 +35,8 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [error, setError] = useState(false);
+  const [orden, setOrden] = useState<"asc" | "desc">("asc");
+  const progreso = useProgresoSerie("olympus", slug);
 
   const cargar = useCallback(async () => {
     setError(false);
@@ -71,6 +74,8 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
       </p>
     );
   }
+
+  const capitulosOrdenados = orden === "asc" ? capitulos : [...capitulos].reverse();
 
   return (
     <div className="space-y-8">
@@ -149,19 +154,37 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
       </div>
 
       <section>
-        <h2 className="mb-4 font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
-          Capítulos
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
+            Capítulos
+          </h2>
+          <button
+            onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
+            className="rounded-xl border border-line px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+          >
+            {orden === "asc" ? "Del 1 al último ↑" : "Del último al 1 ↓"}
+          </button>
+        </div>
 
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-          {capitulos.map((c) => (
+          {capitulosOrdenados.map((c) => (
             <li key={c.id}>
               <Link
                 href={`/leer-externo/olympus/${c.id}?slug=${serie.slug}&tipo=${serie.type}`}
-                className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]"
+                className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
+                  String(c.id) === progreso.ultimoId,
+                  progreso.ultimoNumero !== null && Number(c.name) < progreso.ultimoNumero
+                )}`}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">Capítulo {c.name}</p>
+                  <p className="truncate text-sm font-semibold text-ink">
+                    Capítulo {c.name}
+                    {String(c.id) === progreso.ultimoId && (
+                      <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                        vas por acá
+                      </span>
+                    )}
+                  </p>
                   <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
                     {c.team} ·{" "}
                     {new Date(c.published_at).toLocaleDateString("es-AR", {

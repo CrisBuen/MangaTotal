@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
+import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { use, useCallback, useEffect, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 
@@ -40,6 +41,8 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
   const [openVersions, setOpenVersions] = useState<string | null>(null);
   const [lang, setLang] = useState("es");
   const [loading, setLoading] = useState(true);
+  const [orden, setOrden] = useState<"asc" | "desc">("asc");
+  const progreso = useProgresoSerie("mangadex", id);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -89,7 +92,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
 
   if (!series) return null;
 
-  const readable = chapters;
+  const readable = orden === "asc" ? chapters : [...chapters].reverse();
 
   return (
     <div className="space-y-10">
@@ -157,9 +160,9 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
           )}
 
           <div className="flex flex-wrap items-center gap-3">
-            {readable.length > 0 && (
+            {chapters.length > 0 && (
               <Link
-                href={`/leer-externo/${readable[0].chosen.id}`}
+                href={`/leer-externo/${chapters[0].chosen.id}`}
                 className="rounded-xl bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:opacity-90"
               >
                 Empezar a leer
@@ -195,16 +198,26 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
       </div>
 
       <section>
-        <h2 className="mb-4 font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
-          Capítulos
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
+            Capítulos
+          </h2>
+          {chapters.length > 1 && (
+            <button
+              onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
+              className="rounded-xl border border-line px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+            >
+              {orden === "asc" ? "Del 1 al último ↑" : "Del último al 1 ↓"}
+            </button>
+          )}
+        </div>
         {chapters.length === 0 ? (
           <Surface className="p-10 text-center text-sm text-subtle">
             No hay capítulos en este idioma. Probá cambiando el idioma arriba.
           </Surface>
         ) : (
           <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-            {chapters.map((entry) => {
+            {readable.map((entry) => {
               const c = entry.chosen;
               const key = entry.number ?? c.id;
               const label = `Capítulo ${entry.number ?? "?"}${c.title ? `: ${c.title}` : ""}`;
@@ -212,9 +225,21 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
 
               return (
                 <li key={key}>
-                  <div className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]">
+                  <div
+                    className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
+                      c.id === progreso.ultimoId,
+                      progreso.ultimoNumero !== null && Number(entry.number) < progreso.ultimoNumero
+                    )}`}
+                  >
                     <Link href={`/leer-externo/${c.id}`} className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink">{label}</p>
+                      <p className="truncate text-sm font-semibold text-ink">
+                        {label}
+                        {c.id === progreso.ultimoId && (
+                          <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                            vas por acá
+                          </span>
+                        )}
+                      </p>
                       <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
                         {c.group ?? "Grupo desconocido"} · {c.pages} págs.
                       </p>

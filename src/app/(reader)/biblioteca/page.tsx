@@ -60,6 +60,16 @@ export default function BibliotecaPage() {
 
   const loggedIn = Boolean(me?.nickname);
 
+  // Las categorías siguen a la pestaña: en "Normal" no tienen por qué
+  // aparecer las del +18, y viceversa.
+  useEffect(() => {
+    const qs = filter === "normal" || filter === "adult" ? `?tipo=${filter}` : "";
+    fetch(`/api/tags${qs}`)
+      .then((r) => r.json())
+      .then((d) => Array.isArray(d) && setTags(d))
+      .catch(() => {});
+  }, [filter]);
+
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
@@ -76,10 +86,6 @@ export default function BibliotecaPage() {
     fetch("/api/externo/biblioteca")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => Array.isArray(d) && setGuardadas(d))
-      .catch(() => {});
-    fetch("/api/tags")
-      .then((r) => r.json())
-      .then((d) => Array.isArray(d) && setTags(d))
       .catch(() => {});
     // restaurar el estado desde la URL: pestaña activa, tag y búsqueda
     // (así "atrás" desde una serie vuelve a la misma sección)
@@ -137,6 +143,16 @@ export default function BibliotecaPage() {
     filter === "normal" || filter === "adult"
       ? continues.filter((c) => c.series.type === filter)
       : continues;
+
+  // Las series de otras fuentes también son lecturas empezadas: van en la
+  // misma fila, después de las propias. En Favoritos y +18 no aplican,
+  // porque esas pestañas son del catálogo propio.
+  const externasEmpezadas =
+    filter === "favoritos" || filter === "adult"
+      ? []
+      : guardadas.filter((g) => g.last_chapter_name);
+
+  const hayQueContinuar = continuesVisible.length + externasEmpezadas.length > 0;
 
   useEffect(() => {
     setSeries(null);
@@ -226,7 +242,7 @@ export default function BibliotecaPage() {
       )}
 
       {/* Continuar leyendo */}
-      {loggedIn && continuesVisible.length > 0 && (
+      {loggedIn && hayQueContinuar && (
         <section data-od-id="continue-reading">
           <div className="mb-5 flex items-end justify-between gap-4">
             <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
@@ -258,6 +274,36 @@ export default function BibliotecaPage() {
                   <p className="truncate font-display text-lg font-semibold text-ink">{c.series.title}</p>
                   <p className="mt-1 font-mono text-[10px] text-subtle">
                     Cap. {c.chapter.number} · pág. {c.lastPageNumber}/{c.chapter.page_count}
+                  </p>
+                </div>
+              </Link>
+            ))}
+
+            {externasEmpezadas.map((g) => (
+              <Link
+                key={`${g.source}-${g.external_id}`}
+                href={g.href}
+                className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  {g.cover_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={g.cover_url}
+                      alt={g.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <span className="absolute left-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_75%,transparent)] px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-ink backdrop-blur">
+                    {g.source}
+                  </span>
+                </div>
+                <div className="pt-3">
+                  <p className="truncate font-display text-lg font-semibold text-ink">{g.title}</p>
+                  <p className="mt-1 font-mono text-[10px] text-subtle">
+                    Cap. {g.last_chapter_name}
                   </p>
                 </div>
               </Link>

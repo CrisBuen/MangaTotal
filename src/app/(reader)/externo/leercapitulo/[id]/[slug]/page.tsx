@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
+import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { LC_NOMBRE, serieLc } from "@/lib/leercapitulo";
 
@@ -15,6 +16,7 @@ export default function SerieLcPage(props: {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [orden, setOrden] = useState<"asc" | "desc">("desc");
+  const progreso = useProgresoSerie("leercapitulo", `${id}/${slug}`);
 
   const cargar = useCallback(async () => {
     setError(null);
@@ -149,10 +151,18 @@ export default function SerieLcPage(props: {
             <li key={c.id}>
               <Link
                 href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}`}
-                className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]"
+                className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
+                  c.numero === progreso.ultimoId,
+                  progreso.ultimoNumero !== null && Number(c.numero) < progreso.ultimoNumero
+                )}`}
               >
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
                   {c.titulo ?? `Capítulo ${c.numero}`}
+                  {c.numero === progreso.ultimoId && (
+                    <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                      vas por acá
+                    </span>
+                  )}
                 </p>
                 <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
                   Leer →
