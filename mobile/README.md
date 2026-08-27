@@ -112,3 +112,35 @@ Como la carpeta `android/` no se versiona, **después de cada
 ```powershell
 Copy-Item patches\MainActivity.java android\app\src\main\java\app\mangatotal\android\MainActivity.java -Force
 ```
+
+## Publicar una versión nueva de la app
+
+El aviso de actualización dentro de la app se basa en dos números que
+tienen que coincidir:
+
+1. `mobile/capacitor.config.json` → `android.appendUserAgent`
+   (`MangaTotalApp/<versionCode>`): así la web sabe qué versión está
+   instalada.
+2. `mobile/android/app/build.gradle` → `versionCode` y `versionName`.
+
+Pasos:
+
+```powershell
+# 1. subir el número en los dos lugares de arriba
+cd "D:\Pagina Web mangastotal\mobile"
+npx cap sync android
+
+# 2. compilar
+$env:JAVA_HOME = "$env:USERPROFILE\.jdks\jdk-21.0.12.1+1"
+cd android; .\gradlew.bat assembleDebug; cd ..
+
+# 3. publicar el APK en el sitio
+Copy-Item android\app\build\outputs\apk\debug\app-debug.apk `
+  ..\public\descargas\MangaTotal-android.apk -Force
+```
+
+3. Editar `public/descargas/android-version.json` con el `versionCode`
+   nuevo, el `versionName` y la lista de novedades: eso es lo que se muestra
+   en el aviso dentro de la app y en Perfil → Aplicación.
+4. Commit y push: el aviso aparece solo en los celulares con una versión
+   anterior.

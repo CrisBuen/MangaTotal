@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { UpdateChecker } from "@/components/pwa/UpdateChecker";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
@@ -298,6 +299,8 @@ export default function PerfilPage() {
           {pwBusy ? "Guardando..." : "Cambiar contraseña"}
         </Button>
       </form>
+
+      <UpdateChecker />
     </div>
   );
 }

@@ -1,0 +1,58 @@
+/**
+ * Detección de la app Android y de su versión instalada.
+ *
+ * La app agrega `MangaTotalApp/<n>` al user agent (ver `appendUserAgent` en
+ * mobile/capacitor.config.json). Las versiones anteriores a ese cambio no
+ * lo traen, así que se las considera versión 1 y también reciben el aviso.
+ */
+
+export interface AndroidRelease {
+  versionCode: number;
+  versionName: string;
+  date: string;
+  apkUrl: string;
+  sizeMb: number;
+  changes: string[];
+}
+
+/** True si la página corre dentro de la app Android (WebView), no en Chrome. */
+export function isAndroidApp(userAgent = navigator.userAgent): boolean {
+  if (/MangaTotalApp\//.test(userAgent)) return true;
+  // el WebView de Android se identifica con "; wv)" y Chrome no
+  return /Android/.test(userAgent) && /\bwv\b/.test(userAgent);
+}
+
+/** Versión de la app instalada, o 1 si es anterior al marcador. */
+export function installedVersionCode(userAgent = navigator.userAgent): number {
+  const match = /MangaTotalApp\/(\d+)/.exec(userAgent);
+  return match ? parseInt(match[1], 10) : 1;
+}
+
+export async function fetchLatestRelease(): Promise<AndroidRelease | null> {
+  try {
+    const res = await fetch("/descargas/android-version.json", { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as AndroidRelease;
+  } catch {
+    return null;
+  }
+}
+
+const DISMISSED_KEY = "mangatotal:update-dismissed";
+
+/** Recordar que se pospuso una versión (queda disponible en Perfil). */
+export function dismissVersion(versionCode: number): void {
+  try {
+    localStorage.setItem(DISMISSED_KEY, String(versionCode));
+  } catch {
+    // modo incógnito o almacenamiento bloqueado: se vuelve a avisar
+  }
+}
+
+export function isDismissed(versionCode: number): boolean {
+  try {
+    return localStorage.getItem(DISMISSED_KEY) === String(versionCode);
+  } catch {
+    return false;
+  }
+}
