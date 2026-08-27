@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
-import { Surface } from "@/components/ui/Surface";
 import { IKIGAI_NOMBRE, capituloIkigai, ikigaiDisponible, serieIkigai } from "@/lib/ikigai";
 
 interface Vecino {
@@ -24,7 +23,7 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
     prev: null,
     next: null,
   });
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -46,13 +45,13 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar el capítulo");
+      setError(err);
     }
   }, [chapterId, slug]);
 
   useEffect(() => {
     if (!ikigaiDisponible()) {
-      setError(IKIGAI_NOMBRE + " solo está disponible en la app de Android o de Windows");
+      setError(new Error(IKIGAI_NOMBRE + " solo está disponible en la app de Android o de Windows"));
       return;
     }
     cargar();
@@ -61,15 +60,12 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
   if (error) {
     return (
       <div className="mx-auto max-w-lg px-4 py-24">
-        <Surface className="p-10 text-center">
-          <p className="text-lg font-bold text-ink">{error}</p>
-          <Link
-            href={slug ? "/externo/ikigai/" + slug : "/explorar"}
-            className="mt-4 inline-block text-sm text-accent hover:underline"
-          >
-            Volver
-          </Link>
-        </Surface>
+        <AvisoFuente
+          error={error}
+          volverA={slug ? "/externo/ikigai/" + slug : "/explorar"}
+          volverTexto="Volver"
+          onReintentar={cargar}
+        />
       </div>
     );
   }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 export interface SerieExternaGuardable {
-  source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo";
+  source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis";
   external_id: string;
   slug?: string | null;
   title: string;

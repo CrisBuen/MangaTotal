@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
-import { Surface } from "@/components/ui/Surface";
 import { LC_NOMBRE, serieLc } from "@/lib/leercapitulo";
 
 type Ficha = Awaited<ReturnType<typeof serieLc>>;
@@ -14,7 +14,7 @@ export default function SerieLcPage(props: {
 }) {
   const { id, slug } = use(props.params);
   const [ficha, setFicha] = useState<Ficha | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [orden, setOrden] = useState<"asc" | "desc">("desc");
   const progreso = useProgresoSerie("leercapitulo", `${id}/${slug}`);
 
@@ -23,7 +23,7 @@ export default function SerieLcPage(props: {
     try {
       setFicha(await serieLc(id, slug));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar la serie");
+      setError(err);
     }
   }, [id, slug]);
 
@@ -32,14 +32,7 @@ export default function SerieLcPage(props: {
   }, [cargar]);
 
   if (error) {
-    return (
-      <Surface className="p-10 text-center">
-        <p className="text-lg font-bold text-ink">{error}</p>
-        <Link href="/explorar" className="mt-4 inline-block text-sm text-accent hover:underline">
-          Volver a Explorar
-        </Link>
-      </Surface>
-    );
+    return <AvisoFuente error={error} onReintentar={cargar} />;
   }
 
   if (!ficha) {

@@ -32,8 +32,10 @@ async fn traer_pagina(
     url: String,
     user_agent: Option<String>,
 ) -> Result<String, String> {
-    const PERMITIDOS: [&str; 9] = [
+    const PERMITIDOS: [&str; 10] = [
         "newcatharsis.dig-it.info",
+        // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
+        "catharsisfood.com",
         "leercapitulo.co",
         // CDN donde viven las páginas de LeerCapítulo (lc3-cdn, lc7-cdn, ...)
         "t34798ndc.com",

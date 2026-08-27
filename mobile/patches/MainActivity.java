@@ -15,7 +15,7 @@ import com.getcapacitor.BridgeActivity;
 import java.io.File;
 
 /**
- * Tres cosas que Capacitor no resuelve por su cuenta:
+ * Cuatro cosas que Capacitor no resuelve por su cuenta:
  *
  * 1. El gesto de "atrás" cerraba la app en vez de volver atrás, porque el
  *    historial del WebView no se maneja solo.
@@ -24,6 +24,8 @@ import java.io.File;
  * 3. La actualización se baja e instala sin salir de la app: se descarga
  *    con el gestor del sistema y se abre el instalador encima, en vez de
  *    mandar a la persona al navegador.
+ * 4. Las fuentes que bloquean a los servidores se piden desde el teléfono,
+ *    con el puente de FuentesPlugin.
  */
 public class MainActivity extends BridgeActivity {
 
@@ -35,6 +37,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // el puente de fuentes tiene que existir antes de que arranque la web
+        registerPlugin(FuentesPlugin.class);
         super.onCreate(savedInstanceState);
 
         WebView webView = this.bridge != null ? this.bridge.getWebView() : null;

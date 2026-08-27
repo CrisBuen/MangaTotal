@@ -1,0 +1,162 @@
+===========================================================================
+ CATHARSIS WORLD EN MANGATOTAL
+===========================================================================
+
+Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
+serie y en cada capítulo.
+
+Sitio:  https://newcatharsis.dig-it.info
+Datos:  https://direct-new-catha.catharsisfood.com
+
+
+---------------------------------------------------------------------------
+LO IMPORTANTE: ESTA FUENTE NO SE LEE DE SU WEB
+---------------------------------------------------------------------------
+
+Su web no se puede leer con un programa, y no por descuido:
+
+  1. Cloudflare le pide a cada visitante que compruebe que es una persona.
+     Desde un servidor eso no se puede hacer: responde 403 a TODO, hasta a
+     /robots.txt y a las imágenes de su logo.
+
+  2. Aunque se pasara, no serviría: el lector dibuja cada página en un
+     <canvas> y encima le pone una capa transparente. En el documento no
+     queda ninguna dirección de imagen. Están puestas a propósito para que
+     no se puedan sacar.
+
+Pedimos acceso de solo lectura a su API y dijeron que no.
+
+PERO su sitio guarda todo en un Directus, y ese contesta a cualquiera sin
+verificación de por medio. Ahí está todo lo que hace falta, y por eso la
+fuente funciona en la web además de las apps.
+
+
+---------------------------------------------------------------------------
+CÓMO ESTÁ ORGANIZADO SU ALMACÉN
+---------------------------------------------------------------------------
+
+Son carpetas, tres pisos:
+
+    "Mangas"  (cf1f897d-9735-49f7-a96c-77a8c72d2124)
+       |
+       +-- una carpeta por serie      -> el nombre es el título
+             |
+             +-- una carpeta por capítulo   -> el nombre es el número
+                   |
+                   +-- un archivo por página
+
+El título de cada archivo dice a qué pertenece:
+
+    "La corona que te quitaré - Capítulo 1 - Tira 7"
+     \_____ serie ________/     \_ cap _/   \_pág_/
+
+OJO: los archivos NO vienen en orden. En el capítulo 1 de la serie más
+larga llegaron como Tira 10, 4, 11, 7, 2, 6... Hay que ordenarlos por el
+número que dice "Tira N", nunca confiar en el orden en que llegan.
+
+Las PORTADAS no cuelgan de la carpeta de su serie. Son archivos aparte
+titulados "Portada - {nombre de la serie}", y se atan por el nombre
+(comparándolo sin tildes ni signos). Casan el 91%; las que no casan son
+casi todas novelas de texto, que igual quedan fuera porque no tienen
+capítulos.
+
+
+---------------------------------------------------------------------------
+LAS CINCO CONSULTAS QUE USA LA INTEGRACIÓN
+---------------------------------------------------------------------------
+
+Todas admiten filtro, orden y elección de campos sin autenticarse.
+
+  Series          /folders?filter[parent][_eq]={MANGAS}&fields=id,name&limit=-1
+  Cuántos caps    /folders?aggregate[count]=id&groupBy=parent&limit=-1
+  Portadas        /files?filter[title][_starts_with]=Portada - &fields=id,title&limit=-1
+  Capítulos       /folders?filter[parent][_eq]={serie}&fields=id,name&limit=-1
+  Páginas         /files?filter[folder][_eq]={capítulo}&fields=id,title,width,height&limit=-1
+  Novedades       /files?sort=-created_on&limit=400&fields=folder
+
+Las tres primeras arman el catálogo entero (unas 1.940 series) en un
+segundo y medio, y se guardan media hora en memoria del servidor.
+
+Para novedades hay que subir un piso: los archivos cuelgan de la carpeta
+del capítulo, no de la de la serie.
+
+Cuidado con "uploaded_on": viene vacío en casi todo. El campo que sirve
+para saber qué es nuevo es "created_on".
+
+
+---------------------------------------------------------------------------
+LAS IMÁGENES
+---------------------------------------------------------------------------
+
+    https://direct-new-catha.catharsisfood.com/assets/{id del archivo}
+
+Su almacén sabe redimensionar, y eso vale oro en una conexión lenta:
+
+    /assets/{id}?width=320&quality=72&format=webp
+
+Una portada entera pesa unos 85 KB; a 320 píxeles baja a 35 KB. El catálogo
+las pide chicas; el lector las pide enteras, que para eso se abrieron.
+
+Además informan el alto y el ancho real de cada página. Eso el lector lo
+aprovecha para reservarle el hueco exacto antes de que cargue: no salta el
+scroll y no se pierde por dónde ibas.
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN DE DOMINIO O DE ALMACÉN
+---------------------------------------------------------------------------
+
+PASO 1. src/app/api/externo/catharsis/route.ts
+
+     const API = "https://direct-new-catha.catharsisfood.com";
+     const CARPETA_MANGAS = "cf1f897d-...";
+
+     Para encontrar la carpeta raíz nueva:
+       curl "{API}/folders?limit=-1" y buscar la que se llama "Mangas".
+
+PASO 2. src/lib/catharsis.ts
+
+     export const CW_WEB = "https://newcatharsis.dig-it.info";
+     const CW_ASSETS = "https://direct-new-catha.catharsisfood.com/assets";
+
+PASO 3. desktop/src-tauri/src/main.rs y mobile/patches/FuentesPlugin.java
+
+     En las dos listas PERMITIDOS están "newcatharsis.dig-it.info" y
+     "catharsisfood.com". Hoy no se usan (la fuente va por nuestro
+     servidor), pero quedan por si alguna vez hay que ir por el puente.
+
+PASO 4. Recompilar las apps (la receta está en
+        CAMBIO-DE-DOMINIO-ZONATMO.txt) y hacer push.
+
+
+---------------------------------------------------------------------------
+SI DEJA DE ANDAR: QUÉ MIRAR PRIMERO
+---------------------------------------------------------------------------
+
+Probar esto, en este orden:
+
+  curl "https://direct-new-catha.catharsisfood.com/server/info"
+      -> si no da 200, cambiaron de almacén: rehacer desde el PASO 1.
+
+  curl ".../folders?filter[parent][_eq]={MANGAS}&fields=id,name&limit=-1"
+      -> si da 403, cerraron el permiso público. Ahí no hay vuelta por
+         nuestra cuenta: hay que volver a pedirles acceso de lectura.
+
+  curl ".../files?filter[folder][_eq]={un capítulo}&limit=3"
+      -> si los títulos ya no dicen "Tira N", cambiar cómo se ordenan las
+         páginas en la acción "capitulo" de la ruta.
+
+
+---------------------------------------------------------------------------
+RECORDATORIOS
+---------------------------------------------------------------------------
+
+- La integración existe porque Catharsis World dio su permiso por escrito.
+  No sacar su nombre ni los enlaces a su sitio.
+- No se aloja nada: las portadas y las páginas se cargan desde sus
+  servidores.
+- No publican sinopsis, géneros ni estado, así que la ficha se apoya en lo
+  que sí dan: portada y capítulos. Si algún día abren esos datos, se pueden
+  sumar sin tocar el resto.
+- Guardar el permiso por escrito junto con los de las otras fuentes.
+===========================================================================

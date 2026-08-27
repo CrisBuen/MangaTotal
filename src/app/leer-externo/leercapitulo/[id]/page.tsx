@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
-import { Surface } from "@/components/ui/Surface";
 import { LC_NOMBRE, paginasLc } from "@/lib/leercapitulo";
 
 type Capitulo = Awaited<ReturnType<typeof paginasLc>>;
@@ -20,19 +19,19 @@ export default function LeerLcPage(props: { params: Promise<{ id: string }> }) {
   const slug = params.get("slug") ?? "";
 
   const [capitulo, setCapitulo] = useState<Capitulo | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const cargar = useCallback(async () => {
     try {
       setCapitulo(await paginasLc(serieId, slug, numero));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar el capítulo");
+      setError(err);
     }
   }, [serieId, slug, numero]);
 
   useEffect(() => {
     if (!serieId || !slug) {
-      setError("Falta la serie de este capítulo. Abrilo desde su ficha.");
+      setError(new Error("Falta la serie de este capítulo. Abrilo desde su ficha."));
       return;
     }
     cargar();
@@ -43,12 +42,12 @@ export default function LeerLcPage(props: { params: Promise<{ id: string }> }) {
   if (error) {
     return (
       <div className="mx-auto max-w-lg px-4 py-24">
-        <Surface className="p-10 text-center">
-          <p className="text-lg font-bold text-ink">{error}</p>
-          <Link href={volver} className="mt-4 inline-block text-sm text-accent hover:underline">
-            Volver
-          </Link>
-        </Surface>
+        <AvisoFuente
+          error={error}
+          volverA={volver}
+          volverTexto="Volver"
+          onReintentar={cargar}
+        />
       </div>
     );
   }

@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
-import { Surface } from "@/components/ui/Surface";
 import { TMO_NOMBRE, capituloTmo } from "@/lib/zonatmo";
 
 type Capitulo = Awaited<ReturnType<typeof capituloTmo>>;
@@ -21,7 +20,7 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
   const slug = params.get("slug") ?? "";
 
   const [capitulo, setCapitulo] = useState<Capitulo | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -29,13 +28,13 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
       if (cap.paginas.length === 0) throw new Error("Este capítulo no tiene páginas");
       setCapitulo(cap);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar el capítulo");
+      setError(err);
     }
   }, [slug, slugCapitulo]);
 
   useEffect(() => {
     if (!slug) {
-      setError("Falta la serie de este capítulo. Abrilo desde su ficha.");
+      setError(new Error("Falta la serie de este capítulo. Abrilo desde su ficha."));
       return;
     }
     cargar();
@@ -46,12 +45,12 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
   if (error) {
     return (
       <div className="mx-auto max-w-lg px-4 py-24">
-        <Surface className="p-10 text-center">
-          <p className="text-lg font-bold text-ink">{error}</p>
-          <Link href={volver} className="mt-4 inline-block text-sm text-accent hover:underline">
-            Volver
-          </Link>
-        </Surface>
+        <AvisoFuente
+          error={error}
+          volverA={volver}
+          volverTexto="Volver"
+          onReintentar={cargar}
+        />
       </div>
     );
   }

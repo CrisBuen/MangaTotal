@@ -44,7 +44,7 @@ export function OlympusReader({
   /** Página por la que iba la lectura, para retomarla donde quedó. */
   initialPage?: number;
   /** Fuente, para guardar el progreso en la biblioteca. */
-  source?: "olympus" | "tmo" | "ikigai" | "leercapitulo";
+  source?: "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis";
   /** Enlaces propios de la fuente; por defecto, los de Olympus. */
   hrefVolver?: string;
   hrefCapitulo?: (id: number | string) => string;

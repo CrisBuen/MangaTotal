@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
-import { Surface } from "@/components/ui/Surface";
 import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai } from "@/lib/ikigai";
 
 type Ficha = Awaited<ReturnType<typeof serieIkigai>>;
@@ -12,7 +12,7 @@ type Ficha = Awaited<ReturnType<typeof serieIkigai>>;
 export default function SerieIkigaiPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = use(props.params);
   const [ficha, setFicha] = useState<Ficha | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [orden, setOrden] = useState<"asc" | "desc">("asc");
   const progreso = useProgresoSerie("ikigai", slug);
 
@@ -21,27 +21,20 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
     try {
       setFicha(await serieIkigai(slug));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar la serie");
+      setError(err);
     }
   }, [slug]);
 
   useEffect(() => {
     if (!ikigaiDisponible()) {
-      setError(IKIGAI_NOMBRE + " solo está disponible en la app de Android o de Windows");
+      setError(new Error(IKIGAI_NOMBRE + " solo está disponible en la app de Android o de Windows"));
       return;
     }
     cargar();
   }, [cargar]);
 
   if (error) {
-    return (
-      <Surface className="p-10 text-center">
-        <p className="text-lg font-bold text-ink">{error}</p>
-        <Link href="/explorar" className="mt-4 inline-block text-sm text-accent hover:underline">
-          Volver a Explorar
-        </Link>
-      </Surface>
-    );
+    return <AvisoFuente error={error} onReintentar={cargar} />;
   }
 
   if (!ficha) {

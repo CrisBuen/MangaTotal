@@ -11,6 +11,7 @@ import {
   ikigaiDisponible,
   type SerieIkigai,
 } from "@/lib/ikigai";
+import { catalogoCw, imagenCw, type OrdenCw, type SerieCw } from "@/lib/catharsis";
 import {
   LC_GENEROS,
   LC_INICIALES,
@@ -119,6 +120,10 @@ export default function ExplorarPage() {
   const [ikiGenero, setIkiGenero] = useState<string | null>(null);
   const [ikiOrden, setIkiOrden] = useState("recientes");
   const [ikigaiHay, setIkigaiHay] = useState(false);
+  const [cw, setCw] = useState<SerieCw[] | null>(null);
+  const [cwPage, setCwPage] = useState(1);
+  const [cwPaginas, setCwPaginas] = useState(1);
+  const [cwOrden, setCwOrden] = useState<OrdenCw>("novedades");
   const [lc, setLc] = useState<SerieLc[] | null>(null);
   const [lcPage, setLcPage] = useState(1);
   const [lcGenero, setLcGenero] = useState<string | null>(null);
@@ -132,6 +137,41 @@ export default function ExplorarPage() {
   const [recarga, setRecarga] = useState(0);
   const [refrescando, setRefrescando] = useState(false);
   const pedirFresco = useRef(false);
+
+  const cargarCw = useCallback(async () => {
+    setError(false);
+    const fresco = pedirFresco.current;
+    try {
+      const r = await catalogoCw({
+        busqueda: search.trim() || undefined,
+        pagina: cwPage,
+        orden: cwOrden,
+        fresco,
+      });
+      setCw(r.series);
+      setCwPaginas(r.paginas);
+    } catch (err) {
+      setError(true);
+      setErrorDetalle(err instanceof Error ? err.message : null);
+      setCw([]);
+    } finally {
+      pedirFresco.current = false;
+      setRefrescando(false);
+    }
+    // recarga entra en las dependencias para que el botón de actualizar
+    // vuelva a pedir aunque no haya cambiado ningún filtro
+  }, [cwPage, cwOrden, search, recarga]);
+
+  useEffect(() => {
+    if (fuente !== "catharsis") return;
+    if (!pedirFresco.current) setCw(null);
+    const t = setTimeout(cargarCw, search ? 400 : 0);
+    return () => clearTimeout(t);
+  }, [cargarCw, search, fuente]);
+
+  useEffect(() => {
+    setCwPage(1);
+  }, [search, fuente, cwOrden]);
 
   const cargarLc = useCallback(async () => {
     setError(false);
@@ -335,6 +375,9 @@ export default function ExplorarPage() {
     setLcLista(leer("lc_lista") ?? "");
     if (f === "leercapitulo") setLcPage(pagina);
 
+    if (leer("cw_orden")) setCwOrden(leer("cw_orden")! as OrdenCw);
+    if (f === "catharsis") setCwPage(pagina);
+
     setRestaurado(true);
   }, []);
 
@@ -359,9 +402,12 @@ export default function ExplorarPage() {
             ? ikiPage
             : fuente === "leercapitulo"
               ? lcPage
-              : Math.floor(offset / 24) + 1;
+              : fuente === "catharsis"
+                ? cwPage
+                : Math.floor(offset / 24) + 1;
     poner("p", pagina > 1 ? pagina : null);
 
+    poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
     poner("md_order", order === "latest" ? null : order);
     poner("md_lang", lang === "es" ? null : lang);
     poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
@@ -387,6 +433,7 @@ export default function ExplorarPage() {
     tmoPage, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden,
     ikiPage, ikiTipo, ikiGenero, ikiOrden,
     lcPage, lcGenero, lcInicial, lcLista,
+    cwPage, cwOrden,
   ]);
 
   const load = useCallback(async () => {
@@ -488,6 +535,7 @@ export default function ExplorarPage() {
           ...FUENTES,
           { key: "tmo", label: "ZonaTMO" },
           { key: "leercapitulo", label: "LeerCapítulo" },
+          { key: "catharsis", label: "Catharsis" },
           // Ikigai sí necesita el puente nativo: bloquea a los centros de datos
           ...(ikigaiHay ? [{ key: "ikigai", label: "Ikigai" }] : []),
         ].map((f) => (
@@ -603,6 +651,18 @@ export default function ExplorarPage() {
                 {o.name}
               </option>
             ))}
+          </select>
+        )}
+
+        {fuente === "catharsis" && (
+          <select
+            value={cwOrden}
+            onChange={(e) => setCwOrden(e.target.value as OrdenCw)}
+            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+          >
+            <option value="novedades">Novedades</option>
+            <option value="nombre">A–Z</option>
+            <option value="capitulos">Más capítulos</option>
           </select>
         )}
 
@@ -1086,6 +1146,72 @@ export default function ExplorarPage() {
             </div>
           </section>
         )}
+
+      {fuente === "catharsis" && (
+        cw === null ? (
+          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+            Cargando catálogo de Catharsis World...
+          </p>
+        ) : cw.length === 0 ? (
+          <Surface className="p-12 text-center">
+            <p className="text-lg font-bold text-ink">Sin resultados</p>
+            <p className="mt-1 text-sm text-subtle">Probá con otro término.</p>
+          </Surface>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+              {cw.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/externo/catharsis/${s.id}`}
+                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                    {s.portada && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={imagenCw(s.portada, 320)}
+                        alt={s.nombre}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+                      {s.capitulos} cap.
+                    </span>
+                  </div>
+                  <h3 className="mt-3 line-clamp-2 px-1 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                    {s.nombre}
+                  </h3>
+                </Link>
+              ))}
+            </div>
+
+            {cwPaginas > 1 && (
+              <div className="flex items-center justify-center gap-3 pt-8">
+                <button
+                  disabled={cwPage <= 1}
+                  onClick={() => setCwPage(cwPage - 1)}
+                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                >
+                  ← Anterior
+                </button>
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                  Página {cwPage} de {cwPaginas}
+                </span>
+                <button
+                  disabled={cwPage >= cwPaginas}
+                  onClick={() => setCwPage(cwPage + 1)}
+                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                >
+                  Siguiente →
+                </button>
+              </div>
+            )}
+          </>
+        )
+      )}
 
       {fuente === "leercapitulo" && (
         lc === null ? (

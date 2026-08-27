@@ -6,6 +6,8 @@ import fs from "fs";
  */
 const copias = [
   ["patches/MainActivity.java", "android/app/src/main/java/app/mangatotal/android/MainActivity.java"],
+  ["patches/FuentesPlugin.java", "android/app/src/main/java/app/mangatotal/android/FuentesPlugin.java"],
+  ["patches/DesafioActivity.java", "android/app/src/main/java/app/mangatotal/android/DesafioActivity.java"],
   ["patches/AndroidManifest.xml", "android/app/src/main/AndroidManifest.xml"],
   ["patches/file_paths.xml", "android/app/src/main/res/xml/file_paths.xml"],
 ];

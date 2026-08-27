@@ -14,6 +14,16 @@
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+/** El puente nativo de Android, con los mismos nombres que el de Windows. */
+interface PluginFuentes {
+  traerPagina(opciones: {
+    url: string;
+    userAgent: string | null;
+  }): Promise<{ status: number; data: string }>;
+  resolverDesafio(opciones: { url: string; userAgent: string | null }): Promise<{ ok: boolean }>;
+  limpiarVerificacion(): Promise<void>;
+}
+
 interface Puente {
   get(opciones: { url: string; headers?: Record<string, string> }): Promise<{
     status: number;
@@ -22,13 +32,54 @@ interface Puente {
   }>;
 }
 
+function capacitorPlugins() {
+  if (typeof window === "undefined") return null;
+  return (
+    window as unknown as {
+      Capacitor?: { Plugins?: { CapacitorHttp?: Puente; Fuentes?: PluginFuentes } };
+    }
+  ).Capacitor?.Plugins;
+}
+
+function pluginFuentes(): PluginFuentes | null {
+  const p = capacitorPlugins()?.Fuentes;
+  return p?.traerPagina ? p : null;
+}
+
+/**
+ * Traduce el aviso del puente nativo.
+ *
+ * Los dos puentes avisan igual —con un texto que empieza en DESAFIO:— pero
+ * cada plataforma lo envuelve a su manera, así que se busca la marca en vez
+ * de comparar el mensaje entero.
+ */
+function comoDesafio(err: unknown): unknown {
+  const aviso = err instanceof Error ? err.message : String(err);
+  const marca = aviso.indexOf("DESAFIO:");
+  if (marca === -1) return err;
+  return new DesafioPendiente(aviso.slice(marca + "DESAFIO:".length).trim());
+}
+
 function puente(): Puente | null {
   if (typeof window === "undefined") return null;
 
-  const capacitor = (window as unknown as {
-    Capacitor?: { Plugins?: { CapacitorHttp?: Puente } };
-  }).Capacitor;
-  if (capacitor?.Plugins?.CapacitorHttp) return capacitor.Plugins.CapacitorHttp;
+  // la app de Android trae su propio puente: adjunta el permiso de Cloudflare
+  // que dejó la ventana de verificación, y avisa cuando hay que pedirlo
+  const fuentes = pluginFuentes();
+  if (fuentes) {
+    return {
+      async get({ url }) {
+        try {
+          return await fuentes.traerPagina({ url, userAgent: userAgentElegido() });
+        } catch (err) {
+          throw comoDesafio(err);
+        }
+      },
+    };
+  }
+
+  const capacitorHttp = capacitorPlugins()?.CapacitorHttp;
+  if (capacitorHttp) return capacitorHttp;
 
   const tauri = (window as unknown as {
     __TAURI__?: {
@@ -50,11 +101,7 @@ function puente(): Puente | null {
           return { status: 200, data: html };
         } catch (err) {
           // el comando avisa así cuando Cloudflare pide verificar
-          const aviso = String(err);
-          if (aviso.startsWith("DESAFIO:")) {
-            throw new DesafioPendiente(aviso.slice("DESAFIO:".length));
-          }
-          throw err;
+          throw comoDesafio(err);
         }
       },
     };
@@ -185,6 +232,12 @@ export const UA_POR_DEFECTO = UA;
  * vencido dejaría la fuente inservible sin forma de reintentar.
  */
 export async function limpiarVerificacion(): Promise<boolean> {
+  const fuentes = pluginFuentes();
+  if (fuentes) {
+    await fuentes.limpiarVerificacion();
+    return true;
+  }
+
   const core = tauriCore();
   if (!core?.invoke) return false;
   await core.invoke("limpiar_verificacion");
@@ -193,7 +246,7 @@ export async function limpiarVerificacion(): Promise<boolean> {
 
 /** True si esta plataforma sabe abrir la ventana de verificación. */
 export function puedeResolverDesafio(): boolean {
-  return Boolean(tauriCore()?.invoke);
+  return Boolean(pluginFuentes()) || Boolean(tauriCore()?.invoke);
 }
 
 /**
@@ -204,6 +257,12 @@ export function puedeResolverDesafio(): boolean {
  * Devuelve true si quedó resuelto.
  */
 export async function resolverDesafio(url: string): Promise<boolean> {
+  const fuentes = pluginFuentes();
+  if (fuentes) {
+    const r = await fuentes.resolverDesafio({ url, userAgent: userAgentElegido() });
+    return r?.ok === true;
+  }
+
   const core = tauriCore();
   if (!core?.invoke) return false;
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
 import { UpdateChecker } from "@/components/pwa/UpdateChecker";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Feedback";
@@ -244,6 +245,8 @@ export default function PerfilPage() {
 
         {saved && <Badge tone="success">Guardado</Badge>}
       </Surface>
+
+      <AjustesFuentes />
 
       {/* cambio de contraseña */}
       <form

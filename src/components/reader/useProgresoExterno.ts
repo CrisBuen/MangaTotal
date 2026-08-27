@@ -12,7 +12,7 @@ const GUARDAR_MS = 1500;
  * mandar un pedido por cada imagen que pasa.
  */
 export function useProgresoExterno(entrada: {
-  source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo";
+  source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis";
   externalId: string;
   chapterId: string;
   chapterName: string;

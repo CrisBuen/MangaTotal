@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-const FUENTES = ["mangadex", "olympus", "tmo", "ikigai", "leercapitulo"] as const;
+const FUENTES = ["mangadex", "olympus", "tmo", "ikigai", "leercapitulo", "catharsis"] as const;
 type Fuente = (typeof FUENTES)[number];
 
 function publico(e: {
@@ -44,6 +44,7 @@ function fichaHref(source: string, externalId: string, slug: string | null): str
   if (source === "ikigai") return `/externo/ikigai/${externalId}`;
   if (source === "tmo") return `/externo/tmo/${externalId}`;
   if (source === "leercapitulo") return `/externo/leercapitulo/${externalId}`;
+  if (source === "catharsis") return `/externo/catharsis/${externalId}`;
   return `/externo/${externalId}`;
 }
 
@@ -82,6 +83,10 @@ function capituloHref(
     // el identificador guardado es "id/slug"
     const [id = "", s = ""] = externalId.split("/");
     return con(`/leer-externo/leercapitulo/${chapterId}`, `serie=${id}&slug=${s}`);
+  }
+  if (source === "catharsis") {
+    // Catharsis identifica serie y capítulo con el mismo tipo de código
+    return con(`/leer-externo/catharsis/${chapterId}`, `serie=${externalId}`);
   }
   return con(`/leer-externo/${chapterId}`);
 }
