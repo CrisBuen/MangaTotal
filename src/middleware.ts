@@ -27,7 +27,8 @@ const PUBLIC_PREFIXES = [
   "/api/images/",
   "/api/series/",
   "/api/externo/series",
-  "/api/externo/olympus/series",
+  // el catálogo y sus filtros son públicos; el capítulo valida sesión por su cuenta
+  "/api/externo/olympus",
   // el catálogo de anime se navega como visitante; la lista exige sesión
   "/anime/",
   "/api/anime",
