@@ -64,6 +64,27 @@ detección va por el archivo exacto, no por el programa.
 
 
 ---------------------------------------------------------------------------
+REPORTES YA ENVIADOS
+---------------------------------------------------------------------------
+
+  27 de agosto de 2026  ·  instalador 1.2.0
+    Submission ID : 48f354e9-297a-4994-8e1e-903b960578c1
+    Detección     : Trojan:Win32/Wacatac.B!ml
+    SHA-256       : 5CC74EEEE4E46400F7C856C9E3B1A5F8670116164C517A0A517EFEDCD789D02B
+    Estado        : Submitted
+
+  El estado se consulta con ese ID en:
+    https://www.microsoft.com/en-us/wdsi/submissionhistory
+
+  DATO PRÁCTICO: subir el .exe directo falla con "Error al cargar el
+  archivo". Hay que subirlo dentro de un .zip; así entra a la primera.
+  Se arma con:
+
+    Compress-Archive -Path "public\descargas\MangaTotal-windows-setup.exe" `
+      -DestinationPath "$env:USERPROFILE\Desktopeporte.zip" -Force
+
+
+---------------------------------------------------------------------------
 CÓMO SACAR LOS DATOS DE LA DETECCIÓN
 ---------------------------------------------------------------------------
 
