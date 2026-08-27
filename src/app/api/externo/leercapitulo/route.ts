@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
  * por el puente nativo de la app (ver src/lib/fuenteNativa.ts).
  */
 const BASE = "https://www.leercapitulo.co";
-const RUTAS_PERMITIDAS = ["/", "/manga/", "/genre/", "/initial/"];
+const RUTAS_PERMITIDAS = ["/", "/manga/", "/genre/", "/initial/", "/leer/"];
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";

@@ -144,28 +144,20 @@ export default function SerieLcPage(props: {
           </button>
         </div>
 
-        {/* Sus capítulos abren en su propio visor: todavía no nos pasaron
-            cómo leer las páginas desde acá. */}
-        <p className="mb-4 rounded-xl border border-line bg-[var(--surface-raised)] px-4 py-3 text-xs leading-5 text-subtle">
-          Los capítulos de {LC_NOMBRE} se abren en su sitio, en una pestaña nueva.
-        </p>
-
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
           {capitulos.map((c) => (
             <li key={c.id}>
-              <a
-                href={c.url_original}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}`}
                 className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]"
               >
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
                   {c.titulo ?? `Capítulo ${c.numero}`}
                 </p>
                 <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
-                  Leer ↗
+                  Leer →
                 </span>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>

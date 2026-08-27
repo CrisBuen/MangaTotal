@@ -5,13 +5,10 @@
  * ZonaTMO: primero por nuestro servidor y, si su Cloudflare rechaza al
  * centro de datos, desde el dispositivo por el puente nativo.
  *
- * ⚠️ LAS PÁGINAS DE LOS CAPÍTULOS TODAVÍA NO SE LEEN ACÁ.
- * Ellos no publican las imágenes en el HTML: van dentro de un <p
- * id="array_data"> codificado con un esquema propio. Es una protección que
- * pusieron a propósito, y descifrarla por nuestra cuenta sería saltearla,
- * cosa que el permiso no vuelve correcta. Hasta que nos pasen cómo leerlo
- * (o un endpoint), cada capítulo abre en su propio visor.
- * Ver CAMBIO-DE-DOMINIO-LEERCAPITULO.txt.
+ * Las páginas de cada capítulo no vienen como imágenes en el HTML: van
+ * dentro de un <p id="array_data"> en base64 con un alfabeto propio. Ellos
+ * dieron permiso para leerlo (es código viejo que ya nadie del equipo
+ * conoce). Ver CAMBIO-DE-DOMINIO-LEERCAPITULO.txt.
  */
 export const LC_WEB = "https://www.leercapitulo.co";
 export const LC_NOMBRE = "LeerCapítulo";
@@ -265,4 +262,85 @@ export async function serieLc(id: string, slug: string) {
 /** Enlace al capítulo en su propio visor. */
 export function urlCapituloLc(id: string, slug: string, numero: string): string {
   return `${LC_WEB}/leer/${id}/${slug}/${numero}/`;
+}
+
+// ── páginas de un capítulo ───────────────────────────────────────────────
+
+/**
+ * Su alfabeto de base64, en orden de valor (0 a 63).
+ *
+ * No es el estándar: tienen el suyo desde hace años y ya nadie del equipo
+ * sabe cuál era, así que se reconstruyó comparando un capítulo con las
+ * direcciones que su propia página termina cargando. Tres valores (59, 62 y
+ * 63) nunca aparecieron en las pruebas y quedan como hueco: si algún día
+ * salen, la función avisa en vez de devolver una imagen rota.
+ */
+const ALFABETO = "3EHLxNd2bWq8hIl65CKGv4wY9gaZRTVMoPm1znAeDscpSBkr0FOXJyf7uij tU  ";
+
+const VALOR_DE = new Map<string, number>();
+for (let v = 0; v < ALFABETO.length; v++) {
+  if (ALFABETO[v] !== " ") VALOR_DE.set(ALFABETO[v], v);
+}
+
+/** base64 con el alfabeto de ellos. */
+function decodificar(texto: string): string {
+  const limpio = texto.replace(/\s+/g, "").replace(/=+$/, "");
+  let bits = "";
+  for (const c of limpio) {
+    const v = VALOR_DE.get(c);
+    if (v === undefined) {
+      throw new Error(
+        "LeerCapítulo cambió la forma de codificar sus páginas. Hay que revisar el alfabeto en src/lib/leercapitulo.ts."
+      );
+    }
+    bits += v.toString(2).padStart(6, "0");
+  }
+
+  let salida = "";
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    salida += String.fromCharCode(parseInt(bits.slice(i, i + 8), 2));
+  }
+  return salida;
+}
+
+export interface PaginasLc {
+  paginas: string[];
+  numero: string;
+  anterior: string | null;
+  siguiente: string | null;
+  url_original: string;
+}
+
+/** Páginas de un capítulo, más sus vecinos para encadenar la lectura. */
+export async function paginasLc(id: string, slug: string, numero: string): Promise<PaginasLc> {
+  const doc = await pedir(`/leer/${id}/${slug}/${numero}/`);
+
+  const crudo = doc.querySelector("#array_data")?.textContent?.trim();
+  if (!crudo) throw new Error("Este capítulo no trae páginas");
+
+  const paginas = decodificar(crudo)
+    .split(",")
+    .map((u) => u.trim())
+    .filter((u) => u.startsWith("http"));
+
+  if (paginas.length === 0) throw new Error("Este capítulo no trae páginas");
+
+  // su selector de capítulos trae la lista entera: de ahí salen los vecinos
+  const numeros = Array.from(doc.querySelectorAll('select[rel="chap-select"] option'))
+    .map((o) => o.getAttribute("value") ?? "")
+    .map((v) => v.split("/").filter(Boolean).pop() ?? "")
+    .filter(Boolean);
+
+  const i = numeros.indexOf(numero);
+  // los listan del más nuevo al más viejo
+  const anterior = i >= 0 && i + 1 < numeros.length ? numeros[i + 1] : null;
+  const siguiente = i > 0 ? numeros[i - 1] : null;
+
+  return {
+    paginas,
+    numero,
+    anterior,
+    siguiente,
+    url_original: urlCapituloLc(id, slug, numero),
+  };
 }
