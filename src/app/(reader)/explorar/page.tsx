@@ -13,6 +13,7 @@ interface ExternalSeries {
   is_adult: boolean;
   tags: string[];
   cover_url: string | null;
+  chapter_count: number | null;
 }
 
 const LANGS = [
@@ -290,12 +291,17 @@ export default function ExplorarPage() {
                 <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
                   {s.title}
                 </h3>
-                {s.status && (
-                  <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
-                    {s.status}
-                    {s.year ? ` · ${s.year}` : ""}
-                  </p>
-                )}
+                <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                  {[
+                    s.chapter_count !== null
+                      ? `${s.chapter_count} cap${s.chapter_count === 1 ? "" : "s"}.`
+                      : null,
+                    s.status,
+                    s.year,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
               </div>
             </Link>
           ))}
