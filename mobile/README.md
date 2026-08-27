@@ -1,0 +1,68 @@
+# MangaTotal para Android (APK)
+
+App Android que muestra MangaTotal a pantalla completa, con su ícono y
+splash propios. Igual que la de Windows, carga el sitio publicado, así que
+**se actualiza sola con cada deploy**: no hay que reinstalar el APK salvo
+que se cambie el contenedor (nombre, ícono, permisos).
+
+Diseñada para pantallas altas tipo Samsung S26 Ultra: la navegación
+principal está en una barra inferior al alcance del pulgar y la interfaz
+respeta la cámara y la barra de gestos (`safe-area`).
+
+## Qué hay que instalar una sola vez
+
+1. **Android Studio** — https://developer.android.com/studio
+   Durante el asistente inicial dejar marcado:
+   - Android SDK
+   - Android SDK Platform (API 34 o superior)
+   - Android SDK Build-Tools
+2. **Java (JDK 21)** — viene incluido con Android Studio; no hace falta
+   instalarlo aparte.
+
+Después de instalarlo, abrir Android Studio una vez para que termine de
+bajar los componentes.
+
+## Generar el APK
+
+```powershell
+cd "D:\Pagina Web mangastotal\mobile"
+npm install
+npm run add:android      # crea la carpeta android/ (solo la primera vez)
+npm run sync
+```
+
+Luego generar los íconos y el splash a partir de `recursos/`:
+
+```powershell
+npx @capacitor/assets generate --android --assetPath recursos
+```
+
+Y compilar:
+
+```powershell
+npm run open             # abre el proyecto en Android Studio
+```
+
+En Android Studio: **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
+
+El APK queda en:
+
+```
+mobile\android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+Ese archivo se puede instalar directo en el teléfono (hay que permitir
+"instalar apps de orígenes desconocidos") o compartir.
+
+## Para publicar en Google Play
+
+Se necesita una clave de firma propia y una cuenta de desarrollador
+(pago único de 25 USD). Para uso personal el APK firmado en modo debug
+alcanza.
+
+## Notas
+
+- La app necesita internet: biblioteca, portadas y progreso viven en el
+  servidor.
+- Si algún día se usa un dominio propio, actualizar `server.url` en
+  `capacitor.config.json` y volver a compilar.

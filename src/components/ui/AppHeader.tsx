@@ -43,7 +43,8 @@ export function AppHeader({
       className="sticky top-0 z-40 border-b border-line bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] shadow-[0_14px_45px_color-mix(in_oklch,var(--bg)_72%,transparent)] backdrop-blur-xl"
       data-od-id={mode === "admin" ? "admin-header" : "site-header"}
     >
-      <div className="mx-auto flex min-h-[72px] max-w-app flex-wrap items-center gap-x-6 px-4 sm:px-6 lg:px-10">
+      <div className="mx-auto flex min-h-[72px] max-w-app flex-wrap items-center gap-x-6 px-4 sm:px-6 lg:px-10"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <Link
           href={mode === "admin" ? "/admin" : "/"}
           className="group flex min-h-11 shrink-0 items-center gap-3 pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -67,7 +68,7 @@ export function AppHeader({
         </Link>
 
         <nav
-          className="order-3 flex w-full items-center gap-3 overflow-x-auto whitespace-nowrap border-t border-line lg:order-none lg:w-auto lg:border-0"
+          className={`order-3 w-full items-center gap-3 overflow-x-auto whitespace-nowrap border-t border-line lg:order-none lg:flex lg:w-auto lg:border-0 ${mode === "admin" ? "flex" : "hidden"}`}
           data-od-id={mode === "admin" ? "admin-navigation" : "primary-navigation"}
           aria-label={mode === "admin" ? "Navegación de administración" : "Navegación principal"}
         >

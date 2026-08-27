@@ -1,4 +1,5 @@
 import { AppHeader } from "@/components/ui/AppHeader";
+import { MobileNav } from "@/components/ui/MobileNav";
 import { getSessionUser } from "@/lib/auth";
 
 export default async function ReaderLayout({ children }: { children: React.ReactNode }) {
@@ -15,11 +16,12 @@ export default async function ReaderLayout({ children }: { children: React.React
         }
       />
       <main
-        className="mx-auto max-w-app px-4 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-12 lg:px-10"
+        className="mx-auto max-w-app px-4 pb-28 pt-8 sm:px-6 sm:pt-12 lg:px-10 lg:pb-20"
         data-od-id="page-content"
       >
         {children}
       </main>
+      <MobileNav />
     </div>
   );
 }

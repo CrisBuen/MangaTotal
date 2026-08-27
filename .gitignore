@@ -32,3 +32,7 @@ tsconfig.tsbuildinfo
 desktop/node_modules/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
+
+# app Android (Capacitor)
+mobile/node_modules/
+mobile/android/

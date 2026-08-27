@@ -1,0 +1,22 @@
+{
+  "appId": "app.mangatotal.android",
+  "appName": "MangaTotal",
+  "webDir": "www",
+  "server": {
+    "url": "https://manga-total.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0a0a0f",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0a0a0f",
+      "overlaysWebView": true
+    }
+  }
+}

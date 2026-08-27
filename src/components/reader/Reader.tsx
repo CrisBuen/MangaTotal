@@ -129,7 +129,10 @@ export function Reader({
           showBar ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-3 py-2 sm:px-5">
+        <div
+          className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-3 py-2 sm:px-5"
+          style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+        >
           <Link
             href={`/serie/${series.slug}`}
             className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold uppercase tracking-[0.08em] text-subtle transition hover:bg-[var(--surface-raised)] hover:text-ink"
@@ -211,7 +214,8 @@ export function Reader({
       {isFullscreen && controlsVisible && (
         <button
           onClick={toggleFullscreen}
-          className="fixed bottom-4 right-4 z-50 min-h-11 rounded-xl border border-line bg-panel px-4 text-xs font-bold uppercase tracking-[0.08em] text-ink shadow-xl transition hover:border-accent hover:bg-[var(--surface-raised)]"
+          className="fixed right-4 z-50 min-h-11 rounded-xl border border-line bg-panel px-4 text-xs font-bold uppercase tracking-[0.08em] text-ink shadow-xl transition hover:border-accent hover:bg-[var(--surface-raised)]"
+          style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
           data-od-id="exit-fullscreen-button"
         >
           Salir (Esc)

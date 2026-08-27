@@ -100,7 +100,10 @@ export function ExternalReader({
           showBar ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-2">
+        <div
+          className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-2"
+          style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+        >
           <Link
             href={backHref}
             className="shrink-0 rounded-lg px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-ink"
@@ -202,7 +205,8 @@ export function ExternalReader({
       {isFullscreen && controlsVisible && (
         <button
           onClick={toggleFullscreen}
-          className="fixed bottom-4 right-4 z-50 rounded-full border border-line bg-[var(--surface-raised)] px-4 py-2 text-sm text-ink shadow-lg"
+          className="fixed right-4 z-50 rounded-full border border-line bg-[var(--surface-raised)] px-4 py-2 text-sm text-ink shadow-lg"
+          style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
         >
           Salir (Esc)
         </button>
