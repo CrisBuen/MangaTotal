@@ -27,6 +27,39 @@ async function traerHtml(ruta: string): Promise<Document> {
   return traerDocumento(ruta.startsWith("http") ? ruta : `${TMO_WEB}${ruta}`);
 }
 
+// Opciones tal como las acepta su biblioteca
+export const TMO_TIPOS = [
+  { id: "manga", name: "Manga" },
+  { id: "manhwa", name: "Manhwa" },
+  { id: "manhua", name: "Manhua" },
+  { id: "webtoon", name: "Webtoon" },
+  { id: "comic", name: "Cómic" },
+  { id: "novel", name: "Novela" },
+];
+
+export const TMO_DEMOGRAFIAS = [
+  { id: "shounen", name: "Shounen" },
+  { id: "shoujo", name: "Shoujo" },
+  { id: "seinen", name: "Seinen" },
+  { id: "josei", name: "Josei" },
+  { id: "kodomo", name: "Kodomo" },
+];
+
+export const TMO_ESTADOS = [
+  { id: "ongoing", name: "En emisión" },
+  { id: "completed", name: "Completado" },
+  { id: "ended", name: "Finalizado" },
+  { id: "hiatus", name: "En pausa" },
+  { id: "cancelled", name: "Cancelado" },
+];
+
+export interface FiltrosTmo {
+  q?: string;
+  tipo?: string;
+  demografia?: string;
+  estado?: string;
+}
+
 export interface SerieTmo {
   id: string;
   tipo: string;
@@ -44,10 +77,12 @@ function serieDesdeEnlace(url: string): { id: string; tipo: string; slug: string
 }
 
 /** Catálogo paginado (24 series por página en su sitio). */
-export async function catalogoTmo(page: number, filtros: { q?: string; orden?: string } = {}) {
+export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}) {
   const qs = new URLSearchParams({ page: String(page) });
   if (filtros.q) qs.set("title", filtros.q);
-  if (filtros.orden && filtros.orden !== "recientes") qs.set("sort", filtros.orden);
+  if (filtros.tipo) qs.set("type", filtros.tipo);
+  if (filtros.demografia) qs.set("demography", filtros.demografia);
+  if (filtros.estado) qs.set("status", filtros.estado);
 
   const doc = await traerHtml(`/biblioteca?${qs.toString()}`);
 

@@ -5,8 +5,8 @@
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
   "sizeMb": 2.7,
   "changes": [
-    "Nuevas fuentes: ZonaTMO e Ikigai Mangas, integradas con su permiso",
-    "Guardá series externas en tu biblioteca y seguí el progreso",
+    "Arreglado: ZonaTMO e Ikigai ya cargan en la app de escritorio",
+    "Filtros para ZonaTMO e Ikigai",
     "Aviso de actualización dentro de la app"
   ]
 }

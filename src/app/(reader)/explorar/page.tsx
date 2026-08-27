@@ -3,8 +3,20 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
-import { catalogoIkigai, type SerieIkigai } from "@/lib/ikigai";
-import { catalogoTmo, tmoDisponible, type SerieTmo } from "@/lib/zonatmo";
+import {
+  IKIGAI_GENEROS,
+  IKIGAI_TIPOS,
+  catalogoIkigai,
+  type SerieIkigai,
+} from "@/lib/ikigai";
+import {
+  TMO_DEMOGRAFIAS,
+  TMO_ESTADOS,
+  TMO_TIPOS,
+  catalogoTmo,
+  tmoDisponible,
+  type SerieTmo,
+} from "@/lib/zonatmo";
 
 interface ExternalSeries {
   id: string;
@@ -72,6 +84,7 @@ export default function ExplorarPage() {
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState(false);
+  const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
   const [order, setOrder] = useState("latest");
   const [status, setStatus] = useState<string[]>([]);
   const [origin, setOrigin] = useState<string[]>([]);
@@ -87,6 +100,11 @@ export default function ExplorarPage() {
   const [olyEstado, setOlyEstado] = useState<number | null>(null);
   const [olyTipo, setOlyTipo] = useState<string | null>(null);
   const [tmoHay, setTmoHay] = useState(false);
+  const [tmoTipo, setTmoTipo] = useState<string | null>(null);
+  const [tmoDemo, setTmoDemo] = useState<string | null>(null);
+  const [tmoEstado, setTmoEstado] = useState<string | null>(null);
+  const [ikiTipo, setIkiTipo] = useState<string | null>(null);
+  const [ikiGenero, setIkiGenero] = useState<string | null>(null);
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
   const [tmoMas, setTmoMas] = useState(false);
@@ -100,14 +118,20 @@ export default function ExplorarPage() {
   const cargarTmo = useCallback(async () => {
     setError(false);
     try {
-      const r = await catalogoTmo(tmoPage, { q: search.trim() || undefined });
+      const r = await catalogoTmo(tmoPage, {
+        q: search.trim() || undefined,
+        tipo: tmoTipo ?? undefined,
+        demografia: tmoDemo ?? undefined,
+        estado: tmoEstado ?? undefined,
+      });
       setTmo(r.series);
       setTmoMas(r.hayMas && r.series.length >= 24);
-    } catch {
+    } catch (err) {
       setError(true);
+      setErrorDetalle(err instanceof Error ? err.message : null);
       setTmo([]);
     }
-  }, [tmoPage, search]);
+  }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado]);
 
   useEffect(() => {
     if (fuente !== "tmo") return;
@@ -118,7 +142,7 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     setTmoPage(1);
-  }, [search, fuente]);
+  }, [search, fuente, tmoTipo, tmoDemo, tmoEstado]);
 
   const [iki, setIki] = useState<SerieIkigai[] | null>(null);
   const [ikiPage, setIkiPage] = useState(1);
@@ -127,14 +151,19 @@ export default function ExplorarPage() {
   const cargarIki = useCallback(async () => {
     setError(false);
     try {
-      const r = await catalogoIkigai(ikiPage, { q: search.trim() || undefined });
+      const r = await catalogoIkigai(ikiPage, {
+        q: search.trim() || undefined,
+        tipo: ikiTipo ?? undefined,
+        genero: ikiGenero ?? undefined,
+      });
       setIki(r.series);
       setIkiMas(r.hayMas);
-    } catch {
+    } catch (err) {
       setError(true);
+      setErrorDetalle(err instanceof Error ? err.message : null);
       setIki([]);
     }
-  }, [ikiPage, search]);
+  }, [ikiPage, search, ikiTipo, ikiGenero]);
 
   useEffect(() => {
     if (fuente !== "ikigai") return;
@@ -145,7 +174,7 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     setIkiPage(1);
-  }, [search, fuente]);
+  }, [search, fuente, ikiTipo, ikiGenero]);
 
   const [olyOpciones, setOlyOpciones] = useState<{
     generos: { id: number; name: string }[];
@@ -348,6 +377,19 @@ export default function ExplorarPage() {
           </>
         )}
 
+        {(fuente === "tmo" || fuente === "ikigai") && (
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+              (fuente === "tmo" ? tmoTipo || tmoDemo || tmoEstado : ikiTipo || ikiGenero)
+                ? "border-accent bg-[var(--accent-soft)] text-accent"
+                : "border-line text-subtle hover:text-ink"
+            }`}
+          >
+            Filtros
+          </button>
+        )}
+
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -440,7 +482,7 @@ export default function ExplorarPage() {
 
       {error && (
         <Surface className="p-6 text-center text-sm text-subtle">
-          No se pudo conectar con el catálogo externo. Intentá de nuevo en un momento.
+          {errorDetalle ?? "No se pudo conectar con el catálogo externo. Intentá de nuevo en un momento."}
         </Surface>
       )}
 
@@ -680,6 +722,56 @@ export default function ExplorarPage() {
             )}
           </>
         )
+      )}
+
+      {showFilters && (fuente === "tmo" || fuente === "ikigai") && (
+        <Surface className="space-y-5 p-5">
+          {(fuente === "tmo"
+            ? [
+                { titulo: "Tipo", opciones: TMO_TIPOS, valor: tmoTipo, set: setTmoTipo },
+                { titulo: "Demografía", opciones: TMO_DEMOGRAFIAS, valor: tmoDemo, set: setTmoDemo },
+                { titulo: "Estado", opciones: TMO_ESTADOS, valor: tmoEstado, set: setTmoEstado },
+              ]
+            : [
+                { titulo: "Tipo", opciones: IKIGAI_TIPOS, valor: ikiTipo, set: setIkiTipo },
+                { titulo: "Género", opciones: IKIGAI_GENEROS, valor: ikiGenero, set: setIkiGenero },
+              ]
+          ).map((grupo) => (
+            <div key={grupo.titulo}>
+              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+                {grupo.titulo}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {grupo.opciones.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => grupo.set(grupo.valor === o.id ? null : o.id)}
+                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                      grupo.valor === o.id
+                        ? "border-accent bg-[var(--accent-soft)] text-accent"
+                        : "border-line text-subtle hover:text-ink"
+                    }`}
+                  >
+                    {o.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={() => {
+              setTmoTipo(null);
+              setTmoDemo(null);
+              setTmoEstado(null);
+              setIkiTipo(null);
+              setIkiGenero(null);
+            }}
+            className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+          >
+            ✕ Limpiar filtros
+          </button>
+        </Surface>
       )}
 
       {fuente === "tmo" && (

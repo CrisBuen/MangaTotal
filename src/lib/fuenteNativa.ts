@@ -30,8 +30,23 @@ function puente(): Puente | null {
   if (capacitor?.Plugins?.CapacitorHttp) return capacitor.Plugins.CapacitorHttp;
 
   const tauri = (window as unknown as {
-    __TAURI__?: { http?: { fetch: (url: string, init?: RequestInit) => Promise<Response> } };
+    __TAURI__?: {
+      core?: { invoke: (comando: string, args?: Record<string, unknown>) => Promise<unknown> };
+      http?: { fetch: (url: string, init?: RequestInit) => Promise<Response> };
+    };
   }).__TAURI__;
+
+  // la app de escritorio trae su propio comando: pide la página desde la
+  // conexión de la persona y devuelve el HTML
+  if (tauri?.core?.invoke) {
+    return {
+      async get({ url }) {
+        const html = (await tauri.core!.invoke("traer_pagina", { url })) as string;
+        return { status: 200, data: html };
+      },
+    };
+  }
+
   if (tauri?.http?.fetch) {
     return {
       async get({ url, headers }) {

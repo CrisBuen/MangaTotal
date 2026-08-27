@@ -22,6 +22,32 @@ export function ikigaiDisponible(): boolean {
   return fuenteNativaDisponible();
 }
 
+// Su biblioteca filtra por tipo y por género (ids propios de su sitio)
+export const IKIGAI_TIPOS = [
+  { id: "comic", name: "Cómic" },
+  { id: "manga", name: "Manga" },
+  { id: "novel", name: "Novela" },
+];
+
+export const IKIGAI_GENEROS = [
+  { id: "906397904327999491", name: "Acción" },
+  { id: "906397904061530115", name: "Aventura" },
+  { id: "906409351330037763", name: "Boys Love" },
+  { id: "906398112851165187", name: "Comedia" },
+  { id: "906397903933407235", name: "Drama" },
+  { id: "906397894348570627", name: "Fantasía" },
+  { id: "906397894527549443", name: "Romance" },
+  { id: "906397894408372227", name: "Shoujo" },
+  { id: "906409527934582787", name: "Adulto" },
+  { id: "906409351272792067", name: "+18" },
+];
+
+export interface FiltrosIkigai {
+  q?: string;
+  tipo?: string;
+  genero?: string;
+}
+
 export interface SerieIkigai {
   slug: string;
   title: string;
@@ -31,10 +57,14 @@ export interface SerieIkigai {
 }
 
 /** Catálogo paginado (20 obras por página en su biblioteca). */
-export async function catalogoIkigai(page: number, filtros: { q?: string } = {}) {
+export async function catalogoIkigai(page: number, filtros: FiltrosIkigai = {}) {
   const qs = new URLSearchParams();
-  if (page > 1) qs.set("page", String(page));
+  // su paginador usa "pagina", no "page"
+  if (page > 1) qs.set("pagina", String(page));
   if (filtros.q) qs.set("search", filtros.q);
+  // sus filtros llegan como listas: tipos[] y generos[]
+  if (filtros.tipo) qs.append("tipos[]", filtros.tipo);
+  if (filtros.genero) qs.append("generos[]", filtros.genero);
 
   const doc = await traerDocumento(`${IKIGAI_WEB}/series/${qs.toString() ? `?${qs}` : ""}`);
 
