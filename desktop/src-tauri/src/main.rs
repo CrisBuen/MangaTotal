@@ -2,8 +2,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use futures_util::StreamExt;
+use std::collections::HashMap;
 use std::io::Write;
-use tauri::{AppHandle, Emitter, Window};
+use std::sync::Mutex;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Window};
+
+/// El mismo user agent para la ventana de verificación y para los pedidos:
+/// Cloudflare ata su permiso al navegador que lo resolvió, así que si no
+/// coinciden, el permiso no sirve.
+const UA_NAVEGADOR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/// Permisos de Cloudflare ya obtenidos, uno por dominio.
+#[derive(Default)]
+struct Permisos(Mutex<HashMap<String, String>>);
 
 /// Sitio propio: es el único desde el que se acepta un instalador.
 const ORIGEN_PROPIO: &str = "manga-total.vercel.app";
@@ -15,8 +27,9 @@ const ORIGEN_PROPIO: &str = "manga-total.vercel.app";
 /// hogareña. Como la ventana carga un sitio remoto, el navegador interno no
 /// puede pedirlas por su cuenta (CORS), así que lo hace este comando.
 #[tauri::command]
-async fn traer_pagina(url: String) -> Result<String, String> {
-    const PERMITIDOS: [&str; 8] = [
+async fn traer_pagina(app: AppHandle, url: String) -> Result<String, String> {
+    const PERMITIDOS: [&str; 9] = [
+        "newcatharsis.dig-it.info",
         "leercapitulo.co",
         // CDN donde viven las páginas de LeerCapítulo (lc3-cdn, lc7-cdn, ...)
         "t34798ndc.com",
@@ -34,18 +47,86 @@ async fn traer_pagina(url: String) -> Result<String, String> {
         return Err(format!("Dominio no permitido: {host}"));
     }
 
-    let respuesta = cliente()?
+    let permiso = app
+        .state::<Permisos>()
+        .0
+        .lock()
+        .map_err(|_| "no se pudo leer el permiso".to_string())?
+        .get(&host)
+        .cloned();
+
+    let mut pedido = cliente()?
         .get(destino)
-        .header("Accept-Language", "es-ES,es;q=0.9")
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+        .header("Accept-Language", "es-ES,es;q=0.9");
+    if let Some(cookie) = permiso {
+        pedido = pedido.header("Cookie", cookie);
+    }
+
+    let respuesta = pedido.send().await.map_err(|e| e.to_string())?;
+    let estado = respuesta.status().as_u16();
 
     if !respuesta.status().is_success() {
-        return Err(format!("La fuente respondió {}", respuesta.status().as_u16()));
+        // Cloudflare pide verificar que hay una persona: la ventana la abre
+        // el frontend llamando a resolver_desafio
+        if estado == 403 || estado == 503 {
+            return Err(format!("DESAFIO:{host}"));
+        }
+        return Err(format!("La fuente respondió {estado}"));
     }
 
     respuesta.text().await.map_err(|e| e.to_string())
+}
+
+/// Abre una ventana para que la persona resuelva el "no soy un robot" de
+/// Cloudflare, y guarda el permiso que este entrega.
+///
+/// Es lo mismo que hace Mihon: la verificación la resuelve una persona de
+/// verdad en un navegador de verdad; acá solo se recuerda el resultado para
+/// los pedidos siguientes. El permiso vence solo, y entonces se vuelve a
+/// pedir.
+#[tauri::command]
+async fn resolver_desafio(app: AppHandle, url: String) -> Result<bool, String> {
+    let destino = url::Url::parse(&url).map_err(|e| e.to_string())?;
+    let host = destino.host_str().unwrap_or_default().to_string();
+    if host.is_empty() {
+        return Err("Dirección inválida".into());
+    }
+
+    // si ya hay una ventana abierta, no se abre otra
+    if app.get_webview_window("desafio").is_some() {
+        return Ok(false);
+    }
+
+    let ventana = WebviewWindowBuilder::new(&app, "desafio", WebviewUrl::External(destino.clone()))
+        .title("Verificación del sitio — tocá la casilla para continuar")
+        .inner_size(560.0, 680.0)
+        .user_agent(UA_NAVEGADOR)
+        .center()
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // hasta tres minutos: es lo que puede tardar alguien en verla y tocarla
+    for _ in 0..180 {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // si la cerró a mano, se corta
+        if app.get_webview_window("desafio").is_none() {
+            return Ok(false);
+        }
+
+        if let Ok(cookies) = ventana.cookies_for_url(destino.clone()) {
+            if let Some(c) = cookies.iter().find(|c| c.name() == "cf_clearance") {
+                if let Ok(mut guardados) = app.state::<Permisos>().0.lock() {
+                    guardados.insert(host, format!("cf_clearance={}", c.value()));
+                }
+                let _ = ventana.close();
+                return Ok(true);
+            }
+        }
+    }
+
+    let _ = ventana.close();
+    Ok(false)
 }
 
 fn cliente() -> Result<reqwest::Client, String> {
@@ -130,8 +211,10 @@ fn instalar_actualizacion(app: AppHandle, ruta: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .manage(Permisos::default())
         .invoke_handler(tauri::generate_handler![
             traer_pagina,
+            resolver_desafio,
             descargar_actualizacion,
             instalar_actualizacion
         ])

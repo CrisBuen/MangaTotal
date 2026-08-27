@@ -42,8 +42,17 @@ function puente(): Puente | null {
   if (tauri?.core?.invoke) {
     return {
       async get({ url }) {
-        const html = (await tauri.core!.invoke("traer_pagina", { url })) as string;
-        return { status: 200, data: html };
+        try {
+          const html = (await tauri.core!.invoke("traer_pagina", { url })) as string;
+          return { status: 200, data: html };
+        } catch (err) {
+          // el comando avisa así cuando Cloudflare pide verificar
+          const aviso = String(err);
+          if (aviso.startsWith("DESAFIO:")) {
+            throw new DesafioPendiente(aviso.slice("DESAFIO:".length));
+          }
+          throw err;
+        }
       },
     };
   }
@@ -120,4 +129,43 @@ export async function traerJson<T>(url: string): Promise<T> {
   // el puente de Capacitor ya devuelve objetos cuando el tipo es JSON
   if (typeof res.data === "object") return res.data as T;
   return JSON.parse(res.data as string) as T;
+}
+
+// ── verificación de Cloudflare ───────────────────────────────────────────
+
+/** Error que indica que la fuente pide resolver el "no soy un robot". */
+export class DesafioPendiente extends Error {
+  constructor(public readonly host: string) {
+    super("Esta fuente pide verificar que hay una persona");
+    this.name = "DesafioPendiente";
+  }
+}
+
+function tauriCore() {
+  if (typeof window === "undefined") return null;
+  return (
+    window as unknown as {
+      __TAURI__?: {
+        core?: { invoke: (c: string, a?: Record<string, unknown>) => Promise<unknown> };
+      };
+    }
+  ).__TAURI__?.core;
+}
+
+/** True si esta plataforma sabe abrir la ventana de verificación. */
+export function puedeResolverDesafio(): boolean {
+  return Boolean(tauriCore()?.invoke);
+}
+
+/**
+ * Abre la ventana donde la persona toca la casilla de Cloudflare.
+ *
+ * La verificación la resuelve ella, en un navegador de verdad; acá solo se
+ * recuerda el permiso que Cloudflare entrega, para los pedidos siguientes.
+ * Devuelve true si quedó resuelto.
+ */
+export async function resolverDesafio(url: string): Promise<boolean> {
+  const core = tauriCore();
+  if (!core?.invoke) return false;
+  return (await core.invoke("resolver_desafio", { url })) === true;
 }
