@@ -8,6 +8,7 @@ import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { buscarNovedades, type Novedad } from "@/components/library/novedades";
+import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
 
 interface ContinueItem {
   series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
@@ -57,6 +58,7 @@ export default function BibliotecaPage() {
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [news, setNews] = useState<Announcement[] | null>(null);
   const [filter, setFilter] = useState<Filter>("todo");
+  const [seccion, setSeccion] = useState<"lectura" | "animadas">("lectura");
   const [search, setSearch] = useState("");
   const [tags, setTags] = useState<TagChip[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -98,6 +100,8 @@ export default function BibliotecaPage() {
     // restaurar el estado desde la URL: pestaña activa, tag y búsqueda
     // (así "atrás" desde una serie vuelve a la misma sección)
     const params = new URLSearchParams(window.location.search);
+    const urlSeccion = params.get("s");
+    if (urlSeccion === "animadas") setSeccion("animadas");
     const urlFilter = params.get("f");
     if (urlFilter && ["normal", "adult", "favoritos"].includes(urlFilter)) {
       setFilter(urlFilter as Filter);
@@ -113,6 +117,8 @@ export default function BibliotecaPage() {
   useEffect(() => {
     if (!restored) return;
     const url = new URL(window.location.href);
+    if (seccion === "animadas") url.searchParams.set("s", "animadas");
+    else url.searchParams.delete("s");
     if (filter !== "todo") url.searchParams.set("f", filter);
     else url.searchParams.delete("f");
     if (selectedTag) url.searchParams.set("tag", selectedTag);
@@ -120,7 +126,7 @@ export default function BibliotecaPage() {
     if (search.trim()) url.searchParams.set("q", search.trim());
     else url.searchParams.delete("q");
     window.history.replaceState(null, "", url.toString());
-  }, [restored, filter, selectedTag, search]);
+  }, [restored, seccion, filter, selectedTag, search]);
 
   // el filtro por tag muestra catálogo aunque la pestaña sea "Todo"
   const showCatalog = filter !== "todo" || selectedTag !== null;
@@ -205,6 +211,32 @@ export default function BibliotecaPage() {
         title="Biblioteca"
         description="Explorá tus series, retomá lecturas y encontrá contenido por categoría."
       />
+      {/* Lectura o animadas: dos bibliotecas distintas, mismo lugar */}
+      <div className="flex gap-1" role="tablist" aria-label="Tipo de biblioteca">
+        {([
+          { key: "lectura", label: "Series de lectura" },
+          { key: "animadas", label: "Series animadas" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setSeccion(t.key)}
+            role="tab"
+            aria-selected={seccion === t.key}
+            className={`min-h-11 rounded-xl px-5 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
+              seccion === t.key
+                ? "bg-accent text-[var(--bg)] shadow-[var(--glow)]"
+                : "border border-line text-subtle hover:text-ink"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {seccion === "animadas" ? (
+        <SeccionAnimadas busqueda={search} />
+      ) : (
+       <>
       <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
         <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Secciones de biblioteca">
           {filters.map((f) => (
@@ -523,6 +555,8 @@ export default function BibliotecaPage() {
             </div>
           )}
       </section>
+       </>
+      )}
     </div>
   );
 }

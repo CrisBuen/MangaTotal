@@ -90,9 +90,9 @@ export default function AnimePage() {
   return (
     <div className="space-y-10">
       <SectionHeading
-        eyebrow="Catálogo de anime"
+        eyebrow="Catálogo de AniList"
         title="Anime"
-        description="Explorá series y películas, seguí lo que estás viendo y descubrí dónde verlas oficialmente."
+        description="Datos de AniList. Explorá series y películas, seguí lo que estás viendo y descubrí dónde verlas oficialmente."
         action={
           <Link
             href="/anime/mi-lista"
