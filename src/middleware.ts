@@ -18,6 +18,7 @@ const PUBLIC_EXACT = new Set([
   "/api/auth/register",
   "/api/series",
   "/api/announcements",
+  "/api/diagnostico/olympus",
   "/api/tags",
 ]);
 // el catálogo externo se navega como visitante; leer capítulos exige sesión
