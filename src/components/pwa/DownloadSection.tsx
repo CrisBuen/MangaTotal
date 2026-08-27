@@ -8,6 +8,7 @@ interface InstallPromptEvent extends Event {
 }
 
 const WINDOWS_INSTALLER = "/descargas/MangaTotal-windows-setup.exe";
+const ANDROID_APK = "/descargas/MangaTotal-android.apk";
 
 /**
  * Bloque de descarga del final del inicio: instalador de Windows y, en
@@ -96,35 +97,42 @@ export function DownloadSection() {
           <div>
             <p className="font-display text-xl font-bold text-ink">Android</p>
             <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
-              Se instala desde el navegador
+              APK · 4 MB
             </p>
           </div>
 
+          <a
+            href={ANDROID_APK}
+            download
+            className="mt-1 rounded-xl border border-accent bg-[var(--accent-soft)] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:opacity-90"
+            data-od-id="download-android"
+          >
+            Descargar APK
+          </a>
+
           {installed ? (
-            <span className="mt-1 rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle">
+            <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
               Ya instalada
             </span>
           ) : prompt ? (
             <button
               onClick={installApp}
-              className="mt-1 rounded-xl border border-accent bg-[var(--accent-soft)] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:opacity-90"
+              className="font-mono text-[9px] uppercase tracking-[0.12em] text-subtle underline underline-offset-4 transition hover:text-accent"
               data-od-id="install-android"
             >
-              Instalar
+              o instalar desde el navegador
             </button>
-          ) : (
-            <p className="mt-1 max-w-56 text-xs leading-5 text-subtle">
-              {isAndroid
-                ? "Abrí el menú ⋮ de Chrome y elegí «Instalar aplicación»."
-                : "Entrá desde tu celular con Chrome para instalarla."}
-            </p>
-          )}
+          ) : isAndroid ? (
+            <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+              Permití instalar de orígenes desconocidos
+            </span>
+          ) : null}
         </div>
       </div>
 
       <p className="mt-7 text-center font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
-        La app de Windows no está firmada: Windows puede pedir «Más información → Ejecutar de
-        todas formas»
+        Las apps no están firmadas: Windows puede pedir «Más información → Ejecutar de todas
+        formas» y Android, permitir la instalación desde el navegador
       </p>
     </section>
   );

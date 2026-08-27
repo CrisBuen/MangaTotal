@@ -66,3 +66,36 @@ alcanza.
   servidor.
 - Si algún día se usa un dominio propio, actualizar `server.url` en
   `capacitor.config.json` y volver a compilar.
+
+## Notas de compilación (lo que hubo que resolver)
+
+Dos detalles que hacen fallar el build si no se tienen en cuenta:
+
+**1. El JDK de Android Studio es demasiado nuevo.** Android Studio trae un
+JDK 25, y el Gradle 8.2 que usa Capacitor 6 no lo soporta (falla con
+`Unsupported class file major version 69`). Por eso se usa un JDK 21
+aparte, ya descargado en:
+
+```
+C:\Users\CrisPC\.jdks\jdk-21.0.12.1+1
+```
+
+**2. `local.properties` necesita barras normales.** En ese formato la barra
+invertida es un carácter de escape, así que la ruta del SDK debe escribirse
+con `/`. El archivo `mobile/android/local.properties` (no va al repositorio)
+debe contener:
+
+```
+sdk.dir=C:/Users/CrisPC/AppData/Local/Android/Sdk
+```
+
+### Comando de compilación ya probado
+
+```powershell
+$env:JAVA_HOME = "$env:USERPROFILE\.jdks\jdk-21.0.12.1+1"
+cd "D:\Pagina Web mangastotal\mobile\android"
+.\gradlew.bat assembleDebug
+```
+
+El APK queda en `app\build\outputs\apk\debug\app-debug.apk` y se copia a
+`public\descargas\MangaTotal-android.apk` para publicarlo en el sitio.
