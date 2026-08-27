@@ -41,6 +41,21 @@ const STATUSES = [
   { key: "cancelled", label: "Cancelada" },
 ];
 
+interface SerieOlympus {
+  id: number;
+  slug: string;
+  title: string;
+  cover_url: string | null;
+  status: string | null;
+  chapter_count: number;
+  type: string;
+}
+
+const FUENTES = [
+  { key: "mangadex", label: "MangaDex" },
+  { key: "olympus", label: "Olympus" },
+];
+
 interface Genre {
   id: string;
   name: string;
@@ -59,6 +74,10 @@ export default function ExplorarPage() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [fuente, setFuente] = useState("mangadex");
+  const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
+  const [olympusPage, setOlympusPage] = useState(1);
+  const [olympusLastPage, setOlympusLastPage] = useState(1);
 
   useEffect(() => {
     fetch("/api/externo/generos")
@@ -87,10 +106,38 @@ export default function ExplorarPage() {
   }, [lang, search, offset, order, status, selectedGenres, origin]);
 
   useEffect(() => {
+    if (fuente !== "mangadex") return;
     setSeries(null);
     const t = setTimeout(load, search ? 350 : 0);
     return () => clearTimeout(t);
-  }, [load, search]);
+  }, [load, search, fuente]);
+
+  const cargarOlympus = useCallback(async () => {
+    setError(false);
+    const params = new URLSearchParams({ page: String(olympusPage) });
+    if (search.trim()) params.set("q", search.trim());
+    try {
+      const res = await fetch(`/api/externo/olympus/series?${params}`);
+      if (!res.ok) throw new Error("fallo");
+      const data = await res.json();
+      setOlympus(data.series);
+      setOlympusLastPage(data.last_page);
+    } catch {
+      setError(true);
+      setOlympus([]);
+    }
+  }, [olympusPage, search]);
+
+  useEffect(() => {
+    if (fuente !== "olympus") return;
+    setOlympus(null);
+    const t = setTimeout(cargarOlympus, search ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [cargarOlympus, search, fuente]);
+
+  useEffect(() => {
+    setOlympusPage(1);
+  }, [search, fuente]);
 
   // cambiar cualquier filtro vuelve a la primera página
   useEffect(() => {
@@ -114,7 +161,28 @@ export default function ExplorarPage() {
         description="Series publicadas por grupos de scanlation en MangaDex. Se leen acá mismo, con tu progreso guardado."
       />
 
+      {/* fuente: cada grupo publica su propio catálogo */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+          Fuente
+        </span>
+        {FUENTES.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFuente(f.key)}
+            className={`rounded-xl border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+              fuente === f.key
+                ? "border-accent bg-[var(--accent-soft)] text-accent"
+                : "border-line text-subtle hover:text-ink"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
+        {fuente === "mangadex" && (
         <div className="flex gap-1 rounded-xl border border-line bg-[var(--surface-raised)] p-1">
           {LANGS.map((l) => (
             <button
@@ -128,6 +196,8 @@ export default function ExplorarPage() {
             </button>
           ))}
         </div>
+        )}
+        {fuente === "mangadex" && (
         <select
           value={order}
           onChange={(e) => setOrder(e.target.value)}
@@ -141,7 +211,8 @@ export default function ExplorarPage() {
             </option>
           ))}
         </select>
-
+        )}
+        {fuente === "mangadex" && (
         <button
           onClick={() => setShowFilters((v) => !v)}
           className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
@@ -152,6 +223,7 @@ export default function ExplorarPage() {
         >
           Filtros {activeFilters > 0 ? `(${activeFilters})` : ""}
         </button>
+        )}
 
         <input
           value={search}
@@ -161,7 +233,7 @@ export default function ExplorarPage() {
         />
       </div>
 
-      {showFilters && (
+      {showFilters && fuente === "mangadex" && (
         <Surface className="space-y-5 p-5">
           <div>
             <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
@@ -249,7 +321,7 @@ export default function ExplorarPage() {
         </Surface>
       )}
 
-      {series === null ? (
+      {fuente === "mangadex" && (series === null ? (
         <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
           Cargando catálogo...
         </p>
@@ -306,9 +378,9 @@ export default function ExplorarPage() {
             </Link>
           ))}
         </div>
-      )}
+      ))}
 
-      {series !== null && series.length > 0 && (
+      {fuente === "mangadex" && series !== null && series.length > 0 && (
         <div className="flex items-center justify-center gap-3 pt-4">
           <button
             disabled={offset === 0}
@@ -328,6 +400,74 @@ export default function ExplorarPage() {
             Siguiente →
           </button>
         </div>
+      )}
+
+      {fuente === "olympus" && (
+        olympus === null ? (
+          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+            Cargando catálogo de Olympus...
+          </p>
+        ) : olympus.length === 0 && !error ? (
+          <Surface className="p-12 text-center">
+            <p className="text-lg font-bold text-ink">Sin resultados</p>
+            <p className="mt-1 text-sm text-subtle">Probá con otro término.</p>
+          </Surface>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+              {olympus.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/externo/olympus/${s.slug}`}
+                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                    {s.cover_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={s.cover_url}
+                        alt={s.title}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                  </div>
+                  <div className="px-1 pt-4">
+                    <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                      {s.title}
+                    </h3>
+                    <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                      {[`${s.chapter_count} caps.`, s.status].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {olympusLastPage > 1 && (
+              <div className="flex items-center justify-center gap-3 pt-8">
+                <button
+                  disabled={olympusPage <= 1}
+                  onClick={() => setOlympusPage(olympusPage - 1)}
+                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                >
+                  ← Anterior
+                </button>
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                  Página {olympusPage} de {olympusLastPage}
+                </span>
+                <button
+                  disabled={olympusPage >= olympusLastPage}
+                  onClick={() => setOlympusPage(olympusPage + 1)}
+                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                >
+                  Siguiente →
+                </button>
+              </div>
+            )}
+          </>
+        )
       )}
 
       <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">

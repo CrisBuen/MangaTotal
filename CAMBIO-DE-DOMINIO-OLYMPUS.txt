@@ -1,0 +1,109 @@
+===========================================================================
+ QUÉ HACER SI OLYMPUS SCANLATION CAMBIA DE DOMINIO
+===========================================================================
+
+Olympus ya cambió una vez de dominio (olympusbiblioteca.com -> olympusxyz.com).
+Si vuelve a pasar, la sección "Explorar -> Olympus" deja de cargar y muestra
+"No se pudo consultar el catálogo de Olympus".
+
+Arreglarlo son 5 minutos. No hace falta tocar nada más del proyecto.
+
+
+---------------------------------------------------------------------------
+PASO 1. Averiguar los dos dominios nuevos
+---------------------------------------------------------------------------
+
+Olympus usa DOS dominios distintos:
+
+  A) El sitio web      -> hoy: https://olympusxyz.com
+     De aquí salen: el catálogo, las fichas de cada serie y las páginas de
+     cada capítulo.
+
+  B) El panel/backend  -> hoy: https://panel.olympusxyz.com
+     De aquí sale: la lista de capítulos de cada serie.
+
+Normalmente el panel es el mismo dominio con "panel." adelante. Para
+confirmarlo:
+
+  1. Entrá al sitio nuevo de Olympus en Chrome.
+  2. Abrí una serie cualquiera.
+  3. Apretá F12 -> pestaña "Red" (Network) -> recargá la página (F5).
+  4. En el filtro escribí:  chapters
+  5. Vas a ver una petición cuyo dominio es el del panel. Ese es el (B).
+
+
+---------------------------------------------------------------------------
+PASO 2. Editar UN solo archivo
+---------------------------------------------------------------------------
+
+Abrir:
+
+  src/lib/olympus.ts
+
+Arriba de todo están estas tres líneas. Cambiar las dos primeras:
+
+  export const OLYMPUS_WEB = "https://olympusxyz.com";
+  export const OLYMPUS_PANEL = "https://panel.olympusxyz.com";
+  export const OLYMPUS_NOMBRE = "Olympus Scanlation";
+
+Importante:
+  - SIN barra "/" al final.
+  - CON "https://" adelante.
+
+
+---------------------------------------------------------------------------
+PASO 3. Comprobar que anda
+---------------------------------------------------------------------------
+
+En una terminal, dentro de la carpeta del proyecto:
+
+  npm run build
+
+Si dice "Compiled successfully", subir los cambios:
+
+  git add -A
+  git commit -m "Actualizar dominio de Olympus"
+  git push
+
+Vercel despliega solo en un par de minutos. Después entrá a
+manga-total.vercel.app/explorar, elegí la fuente "Olympus" y verificá que
+carguen las portadas.
+
+
+---------------------------------------------------------------------------
+SI ADEMÁS CAMBIARON EL DOMINIO DE LAS IMÁGENES
+---------------------------------------------------------------------------
+
+Las páginas de los capítulos hoy salen de:  media.imagesolymp.xyz
+
+Ese dominio NO está escrito en el código: se toma de lo que devuelve
+Olympus, así que si lo cambian funciona igual sin tocar nada.
+
+
+---------------------------------------------------------------------------
+SI CAMBIARON LA FORMA DE SUS DIRECCIONES
+---------------------------------------------------------------------------
+
+Poco probable, pero si el sitio nuevo usa otras rutas, en src/lib/olympus.ts
+están todas juntas y comentadas:
+
+  /api/series?page=N                     -> catálogo
+  /api/series/{slug}                     -> ficha de una serie
+  /api/series/{slug}/chapters?page=N      -> lista de capítulos (panel)
+  /capitulo/{id}/{tipo}-{slug}            -> páginas del capítulo
+
+Las páginas de cada capítulo se leen del HTML del lector de Olympus, del
+bloque __NUXT_DATA__. Si cambian de tecnología, el mensaje de error va a
+decir "El lector de Olympus cambió de formato": ahí sí hace falta ayuda
+técnica para leer el formato nuevo.
+
+
+---------------------------------------------------------------------------
+RECORDATORIOS
+---------------------------------------------------------------------------
+
+- La integración existe porque Olympus dio su permiso. Su nombre y el enlace
+  a su sitio aparecen en cada serie y en cada capítulo: no sacarlos.
+- Los capítulos de acceso anticipado (los que ellos reservan a quienes los
+  apoyan) NO se muestran: la app enlaza a su sitio. Dejarlo así.
+===========================================================================
