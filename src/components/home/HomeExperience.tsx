@@ -93,22 +93,29 @@ export function HomeExperience() {
   return (
     <div className="space-y-20 sm:space-y-24" data-od-id="home-page">
       <section
-        className="relative isolate min-h-[34rem] overflow-hidden rounded-[2rem] border border-line bg-panel shadow-2xl"
+        className="relative isolate min-h-[26rem] overflow-hidden rounded-[2rem] border border-line bg-panel shadow-2xl sm:min-h-[34rem]"
         data-od-id="home-hero"
       >
         {featured?.cover_image_path && (
-          <div className="absolute inset-y-0 right-0 w-full md:w-[58%]">
+          <div className="absolute inset-x-0 top-0 h-56 sm:inset-y-0 sm:left-auto sm:right-0 sm:h-auto sm:w-[58%]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={featured.id}
               src={`/api/images/${featured.cover_image_path}`}
               alt={featured.title}
-              className="h-full w-full animate-[fadeIn_600ms_ease-out] object-cover object-center opacity-70"
+              className="h-full w-full animate-[fadeIn_600ms_ease-out] object-cover object-top opacity-70 sm:object-center"
             />
           </div>
         )}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 sm:hidden"
+          style={{
+            background:
+              "linear-gradient(0deg, var(--bg) 32%, color-mix(in oklch, var(--bg) 55%, transparent) 72%, transparent 100%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 hidden sm:block"
           style={{
             background:
               "linear-gradient(90deg, var(--bg) 0%, color-mix(in oklch, var(--bg) 94%, transparent) 42%, color-mix(in oklch, var(--bg) 28%, transparent) 100%), linear-gradient(0deg, var(--bg) 0%, transparent 55%)",
@@ -116,7 +123,7 @@ export function HomeExperience() {
         />
         <div className="absolute -left-20 top-28 h-56 w-56 rounded-full bg-[var(--accent-soft)] blur-3xl" aria-hidden="true" />
 
-        <div className="relative z-10 flex min-h-[34rem] max-w-3xl flex-col justify-end px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
+        <div className="relative z-10 flex min-h-[26rem] max-w-3xl flex-col justify-end px-5 py-8 sm:min-h-[34rem] sm:px-10 sm:py-12 lg:px-14 lg:py-16">
           <div className="mb-auto flex items-center gap-3">
             <Badge tone="accent">MangaTotal</Badge>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-subtle">
@@ -134,10 +141,10 @@ export function HomeExperience() {
               <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
                 {featured.chapter_count ?? 0} capítulo{featured.chapter_count === 1 ? "" : "s"}
               </p>
-              <h1 className="max-w-3xl font-display text-5xl font-black uppercase leading-[0.88] tracking-[-0.06em] text-ink sm:text-6xl lg:text-7xl">
+              <h1 className="line-clamp-4 max-w-3xl font-display text-[1.75rem] font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink sm:text-6xl sm:leading-[0.88] sm:tracking-[-0.06em] lg:text-7xl">
                 {featured.title}
               </h1>
-              <p className="mt-5 max-w-2xl text-sm leading-6 text-subtle sm:text-base">
+              <p className="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-subtle sm:mt-5 sm:line-clamp-none sm:text-base">
                 {featured.description || "Descubrí la incorporación más reciente del catálogo y revisá todos sus capítulos disponibles."}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
@@ -169,7 +176,7 @@ export function HomeExperience() {
             </>
           ) : (
             <>
-              <h1 className="max-w-3xl font-display text-5xl font-black uppercase leading-[0.88] tracking-[-0.06em] text-ink sm:text-6xl lg:text-7xl">
+              <h1 className="max-w-3xl font-display text-3xl font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink sm:text-6xl sm:leading-[0.88] lg:text-7xl">
                 Todas tus historias. Una experiencia total.
               </h1>
               <p className="mt-5 max-w-xl text-sm leading-6 text-subtle sm:text-base">

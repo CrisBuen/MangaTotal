@@ -10,10 +10,9 @@
  *  - Todo lo demás (APIs, sesión): siempre red, nunca cache.
  */
 
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `mangatotal-shell-${VERSION}`;
 const STATIC_CACHE = `mangatotal-static-${VERSION}`;
-const PAGES_CACHE = `mangatotal-pages-${VERSION}`;
 const IMAGES_CACHE = `mangatotal-images-${VERSION}`;
 
 const OFFLINE_URL = "/offline";
@@ -21,7 +20,15 @@ const MAX_IMAGES = 400;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll([OFFLINE_URL]))
+    (async () => {
+      const cache = await caches.open(SHELL_CACHE);
+      await cache.addAll([OFFLINE_URL]);
+      // Si existe la caché de páginas de una versión anterior, el navegador
+      // puede estar mostrando HTML roto: se toma el control de inmediato en
+      // vez de esperar a que la persona acepte actualizar.
+      const keys = await caches.keys();
+      if (keys.some((k) => k.includes("pages"))) await self.skipWaiting();
+    })()
   );
 });
 
@@ -55,20 +62,12 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // navegación entre páginas
+  // Navegación: siempre de la red. El HTML de Next referencia archivos JS
+  // con el hash del build, así que una copia cacheada de un deploy anterior
+  // pediría archivos que ya no existen y rompería la página.
   if (request.mode === "navigate") {
     event.respondWith(
-      (async () => {
-        try {
-          const fresh = await fetch(request);
-          const cache = await caches.open(PAGES_CACHE);
-          cache.put(request, fresh.clone());
-          return fresh;
-        } catch {
-          const cached = await caches.match(request);
-          return cached ?? (await caches.match(OFFLINE_URL)) ?? Response.error();
-        }
-      })()
+      fetch(request).catch(async () => (await caches.match(OFFLINE_URL)) ?? Response.error())
     );
     return;
   }
