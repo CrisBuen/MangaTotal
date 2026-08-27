@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
+import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es-ES">
       <body>
         {children}
-        <ServiceWorkerRegistrar />
+        <UpdatePrompt />
       </body>
     </html>
   );

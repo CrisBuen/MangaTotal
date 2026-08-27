@@ -10,7 +10,7 @@
  *  - Todo lo demás (APIs, sesión): siempre red, nunca cache.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `mangatotal-shell-${VERSION}`;
 const STATIC_CACHE = `mangatotal-static-${VERSION}`;
 const PAGES_CACHE = `mangatotal-pages-${VERSION}`;
@@ -21,7 +21,7 @@ const MAX_IMAGES = 400;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll([OFFLINE_URL])).then(() => self.skipWaiting())
+    caches.open(SHELL_CACHE).then((cache) => cache.addAll([OFFLINE_URL]))
   );
 });
 
@@ -107,4 +107,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   // el resto (sesión, APIs de datos) va siempre a la red
+});
+
+// La página avisa cuando el usuario acepta actualizar: recién ahí el
+// worker nuevo toma el control (evita recargas sorpresa mientras se lee).
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
 });

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { DownloadSection } from "@/components/pwa/DownloadSection";
 import { SeriesCard, type SeriesSummary } from "@/components/library/SeriesCard";
 import { buttonStyles } from "@/components/ui/Button";
 import { Badge, EmptyState, Skeleton } from "@/components/ui/Feedback";
@@ -228,6 +229,8 @@ export function HomeExperience() {
           </div>
         )}
       </section>
+
+      <DownloadSection />
     </div>
   );
 }
