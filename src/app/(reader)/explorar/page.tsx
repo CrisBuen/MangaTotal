@@ -12,6 +12,12 @@ import {
   type SerieIkigai,
 } from "@/lib/ikigai";
 import {
+  LC_GENEROS,
+  LC_INICIALES,
+  catalogoLc,
+  type SerieLc,
+} from "@/lib/leercapitulo";
+import {
   TMO_DEMOGRAFIAS,
   TMO_ESTADOS,
   TMO_GENEROS,
@@ -112,6 +118,41 @@ export default function ExplorarPage() {
   const [ikiGenero, setIkiGenero] = useState<string | null>(null);
   const [ikiOrden, setIkiOrden] = useState("recientes");
   const [ikigaiHay, setIkigaiHay] = useState(false);
+  const [lc, setLc] = useState<SerieLc[] | null>(null);
+  const [lcPage, setLcPage] = useState(1);
+  const [lcGenero, setLcGenero] = useState<string | null>(null);
+  const [lcInicial, setLcInicial] = useState<string | null>(null);
+  const [lcMas, setLcMas] = useState(false);
+  const [lcPaginable, setLcPaginable] = useState(false);
+
+  const cargarLc = useCallback(async () => {
+    setError(false);
+    try {
+      const r = await catalogoLc(lcPage, {
+        q: search.trim() || undefined,
+        genero: lcGenero ?? undefined,
+        inicial: lcInicial ?? undefined,
+      });
+      setLc(r.series);
+      setLcMas(r.hayMas);
+      setLcPaginable(r.paginable);
+    } catch (err) {
+      setError(true);
+      setErrorDetalle(err instanceof Error ? err.message : null);
+      setLc([]);
+    }
+  }, [lcPage, search, lcGenero, lcInicial]);
+
+  useEffect(() => {
+    if (fuente !== "leercapitulo") return;
+    setLc(null);
+    const t = setTimeout(cargarLc, search ? 400 : 0);
+    return () => clearTimeout(t);
+  }, [cargarLc, search, fuente]);
+
+  useEffect(() => {
+    setLcPage(1);
+  }, [search, fuente, lcGenero, lcInicial]);
 
   useEffect(() => {
     setIkigaiHay(ikigaiDisponible());
@@ -303,6 +344,7 @@ export default function ExplorarPage() {
         {[
           ...FUENTES,
           { key: "tmo", label: "ZonaTMO" },
+          { key: "leercapitulo", label: "LeerCapítulo" },
           // Ikigai sí necesita el puente nativo: bloquea a los centros de datos
           ...(ikigaiHay ? [{ key: "ikigai", label: "Ikigai" }] : []),
         ].map((f) => (
@@ -421,13 +463,15 @@ export default function ExplorarPage() {
           </select>
         )}
 
-        {(fuente === "tmo" || fuente === "ikigai") && (
+        {(fuente === "tmo" || fuente === "ikigai" || fuente === "leercapitulo") && (
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
               (fuente === "tmo"
                 ? tmoTipo || tmoDemo || tmoEstado || tmoGenero
-                : ikiTipo || ikiGenero)
+                : fuente === "leercapitulo"
+                  ? lcGenero || lcInicial
+                  : ikiTipo || ikiGenero)
                 ? "border-accent bg-[var(--accent-soft)] text-accent"
                 : "border-line text-subtle hover:text-ink"
             }`}
@@ -770,9 +814,14 @@ export default function ExplorarPage() {
         )
       )}
 
-      {showFilters && (fuente === "tmo" || fuente === "ikigai") && (
+      {showFilters && (fuente === "tmo" || fuente === "ikigai" || fuente === "leercapitulo") && (
         <Surface className="space-y-5 p-5">
-          {(fuente === "tmo"
+          {(fuente === "leercapitulo"
+            ? [
+                { titulo: "Género", opciones: LC_GENEROS, valor: lcGenero, set: setLcGenero },
+                { titulo: "Inicial", opciones: LC_INICIALES, valor: lcInicial, set: setLcInicial },
+              ]
+            : fuente === "tmo"
             ? [
                 { titulo: "Tipo", opciones: TMO_TIPOS, valor: tmoTipo, set: setTmoTipo },
                 { titulo: "Género", opciones: TMO_GENEROS, valor: tmoGenero, set: setTmoGenero },
@@ -814,6 +863,8 @@ export default function ExplorarPage() {
               setTmoGenero(null);
               setIkiTipo(null);
               setIkiGenero(null);
+              setLcGenero(null);
+              setLcInicial(null);
             }}
             className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
           >
@@ -861,6 +912,74 @@ export default function ExplorarPage() {
             </div>
           </section>
         )}
+
+      {fuente === "leercapitulo" && (
+        lc === null ? (
+          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+            Cargando catálogo de LeerCapítulo...
+          </p>
+        ) : lc.length === 0 ? (
+          <Surface className="p-12 text-center">
+            <p className="text-lg font-bold text-ink">Sin resultados</p>
+            <p className="mt-1 text-sm text-subtle">Probá con otro término o género.</p>
+          </Surface>
+        ) : (
+          <>
+            {!lcPaginable && !search && (
+              <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                Últimas actualizaciones · elegí un género o una inicial para recorrer todo
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+              {lc.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/externo/leercapitulo/${t.id}/${t.slug}`}
+                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                    {t.cover_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={t.cover_url}
+                        alt={t.title}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                  </div>
+                  <h3 className="mt-3 line-clamp-2 px-1 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                    {t.title}
+                  </h3>
+                </Link>
+              ))}
+            </div>
+
+            {lcPaginable && (
+              <div className="flex items-center justify-center gap-3 pt-8">
+                <button
+                  disabled={lcPage <= 1}
+                  onClick={() => setLcPage(lcPage - 1)}
+                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                >
+                  ← Anterior
+                </button>
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                  Página {lcPage}
+                </span>
+                <button
+                  disabled={!lcMas}
+                  onClick={() => setLcPage(lcPage + 1)}
+                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                >
+                  Siguiente →
+                </button>
+              </div>
+            )}
+          </>
+        )
+      )}
 
       {fuente === "tmo" && (
         tmo === null ? (

@@ -16,7 +16,8 @@ const ORIGEN_PROPIO: &str = "manga-total.vercel.app";
 /// puede pedirlas por su cuenta (CORS), así que lo hace este comando.
 #[tauri::command]
 async fn traer_pagina(url: String) -> Result<String, String> {
-    const PERMITIDOS: [&str; 6] = [
+    const PERMITIDOS: [&str; 7] = [
+        "leercapitulo.co",
         "zonatmo.net",
         "cdn.zonatmo.to",
         "visorikigai.gettocaboca.com",

@@ -1,0 +1,147 @@
+===========================================================================
+ LEERCAPÍTULO EN MANGATOTAL
+===========================================================================
+
+Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
+serie y en cada capítulo.
+
+Sitio: https://www.leercapitulo.co
+
+
+---------------------------------------------------------------------------
+LO QUE FALTA, Y ES LO PRIMERO QUE HAY QUE RESOLVER
+---------------------------------------------------------------------------
+
+Los capítulos NO se leen dentro de MangaTotal todavía. Abren en el visor de
+ellos, en una pestaña nueva.
+
+El motivo: en la página del capítulo no hay imágenes. La lista de páginas
+viaja dentro de
+
+    <p id="array_data" style="display:none"> ...texto codificado... </p>
+
+y está cifrada con un método propio. No es base64 ni nada estándar (se
+probó). La función que lo descifra está escondida en uno de sus bundles
+ofuscados, que ni siquiera menciona "array_data".
+
+Eso no es un formato: es una protección que pusieron a propósito para que
+no les automaticen el sitio. Romperla por nuestra cuenta sería saltearla, y
+tener permiso para usar el contenido no vuelve correcto eso.
+
+QUÉ HAY QUE PEDIRLES (con esto se termina en una tarde):
+
+  "Para mostrar los capítulos dentro de la app necesitaríamos una de estas
+   dos cosas, la que les quede más cómoda:
+     a) cómo se decodifica el contenido de <p id='array_data'>, o
+     b) un endpoint que devuelva la lista de imágenes de un capítulo."
+
+Cuando lo manden, hay que:
+
+  1. Escribir la función que devuelve las URLs en src/lib/leercapitulo.ts
+     (al lado de urlCapituloLc, que hoy solo arma el enlace a su sitio).
+  2. Crear la página del lector en
+     src/app/leer-externo/leercapitulo/[id]/page.tsx
+     copiando la forma de la de ZonaTMO, que ya usa OlympusReader.
+  3. En la ficha (src/app/(reader)/externo/leercapitulo/[id]/[slug]/page.tsx)
+     cambiar los enlaces externos por enlaces internos y sacar el aviso de
+     "se abren en su sitio".
+  4. Agregar el dominio de sus imágenes a la lista PERMITIDOS de
+     desktop/src-tauri/src/main.rs.
+
+
+---------------------------------------------------------------------------
+LO QUE SÍ FUNCIONA HOY
+---------------------------------------------------------------------------
+
+  - Catálogo con últimas actualizaciones
+  - Filtro por 48 géneros
+  - Recorrido alfabético completo (A-Z y 0-9), paginado
+  - Búsqueda por título
+  - Ficha con portada, sinopsis, tipo, estado, títulos alternativos,
+    géneros y la lista entera de capítulos
+  - Orden de capítulos invertible
+  - Guardar la serie en la biblioteca
+
+
+---------------------------------------------------------------------------
+CÓMO SE PIDEN LAS PÁGINAS
+---------------------------------------------------------------------------
+
+Igual que ZonaTMO, en dos intentos:
+
+  1. Por nuestro servidor:  /api/externo/leercapitulo?ruta=...
+  2. Si su Cloudflare rechaza al centro de datos, desde el dispositivo por
+     el puente nativo de la app (Android y Windows).
+
+Las portadas las carga el navegador directo desde su servidor.
+
+
+---------------------------------------------------------------------------
+SU SITIO, EN CUATRO DIRECCIONES
+---------------------------------------------------------------------------
+
+  Últimas actualizaciones   /
+  Por género                /genre/{genero}/?page=N
+  Por inicial               /initial/{letra}/?page=N       (30 por página)
+  Búsqueda                  /?s={texto}
+  Ficha                     /manga/{id}/{slug}/
+  Capítulo                  /leer/{id}/{slug}/{numero}/
+
+Ojo con el identificador: cada serie tiene un id corto propio de ellos
+(por ejemplo 5be8t9bobk) ADEMÁS del slug. Los dos hacen falta para armar
+la dirección; por eso la ruta interna es /externo/leercapitulo/{id}/{slug}.
+
+No publican un listado general de todo el catálogo: la forma de recorrerlo
+entero es por género o por inicial.
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN DE DOMINIO
+---------------------------------------------------------------------------
+
+PASO 1. src/lib/leercapitulo.ts
+
+     export const LC_WEB = "https://www.leercapitulo.co";
+
+PASO 2. src/app/api/externo/leercapitulo/route.ts
+
+     const BASE = "https://www.leercapitulo.co";
+
+PASO 3. desktop/src-tauri/src/main.rs — cambiar "leercapitulo.co" en la
+        lista PERMITIDOS.
+
+PASO 4. Recompilar las apps (ver CAMBIO-DE-DOMINIO-ZONATMO.txt, la receta
+        es la misma) y hacer push.
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN EL DISEÑO DE SU SITIO
+---------------------------------------------------------------------------
+
+Todo lo que hay que ajustar está junto en src/lib/leercapitulo.ts:
+
+  Tarjetas del catálogo  ->  a[href*="/manga/"] que tenga un <img> adentro
+  Título de la ficha     ->  h1.title-manga
+  Portada                ->  .cover-detail img
+  Datos (tipo, estado)   ->  .description-update
+  Sinopsis               ->  .manga-collapse
+  Capítulos              ->  .chapter a[href*="/leer/"]
+
+Para comprobar si alguno dejó de servir, abrir su página en Chrome, F12, y
+probarlo en la consola:
+
+  document.querySelectorAll('.chapter a[href*="/leer/"]').length
+
+En Nano Machine eso tiene que dar 327.
+
+
+---------------------------------------------------------------------------
+RECORDATORIOS
+---------------------------------------------------------------------------
+
+- La integración existe porque LeerCapítulo dio su permiso. No sacar su
+  nombre ni los enlaces a su sitio.
+- No se aloja nada: las portadas se cargan desde sus servidores y los
+  capítulos se leen en su visor.
+- Guardar el permiso por escrito junto con los de las otras fuentes.
+===========================================================================
