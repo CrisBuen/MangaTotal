@@ -1,0 +1,17 @@
+[package]
+name = "mangatotal"
+version = "0.1.0"
+description = "MangaTotal para escritorio"
+authors = ["MangaTotal"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true

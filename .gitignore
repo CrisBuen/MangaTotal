@@ -27,3 +27,8 @@ Thumbs.db
 
 # build cache de typescript
 tsconfig.tsbuildinfo
+
+# app de escritorio (Tauri)
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
