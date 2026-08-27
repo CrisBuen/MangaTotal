@@ -16,60 +16,15 @@
 export const TMO_WEB = "https://zonatmo.org";
 export const TMO_NOMBRE = "ZonaTMO";
 
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-
-interface PuenteNativo {
-  get(opciones: { url: string; headers?: Record<string, string> }): Promise<{
-    status: number;
-    data: string;
-  }>;
-}
-
-/** Puente disponible según dónde corra la app (Android, escritorio o web). */
-function puente(): PuenteNativo | null {
-  if (typeof window === "undefined") return null;
-
-  const capacitor = (window as unknown as {
-    Capacitor?: { Plugins?: { CapacitorHttp?: PuenteNativo } };
-  }).Capacitor;
-  if (capacitor?.Plugins?.CapacitorHttp) return capacitor.Plugins.CapacitorHttp;
-
-  const tauri = (window as unknown as {
-    __TAURI__?: { http?: { fetch: (url: string, init?: RequestInit) => Promise<Response> } };
-  }).__TAURI__;
-  if (tauri?.http?.fetch) {
-    return {
-      async get({ url, headers }) {
-        const res = await tauri.http!.fetch(url, { headers });
-        return { status: res.status, data: await res.text() };
-      },
-    };
-  }
-
-  return null;
-}
+import { traerDocumento, fuenteNativaDisponible } from "./fuenteNativa";
 
 /** True si esta plataforma puede leer ZonaTMO. */
 export function tmoDisponible(): boolean {
-  return puente() !== null;
+  return fuenteNativaDisponible();
 }
 
 async function traerHtml(ruta: string): Promise<Document> {
-  const nativo = puente();
-  if (!nativo) {
-    throw new Error(
-      "ZonaTMO solo está disponible en la app de Android o de Windows, no en el navegador"
-    );
-  }
-
-  const res = await nativo.get({
-    url: ruta.startsWith("http") ? ruta : `${TMO_WEB}${ruta}`,
-    headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" },
-  });
-  if (res.status !== 200) throw new Error(`ZonaTMO respondió ${res.status}`);
-
-  return new DOMParser().parseFromString(res.data, "text/html");
+  return traerDocumento(ruta.startsWith("http") ? ruta : `${TMO_WEB}${ruta}`);
 }
 
 export interface SerieTmo {
@@ -136,12 +91,14 @@ export async function serieTmo(tipo: string, id: string, slug: string) {
     if (!capId || vistos.has(capId)) continue;
     vistos.add(capId);
 
-    // el número está en el bloque del capítulo que contiene este enlace
-    const bloque = a.closest(".upload-link") ?? a.closest("li") ?? a.parentElement;
+    // el número es un atributo DEL bloque del capítulo, no de algo adentro
+    const bloque = a.closest("li.upload-link") ?? a.closest("li") ?? a.parentElement;
     const numero =
-      bloque?.querySelector("[data-chapter-number]")?.getAttribute("data-chapter-number") ?? null;
-    const grupo =
-      bloque?.querySelector(".uploader-name, .badge")?.textContent?.trim() || null;
+      bloque?.getAttribute("data-chapter-number") ??
+      bloque?.querySelector("[data-chapter-number]")?.getAttribute("data-chapter-number") ??
+      null;
+    // el grupo que lo subió aparece como enlace a su página
+    const grupo = bloque?.querySelector('a[href*="/groups/"]')?.textContent?.trim() || null;
 
     capitulos.push({ id: capId, numero, grupo });
   }

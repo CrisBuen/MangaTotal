@@ -72,3 +72,48 @@ export function downloadUrlFor(release: AndroidRelease, inApp: boolean): string 
   if (installedVersionCode() >= 3) return release.apkUrl;
   return release.apkExternalUrl ?? release.apkUrl;
 }
+
+// ── App de escritorio (Windows) ───────────────────────────────────────────
+
+export interface DesktopRelease {
+  versionCode: number;
+  versionName: string;
+  date: string;
+  installerUrl: string;
+  sizeMb: number;
+  changes: string[];
+}
+
+/** True si la página corre dentro de la app de Windows. */
+export function isDesktopApp(): boolean {
+  return typeof window !== "undefined" && "__TAURI__" in window;
+}
+
+/**
+ * Versión instalada de la app de escritorio. Las anteriores a este aviso no
+ * exponían su versión, así que cuentan como 1 y también reciben la novedad.
+ */
+export async function installedDesktopVersion(): Promise<number> {
+  try {
+    const tauri = (window as unknown as {
+      __TAURI__?: { app?: { getVersion?: () => Promise<string> } };
+    }).__TAURI__;
+    const version = await tauri?.app?.getVersion?.();
+    if (!version) return 1;
+    // "1.0" → 1, "1.1" → 2, "1.2" → 3
+    const menor = parseInt(version.split(".")[1] ?? "0", 10) || 0;
+    return menor + 1;
+  } catch {
+    return 1;
+  }
+}
+
+export async function fetchLatestDesktopRelease(): Promise<DesktopRelease | null> {
+  try {
+    const res = await fetch("/descargas/windows-version.json", { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as DesktopRelease;
+  } catch {
+    return null;
+  }
+}

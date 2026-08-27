@@ -4,12 +4,22 @@ import { useEffect, useState } from "react";
 import {
   dismissVersion,
   downloadUrlFor,
+  fetchLatestDesktopRelease,
   fetchLatestRelease,
+  installedDesktopVersion,
   installedVersionCode,
   isAndroidApp,
+  isDesktopApp,
   isDismissed,
-  type AndroidRelease,
 } from "@/lib/appVersion";
+
+interface Novedad {
+  versionCode: number;
+  versionName: string;
+  sizeMb: number;
+  changes: string[];
+  descargaUrl: string;
+}
 
 /**
  * Aviso de actualización de la app Android. Solo aparece dentro de la app
@@ -17,23 +27,47 @@ import {
  * disponible en Perfil → Buscar actualizaciones.
  */
 export function AndroidUpdateBanner() {
-  const [release, setRelease] = useState<AndroidRelease | null>(null);
+  const [release, setRelease] = useState<Novedad | null>(null);
 
   useEffect(() => {
-    if (!isAndroidApp()) return;
-    fetchLatestRelease().then((latest) => {
-      if (!latest) return;
-      if (latest.versionCode <= installedVersionCode()) return;
-      if (isDismissed(latest.versionCode)) return;
-      setRelease(latest);
-    });
+    (async () => {
+      if (isAndroidApp()) {
+        const ultima = await fetchLatestRelease();
+        if (!ultima) return;
+        if (ultima.versionCode <= installedVersionCode()) return;
+        if (isDismissed(ultima.versionCode)) return;
+        setRelease({
+          versionCode: ultima.versionCode,
+          versionName: ultima.versionName,
+          sizeMb: ultima.sizeMb,
+          changes: ultima.changes,
+          descargaUrl: downloadUrlFor(ultima, true),
+        });
+        return;
+      }
+
+      if (isDesktopApp()) {
+        const ultima = await fetchLatestDesktopRelease();
+        if (!ultima) return;
+        const instalada = await installedDesktopVersion();
+        if (ultima.versionCode <= instalada) return;
+        if (isDismissed(ultima.versionCode)) return;
+        setRelease({
+          versionCode: ultima.versionCode,
+          versionName: ultima.versionName,
+          sizeMb: ultima.sizeMb,
+          changes: ultima.changes,
+          descargaUrl: ultima.installerUrl,
+        });
+      }
+    })();
   }, []);
 
   if (!release) return null;
 
   return (
     <div
-      className="fixed inset-x-3 bottom-24 z-[60] rounded-2xl border border-accent bg-panel p-4 shadow-[var(--glow)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-3 bottom-24 z-[60] rounded-2xl border border-accent bg-panel p-4 shadow-[var(--glow)] backdrop-blur-xl lg:inset-x-auto lg:right-5 lg:bottom-5 lg:w-96"
       style={{ marginBottom: "env(safe-area-inset-bottom)" }}
       role="status"
       data-od-id="android-update-banner"
@@ -65,7 +99,7 @@ export function AndroidUpdateBanner() {
 
       <div className="flex gap-2">
         <a
-          href={downloadUrlFor(release, true)}
+          href={release.descargaUrl}
           rel="noopener"
           onClick={() => setRelease(null)}
           className="flex-1 rounded-xl border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"

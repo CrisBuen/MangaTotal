@@ -1,14 +1,13 @@
 {
-  "versionCode": 4,
-  "versionName": "1.3",
+  "versionCode": 5,
+  "versionName": "1.4",
   "date": "2026-08-26",
   "apkUrl": "/descargas/MangaTotal-android.apk",
   "sizeMb": 4,
   "changes": [
-    "Nueva fuente: ZonaTMO, integrada con su permiso",
-    "Guardá series externas en tu biblioteca y seguí el progreso",
-    "Olympus: nuevos lanzamientos con todo su catálogo y filtros por género",
-    "Correcciones al leer capítulos de fuentes externas"
+    "Nueva fuente: Ikigai Mangas, integrada con su permiso",
+    "ZonaTMO: los capítulos ya muestran su número y el grupo que los subió",
+    "Guardá series externas en tu biblioteca y seguí el progreso"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

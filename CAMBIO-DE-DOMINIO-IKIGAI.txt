@@ -1,0 +1,104 @@
+===========================================================================
+ IKIGAI MANGAS EN MANGATOTAL — CÓMO FUNCIONA Y QUÉ HACER SI CAMBIA
+===========================================================================
+
+Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
+serie y en cada capítulo.
+
+Igual que ZonaTMO, SOLO funciona en las apps de Android y Windows: su
+servidor no acepta peticiones desde centros de datos, así que las páginas
+se piden desde el dispositivo de cada persona. En el navegador la fuente ni
+siquiera aparece en el selector de Explorar.
+
+
+---------------------------------------------------------------------------
+DOS COSAS PROPIAS DE SU SITIO
+---------------------------------------------------------------------------
+
+1. USAN DOS DOMINIOS
+
+   Catálogo y fichas:  https://visorikigai.gettocaboca.com
+   Visor de capítulos: /capitulo/<id> REDIRIGE a otro dominio
+                       (hoy: viralikigai.radiot.space)
+
+   La redirección la sigue sola el puente nativo, así que en el código solo
+   está escrito el primer dominio.
+
+2. EL VISOR ESTÁ HECHO CON QWIK
+
+   Las páginas del capítulo NO son etiquetas <img> normales: la dirección de
+   cada imagen está en el atributo `q:key` del bloque que la contiene.
+   Por eso el código busca así:
+
+       elemento.getAttribute("q:key")
+
+   Si algún día cambian de tecnología, ese es el punto a revisar.
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN DE DOMINIO
+---------------------------------------------------------------------------
+
+PASO 1. Editar UNA línea en:
+
+  src/lib/ikigai.ts
+
+     export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
+
+  Poner el dominio nuevo, sin barra final.
+
+PASO 2. Permitir los dominios nuevos en la app de Windows.
+
+  Editar:  desktop/src-tauri/capabilities/default.json
+
+  Agregar (o reemplazar) en la lista "allow":
+
+     { "url": "https://DOMINIO-NUEVO/*" },
+     { "url": "https://DOMINIO-DEL-VISOR/*" },
+     { "url": "https://SERVIDOR-DE-IMAGENES/*" }
+
+  Para averiguar los dos últimos: abrí un capítulo en su web y mirá la barra
+  de direcciones (ahí está el visor); después clic derecho sobre una página
+  -> "Abrir imagen en pestaña nueva" (ahí está el servidor de imágenes, hoy
+  image3.ikigaimangas.cloud).
+
+PASO 3. Recompilar y publicar las dos apps
+        (los comandos exactos están en CAMBIO-DE-DOMINIO-ZONATMO.txt).
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN EL DISEÑO DE SU SITIO
+---------------------------------------------------------------------------
+
+Todo lo que hay que ajustar está junto en src/lib/ikigai.ts:
+
+  Catálogo  -> /series/?page=N
+              la biblioteca es la grilla más grande de la página
+              (la que tiene 10 o más enlaces a /series/)
+              cada tarjeta: a[href^="/series/"] con su <img>
+
+  Ficha     -> /series/<slug>/
+              título:     h1
+              portada:    la primera imagen del dominio ikigaimangas
+              sinopsis:   el párrafo más largo de la página
+              capítulos:  a[href^="/capitulo/"]
+                          (se descartan "Primer Capítulo" y "Último
+                           Capítulo", que son accesos rápidos repetidos)
+
+  Capítulo  -> /capitulo/<id>/
+              páginas:    atributo q:key de cada bloque
+
+Para comprobar un selector: abrí la página en Chrome, F12, y probá en la
+consola, por ejemplo:
+
+  document.querySelectorAll('a[href^="/capitulo/"]').length
+
+
+---------------------------------------------------------------------------
+RECORDATORIOS
+---------------------------------------------------------------------------
+
+- La integración existe porque Ikigai Mangas dio su permiso. No sacar su
+  nombre ni los enlaces a su sitio.
+- No se aloja nada: las imágenes se cargan desde sus servidores.
+===========================================================================

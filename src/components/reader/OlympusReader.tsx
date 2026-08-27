@@ -39,7 +39,7 @@ export function OlympusReader({
   nextChapter: Vecino | null;
   initialMode: ReadingMode;
   /** Fuente, para guardar el progreso en la biblioteca. */
-  source?: "olympus" | "tmo";
+  source?: "olympus" | "tmo" | "ikigai";
   /** Enlaces propios de la fuente; por defecto, los de Olympus. */
   hrefVolver?: string;
   hrefCapitulo?: (id: number) => string;

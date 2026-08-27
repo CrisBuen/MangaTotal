@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { catalogoIkigai, type SerieIkigai } from "@/lib/ikigai";
 import { catalogoTmo, tmoDisponible, type SerieTmo } from "@/lib/zonatmo";
 
 interface ExternalSeries {
@@ -119,6 +120,33 @@ export default function ExplorarPage() {
     setTmoPage(1);
   }, [search, fuente]);
 
+  const [iki, setIki] = useState<SerieIkigai[] | null>(null);
+  const [ikiPage, setIkiPage] = useState(1);
+  const [ikiMas, setIkiMas] = useState(false);
+
+  const cargarIki = useCallback(async () => {
+    setError(false);
+    try {
+      const r = await catalogoIkigai(ikiPage, { q: search.trim() || undefined });
+      setIki(r.series);
+      setIkiMas(r.hayMas);
+    } catch {
+      setError(true);
+      setIki([]);
+    }
+  }, [ikiPage, search]);
+
+  useEffect(() => {
+    if (fuente !== "ikigai") return;
+    setIki(null);
+    const t = setTimeout(cargarIki, search ? 400 : 0);
+    return () => clearTimeout(t);
+  }, [cargarIki, search, fuente]);
+
+  useEffect(() => {
+    setIkiPage(1);
+  }, [search, fuente]);
+
   const [olyOpciones, setOlyOpciones] = useState<{
     generos: { id: number; name: string }[];
     estados: { id: number; name: string }[];
@@ -224,7 +252,15 @@ export default function ExplorarPage() {
         <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
           Fuente
         </span>
-        {[...FUENTES, ...(tmoHay ? [{ key: "tmo", label: "ZonaTMO" }] : [])].map((f) => (
+        {[
+          ...FUENTES,
+          ...(tmoHay
+            ? [
+                { key: "tmo", label: "ZonaTMO" },
+                { key: "ikigai", label: "Ikigai" },
+              ]
+            : []),
+        ].map((f) => (
           <button
             key={f.key}
             onClick={() => setFuente(f.key)}
@@ -703,6 +739,69 @@ export default function ExplorarPage() {
               <button
                 disabled={!tmoMas}
                 onClick={() => setTmoPage(tmoPage + 1)}
+                className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </>
+        )
+      )}
+
+      {fuente === "ikigai" && (
+        iki === null ? (
+          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+            Cargando catálogo de Ikigai...
+          </p>
+        ) : iki.length === 0 ? (
+          <Surface className="p-12 text-center">
+            <p className="text-lg font-bold text-ink">Sin resultados</p>
+            <p className="mt-1 text-sm text-subtle">Probá con otro término.</p>
+          </Surface>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+              {iki.map((s) => (
+                <Link
+                  key={s.slug}
+                  href={`/externo/ikigai/${s.slug}`}
+                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                    {s.cover_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={s.cover_url}
+                        alt={s.title}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                  </div>
+                  <div className="px-1 pt-4">
+                    <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                      {s.title}
+                    </h3>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-8">
+              <button
+                disabled={ikiPage <= 1}
+                onClick={() => setIkiPage(ikiPage - 1)}
+                className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+              >
+                ← Anterior
+              </button>
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                Página {ikiPage}
+              </span>
+              <button
+                disabled={!ikiMas}
+                onClick={() => setIkiPage(ikiPage + 1)}
                 className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
               >
                 Siguiente →

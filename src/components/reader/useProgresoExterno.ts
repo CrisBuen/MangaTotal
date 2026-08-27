@@ -7,7 +7,7 @@ import { useEffect } from "react";
  * biblioteca del usuario. Si la serie no está guardada, no hace nada.
  */
 export function useProgresoExterno(entrada: {
-  source: "mangadex" | "olympus" | "tmo";
+  source: "mangadex" | "olympus" | "tmo" | "ikigai";
   externalId: string;
   chapterId: string;
   chapterName: string;

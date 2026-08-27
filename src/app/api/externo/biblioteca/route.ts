@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-const FUENTES = ["mangadex", "olympus", "tmo"] as const;
+const FUENTES = ["mangadex", "olympus", "tmo", "ikigai"] as const;
 type Fuente = (typeof FUENTES)[number];
 
 function publico(e: {
@@ -30,7 +30,9 @@ function publico(e: {
     href:
       e.source === "olympus"
         ? `/externo/olympus/${e.slug ?? e.externalId}`
-        : e.source === "tmo"
+        : e.source === "ikigai"
+          ? `/externo/ikigai/${e.externalId}`
+          : e.source === "tmo"
           ? `/externo/tmo/${e.externalId}`
           : `/externo/${e.externalId}`,
   };

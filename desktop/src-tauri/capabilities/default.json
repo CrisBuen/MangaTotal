@@ -2,18 +2,39 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permisos de la ventana principal",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "remote": {
-    "urls": ["https://manga-total.vercel.app"]
+    "urls": [
+      "https://manga-total.vercel.app"
+    ]
   },
   "permissions": [
     "core:default",
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "https://zonatmo.org/*" },
-        { "url": "https://storage2.zonatmo.org/*" }
+        {
+          "url": "https://zonatmo.org/*"
+        },
+        {
+          "url": "https://storage2.zonatmo.org/*"
+        },
+        {
+          "url": "https://visorikigai.gettocaboca.com/*"
+        },
+        {
+          "url": "https://viralikigai.radiot.space/*"
+        },
+        {
+          "url": "https://image2.ikigaimangas.cloud/*"
+        },
+        {
+          "url": "https://image3.ikigaimangas.cloud/*"
+        }
       ]
-    }
+    },
+    "core:app:allow-version"
   ]
 }
