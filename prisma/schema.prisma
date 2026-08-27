@@ -20,6 +20,7 @@ model User {
   progress             ReadingProgress[]
   favorites            Favorite[]
   animeEntries         AnimeEntry[]
+  externalSeries       ExternalSeries[]
 
   @@map("users")
 }
@@ -63,6 +64,29 @@ model AnimeEntry {
   @@unique([userId, anilistId])
   @@index([userId, status])
   @@map("anime_entries")
+}
+
+
+/// Series de fuentes externas (MangaDex, Olympus) guardadas por el usuario,
+/// con el capítulo por el que va. No se aloja contenido: solo la referencia.
+model ExternalSeries {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  source          String
+  externalId      String   @map("external_id")
+  slug            String?
+  title           String
+  coverUrl        String?  @map("cover_url")
+  type            String?
+  lastChapterId   String?  @map("last_chapter_id")
+  lastChapterName String?  @map("last_chapter_name")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, source, externalId])
+  @@index([userId, updatedAt])
+  @@map("external_series")
 }
 
 model Tag {

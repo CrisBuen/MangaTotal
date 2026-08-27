@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { use } from "react";
+import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { Surface } from "@/components/ui/Surface";
 
 interface SerieOlympus {
@@ -104,6 +105,17 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
               {[serie.status, serie.chapter_count !== null ? `${serie.chapter_count} capítulos` : null].filter(Boolean).join(" · ")}
             </p>
           </div>
+
+          <SaveExternalButton
+            serie={{
+              source: "olympus",
+              external_id: serie.slug,
+              slug: serie.slug,
+              title: serie.title,
+              cover_url: serie.cover_url,
+              type: serie.type,
+            }}
+          />
 
           {/* atribución al grupo, en la ficha */}
           <a

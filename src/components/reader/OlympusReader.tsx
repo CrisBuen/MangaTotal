@@ -6,6 +6,7 @@ import { CascadeReader } from "./CascadeReader";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { RtlReader } from "./RtlReader";
 import type { ReaderPage, ReadingMode } from "./types";
+import { useProgresoExterno } from "./useProgresoExterno";
 
 const CONTROLS_HIDE_MS = 2500;
 
@@ -39,6 +40,13 @@ export function OlympusReader({
   const [currentPage, setCurrentPage] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+
+  useProgresoExterno({
+    source: "olympus",
+    externalId: serie.slug,
+    chapterId: String(chapter.id),
+    chapterName: chapter.name,
+  });
 
   const volverHref = `/externo/olympus/${serie.slug}`;
   const capituloHref = (id: number) =>

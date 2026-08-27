@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { use, useCallback, useEffect, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 
@@ -164,6 +165,15 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                 Empezar a leer
               </Link>
             )}
+            <SaveExternalButton
+              serie={{
+                source: "mangadex",
+                external_id: series.id,
+                title: series.title,
+                cover_url: series.cover_url,
+                type: series.is_adult ? "adult" : "normal",
+              }}
+            />
             <div className="flex gap-1 rounded-xl border border-line bg-[var(--surface-raised)] p-1">
               {[
                 { key: "es", label: "Español" },

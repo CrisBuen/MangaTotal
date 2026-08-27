@@ -6,6 +6,7 @@ import { CascadeReader } from "./CascadeReader";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { RtlReader } from "./RtlReader";
 import type { ReaderPage, ReadingMode } from "./types";
+import { useProgresoExterno } from "./useProgresoExterno";
 
 const CONTROLS_HIDE_MS = 2500;
 
@@ -88,6 +89,13 @@ export function ExternalReader({
 
   const showBar = !isFullscreen || controlsVisible;
   const progressPct = pages.length > 0 ? (currentPage / pages.length) * 100 : 0;
+  useProgresoExterno({
+    source: "mangadex",
+    externalId: seriesId ?? "",
+    chapterId: chapter.id,
+    chapterName: chapter.number ?? "",
+  });
+
   const backHref = seriesId ? `/externo/${seriesId}` : "/explorar";
 
   return (

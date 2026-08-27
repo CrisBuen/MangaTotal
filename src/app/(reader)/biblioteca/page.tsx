@@ -26,6 +26,16 @@ interface Me {
   show_adult_content?: boolean;
 }
 
+interface SerieGuardada {
+  source: string;
+  external_id: string;
+  title: string;
+  cover_url: string | null;
+  type: string | null;
+  last_chapter_name: string | null;
+  href: string;
+}
+
 interface TagChip {
   id: number;
   name: string;
@@ -46,6 +56,7 @@ export default function BibliotecaPage() {
   const [tags, setTags] = useState<TagChip[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [guardadas, setGuardadas] = useState<SerieGuardada[]>([]);
 
   const loggedIn = Boolean(me?.nickname);
 
@@ -62,6 +73,10 @@ export default function BibliotecaPage() {
       .then((r) => r.json())
       .then((d) => Array.isArray(d) && setNews(d))
       .catch(() => setNews([]));
+    fetch("/api/externo/biblioteca")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => Array.isArray(d) && setGuardadas(d))
+      .catch(() => {});
     fetch("/api/tags")
       .then((r) => r.json())
       .then((d) => Array.isArray(d) && setTags(d))
@@ -311,6 +326,52 @@ export default function BibliotecaPage() {
             </Surface>
           )}
         </>
+      )}
+
+      {loggedIn && guardadas.length > 0 && (filter === "todo" || filter === "normal") && (
+        <section data-od-id="library-external">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+              Guardadas de otras fuentes
+            </h2>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              MangaDex · Olympus
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            {guardadas.map((g) => (
+              <Link
+                key={`${g.source}-${g.external_id}`}
+                href={g.href}
+                className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  {g.cover_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={g.cover_url}
+                      alt={g.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+                    {g.source === "olympus" ? "Olympus" : "MangaDex"}
+                  </span>
+                </div>
+                <div className="px-1 pt-4">
+                  <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                    {g.title}
+                  </h3>
+                  <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                    {g.last_chapter_name ? `Vas por el cap. ${g.last_chapter_name}` : "Sin empezar"}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <section data-od-id="library-catalog">
