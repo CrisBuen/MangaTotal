@@ -137,10 +137,13 @@ export async function catalogo(page: number, filtros: FiltrosOlympus = {}) {
   // "Nuevos lanzamientos" y "Populares" los publica Olympus en su portada,
   // con el mismo criterio que usa su sitio.
   const sinFiltros = !filtros.q && !filtros.genero && !filtros.estado && !filtros.tipo;
-  if (sinFiltros && (filtros.orden === "novedades" || filtros.orden === "populares")) {
+  if (sinFiltros && filtros.orden === "novedades") {
+    // todo el catálogo ordenado por lo último publicado, paginado como el suyo
+    return await novedades(page);
+  }
+  if (sinFiltros && filtros.orden === "populares") {
     const home = await portada();
-    const series = filtros.orden === "novedades" ? home.novedades : home.populares;
-    return { series, page: 1, last_page: 1, total: series.length };
+    return { series: home.populares, page: 1, last_page: 1, total: home.populares.length };
   }
 
   const necesitaIndice = Boolean(filtros.q) || (filtros.orden && filtros.orden !== "az");
@@ -326,6 +329,66 @@ export async function portada() {
         published_at: c.published_at,
       })),
     })),
+  };
+}
+
+
+/**
+ * Últimos lanzamientos paginados (las 58 páginas de su sección "Capítulos").
+ *
+ * Su API tiene el endpoint /api/last-chapters pero exige autenticación, así
+ * que se lee la página que ya viene renderizada desde su servidor. El
+ * payload de Nuxt es un array plano: cada valor puede ser un índice que
+ * apunta a otra posición del mismo array.
+ */
+export async function novedades(page: number) {
+  const res = await fetch(`${OLYMPUS_WEB}/capitulos?page=${page}`, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; MangaTotal/1.0)" },
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new Error(`Olympus respondió ${res.status} en sus novedades`);
+
+  const html = await res.text();
+  // el payload va dentro de <script ...__NUXT_DATA__...>[ ... ]</script>
+  const marca = html.indexOf("__NUXT_DATA__");
+  const abre = marca >= 0 ? html.indexOf(">", marca) + 1 : -1;
+  const cierra = abre > 0 ? html.indexOf("</script>", abre) : -1;
+  if (abre <= 0 || cierra <= abre) {
+    throw new Error("La sección de capítulos de Olympus cambió de formato");
+  }
+
+  const plano = JSON.parse(html.slice(abre, cierra)) as unknown[];
+  const raiz = plano[3] as Record<string, number>;
+  const nodo = plano[raiz[Object.keys(raiz)[0]]] as Record<string, number>;
+
+  const resolver = (valor: unknown, nivel = 0): unknown => {
+    if (nivel > 6) return null;
+    if (typeof valor === "number") return resolver(plano[valor], nivel + 1);
+    if (Array.isArray(valor)) return valor.map((v) => resolver(v, nivel + 1));
+    if (valor && typeof valor === "object") {
+      const salida: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(valor)) salida[k] = resolver(v, nivel + 1);
+      return salida;
+    }
+    return valor;
+  };
+
+  const items = (resolver(nodo.data) as (OlySerieLista & {
+    last_chapters?: { id: number; name: string; published_at: string }[];
+  })[]) ?? [];
+
+  return {
+    series: items.map((s) => ({
+      ...serieResumen(s),
+      ultimos: (s.last_chapters ?? []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        published_at: c.published_at,
+      })),
+    })),
+    page: (plano[nodo.current_page] as number) ?? page,
+    last_page: (plano[nodo.last_page] as number) ?? 1,
+    total: (plano[nodo.total] as number) ?? items.length,
   };
 }
 
