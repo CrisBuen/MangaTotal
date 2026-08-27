@@ -107,3 +107,36 @@ RECORDATORIOS
 - Los capítulos de acceso anticipado (los que ellos reservan a quienes los
   apoyan) NO se muestran: la app enlaza a su sitio. Dejarlo así.
 ===========================================================================
+
+
+===========================================================================
+ CÓMO REGENERAR LA LISTA DE GÉNEROS
+===========================================================================
+
+Su API no publica la lista de géneros, así que está escrita a mano en
+src/lib/olympus.ts (OLYMPUS_GENEROS), con el id que usa su buscador.
+
+Si agregan géneros nuevos y querés actualizarla, pegá esto en una terminal
+dentro de la carpeta del proyecto (crea un archivo temporal y lo ejecuta):
+
+  node -e "(async()=>{const W='https://olympusxyz.com';const H={'User-Agent':'MangaTotal/1.0',Accept:'application/json'};const j=async u=>(await(await fetch(u,{headers:H})).json());const slugs=[];for(const p of [1,10,20,30,40,50,58]){const r=await j(W+'/api/series?page='+p);slugs.push(...r.data.series.data.map(s=>s.slug));}const g=new Map();for(let i=0;i<slugs.length;i+=8){const lote=await Promise.all(slugs.slice(i,i+8).map(s=>j(W+'/api/series/'+s).catch(()=>null)));for(const r of lote)for(const x of r?.data?.genres??[])g.set(x.id,x.name.trim());}console.log(JSON.stringify([...g].sort((a,b)=>a[0]-b[0]).map(([id,name])=>({id,name}))));})()"
+
+Copiá el resultado y actualizá OLYMPUS_GENEROS en src/lib/olympus.ts.
+
+Nota: su API acepta UN género por vez (genres=<id>), no varios a la vez.
+Por eso el filtro de la página deja elegir uno solo.
+
+
+===========================================================================
+ FILTROS QUE ACEPTA SU API (verificados)
+===========================================================================
+
+  /api/series?page=1&genres=1          -> un género (id)
+  /api/series?page=1&status=1          -> estado: 1 Activo, 3 En pausa,
+                                          4 Finalizado, 5 Cancelado,
+                                          7 Abandonado por el scan
+  /api/series?page=1&type=comic        -> comic | novel
+
+Se combinan entre sí. NO acepta ordenar ni buscar por texto: eso lo resuelve
+MangaTotal armando el índice completo del catálogo (cacheado una hora) y
+ordenando/filtrando del lado del servidor.

@@ -78,6 +78,24 @@ export default function ExplorarPage() {
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
   const [olympusLastPage, setOlympusLastPage] = useState(1);
+  const [olyOrden, setOlyOrden] = useState("az");
+  const [olyGenero, setOlyGenero] = useState<number | null>(null);
+  const [olyEstado, setOlyEstado] = useState<number | null>(null);
+  const [olyTipo, setOlyTipo] = useState<string | null>(null);
+  const [olyOpciones, setOlyOpciones] = useState<{
+    generos: { id: number; name: string }[];
+    estados: { id: number; name: string }[];
+    tipos: { id: string; name: string }[];
+    ordenes: { id: string; name: string }[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (fuente !== "olympus" || olyOpciones) return;
+    fetch("/api/externo/olympus/filtros")
+      .then((r) => r.json())
+      .then(setOlyOpciones)
+      .catch(() => {});
+  }, [fuente, olyOpciones]);
 
   useEffect(() => {
     fetch("/api/externo/generos")
@@ -114,8 +132,11 @@ export default function ExplorarPage() {
 
   const cargarOlympus = useCallback(async () => {
     setError(false);
-    const params = new URLSearchParams({ page: String(olympusPage) });
+    const params = new URLSearchParams({ page: String(olympusPage), orden: olyOrden });
     if (search.trim()) params.set("q", search.trim());
+    if (olyGenero) params.set("genero", String(olyGenero));
+    if (olyEstado) params.set("estado", String(olyEstado));
+    if (olyTipo) params.set("tipo", olyTipo);
     try {
       const res = await fetch(`/api/externo/olympus/series?${params}`);
       if (!res.ok) throw new Error("fallo");
@@ -126,7 +147,7 @@ export default function ExplorarPage() {
       setError(true);
       setOlympus([]);
     }
-  }, [olympusPage, search]);
+  }, [olympusPage, search, olyOrden, olyGenero, olyEstado, olyTipo]);
 
   useEffect(() => {
     if (fuente !== "olympus") return;
@@ -137,7 +158,7 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     setOlympusPage(1);
-  }, [search, fuente]);
+  }, [search, fuente, olyOrden, olyGenero, olyEstado, olyTipo]);
 
   // cambiar cualquier filtro vuelve a la primera página
   useEffect(() => {
@@ -223,6 +244,35 @@ export default function ExplorarPage() {
         >
           Filtros {activeFilters > 0 ? `(${activeFilters})` : ""}
         </button>
+        )}
+
+        {fuente === "olympus" && olyOpciones && (
+          <>
+            <select
+              value={olyOrden}
+              onChange={(e) => setOlyOrden(e.target.value)}
+              className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+            >
+              {olyOpciones.ordenes.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+                olyGenero || olyEstado || olyTipo
+                  ? "border-accent bg-[var(--accent-soft)] text-accent"
+                  : "border-line text-subtle hover:text-ink"
+              }`}
+            >
+              Filtros{" "}
+              {[olyGenero, olyEstado, olyTipo].filter(Boolean).length > 0
+                ? `(${[olyGenero, olyEstado, olyTipo].filter(Boolean).length})`
+                : ""}
+            </button>
+          </>
         )}
 
         <input
@@ -400,6 +450,86 @@ export default function ExplorarPage() {
             Siguiente →
           </button>
         </div>
+      )}
+
+      {showFilters && fuente === "olympus" && olyOpciones && (
+        <Surface className="space-y-5 p-5">
+          <div>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              Tipo
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {olyOpciones.tipos.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setOlyTipo(olyTipo === t.id ? null : t.id)}
+                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                    olyTipo === t.id
+                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      : "border-line text-subtle hover:text-ink"
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              Estado
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {olyOpciones.estados.map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => setOlyEstado(olyEstado === e.id ? null : e.id)}
+                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                    olyEstado === e.id
+                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      : "border-line text-subtle hover:text-ink"
+                  }`}
+                >
+                  {e.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              Género <span className="normal-case opacity-70">(uno por vez)</span>
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {olyOpciones.generos.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => setOlyGenero(olyGenero === g.id ? null : g.id)}
+                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                    olyGenero === g.id
+                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      : "border-line text-subtle hover:text-ink"
+                  }`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(olyGenero || olyEstado || olyTipo) && (
+            <button
+              onClick={() => {
+                setOlyGenero(null);
+                setOlyEstado(null);
+                setOlyTipo(null);
+              }}
+              className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+            >
+              ✕ Limpiar filtros
+            </button>
+          )}
+        </Surface>
       )}
 
       {fuente === "olympus" && (
