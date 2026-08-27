@@ -43,7 +43,10 @@ function puente(): Puente | null {
     return {
       async get({ url }) {
         try {
-          const html = (await tauri.core!.invoke("traer_pagina", { url })) as string;
+          const html = (await tauri.core!.invoke("traer_pagina", {
+            url,
+            userAgent: userAgentElegido(),
+          })) as string;
           return { status: 200, data: html };
         } catch (err) {
           // el comando avisa así cuando Cloudflare pide verificar
@@ -152,6 +155,42 @@ function tauriCore() {
   ).__TAURI__?.core;
 }
 
+const CLAVE_UA = "mangatotal:user-agent";
+
+/** El user agent elegido en Ajustes, si hay uno. */
+export function userAgentElegido(): string | null {
+  try {
+    return localStorage.getItem(CLAVE_UA);
+  } catch {
+    return null;
+  }
+}
+
+export function guardarUserAgent(valor: string | null): void {
+  try {
+    if (valor && valor.trim()) localStorage.setItem(CLAVE_UA, valor.trim());
+    else localStorage.removeItem(CLAVE_UA);
+  } catch {
+    // almacenamiento bloqueado: se sigue con el de siempre
+  }
+}
+
+/** El user agent por defecto, el mismo que usa la app. */
+export const UA_POR_DEFECTO = UA;
+
+/**
+ * Borra el permiso de Cloudflare y los datos del navegador interno.
+ *
+ * Es la salida cuando la verificación queda trabada: sin esto, un permiso
+ * vencido dejaría la fuente inservible sin forma de reintentar.
+ */
+export async function limpiarVerificacion(): Promise<boolean> {
+  const core = tauriCore();
+  if (!core?.invoke) return false;
+  await core.invoke("limpiar_verificacion");
+  return true;
+}
+
 /** True si esta plataforma sabe abrir la ventana de verificación. */
 export function puedeResolverDesafio(): boolean {
   return Boolean(tauriCore()?.invoke);
@@ -167,5 +206,7 @@ export function puedeResolverDesafio(): boolean {
 export async function resolverDesafio(url: string): Promise<boolean> {
   const core = tauriCore();
   if (!core?.invoke) return false;
-  return (await core.invoke("resolver_desafio", { url })) === true;
+  return (
+    (await core.invoke("resolver_desafio", { url, userAgent: userAgentElegido() })) === true
+  );
 }

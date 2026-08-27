@@ -27,7 +27,11 @@ const ORIGEN_PROPIO: &str = "manga-total.vercel.app";
 /// hogareña. Como la ventana carga un sitio remoto, el navegador interno no
 /// puede pedirlas por su cuenta (CORS), así que lo hace este comando.
 #[tauri::command]
-async fn traer_pagina(app: AppHandle, url: String) -> Result<String, String> {
+async fn traer_pagina(
+    app: AppHandle,
+    url: String,
+    user_agent: Option<String>,
+) -> Result<String, String> {
     const PERMITIDOS: [&str; 9] = [
         "newcatharsis.dig-it.info",
         "leercapitulo.co",
@@ -55,7 +59,7 @@ async fn traer_pagina(app: AppHandle, url: String) -> Result<String, String> {
         .get(&host)
         .cloned();
 
-    let mut pedido = cliente()?
+    let mut pedido = cliente(ua_de(&user_agent))?
         .get(destino)
         .header("Accept-Language", "es-ES,es;q=0.9");
     if let Some(cookie) = permiso {
@@ -85,7 +89,11 @@ async fn traer_pagina(app: AppHandle, url: String) -> Result<String, String> {
 /// los pedidos siguientes. El permiso vence solo, y entonces se vuelve a
 /// pedir.
 #[tauri::command]
-async fn resolver_desafio(app: AppHandle, url: String) -> Result<bool, String> {
+async fn resolver_desafio(
+    app: AppHandle,
+    url: String,
+    user_agent: Option<String>,
+) -> Result<bool, String> {
     let destino = url::Url::parse(&url).map_err(|e| e.to_string())?;
     let host = destino.host_str().unwrap_or_default().to_string();
     if host.is_empty() {
@@ -100,7 +108,7 @@ async fn resolver_desafio(app: AppHandle, url: String) -> Result<bool, String> {
     let ventana = WebviewWindowBuilder::new(&app, "desafio", WebviewUrl::External(destino.clone()))
         .title("Verificación del sitio — tocá la casilla para continuar")
         .inner_size(560.0, 680.0)
-        .user_agent(UA_NAVEGADOR)
+        .user_agent(ua_de(&user_agent))
         .center()
         .build()
         .map_err(|e| e.to_string())?;
@@ -129,12 +137,17 @@ async fn resolver_desafio(app: AppHandle, url: String) -> Result<bool, String> {
     Ok(false)
 }
 
-fn cliente() -> Result<reqwest::Client, String> {
+/// El user agent a usar: el que eligió la persona, o el nuestro.
+fn ua_de(elegido: &Option<String>) -> &str {
+    match elegido {
+        Some(u) if !u.trim().is_empty() => u.as_str(),
+        _ => UA_NAVEGADOR,
+    }
+}
+
+fn cliente(ua: &str) -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
-             (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        )
+        .user_agent(ua)
         .build()
         .map_err(|e| e.to_string())
 }
@@ -157,7 +170,11 @@ async fn descargar_actualizacion(ventana: Window, url: String) -> Result<String,
         return Err("El instalador tiene que venir del sitio de MangaTotal".into());
     }
 
-    let respuesta = cliente()?.get(destino).send().await.map_err(|e| e.to_string())?;
+    let respuesta = cliente(UA_NAVEGADOR)?
+        .get(destino)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     if !respuesta.status().is_success() {
         return Err(format!(
             "No se pudo descargar la actualización ({})",
@@ -209,12 +226,33 @@ fn instalar_actualizacion(app: AppHandle, ruta: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Borra el permiso guardado y los datos del navegador interno.
+///
+/// Es la salida cuando la verificación queda trabada: sin esto, un permiso
+/// vencido o a medias dejaría la fuente inservible sin forma de reintentar.
+#[tauri::command]
+async fn limpiar_verificacion(app: AppHandle) -> Result<(), String> {
+    if let Ok(mut guardados) = app.state::<Permisos>().0.lock() {
+        guardados.clear();
+    }
+
+    // los datos del navegador se limpian desde cualquiera de sus ventanas
+    if let Some(v) = app
+        .get_webview_window("desafio")
+        .or_else(|| app.get_webview_window("main"))
+    {
+        v.clear_all_browsing_data().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(Permisos::default())
         .invoke_handler(tauri::generate_handler![
             traer_pagina,
             resolver_desafio,
+            limpiar_verificacion,
             descargar_actualizacion,
             instalar_actualizacion
         ])
