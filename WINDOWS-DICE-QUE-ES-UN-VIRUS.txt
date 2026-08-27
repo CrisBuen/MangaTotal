@@ -1,0 +1,109 @@
+===========================================================================
+ "WINDOWS DICE QUE MANGATOTAL ES UN VIRUS" — QUÉ PASA Y QUÉ HACER
+===========================================================================
+
+Resumen en una línea: no hay ningún virus. Es un falso positivo típico de
+los programas nuevos que no están firmados digitalmente. Se arregla, pero
+hay que hacer un par de cosas.
+
+
+---------------------------------------------------------------------------
+POR QUÉ PASA
+---------------------------------------------------------------------------
+
+Windows mira dos cosas antes de dejar abrir un programa:
+
+  1. LA FIRMA DIGITAL. Es como el DNI del programa: dice quién lo hizo y
+     garantiza que nadie lo tocó. Cuesta plata y hay que sacarla con una
+     empresa autorizada. MangaTotal hoy NO está firmado.
+
+  2. LA REPUTACIÓN. Cuánta gente descargó ese archivo exacto sin problemas.
+     Un archivo recién publicado tiene reputación cero.
+
+Sin firma y sin reputación, SmartScreen muestra la pantalla azul de
+"Windows protegió tu PC", y a veces Defender va más lejos y lo marca
+directamente como amenaza (suele llamarlo "Wacatac" o "Sabsik", que son
+etiquetas genéricas que pone cuando algo "se parece" a un instalador
+sospechoso, no cuando encuentra algo concreto).
+
+Le pasa a casi todas las apps hechas con Tauri, Electron o NSIS que no
+están firmadas. No es algo que se haya roto en MangaTotal.
+
+
+---------------------------------------------------------------------------
+QUÉ HACER YA MISMO (gratis, y funciona)
+---------------------------------------------------------------------------
+
+REPORTAR EL ARCHIVO A MICROSOFT COMO FALSO POSITIVO.
+
+  1. Entrar a:  https://www.microsoft.com/en-us/wdsi/filesubmission
+  2. Elegir "Software developer" (desarrollador de software).
+  3. Subir el archivo  public/descargas/MangaTotal-windows-setup.exe
+  4. En el motivo, marcar "Incorrectly detected" (detección incorrecta).
+  5. En la descripción, algo así:
+
+       MangaTotal is an open-source manga reader built with Tauri.
+       Source code: https://github.com/CrisBuen/MangaTotal
+       The installer is detected as malware but contains no malicious code.
+
+  6. Enviar.
+
+Microsoft suele responder en 24 a 72 horas y saca la detección. Hay que
+volver a reportarlo cada vez que se publica un instalador nuevo, porque la
+detección va por el archivo exacto, no por el programa.
+
+
+---------------------------------------------------------------------------
+LA SOLUCIÓN DEFINITIVA: FIRMAR LA APP
+---------------------------------------------------------------------------
+
+Con un certificado de firma de código, el aviso desaparece de raíz y ya no
+hay que reportar nada nunca más.
+
+Como MangaTotal es de código abierto, la opción barata es:
+
+  Certum — "Open Source Code Signing"
+  https://shop.certum.eu
+  Cuesta alrededor de 30 euros al año (los certificados normales salen
+  entre 200 y 400 dólares al año).
+
+Piden documentación para verificar la identidad y mandan el certificado en
+una tarjeta USB. Una vez que llega, se configura en Tauri agregando esto a
+desktop/src-tauri/tauri.conf.json, dentro de "bundle" → "windows":
+
+    "certificateThumbprint": "EL-HUELLA-DEL-CERTIFICADO",
+    "digestAlgorithm": "sha256",
+    "timestampUrl": "http://timestamp.digicert.com"
+
+Otra alternativa, sin costo pero con más trámite, es publicar la app en la
+Microsoft Store: las apps de la Store no pasan por SmartScreen.
+
+
+---------------------------------------------------------------------------
+QUÉ DECIRLE A ALGUIEN QUE SE ASUSTA
+---------------------------------------------------------------------------
+
+"Windows avisa porque la app todavía no tiene firma digital, que es un
+trámite pago. El código es público y se puede revisar en
+github.com/CrisBuen/MangaTotal. Si querés, subí el instalador a
+virustotal.com y lo comprobás vos mismo."
+
+(Subirlo a VirusTotal es una buena idea igual: mostrar que 60 antivirus
+dicen que está limpio y solo uno o dos se quejan convence a cualquiera.)
+
+Para instalarlo igual, en la pantalla azul hay que tocar "Más información"
+y después "Ejecutar de todas formas".
+
+
+---------------------------------------------------------------------------
+LO QUE YA SE HIZO DE ESTE LADO
+---------------------------------------------------------------------------
+
+- El instalador ahora declara editor ("MangaTotal") y sitio web. Windows
+  usa esos datos para ir juntando reputación entre una versión y otra.
+- El nombre del archivo y su dirección de descarga no cambian nunca
+  (/descargas/MangaTotal-windows-setup.exe): si cambiaran, la reputación
+  ganada se perdería en cada versión.
+
+Lo que falta, y no se puede resolver con código, es la firma.
+===========================================================================

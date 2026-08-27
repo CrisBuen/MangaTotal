@@ -117,3 +117,59 @@ export async function fetchLatestDesktopRelease(): Promise<DesktopRelease | null
     return null;
   }
 }
+
+// ── Actualización dentro de la app de Windows ─────────────────────────────
+
+interface PuenteTauri {
+  core?: { invoke: (comando: string, args?: Record<string, unknown>) => Promise<unknown> };
+  event?: {
+    listen: (
+      evento: string,
+      manejador: (mensaje: { payload: unknown }) => void
+    ) => Promise<() => void>;
+  };
+}
+
+function tauri(): PuenteTauri | null {
+  if (typeof window === "undefined") return null;
+  return (window as unknown as { __TAURI__?: PuenteTauri }).__TAURI__ ?? null;
+}
+
+/** True si esta versión de la app sabe instalar sola la actualización. */
+export function puedeActualizarseSola(): boolean {
+  return Boolean(tauri()?.core?.invoke);
+}
+
+export interface AvanceDescarga {
+  descargado: number;
+  total: number;
+}
+
+/**
+ * Baja el instalador y lo ejecuta, todo dentro de la app: nada de mandar a
+ * la persona al navegador. Al terminar, la app se cierra y se vuelve a abrir
+ * ya actualizada.
+ */
+export async function actualizarEscritorio(
+  installerUrl: string,
+  onAvance: (avance: AvanceDescarga) => void
+): Promise<void> {
+  const puente = tauri();
+  if (!puente?.core?.invoke) throw new Error("Esta versión no sabe actualizarse sola");
+
+  const url = new URL(installerUrl, window.location.origin).toString();
+
+  let dejarDeEscuchar: (() => void) | undefined;
+  if (puente.event?.listen) {
+    dejarDeEscuchar = await puente.event.listen("actualizacion://progreso", (mensaje) => {
+      onAvance(mensaje.payload as AvanceDescarga);
+    });
+  }
+
+  try {
+    const ruta = (await puente.core.invoke("descargar_actualizacion", { url })) as string;
+    await puente.core.invoke("instalar_actualizacion", { ruta });
+  } finally {
+    dejarDeEscuchar?.();
+  }
+}

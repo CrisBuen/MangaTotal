@@ -4,7 +4,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { Surface } from "@/components/ui/Surface";
-import { TMO_NOMBRE, serieTmo, tmoDisponible } from "@/lib/zonatmo";
+import { TMO_NOMBRE, serieTmo } from "@/lib/zonatmo";
 
 type Ficha = Awaited<ReturnType<typeof serieTmo>>;
 
@@ -25,10 +25,6 @@ export default function SerieTmoPage(props: {
   }, [tipo, id, slug]);
 
   useEffect(() => {
-    if (!tmoDisponible()) {
-      setError("ZonaTMO solo está disponible en la app de Android o de Windows");
-      return;
-    }
     cargar();
   }, [cargar]);
 
@@ -82,6 +78,7 @@ export default function SerieTmoPage(props: {
             </h1>
             <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
               {ficha.tipo} · {ficha.capitulos.length} capítulos
+              {ficha.score ? ` · ★ ${ficha.score.toFixed(1)}` : ""}
             </p>
           </div>
 
@@ -135,16 +132,16 @@ export default function SerieTmoPage(props: {
           {ficha.capitulos.map((c) => (
             <li key={c.id}>
               <Link
-                href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${slug}`}
+                href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}`}
                 className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink">
                     Capítulo {c.numero ?? "?"}
                   </p>
-                  {c.grupo && (
+                  {(c.grupo || c.fecha) && (
                     <p className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
-                      {c.grupo}
+                      {[c.grupo, c.fecha?.slice(0, 10)].filter(Boolean).join(" · ")}
                     </p>
                   )}
                 </div>

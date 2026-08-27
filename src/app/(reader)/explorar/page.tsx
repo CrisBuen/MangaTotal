@@ -8,14 +8,17 @@ import {
   IKIGAI_ORDENES,
   IKIGAI_TIPOS,
   catalogoIkigai,
+  ikigaiDisponible,
   type SerieIkigai,
 } from "@/lib/ikigai";
 import {
   TMO_DEMOGRAFIAS,
   TMO_ESTADOS,
+  TMO_GENEROS,
+  TMO_ORDENES,
   TMO_TIPOS,
   catalogoTmo,
-  tmoDisponible,
+  popularesTmo,
   type SerieTmo,
 } from "@/lib/zonatmo";
 
@@ -100,22 +103,32 @@ export default function ExplorarPage() {
   const [olyGenero, setOlyGenero] = useState<number | null>(null);
   const [olyEstado, setOlyEstado] = useState<number | null>(null);
   const [olyTipo, setOlyTipo] = useState<string | null>(null);
-  const [tmoHay, setTmoHay] = useState(false);
   const [tmoTipo, setTmoTipo] = useState<string | null>(null);
   const [tmoDemo, setTmoDemo] = useState<string | null>(null);
   const [tmoEstado, setTmoEstado] = useState<string | null>(null);
+  const [tmoGenero, setTmoGenero] = useState<string | null>(null);
+  const [tmoOrden, setTmoOrden] = useState<string | null>(null);
   const [ikiTipo, setIkiTipo] = useState<string | null>(null);
   const [ikiGenero, setIkiGenero] = useState<string | null>(null);
   const [ikiOrden, setIkiOrden] = useState("recientes");
+  const [ikigaiHay, setIkigaiHay] = useState(false);
+
+  useEffect(() => {
+    setIkigaiHay(ikigaiDisponible());
+  }, []);
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
   const [tmoMas, setTmoMas] = useState(false);
+  const [tmoPaginas, setTmoPaginas] = useState(1);
+  const [tmoPopulares, setTmoPopulares] = useState<SerieTmo[]>([]);
 
-  // ZonaTMO solo funciona en las apps: su servidor bloquea a los centros de
-  // datos, así que las peticiones salen del dispositivo de la persona
+  // lo más leído de la semana, tal como lo publica ZonaTMO
   useEffect(() => {
-    setTmoHay(tmoDisponible());
-  }, []);
+    if (fuente !== "tmo" || tmoPopulares.length > 0) return;
+    popularesTmo("week")
+      .then(setTmoPopulares)
+      .catch(() => setTmoPopulares([]));
+  }, [fuente, tmoPopulares.length]);
 
   const cargarTmo = useCallback(async () => {
     setError(false);
@@ -125,15 +138,18 @@ export default function ExplorarPage() {
         tipo: tmoTipo ?? undefined,
         demografia: tmoDemo ?? undefined,
         estado: tmoEstado ?? undefined,
+        genero: tmoGenero ?? undefined,
+        orden: tmoOrden ?? undefined,
       });
       setTmo(r.series);
-      setTmoMas(r.hayMas && r.series.length >= 24);
+      setTmoMas(r.hayMas);
+      setTmoPaginas(r.totalPaginas);
     } catch (err) {
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setTmo([]);
     }
-  }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado]);
+  }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden]);
 
   useEffect(() => {
     if (fuente !== "tmo") return;
@@ -144,7 +160,7 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     setTmoPage(1);
-  }, [search, fuente, tmoTipo, tmoDemo, tmoEstado]);
+  }, [search, fuente, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden]);
 
   const [iki, setIki] = useState<SerieIkigai[] | null>(null);
   const [ikiPage, setIkiPage] = useState(1);
@@ -286,12 +302,9 @@ export default function ExplorarPage() {
         </span>
         {[
           ...FUENTES,
-          ...(tmoHay
-            ? [
-                { key: "tmo", label: "ZonaTMO" },
-                { key: "ikigai", label: "Ikigai" },
-              ]
-            : []),
+          { key: "tmo", label: "ZonaTMO" },
+          // Ikigai sí necesita el puente nativo: bloquea a los centros de datos
+          ...(ikigaiHay ? [{ key: "ikigai", label: "Ikigai" }] : []),
         ].map((f) => (
           <button
             key={f.key}
@@ -394,11 +407,27 @@ export default function ExplorarPage() {
           </select>
         )}
 
+        {fuente === "tmo" && (
+          <select
+            value={tmoOrden ?? ""}
+            onChange={(e) => setTmoOrden(e.target.value || null)}
+            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+          >
+            {TMO_ORDENES.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         {(fuente === "tmo" || fuente === "ikigai") && (
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
-              (fuente === "tmo" ? tmoTipo || tmoDemo || tmoEstado : ikiTipo || ikiGenero)
+              (fuente === "tmo"
+                ? tmoTipo || tmoDemo || tmoEstado || tmoGenero
+                : ikiTipo || ikiGenero)
                 ? "border-accent bg-[var(--accent-soft)] text-accent"
                 : "border-line text-subtle hover:text-ink"
             }`}
@@ -746,6 +775,7 @@ export default function ExplorarPage() {
           {(fuente === "tmo"
             ? [
                 { titulo: "Tipo", opciones: TMO_TIPOS, valor: tmoTipo, set: setTmoTipo },
+                { titulo: "Género", opciones: TMO_GENEROS, valor: tmoGenero, set: setTmoGenero },
                 { titulo: "Demografía", opciones: TMO_DEMOGRAFIAS, valor: tmoDemo, set: setTmoDemo },
                 { titulo: "Estado", opciones: TMO_ESTADOS, valor: tmoEstado, set: setTmoEstado },
               ]
@@ -781,6 +811,7 @@ export default function ExplorarPage() {
               setTmoTipo(null);
               setTmoDemo(null);
               setTmoEstado(null);
+              setTmoGenero(null);
               setIkiTipo(null);
               setIkiGenero(null);
             }}
@@ -790,6 +821,46 @@ export default function ExplorarPage() {
           </button>
         </Surface>
       )}
+
+      {fuente === "tmo" &&
+        tmoPopulares.length > 0 &&
+        tmoPage === 1 &&
+        !search &&
+        !tmoTipo &&
+        !tmoGenero &&
+        !tmoDemo &&
+        !tmoEstado && (
+          <section>
+            <h2 className="mb-4 font-display text-xl font-black uppercase tracking-[-0.03em] text-ink">
+              Lo más leído esta semana
+            </h2>
+            <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
+              {tmoPopulares.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
+                  className="group w-32 shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-36"
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent">
+                    {t.cover_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={t.cover_url}
+                        alt={t.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                  </div>
+                  <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-tight text-ink transition group-hover:text-accent">
+                    {t.title}
+                  </h3>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
       {fuente === "tmo" && (
         tmo === null ? (
@@ -843,7 +914,7 @@ export default function ExplorarPage() {
                 ← Anterior
               </button>
               <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
-                Página {tmoPage}
+                Página {tmoPage} de {tmoPaginas}
               </span>
               <button
                 disabled={!tmoMas}

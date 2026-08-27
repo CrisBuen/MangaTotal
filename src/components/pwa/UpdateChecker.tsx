@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  actualizarEscritorio,
   downloadUrlFor,
   fetchLatestDesktopRelease,
   fetchLatestRelease,
@@ -9,6 +10,7 @@ import {
   installedVersionCode,
   isAndroidApp,
   isDesktopApp,
+  puedeActualizarseSola,
 } from "@/lib/appVersion";
 
 interface Novedad {
@@ -28,6 +30,8 @@ export function UpdateChecker() {
   const [release, setRelease] = useState<Novedad | null>(null);
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [bajando, setBajando] = useState<number | null>(null);
+  const [errorActualizar, setErrorActualizar] = useState<string | null>(null);
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -69,9 +73,26 @@ export function UpdateChecker() {
     })();
   }, [check]);
 
+  // en Windows la actualización se baja y se instala sin salir de la app
+  const actualizarAqui = async () => {
+    if (!release) return;
+    setErrorActualizar(null);
+    setBajando(0);
+    try {
+      await actualizarEscritorio(release.descargaUrl, ({ descargado, total }) => {
+        setBajando(total > 0 ? Math.round((descargado / total) * 100) : 0);
+      });
+    } catch (err) {
+      setBajando(null);
+      setErrorActualizar(err instanceof Error ? err.message : "No se pudo actualizar");
+    }
+  };
+
   if (!inApp) return null;
 
   const hasUpdate = release !== null && release.versionCode > installed;
+  // la instalación dentro de la app llegó en la 1.2 de escritorio
+  const enEscritorio = isDesktopApp() && installed >= 3 && puedeActualizarseSola();
 
   return (
     <section
@@ -105,13 +126,33 @@ export function UpdateChecker() {
               </li>
             ))}
           </ul>
-          <a
-            href={release.descargaUrl}
-            rel="noopener"
-            className="inline-block rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
-          >
-            Actualizar a v{release.versionName}
-          </a>
+          {errorActualizar && (
+            <p className="mb-3 rounded-xl border border-danger px-3 py-2 text-xs leading-5 text-danger">
+              {errorActualizar}
+            </p>
+          )}
+
+          {enEscritorio ? (
+            <button
+              onClick={actualizarAqui}
+              disabled={bajando !== null}
+              className="inline-block rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] disabled:opacity-70"
+            >
+              {bajando === null
+                ? `Actualizar a v${release.versionName}`
+                : bajando >= 100
+                  ? "Instalando…"
+                  : `Descargando… ${bajando}%`}
+            </button>
+          ) : (
+            <a
+              href={release.descargaUrl}
+              rel="noopener"
+              className="inline-block rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+            >
+              Actualizar a v{release.versionName}
+            </a>
+          )}
         </>
       ) : checked ? (
         <p className="text-xs text-subtle">La app está al día.</p>

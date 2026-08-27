@@ -5,54 +5,136 @@
 ZonaTMO está integrada con su permiso. Su nombre y un enlace a su sitio
 aparecen en cada serie y en cada capítulo.
 
-
----------------------------------------------------------------------------
-POR QUÉ SOLO FUNCIONA EN LAS APPS (Android y Windows)
----------------------------------------------------------------------------
-
-El servidor de ZonaTMO bloquea las peticiones que vienen de centros de
-datos: desde los servidores de Vercel todo responde 403, incluidas sus
-imágenes. Comprobado que el bloqueo es SOLO por IP — desde una conexión
-hogareña responde bien con cualquier programa (curl, python, un navegador).
-
-Por eso MangaTotal pide las páginas desde el dispositivo de cada persona:
-
-  · Android  -> puente nativo de Capacitor (CapacitorHttp)
-  · Windows  -> puente nativo de Tauri (plugin http)
-  · Web      -> NO disponible: el navegador no puede leer otro sitio (CORS)
-
-Es el mismo enfoque que usa Mihon, y es lo que ZonaTMO indicó por correo.
-
-En la web, la fuente "ZonaTMO" ni siquiera aparece en el selector de
-Explorar. Eso es a propósito.
+Última revisión: agosto de 2026, con el sitio nuevo (zonatmo.net).
 
 
 ---------------------------------------------------------------------------
-SI CAMBIAN DE DOMINIO
+LO QUE CAMBIÓ EN 2026
 ---------------------------------------------------------------------------
 
-PASO 1. Editar UNA línea en:
+ZonaTMO rehizo el sitio de cero:
+
+  - Dominio nuevo:  zonatmo.net   (antes zonatmo.org)
+  - Ya no hay HTML que interpretar: ahora publican una API en JSON.
+  - Las páginas de los capítulos viven en un CDN aparte: cdn.zonatmo.to
+
+Por eso MangaTotal ya no "lee" su página: le pregunta a su API.
+
+
+---------------------------------------------------------------------------
+DE DÓNDE SALEN LAS PETICIONES
+---------------------------------------------------------------------------
+
+Se intenta en este orden, y con el primero que funcione alcanza:
+
+  1. Desde nuestro servidor, por  /api/externo/tmo
+     Es lo normal y hace que la fuente ande también en el navegador.
+
+  2. Si el servidor no puede (su Cloudflare a veces rechaza a las IPs de
+     centros de datos), se reintenta desde el teléfono o el PC de la
+     persona, por el puente nativo de la app. Es lo mismo que hace Mihon.
+
+Las imágenes NUNCA pasan por nosotros: las pide el navegador directo a su
+CDN. Ojo con esto: su CDN rechaza la imagen si el navegador dice que viene
+de otro sitio, así que los lectores mandan las imágenes con
+referrerPolicy="no-referrer". Si algún día se saca esa línea, las páginas
+dejan de verse (responden 302).
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN DE DOMINIO OTRA VEZ
+---------------------------------------------------------------------------
+
+PASO 1. Editar las constantes de arriba de:
 
   src/lib/zonatmo.ts
 
-     export const TMO_WEB = "https://zonatmo.org";
+     export const TMO_WEB = "https://zonatmo.net";
+     export const TMO_CDN = "https://cdn.zonatmo.to";
 
-  Cambiar por el dominio nuevo, sin barra final.
+  El valor de TMO_CDN se saca del propio sitio: abrí su página de inicio,
+  clic derecho -> "Ver código fuente", y buscá la palabra  cdn.
+  Aparece dentro de window.siteConfig.
 
-PASO 2. Permitir el dominio nuevo en la app de Windows.
+PASO 2. Cambiar el dominio en el puente del servidor:
 
-  Editar:  desktop/src-tauri/capabilities/default.json
+  src/app/api/externo/tmo/route.ts
 
-  y cambiar las dos líneas con "zonatmo.org" por el dominio nuevo:
+     const BASE = "https://zonatmo.net/wp-api/api";
 
-     { "url": "https://DOMINIO-NUEVO/*" },
-     { "url": "https://SERVIDOR-DE-IMAGENES/*" }
+PASO 3. Permitir los dominios nuevos en la app de Windows.
 
-  (El servidor de imágenes hoy es storage2.zonatmo.org. Para saber el nuevo:
-   abrí un capítulo en su web, clic derecho sobre una página -> "Abrir imagen
-   en pestaña nueva" y mirá el dominio.)
+  Editar:  desktop/src-tauri/src/main.rs
 
-PASO 3. Recompilar las dos apps y publicarlas:
+  y actualizar la lista PERMITIDOS con el dominio nuevo y el de su CDN.
+
+PASO 4. Recompilar las dos apps y publicarlas (ver más abajo).
+
+PASO 5. git add -A ; git commit -m "Nuevo dominio de ZonaTMO" ; git push
+
+
+---------------------------------------------------------------------------
+LA API DE ZONATMO, EXPLICADA
+---------------------------------------------------------------------------
+
+Base:  https://zonatmo.net/wp-api/api
+Todas las respuestas vienen envueltas así:  { "error": ..., "data": ... }
+
+  Catálogo
+    GET /listing/manga?page=1&postsPerPage=24
+    Filtros que acepta:
+       search=texto
+       type=14        (14 Manga, 87 Manhwa, 31 Manhua, 214 Novela...)
+       demography=13  (13 shounen, 20 shoujo, 45 seinen, 55 josei)
+       status=12      (12 Publicándose, 19 Finalizado, 174 Pausado...)
+       genres=16&genres_mode=any
+       orderBy=score | vote_count | total_chapters | year_start | title
+       order=desc | asc
+    Devuelve data.items y data.pagination (con total y total_pages).
+
+  Lo más leído
+    GET /tops/views/week
+    GET /tops/views/month
+    GET /tops/views/yesterday
+
+  Ficha de una serie
+    GET /single/manga/{slug}
+
+  Capítulos de una serie   (¡vienen de a 25 y no se puede pedir más!)
+    GET /single/manga/{slug}/chapters?page=1
+
+  Un capítulo con sus páginas
+    GET /single/manga/{slug}/{slug-del-capitulo}
+    La respuesta trae un token "jit". La imagen de cada página se arma así:
+       https://cdn.zonatmo.to/manga/{jit}/{image_url}
+    Ese token cambia en cada pedido, así que no se puede guardar.
+
+  Portadas
+    El campo "cover" viene relativo. La URL completa es:
+       https://zonatmo.net/wp-content/uploads/{cover}
+
+Los números de género, tipo, estado y demografía están todos en el código
+fuente de su página de inicio, dentro de window.siteConfig.datas. Si algún
+día agregan géneros nuevos, se copian de ahí a las listas TMO_GENEROS,
+TMO_TIPOS, TMO_ESTADOS y TMO_DEMOGRAFIAS de src/lib/zonatmo.ts.
+
+
+---------------------------------------------------------------------------
+CÓMO PROBAR SI ALGO SE ROMPIÓ
+---------------------------------------------------------------------------
+
+Pegá esto en la barra del navegador. Si devuelve un montón de texto con
+títulos de series, la API sigue viva:
+
+  https://zonatmo.net/wp-api/api/listing/manga?page=1
+
+Si eso anda pero MangaTotal no, el problema está en nuestro lado: mirá la
+consola del navegador (F12) en la pestaña Explorar.
+
+
+---------------------------------------------------------------------------
+RECOMPILAR Y PUBLICAR LAS APPS
+---------------------------------------------------------------------------
 
   # Windows
   cd "D:\Pagina Web mangastotal\desktop"
@@ -68,37 +150,6 @@ PASO 3. Recompilar las dos apps y publicarlas:
   cd android; .\gradlew.bat assembleDebug; cd ..
   Copy-Item android\app\build\outputs\apk\debug\app-debug.apk `
     ..\public\descargas\MangaTotal-android.apk -Force
-
-PASO 4. git add -A ; git commit -m "Nuevo dominio de ZonaTMO" ; git push
-
-
----------------------------------------------------------------------------
-SI CAMBIAN EL DISEÑO DE SU SITIO
----------------------------------------------------------------------------
-
-La lectura se hace interpretando su HTML, así que un rediseño puede
-romperla. Todo lo que hay que ajustar está junto en src/lib/zonatmo.ts:
-
-  Catálogo   -> /biblioteca?page=N
-               tarjetas:  #library-grid .element
-               enlace:    a[href]  (formato /library/{tipo}/{id}/{slug})
-               título:    h4[title]
-               portada:   img
-
-  Ficha      -> /library/{tipo}/{id}/{slug}
-               título:      h1.element-title
-               portada:     img.book-thumbnail
-               sinopsis:    .element-description
-               capítulos:   a[href*="/view_uploads/"]
-               número:      [data-chapter-number]
-
-  Capítulo   -> /view_uploads/{id}
-               páginas:     .reader-img-wrap img
-
-Para ver si algo cambió: abrí la página en Chrome, F12, y probá el selector
-en la consola, por ejemplo:
-
-  document.querySelectorAll('#library-grid .element').length
 
 
 ---------------------------------------------------------------------------

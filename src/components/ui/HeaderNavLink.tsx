@@ -18,6 +18,9 @@ export function HeaderNavLink({
   return (
     <Link
       href={href}
+      // se adelanta a traer la pestaña apenas se ve el enlace: al tocarla
+      // ya está lista y el cambio se siente inmediato
+      prefetch
       aria-current={active ? "page" : undefined}
       className={`relative inline-flex min-h-11 shrink-0 items-center rounded-lg px-1 text-[11px] font-bold uppercase tracking-[0.12em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:px-2 ${
         active

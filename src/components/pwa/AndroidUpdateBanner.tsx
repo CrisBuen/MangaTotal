@@ -4,12 +4,9 @@ import { useEffect, useState } from "react";
 import {
   dismissVersion,
   downloadUrlFor,
-  fetchLatestDesktopRelease,
   fetchLatestRelease,
-  installedDesktopVersion,
   installedVersionCode,
   isAndroidApp,
-  isDesktopApp,
   isDismissed,
 } from "@/lib/appVersion";
 
@@ -25,41 +22,26 @@ interface Novedad {
  * Aviso de actualización de la app Android. Solo aparece dentro de la app
  * y cuando hay una versión más nueva publicada. Si se pospone, queda
  * disponible en Perfil → Buscar actualizaciones.
+ *
+ * La app de Windows tiene el suyo: ver DesktopUpdater.
  */
 export function AndroidUpdateBanner() {
   const [release, setRelease] = useState<Novedad | null>(null);
 
   useEffect(() => {
+    if (!isAndroidApp()) return;
     (async () => {
-      if (isAndroidApp()) {
-        const ultima = await fetchLatestRelease();
-        if (!ultima) return;
-        if (ultima.versionCode <= installedVersionCode()) return;
-        if (isDismissed(ultima.versionCode)) return;
-        setRelease({
-          versionCode: ultima.versionCode,
-          versionName: ultima.versionName,
-          sizeMb: ultima.sizeMb,
-          changes: ultima.changes,
-          descargaUrl: downloadUrlFor(ultima, true),
-        });
-        return;
-      }
-
-      if (isDesktopApp()) {
-        const ultima = await fetchLatestDesktopRelease();
-        if (!ultima) return;
-        const instalada = await installedDesktopVersion();
-        if (ultima.versionCode <= instalada) return;
-        if (isDismissed(ultima.versionCode)) return;
-        setRelease({
-          versionCode: ultima.versionCode,
-          versionName: ultima.versionName,
-          sizeMb: ultima.sizeMb,
-          changes: ultima.changes,
-          descargaUrl: ultima.installerUrl,
-        });
-      }
+      const ultima = await fetchLatestRelease();
+      if (!ultima) return;
+      if (ultima.versionCode <= installedVersionCode()) return;
+      if (isDismissed(ultima.versionCode)) return;
+      setRelease({
+        versionCode: ultima.versionCode,
+        versionName: ultima.versionName,
+        sizeMb: ultima.sizeMb,
+        changes: ultima.changes,
+        descargaUrl: downloadUrlFor(ultima, true),
+      });
     })();
   }, []);
 

@@ -1,63 +1,150 @@
 /**
  * ZonaTMO — integrada con su permiso.
  *
- * A diferencia de MangaDex y Olympus, esta fuente NO se puede leer desde el
- * servidor: Cloudflare bloquea las IPs de centros de datos (403 en todo,
- * incluidas sus imágenes). Comprobado que el bloqueo es solo por IP: desde
- * una conexión hogareña responde con cualquier user agent.
+ * En 2026 rehicieron el sitio: cambió el dominio a zonatmo.net y el HTML dio
+ * paso a una API JSON (`/wp-api/api`). Todo lo de acá habla con esa API.
  *
- * Por eso las peticiones salen del dispositivo de la persona, igual que
- * hace Mihon: en Android por el puente nativo de Capacitor y en la app de
- * escritorio por el de Tauri. En el navegador no está disponible, porque no
- * puede leer otro sitio (CORS).
+ * Cómo se pide:
+ *   1. Primero por nuestro servidor (`/api/externo/tmo`). Si su Cloudflare
+ *      acepta a Vercel, la fuente funciona también en el navegador.
+ *   2. Si el servidor no puede, se reintenta desde el dispositivo por el
+ *      puente nativo (Android/Windows), igual que hace Mihon.
+ *
+ * Las imágenes (portadas y páginas) las carga el navegador directo desde su
+ * CDN, así que no dependen de ninguno de los dos puentes.
  *
  * ⚠️ SI CAMBIAN DE DOMINIO: ver CAMBIO-DE-DOMINIO-ZONATMO.txt en la raíz.
  */
-export const TMO_WEB = "https://zonatmo.org";
+export const TMO_WEB = "https://zonatmo.net";
+export const TMO_API = `${TMO_WEB}/wp-api/api`;
+export const TMO_CDN = "https://cdn.zonatmo.to";
+export const TMO_SUBIDAS = `${TMO_WEB}/wp-content/uploads`;
 export const TMO_NOMBRE = "ZonaTMO";
 
-import { traerDocumento, fuenteNativaDisponible } from "./fuenteNativa";
+import { traerJson, fuenteNativaDisponible } from "./fuenteNativa";
 
-/** True si esta plataforma puede leer ZonaTMO. */
+/** Ahora funciona en cualquier plataforma: el servidor lo intenta primero. */
 export function tmoDisponible(): boolean {
+  return true;
+}
+
+/** True si además hay puente nativo (la app puede reintentar por su cuenta). */
+export function tmoPuenteNativo(): boolean {
   return fuenteNativaDisponible();
 }
 
-async function traerHtml(ruta: string): Promise<Document> {
-  return traerDocumento(ruta.startsWith("http") ? ruta : `${TMO_WEB}${ruta}`);
+interface Respuesta<T> {
+  error?: boolean;
+  message?: string;
+  data: T;
 }
 
-// Opciones tal como las acepta su biblioteca
+/** Pide una ruta de su API: servidor primero, dispositivo después. */
+async function pedir<T>(ruta: string): Promise<T> {
+  try {
+    const res = await fetch(`/api/externo/tmo?ruta=${encodeURIComponent(ruta)}`);
+    if (res.ok) {
+      const cuerpo = (await res.json()) as Respuesta<T>;
+      if (cuerpo.data !== undefined) return cuerpo.data;
+    }
+  } catch {
+    // sin conexión con nuestro propio servidor: se prueba el puente nativo
+  }
+
+  if (!fuenteNativaDisponible()) {
+    throw new Error(
+      "ZonaTMO no está respondiendo en este momento. Probá de nuevo en un rato, o desde la app de Android o Windows."
+    );
+  }
+
+  const cuerpo = await traerJson<Respuesta<T>>(`${TMO_API}${ruta}`);
+  return cuerpo.data;
+}
+
+// ── taxonomías (ids reales de su sitio) ─────────────────────────────────
+
 export const TMO_TIPOS = [
-  { id: "manga", name: "Manga" },
-  { id: "manhwa", name: "Manhwa" },
-  { id: "manhua", name: "Manhua" },
-  { id: "webtoon", name: "Webtoon" },
-  { id: "comic", name: "Cómic" },
-  { id: "novel", name: "Novela" },
+  { id: "14", name: "Manga" },
+  { id: "87", name: "Manhwa" },
+  { id: "31", name: "Manhua" },
+  { id: "12312", name: "One shot" },
+  { id: "207", name: "Doujinshi" },
+  { id: "214", name: "Novela" },
+  { id: "976", name: "OEL" },
 ];
 
 export const TMO_DEMOGRAFIAS = [
-  { id: "shounen", name: "Shounen" },
-  { id: "shoujo", name: "Shoujo" },
-  { id: "seinen", name: "Seinen" },
-  { id: "josei", name: "Josei" },
-  { id: "kodomo", name: "Kodomo" },
+  { id: "13", name: "Shounen" },
+  { id: "20", name: "Shoujo" },
+  { id: "45", name: "Seinen" },
+  { id: "55", name: "Josei" },
+  { id: "633", name: "Kodomo" },
 ];
 
 export const TMO_ESTADOS = [
-  { id: "ongoing", name: "En emisión" },
-  { id: "completed", name: "Completado" },
-  { id: "ended", name: "Finalizado" },
-  { id: "hiatus", name: "En pausa" },
-  { id: "cancelled", name: "Cancelado" },
+  { id: "12", name: "Publicándose" },
+  { id: "12856", name: "En curso" },
+  { id: "19", name: "Finalizado" },
+  { id: "12874", name: "Completado" },
+  { id: "174", name: "Pausado" },
+  { id: "198", name: "Cancelado" },
 ];
+
+export const TMO_GENEROS = [
+  { id: "2", name: "Acción" },
+  { id: "3", name: "Aventura" },
+  { id: "4", name: "Comedia" },
+  { id: "5", name: "Fantasía" },
+  { id: "6", name: "Magia" },
+  { id: "7", name: "Sobrenatural" },
+  { id: "8", name: "Harem" },
+  { id: "15", name: "Drama" },
+  { id: "16", name: "Romance" },
+  { id: "21", name: "Ciencia ficción" },
+  { id: "22", name: "Girls love" },
+  { id: "23", name: "Vida escolar" },
+  { id: "26", name: "Artes marciales" },
+  { id: "32", name: "Ecchi" },
+  { id: "33", name: "Recuentos de la vida" },
+  { id: "36", name: "Psicológico" },
+  { id: "37", name: "Deporte" },
+  { id: "40", name: "Misterio" },
+  { id: "46", name: "Tragedia" },
+  { id: "49", name: "Thriller" },
+  { id: "60", name: "Reencarnación" },
+  { id: "82", name: "Horror" },
+  { id: "103", name: "Boys love" },
+  { id: "112", name: "Supervivencia" },
+  { id: "116", name: "Superpoderes" },
+  { id: "144", name: "Mecha" },
+  { id: "181", name: "Gore" },
+  { id: "12868", name: "Sistema de niveles" },
+  { id: "12891", name: "Venganza" },
+  { id: "12915", name: "Academia" },
+];
+
+/** Órdenes que su API respeta de verdad (probados uno por uno). */
+export const TMO_ORDENES = [
+  { id: "", name: "Recién agregados" },
+  { id: "score", name: "Mejor valorados" },
+  { id: "vote_count", name: "Más votados" },
+  { id: "total_chapters", name: "Más capítulos" },
+  { id: "year_start", name: "Más nuevos" },
+  { id: "title", name: "Título" },
+];
+
+const MAPA_TIPOS = new Map(TMO_TIPOS.map((t) => [t.id, t.name]));
+const MAPA_GENEROS = new Map(TMO_GENEROS.map((g) => [g.id, g.name]));
+
+// ── modelos ──────────────────────────────────────────────────────────────
 
 export interface FiltrosTmo {
   q?: string;
   tipo?: string;
   demografia?: string;
   estado?: string;
+  genero?: string;
+  orden?: string;
 }
 
 export interface SerieTmo {
@@ -69,104 +156,233 @@ export interface SerieTmo {
   url_original: string;
 }
 
-function serieDesdeEnlace(url: string): { id: string; tipo: string; slug: string } | null {
-  // formato: /library/{tipo}/{id}/{slug}
-  const partes = url.split("/library/")[1]?.split("/");
-  if (!partes || partes.length < 3) return null;
-  return { tipo: partes[0], id: partes[1], slug: partes[2] };
+interface ItemApi {
+  _id: number;
+  title: string;
+  slug: string;
+  cover: string | null;
+  overview: string | null;
+  types: number[] | null;
+  genres: number[] | null;
+  status: number[] | null;
+  demography: number[] | null;
+  years: number[] | null;
+  score: number | null;
+  is_erotic: number | null;
+  total_chapters: number | null;
 }
 
-/** Catálogo paginado (24 series por página en su sitio). */
-export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}) {
-  const qs = new URLSearchParams({ page: String(page) });
-  if (filtros.q) qs.set("title", filtros.q);
-  if (filtros.tipo) qs.set("type", filtros.tipo);
-  if (filtros.demografia) qs.set("demography", filtros.demografia);
-  if (filtros.estado) qs.set("status", filtros.estado);
-
-  const doc = await traerHtml(`/biblioteca?${qs.toString()}`);
-
-  const series: SerieTmo[] = [];
-  for (const el of Array.from(doc.querySelectorAll("#library-grid .element"))) {
-    const enlace = el.querySelector("a[href]")?.getAttribute("href") ?? "";
-    const datos = serieDesdeEnlace(enlace);
-    if (!datos) continue;
-
-    series.push({
-      ...datos,
-      title:
-        el.querySelector("h4")?.getAttribute("title")?.trim() ||
-        el.querySelector("h4")?.textContent?.trim() ||
-        "Sin título",
-      cover_url: el.querySelector("img")?.getAttribute("src") ?? null,
-      url_original: enlace,
-    });
-  }
-
-  // su paginador no publica el total: se avanza mientras vengan resultados
-  return { series, page, hayMas: series.length > 0 };
+function urlPortada(cover: string | null): string | null {
+  if (!cover) return null;
+  if (cover.startsWith("http")) return cover;
+  return `${TMO_SUBIDAS}/${cover.replace(/^\/+/, "")}`;
 }
 
-export interface CapituloTmo {
-  id: string;
-  numero: string | null;
-  grupo: string | null;
+function nombreTipo(types: number[] | null | undefined): string {
+  const primero = types?.[0];
+  return (primero ? MAPA_TIPOS.get(String(primero)) : null) ?? "Manga";
 }
 
-/** Ficha de una serie con su lista de capítulos. */
-export async function serieTmo(tipo: string, id: string, slug: string) {
-  const doc = await traerHtml(`/library/${tipo}/${id}/${slug}`);
+/** El tipo viaja en la URL de la ficha: sin espacios ni mayúsculas. */
+function tipoEnUrl(types: number[] | null | undefined): string {
+  return nombreTipo(types).toLowerCase().replace(/\s+/g, "-");
+}
 
-  const capitulos: CapituloTmo[] = [];
-  const vistos = new Set<string>();
-
-  for (const a of Array.from(doc.querySelectorAll('a[href*="/view_uploads/"]'))) {
-    const href = a.getAttribute("href") ?? "";
-    const capId = href.split("/view_uploads/")[1]?.split(/[?#]/)[0];
-    if (!capId || vistos.has(capId)) continue;
-    vistos.add(capId);
-
-    // el número es un atributo DEL bloque del capítulo, no de algo adentro
-    const bloque = a.closest("li.upload-link") ?? a.closest("li") ?? a.parentElement;
-    const numero =
-      bloque?.getAttribute("data-chapter-number") ??
-      bloque?.querySelector("[data-chapter-number]")?.getAttribute("data-chapter-number") ??
-      null;
-    // el grupo que lo subió aparece como enlace a su página
-    const grupo = bloque?.querySelector('a[href*="/groups/"]')?.textContent?.trim() || null;
-
-    capitulos.push({ id: capId, numero, grupo });
-  }
-
+function aSerie(item: ItemApi): SerieTmo {
   return {
-    id,
-    tipo,
-    slug,
-    title: doc.querySelector("h1.element-title")?.textContent?.trim() ?? "Sin título",
-    cover_url: doc.querySelector("img.book-thumbnail")?.getAttribute("src") ?? null,
-    description: doc.querySelector(".element-description")?.textContent?.trim() ?? null,
-    generos: Array.from(doc.querySelectorAll("a.badge"))
-      .map((g) => g.textContent?.trim() ?? "")
-      .filter((g) => g && g.length < 30)
-      .slice(0, 12),
-    // vienen del más nuevo al más viejo: se invierte para leer en orden
-    capitulos: capitulos.reverse(),
-    url_original: `${TMO_WEB}/library/${tipo}/${id}/${slug}`,
+    id: String(item._id),
+    tipo: tipoEnUrl(item.types),
+    slug: item.slug,
+    title: item.title || "Sin título",
+    cover_url: urlPortada(item.cover),
+    url_original: `${TMO_WEB}/manga/${item.slug}/`,
   };
 }
 
-/** Páginas de un capítulo. */
-export async function capituloTmo(chapterId: string) {
-  const doc = await traerHtml(`/view_uploads/${chapterId}`);
+// ── catálogo ─────────────────────────────────────────────────────────────
 
-  const paginas = Array.from(doc.querySelectorAll(".reader-img-wrap img"))
-    .map((img) => img.getAttribute("src") ?? img.getAttribute("data-src") ?? "")
-    .filter((u) => u.startsWith("http"));
+const POR_PAGINA = 24;
+
+/** Catálogo paginado, con los filtros de su biblioteca. */
+export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}) {
+  const qs = new URLSearchParams({
+    page: String(page),
+    postsPerPage: String(POR_PAGINA),
+    order: filtros.orden === "title" ? "asc" : "desc",
+  });
+  if (filtros.orden) qs.set("orderBy", filtros.orden);
+  if (filtros.q) qs.set("search", filtros.q);
+  if (filtros.tipo) qs.set("type", filtros.tipo);
+  if (filtros.demografia) qs.set("demography", filtros.demografia);
+  if (filtros.estado) qs.set("status", filtros.estado);
+  if (filtros.genero) {
+    qs.set("genres", filtros.genero);
+    qs.set("genres_mode", "any");
+  }
+
+  const data = await pedir<{
+    items: ItemApi[];
+    pagination: { total: number; total_pages: number; current_page: number };
+  }>(`/listing/manga?${qs.toString()}`);
+
+  const series = (data.items ?? []).map(aSerie);
+  const totalPaginas = data.pagination?.total_pages ?? page;
+  return {
+    series,
+    page,
+    total: data.pagination?.total ?? series.length,
+    totalPaginas,
+    hayMas: page < totalPaginas,
+  };
+}
+
+/** Lo más leído de la semana o del mes, tal como lo publican ellos. */
+export async function popularesTmo(rango: "week" | "month" = "week") {
+  const data = await pedir<ItemApi[]>(`/tops/views/${rango}`);
+  return (Array.isArray(data) ? data : []).map(aSerie);
+}
+
+// ── ficha de la serie ────────────────────────────────────────────────────
+
+export interface CapituloTmo {
+  /** Su slug: es lo que identifica al capítulo en la API nueva. */
+  id: string;
+  numero: string | null;
+  titulo: string | null;
+  grupo: string | null;
+  fecha: string | null;
+}
+
+interface CapituloApi {
+  id: number;
+  chapter_number: string | null;
+  title: string | null;
+  slug: string;
+  release_date: string | null;
+  group?: { name?: string } | null;
+}
+
+function numeroLegible(n: string | null | undefined): string | null {
+  if (!n) return null;
+  const v = Number(n);
+  return Number.isFinite(v) ? String(v) : n;
+}
+
+/**
+ * Ficha de una serie con todos sus capítulos.
+ *
+ * `tipo` e `id` se conservan solo para que sigan andando los enlaces viejos
+ * guardados en la biblioteca: la API nueva busca por slug.
+ */
+export async function serieTmo(tipo: string, id: string, slug: string) {
+  const [ficha, capitulos] = await Promise.all([
+    pedir<ItemApi>(`/single/manga/${slug}`),
+    todosLosCapitulos(slug),
+  ]);
+
+  const generos = (ficha.genres ?? [])
+    .map((g) => MAPA_GENEROS.get(String(g)))
+    .filter((g): g is string => Boolean(g));
 
   return {
-    id: chapterId,
-    titulo: doc.querySelector("title")?.textContent?.split("—")[1]?.trim() ?? null,
+    id: String(ficha._id ?? id),
+    tipo: tipoEnUrl(ficha.types) || tipo,
+    slug: ficha.slug ?? slug,
+    title: ficha.title || "Sin título",
+    cover_url: urlPortada(ficha.cover),
+    description: ficha.overview?.trim() || null,
+    generos,
+    score: ficha.score ?? null,
+    esAdulto: ficha.is_erotic === 1,
+    capitulos,
+    url_original: `${TMO_WEB}/manga/${ficha.slug ?? slug}/`,
+  };
+}
+
+interface PaginaCapitulos {
+  items: CapituloApi[];
+  pagination?: { total_pages?: number };
+}
+
+const paginaCapitulos = (slug: string, page: number) =>
+  pedir<PaginaCapitulos>(`/single/manga/${slug}/chapters?page=${page}`);
+
+/**
+ * Su lista de capítulos viene de a 25 y no se puede pedir más por vuelta, así
+ * que una serie larga son muchas páginas: se piden de a seis en paralelo.
+ */
+async function todosLosCapitulos(slug: string): Promise<CapituloTmo[]> {
+  const primera = await paginaCapitulos(slug, 1);
+  const totalPaginas = Math.min(primera.pagination?.total_pages ?? 1, 60);
+
+  const paginas: PaginaCapitulos[] = [primera];
+  for (let desde = 2; desde <= totalPaginas; desde += 6) {
+    const lote = [];
+    for (let p = desde; p < desde + 6 && p <= totalPaginas; p++) {
+      lote.push(paginaCapitulos(slug, p).catch(() => ({ items: [] as CapituloApi[] })));
+    }
+    paginas.push(...(await Promise.all(lote)));
+  }
+
+  const capitulos: CapituloTmo[] = [];
+  const vistos = new Set<string>();
+  for (const pagina of paginas) {
+    for (const c of pagina.items ?? []) {
+      if (!c.slug || vistos.has(c.slug)) continue;
+      vistos.add(c.slug);
+      capitulos.push({
+        id: c.slug,
+        numero: numeroLegible(c.chapter_number),
+        titulo: c.title?.trim() || null,
+        grupo: c.group?.name?.trim() || null,
+        fecha: c.release_date,
+      });
+    }
+  }
+
+  // los devuelven del más nuevo al más viejo: se ordena para leer en orden
+  capitulos.sort((a, b) => Number(a.numero ?? 0) - Number(b.numero ?? 0));
+  return capitulos;
+}
+
+// ── capítulo ─────────────────────────────────────────────────────────────
+
+interface CapituloDetalleApi {
+  manga: ItemApi;
+  chapter: {
+    id: number;
+    jit: string;
+    chapter_number: string | null;
+    title: string | null;
+    reading_direction: string | null;
+    images: { image_url: string; page_number: number }[];
+    prev: { slug: string; chapter_number: string | null } | null;
+    next: { slug: string; chapter_number: string | null } | null;
+  };
+}
+
+/**
+ * Páginas de un capítulo. Las imágenes viven en su CDN bajo un token (`jit`)
+ * que viene con cada pedido, así que la URL se arma en el momento.
+ */
+export async function capituloTmo(slugSerie: string, slugCapitulo: string) {
+  const data = await pedir<CapituloDetalleApi>(`/single/manga/${slugSerie}/${slugCapitulo}`);
+  const c = data.chapter;
+
+  const paginas = (c.images ?? [])
+    .slice()
+    .sort((a, b) => a.page_number - b.page_number)
+    .map((img) => `${TMO_CDN}/manga/${c.jit}/${img.image_url}`);
+
+  return {
+    id: slugCapitulo,
+    numero: numeroLegible(c.chapter_number),
+    titulo: c.title?.trim() || null,
+    derechaAIzquierda: c.reading_direction === "rtl",
     paginas,
-    url_original: `${TMO_WEB}/view_uploads/${chapterId}`,
+    serie: { title: data.manga?.title ?? "", slug: data.manga?.slug ?? slugSerie },
+    anterior: c.prev ? { id: c.prev.slug, numero: numeroLegible(c.prev.chapter_number) } : null,
+    siguiente: c.next ? { id: c.next.slug, numero: numeroLegible(c.next.chapter_number) } : null,
+    url_original: `${TMO_WEB}/manga/${slugSerie}/${slugCapitulo}/`,
   };
 }

@@ -17,7 +17,8 @@ const UA =
 interface Puente {
   get(opciones: { url: string; headers?: Record<string, string> }): Promise<{
     status: number;
-    data: string;
+    /** El puente de Capacitor devuelve un objeto cuando la respuesta es JSON. */
+    data: string | object;
   }>;
 }
 
@@ -87,5 +88,36 @@ export async function traerDocumento(url: string): Promise<Document> {
     throw new Error("La fuente respondió " + res.status);
   }
 
-  return new DOMParser().parseFromString(res.data, "text/html");
+  return new DOMParser().parseFromString(String(res.data), "text/html");
+}
+
+/** Pide un JSON y lo devuelve ya parseado. */
+export async function traerJson<T>(url: string): Promise<T> {
+  const nativo = puente();
+  if (!nativo) {
+    throw new Error("Esta fuente solo está disponible en la app de Android o de Windows");
+  }
+
+  const res = await nativo.get({
+    url,
+    headers: {
+      "User-Agent": UA,
+      "Accept-Language": "es-ES,es;q=0.9",
+      Accept: "application/json",
+    },
+  });
+  if (res.status !== 200) {
+    if (res.status >= 500) {
+      throw new Error(
+        "Esta fuente no está disponible en este momento (su servidor respondió " +
+          res.status +
+          "). Probá más tarde."
+      );
+    }
+    throw new Error("La fuente respondió " + res.status);
+  }
+
+  // el puente de Capacitor ya devuelve objetos cuando el tipo es JSON
+  if (typeof res.data === "object") return res.data as T;
+  return JSON.parse(res.data as string) as T;
 }

@@ -11,7 +11,8 @@ import { useProgresoExterno } from "./useProgresoExterno";
 const CONTROLS_HIDE_MS = 2500;
 
 interface Vecino {
-  id: number;
+  /** Olympus numera sus capítulos; ZonaTMO los identifica por slug. */
+  id: number | string;
   name: string;
 }
 
@@ -31,7 +32,7 @@ export function OlympusReader({
   hrefVolver,
   hrefCapitulo,
 }: {
-  chapter: { id: number; name: string; urlOriginal: string };
+  chapter: { id: number | string; name: string; urlOriginal: string };
   serie: { slug: string; tipo: string; urlOriginal: string };
   grupo: string;
   pages: ReaderPage[];
@@ -42,7 +43,7 @@ export function OlympusReader({
   source?: "olympus" | "tmo" | "ikigai";
   /** Enlaces propios de la fuente; por defecto, los de Olympus. */
   hrefVolver?: string;
-  hrefCapitulo?: (id: number) => string;
+  hrefCapitulo?: (id: number | string) => string;
 }) {
   const [mode, setMode] = useState<ReadingMode>(initialMode);
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,7 +60,7 @@ export function OlympusReader({
   const volverHref = hrefVolver ?? `/externo/olympus/${serie.slug}`;
   const capituloHref =
     hrefCapitulo ??
-    ((id: number) => `/leer-externo/olympus/${id}?slug=${serie.slug}&tipo=${serie.tipo}`);
+    ((id: number | string) => `/leer-externo/olympus/${id}?slug=${serie.slug}&tipo=${serie.tipo}`);
 
   const changeMode = useCallback((next: ReadingMode) => {
     setMode(next);

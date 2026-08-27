@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AndroidUpdateBanner } from "@/components/pwa/AndroidUpdateBanner";
+import { DesktopUpdater } from "@/components/pwa/DesktopUpdater";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <UpdatePrompt />
         <AndroidUpdateBanner />
+        <DesktopUpdater />
       </body>
     </html>
   );

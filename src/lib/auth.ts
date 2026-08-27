@@ -1,5 +1,6 @@
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { db } from "./db";
 import { getSessionSecret } from "./env";
 
@@ -30,13 +31,19 @@ export async function getSession() {
   return getIronSession<SessionData>(await cookies(), getSessionOptions());
 }
 
-/** Usuario actual desde la cookie de sesión, o null si no hay sesión válida. */
-export async function getSessionUser() {
+/**
+ * Usuario actual desde la cookie de sesión, o null si no hay sesión válida.
+ *
+ * Va envuelto en cache() porque durante una misma petición lo consultan
+ * varias piezas a la vez (el layout, la página, algún handler): así se
+ * hace una sola consulta a la base en vez de una por cada llamada.
+ */
+export const getSessionUser = cache(async () => {
   const session = await getSession();
   if (!session.userId) return null;
   const user = await db.user.findUnique({ where: { id: session.userId } });
   return user ?? null;
-}
+});
 
 /** Igual que getSessionUser pero exige is_admin. */
 export async function getSessionAdmin() {

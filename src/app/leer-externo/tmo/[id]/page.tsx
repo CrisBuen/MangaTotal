@@ -5,74 +5,50 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
 import { Surface } from "@/components/ui/Surface";
-import { TMO_NOMBRE, capituloTmo, serieTmo, tmoDisponible } from "@/lib/zonatmo";
+import { TMO_NOMBRE, capituloTmo } from "@/lib/zonatmo";
 
-interface Vecino {
-  id: number;
-  name: string;
-}
+type Capitulo = Awaited<ReturnType<typeof capituloTmo>>;
 
 /**
- * Lector de ZonaTMO. Todo ocurre en el dispositivo: las páginas se piden
- * desde la conexión de la persona, porque su servidor bloquea los centros
- * de datos.
+ * Lector de ZonaTMO. Su API entrega el capítulo anterior y el siguiente junto
+ * con las páginas, así que no hace falta releer la ficha de la serie.
  */
 export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) {
-  const { id: chapterId } = use(props.params);
+  const { id: slugCapitulo } = use(props.params);
   const params = useSearchParams();
   const tipo = params.get("tipo") ?? "manga";
   const serieId = params.get("id") ?? "";
   const slug = params.get("slug") ?? "";
 
-  const [paginas, setPaginas] = useState<string[] | null>(null);
-  const [vecinos, setVecinos] = useState<{ prev: Vecino | null; next: Vecino | null }>({
-    prev: null,
-    next: null,
-  });
+  const [capitulo, setCapitulo] = useState<Capitulo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     try {
-      const cap = await capituloTmo(chapterId);
+      const cap = await capituloTmo(slug, slugCapitulo);
       if (cap.paginas.length === 0) throw new Error("Este capítulo no tiene páginas");
-      setPaginas(cap.paginas);
-
-      // capítulos vecinos, para encadenar la lectura
-      if (serieId && slug) {
-        const ficha = await serieTmo(tipo, serieId, slug).catch(() => null);
-        const lista = ficha?.capitulos ?? [];
-        const i = lista.findIndex((c) => c.id === chapterId);
-        if (i >= 0) {
-          const anterior = lista[i - 1];
-          const siguiente = lista[i + 1];
-          setVecinos({
-            prev: anterior ? { id: Number(anterior.id), name: anterior.numero ?? "" } : null,
-            next: siguiente ? { id: Number(siguiente.id), name: siguiente.numero ?? "" } : null,
-          });
-        }
-      }
+      setCapitulo(cap);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar el capítulo");
     }
-  }, [chapterId, tipo, serieId, slug]);
+  }, [slug, slugCapitulo]);
 
   useEffect(() => {
-    if (!tmoDisponible()) {
-      setError("ZonaTMO solo está disponible en la app de Android o de Windows");
+    if (!slug) {
+      setError("Falta la serie de este capítulo. Abrilo desde su ficha.");
       return;
     }
     cargar();
-  }, [cargar]);
+  }, [cargar, slug]);
+
+  const volver = serieId ? `/externo/tmo/${tipo}/${serieId}/${slug}` : "/explorar";
 
   if (error) {
     return (
       <div className="mx-auto max-w-lg px-4 py-24">
         <Surface className="p-10 text-center">
           <p className="text-lg font-bold text-ink">{error}</p>
-          <Link
-            href={serieId ? `/externo/tmo/${tipo}/${serieId}/${slug}` : "/explorar"}
-            className="mt-4 inline-block text-sm text-accent hover:underline"
-          >
+          <Link href={volver} className="mt-4 inline-block text-sm text-accent hover:underline">
             Volver
           </Link>
         </Surface>
@@ -80,7 +56,7 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
     );
   }
 
-  if (!paginas) {
+  if (!capitulo) {
     return (
       <p className="py-24 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
         Cargando capítulo...
@@ -91,22 +67,35 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
   return (
     <OlympusReader
       chapter={{
-        id: Number(chapterId),
-        name: "",
-        urlOriginal: `https://zonatmo.org/view_uploads/${chapterId}`,
+        id: slugCapitulo,
+        name: capitulo.numero ?? "",
+        urlOriginal: capitulo.url_original,
       }}
       serie={{
         slug: `${tipo}/${serieId}/${slug}`,
         tipo: "tmo",
-        urlOriginal: `https://zonatmo.org/library/${tipo}/${serieId}/${slug}`,
+        urlOriginal: `${capitulo.url_original.split("/").slice(0, -2).join("/")}/`,
       }}
       grupo={TMO_NOMBRE}
-      pages={paginas.map((url, i) => ({ pageNumber: i + 1, url, width: 0, height: 0 }))}
-      prevChapter={vecinos.prev}
-      nextChapter={vecinos.next}
-      initialMode="cascade"
+      pages={capitulo.paginas.map((url, i) => ({
+        pageNumber: i + 1,
+        url,
+        width: 0,
+        height: 0,
+      }))}
+      prevChapter={
+        capitulo.anterior
+          ? { id: capitulo.anterior.id, name: capitulo.anterior.numero ?? "" }
+          : null
+      }
+      nextChapter={
+        capitulo.siguiente
+          ? { id: capitulo.siguiente.id, name: capitulo.siguiente.numero ?? "" }
+          : null
+      }
+      initialMode={capitulo.derechaAIzquierda ? "rtl" : "cascade"}
       source="tmo"
-      hrefVolver={`/externo/tmo/${tipo}/${serieId}/${slug}`}
+      hrefVolver={volver}
       hrefCapitulo={(capId) => `/leer-externo/tmo/${capId}?tipo=${tipo}&id=${serieId}&slug=${slug}`}
     />
   );

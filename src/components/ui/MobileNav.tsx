@@ -56,6 +56,9 @@ export function MobileNav() {
             <li key={item.href} className="flex-1">
               <Link
                 href={item.href}
+                // las cinco pestañas se traen por adelantado: son pocas y
+                // es lo que hace que la barra de abajo responda al toque
+                prefetch
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-[3.75rem] flex-col items-center justify-center gap-1 transition ${
                   active ? "text-accent" : "text-subtle"
