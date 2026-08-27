@@ -75,7 +75,17 @@ export async function traerDocumento(url: string): Promise<Document> {
     url,
     headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" },
   });
-  if (res.status !== 200) throw new Error(`La fuente respondió ${res.status}`);
+  if (res.status !== 200) {
+    // 5xx = el servidor de la fuente está caído, no es un problema nuestro
+    if (res.status >= 500) {
+      throw new Error(
+        "Esta fuente no está disponible en este momento (su servidor respondió " +
+          res.status +
+          "). Probá más tarde."
+      );
+    }
+    throw new Error("La fuente respondió " + res.status);
+  }
 
   return new DOMParser().parseFromString(res.data, "text/html");
 }

@@ -42,10 +42,18 @@ export const IKIGAI_GENEROS = [
   { id: "906409351272792067", name: "+18" },
 ];
 
+// Ordenamientos que acepta su biblioteca
+export const IKIGAI_ORDENES = [
+  { id: "recientes", name: "Recién agregadas" },
+  { id: "populares", name: "Populares" },
+  { id: "az", name: "A–Z" },
+];
+
 export interface FiltrosIkigai {
   q?: string;
   tipo?: string;
   genero?: string;
+  orden?: string;
 }
 
 export interface SerieIkigai {
@@ -65,6 +73,14 @@ export async function catalogoIkigai(page: number, filtros: FiltrosIkigai = {}) 
   // sus filtros llegan como listas: tipos[] y generos[]
   if (filtros.tipo) qs.append("tipos[]", filtros.tipo);
   if (filtros.genero) qs.append("generos[]", filtros.genero);
+  // su sitio ordena con "ordenar" + "direccion"
+  if (filtros.orden === "populares") {
+    qs.set("ordenar", "view_count");
+    qs.set("direccion", "desc");
+  } else if (filtros.orden === "recientes") {
+    qs.set("ordenar", "created_at");
+    qs.set("direccion", "desc");
+  }
 
   const doc = await traerDocumento(`${IKIGAI_WEB}/series/${qs.toString() ? `?${qs}` : ""}`);
 
@@ -106,47 +122,84 @@ function textoTitulo(texto: string): string {
 export interface CapituloIkigai {
   id: string;
   numero: string | null;
+  fecha: string | null;
 }
 
-/** Ficha de una serie con sus capítulos, del más viejo al más nuevo. */
+/**
+ * Ficha de una serie con TODOS sus capítulos.
+ *
+ * Su ficha muestra 24 capítulos por página (con el parámetro "pagina"), así
+ * que se recorren todas hasta que dejan de aparecer capítulos nuevos.
+ */
 export async function serieIkigai(slug: string) {
-  const doc = await traerDocumento(`${IKIGAI_WEB}/series/${slug}/`);
-
   const capitulos: CapituloIkigai[] = [];
   const vistos = new Set<string>();
+  let primera: Document | null = null;
 
-  for (const a of Array.from(doc.querySelectorAll('a[href^="/capitulo/"]'))) {
-    const id = (a.getAttribute("href") ?? "").split("/capitulo/")[1]?.replace(/\/$/, "");
-    if (!id || vistos.has(id)) continue;
+  for (let pagina = 1; pagina <= 40; pagina++) {
+    const doc = await traerDocumento(
+      `${IKIGAI_WEB}/series/${slug}/${pagina > 1 ? `?pagina=${pagina}` : ""}`
+    );
+    if (!primera) primera = doc;
 
-    const texto = (a.textContent ?? "").replace(/\s+/g, " ").trim();
-    // los accesos rápidos "Primer/Último Capítulo" repiten capítulos de la lista
-    if (/^(Primer|Último)\s+Cap/i.test(texto)) continue;
-    vistos.add(id);
+    const antes = capitulos.length;
+    for (const a of Array.from(doc.querySelectorAll('a[href^="/capitulo/"]'))) {
+      const id = (a.getAttribute("href") ?? "").split("/capitulo/")[1]?.replace(/\/$/, "");
+      if (!id || vistos.has(id)) continue;
 
-    capitulos.push({ id, numero: texto.match(/Cap[íi]tulo\s+([\d.,]+)/i)?.[1] ?? null });
+      // el número vive en el título de la tarjeta; el texto del enlace
+      // completo mezcla los "me gusta", las visitas y la fecha
+      const titulo = a.querySelector("h3")?.textContent?.trim() ?? "";
+      if (!titulo) continue; // "Primer Capítulo" y "Último Capítulo" no tienen tarjeta
+
+      vistos.add(id);
+      capitulos.push({
+        id,
+        numero: titulo.replace(/^Cap[íi]tulo\s*/i, "").trim() || null,
+        fecha: a.querySelector("time")?.textContent?.trim() ?? fechaDelTexto(a.textContent ?? ""),
+      });
+    }
+
+    // si esta página no sumó nada, ya no quedan capítulos
+    if (capitulos.length === antes) break;
   }
 
-  const portada = Array.from(doc.querySelectorAll("img"))
-    .map((i) => i.getAttribute("src") ?? "")
-    .find((u) => u.includes("ikigaimangas"));
+  const doc = primera!;
+  const titulo = doc.querySelector("h1")?.textContent?.trim() ?? "Sin título";
+
+  // la portada es la imagen cuyo texto alternativo es el título de la serie
+  const portada =
+    Array.from(doc.querySelectorAll("img")).find(
+      (i) => (i.getAttribute("alt") ?? "").trim() === titulo
+    )?.getAttribute("src") ?? null;
 
   const parrafos = Array.from(doc.querySelectorAll("p"))
-    .map((p) => p.textContent?.trim() ?? "")
+    .map((x) => x.textContent?.trim() ?? "")
     .sort((a, b) => b.length - a.length);
 
   return {
     slug,
-    title: doc.querySelector("h1")?.textContent?.trim() ?? "Sin título",
-    cover_url: portada ?? null,
+    title: titulo,
+    cover_url: portada,
     description: parrafos[0] && parrafos[0].length > 60 ? parrafos[0] : null,
     generos: Array.from(doc.querySelectorAll('a[href*="generos"]'))
       .map((g) => g.textContent?.trim() ?? "")
       .filter(Boolean)
       .slice(0, 10),
+    // vienen del más nuevo al más viejo: se invierte para leer en orden
     capitulos: capitulos.reverse(),
     url_original: `${IKIGAI_WEB}/series/${slug}/`,
   };
+}
+
+/** Rescata "hace 7 h" o "12/03/2026" del texto de la tarjeta. */
+function fechaDelTexto(texto: string): string | null {
+  const limpio = texto.replace(/s+/g, " ");
+  return (
+    limpio.match(/hace\s+[^,]{2,18}/i)?.[0]?.trim() ??
+    limpio.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)?.[0] ??
+    null
+  );
 }
 
 /** Páginas de un capítulo (su visor las marca con el atributo q:key). */

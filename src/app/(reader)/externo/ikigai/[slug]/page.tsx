@@ -135,9 +135,16 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
                 href={"/leer-externo/ikigai/" + c.id + "?slug=" + slug}
                 className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)]"
               >
-                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
-                  Capítulo {c.numero ?? "?"}
-                </p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-ink">
+                    Capítulo {c.numero ?? "?"}
+                  </p>
+                  {c.fecha && (
+                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                      {c.fecha}
+                    </p>
+                  )}
+                </div>
                 <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
                   Leer →
                 </span>

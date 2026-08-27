@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import {
   IKIGAI_GENEROS,
+  IKIGAI_ORDENES,
   IKIGAI_TIPOS,
   catalogoIkigai,
   type SerieIkigai,
@@ -105,6 +106,7 @@ export default function ExplorarPage() {
   const [tmoEstado, setTmoEstado] = useState<string | null>(null);
   const [ikiTipo, setIkiTipo] = useState<string | null>(null);
   const [ikiGenero, setIkiGenero] = useState<string | null>(null);
+  const [ikiOrden, setIkiOrden] = useState("recientes");
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
   const [tmoMas, setTmoMas] = useState(false);
@@ -155,6 +157,7 @@ export default function ExplorarPage() {
         q: search.trim() || undefined,
         tipo: ikiTipo ?? undefined,
         genero: ikiGenero ?? undefined,
+        orden: ikiOrden,
       });
       setIki(r.series);
       setIkiMas(r.hayMas);
@@ -163,7 +166,7 @@ export default function ExplorarPage() {
       setErrorDetalle(err instanceof Error ? err.message : null);
       setIki([]);
     }
-  }, [ikiPage, search, ikiTipo, ikiGenero]);
+  }, [ikiPage, search, ikiTipo, ikiGenero, ikiOrden]);
 
   useEffect(() => {
     if (fuente !== "ikigai") return;
@@ -174,7 +177,7 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     setIkiPage(1);
-  }, [search, fuente, ikiTipo, ikiGenero]);
+  }, [search, fuente, ikiTipo, ikiGenero, ikiOrden]);
 
   const [olyOpciones, setOlyOpciones] = useState<{
     generos: { id: number; name: string }[];
@@ -375,6 +378,20 @@ export default function ExplorarPage() {
                 : ""}
             </button>
           </>
+        )}
+
+        {fuente === "ikigai" && (
+          <select
+            value={ikiOrden}
+            onChange={(e) => setIkiOrden(e.target.value)}
+            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+          >
+            {IKIGAI_ORDENES.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
         )}
 
         {(fuente === "tmo" || fuente === "ikigai") && (

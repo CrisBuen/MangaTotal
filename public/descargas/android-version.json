@@ -1,13 +1,13 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
+  "versionCode": 7,
+  "versionName": "1.6",
   "date": "2026-08-26",
   "apkUrl": "/descargas/MangaTotal-android.apk",
   "sizeMb": 4,
   "changes": [
-    "Ikigai Mangas: arreglado el error al abrir una serie y la paginación",
-    "Filtros para ZonaTMO (tipo, demografía y estado) y para Ikigai (tipo y género)",
-    "ZonaTMO: los capítulos muestran su número y el grupo que los subió"
+    "Ikigai: ahora se listan todos los capítulos, en orden y con su fecha",
+    "Ikigai: portada correcta y ordenar por populares o recién agregadas",
+    "Mensaje claro cuando una fuente está caída"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
