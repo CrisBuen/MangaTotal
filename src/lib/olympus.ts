@@ -46,9 +46,10 @@ export const OLYMPUS_TIPOS = [
 
 /** Ordenamientos: su API no ordena, así que se hace acá con el índice. */
 export const OLYMPUS_ORDENES = [
-  { id: "az", name: "A–Z" },
+  { id: "novedades", name: "Nuevos lanzamientos" },
   { id: "populares", name: "Populares" },
-  { id: "tendencia", name: "En tendencia" },
+  { id: "az", name: "A–Z" },
+  { id: "vistas", name: "Más vistas" },
   { id: "capitulos", name: "Más capítulos" },
 ];
 
@@ -133,6 +134,15 @@ export function serieResumen(s: OlySerieLista) {
  * páginas, cacheado una hora) y se resuelve acá.
  */
 export async function catalogo(page: number, filtros: FiltrosOlympus = {}) {
+  // "Nuevos lanzamientos" y "Populares" los publica Olympus en su portada,
+  // con el mismo criterio que usa su sitio.
+  const sinFiltros = !filtros.q && !filtros.genero && !filtros.estado && !filtros.tipo;
+  if (sinFiltros && (filtros.orden === "novedades" || filtros.orden === "populares")) {
+    const home = await portada();
+    const series = filtros.orden === "novedades" ? home.novedades : home.populares;
+    return { series, page: 1, last_page: 1, total: series.length };
+  }
+
   const necesitaIndice = Boolean(filtros.q) || (filtros.orden && filtros.orden !== "az");
 
   if (necesitaIndice) {
@@ -202,8 +212,8 @@ type SerieResumen = ReturnType<typeof serieResumen>;
 
 function ordenar(series: SerieResumen[], orden?: string): SerieResumen[] {
   const copia = [...series];
-  if (orden === "populares") return copia.sort((a, b) => b.total_views - a.total_views);
-  if (orden === "tendencia") return copia.sort((a, b) => b.monthly_views - a.monthly_views);
+  if (orden === "vistas") return copia.sort((a, b) => b.total_views - a.total_views);
+  if (orden === "populares") return copia.sort((a, b) => b.monthly_views - a.monthly_views);
   if (orden === "capitulos") return copia.sort((a, b) => b.chapter_count - a.chapter_count);
   return copia.sort((a, b) => a.title.localeCompare(b.title, "es"));
 }
@@ -253,51 +263,71 @@ export async function capitulos(slug: string, page: number) {
 }
 
 /**
- * Páginas de un capítulo. Vienen en el HTML del lector de Olympus, dentro
- * del payload de Nuxt: un array plano donde cada valor puede ser un índice
- * que apunta a otra posición del mismo array.
+ * Páginas de un capítulo, desde su API.
+ *
+ * OJO: el HTML del lector devuelve marcadores de posición (/cp/cp-N.jpg)
+ * en vez de las imágenes reales; hay que usar este endpoint.
  */
 export async function paginas(chapterId: number, tipo: string, slug: string) {
-  const url = urlCapituloEnOlympus(chapterId, tipo, slug);
-  const res = await fetch(url, {
-    headers: { "User-Agent": UA },
-    next: { revalidate: 600 },
-  });
-  if (!res.ok) throw new Error(`Olympus respondió ${res.status} al abrir el capítulo`);
+  const data = await olympusFetch<{
+    data: {
+      chapter: { id: number; name: string; title: string | null; pages: string[] };
+      prev_chapter: { id: number; name: string } | null;
+      next_chapter: { id: number; name: string } | null;
+    };
+  }>(`${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(slug)}/${chapterId}`, 600);
 
-  const html = await res.text();
-  const bloque = html.match(/__NUXT_DATA__[^>]*>(\[[\s\S]*?\])<\/script>/);
-  if (!bloque) throw new Error("El lector de Olympus cambió de formato");
-
-  const plano = JSON.parse(bloque[1]) as unknown[];
-  const raiz = plano[3] as Record<string, number>;
-  const clave = Object.keys(raiz)[0];
-  const nodo = plano[raiz[clave]] as { chapter?: number; prev_chapter?: number; next_chapter?: number };
-  if (nodo?.chapter === undefined) throw new Error("Capítulo no encontrado en Olympus");
-
-  const cap = plano[nodo.chapter] as Record<string, number>;
-  const lista = plano[cap.pages];
-  const urls = Array.isArray(lista)
-    ? lista.map((i) => (typeof i === "number" ? (plano[i] as string) : (i as string)))
-    : [];
-
-  // acceso anticipado: no se muestran, se enlaza a Olympus
-  const protegido = urls.length > 0 && urls.every((u) => u.startsWith(PREFIJO_PROTEGIDO));
-
-  const vecino = (indice?: number) => {
-    if (indice === undefined) return null;
-    const v = plano[indice] as Record<string, number> | null;
-    if (!v || typeof v !== "object") return null;
-    return { id: plano[v.id] as number, name: String(plano[v.name] ?? "") };
+  const d = data.data;
+  return {
+    id: d.chapter.id,
+    name: d.chapter.name,
+    title: d.chapter.title,
+    pages: (d.chapter.pages ?? []).filter((u) => u.startsWith("http")),
+    prev: d.prev_chapter ? { id: d.prev_chapter.id, name: d.prev_chapter.name } : null,
+    next: d.next_chapter ? { id: d.next_chapter.id, name: d.next_chapter.name } : null,
+    url_original: urlCapituloEnOlympus(chapterId, tipo, slug),
   };
+}
+
+/**
+ * Portada de la home de Olympus: sus series populares y los últimos
+ * capítulos publicados, tal como los ordena su propio sitio.
+ */
+export async function portada() {
+  const data = await olympusFetch<{
+    data: {
+      popular_comics: string | OlySerieLista[];
+      novels: OlySerieLista[];
+      new_chapters: (OlySerieLista & {
+        last_chapters: { id: number; name: string; published_at: string }[];
+      })[];
+    };
+  }>(`${OLYMPUS_WEB}/api/homepage`, 300);
+
+  const d = data.data;
+  // popular_comics a veces llega como JSON dentro de un string
+  const populares: OlySerieLista[] =
+    typeof d.popular_comics === "string" ? JSON.parse(d.popular_comics) : (d.popular_comics ?? []);
 
   return {
-    id: chapterId,
-    name: String(plano[cap.name] ?? ""),
-    pages: protegido ? [] : urls.filter((u) => u.startsWith("http")),
-    protegido,
-    prev: vecino(nodo.prev_chapter),
-    next: vecino(nodo.next_chapter),
-    url_original: url,
+    populares: populares.map(serieResumen),
+    novelas: (d.novels ?? []).map(serieResumen),
+    novedades: (d.new_chapters ?? []).map((s) => ({
+      ...serieResumen(s),
+      ultimos: (s.last_chapters ?? []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        published_at: c.published_at,
+      })),
+    })),
   };
+}
+
+/** Catálogo completo en una sola consulta (id, nombre, slug, portada, tipo). */
+export async function listaCompleta() {
+  const data = await olympusFetch<{ data: OlySerieLista[] }>(
+    `${OLYMPUS_WEB}/api/series/list`,
+    3600
+  );
+  return data.data;
 }

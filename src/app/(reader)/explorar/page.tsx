@@ -78,7 +78,7 @@ export default function ExplorarPage() {
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
   const [olympusLastPage, setOlympusLastPage] = useState(1);
-  const [olyOrden, setOlyOrden] = useState("az");
+  const [olyOrden, setOlyOrden] = useState("novedades");
   const [olyGenero, setOlyGenero] = useState<number | null>(null);
   const [olyEstado, setOlyEstado] = useState<number | null>(null);
   const [olyTipo, setOlyTipo] = useState<string | null>(null);
