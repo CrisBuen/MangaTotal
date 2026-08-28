@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { retryThroughProxy } from "./pageImage";
 import type { ChapterLink, ReaderPage } from "./types";
 
 /** Cuánto insistir con el salto a la página guardada antes de rendirse. */
 const REINTENTO_MS = 12000;
+
+/**
+ * Proporción del hueco de una página cuando todavía no se sabe nada: ni la
+ * fuente la informa ni cargó ninguna imagen del capítulo.
+ */
+const PROPORCION_INICIAL = "2 / 3";
 
 /**
  * Modo Cascada (webtoon): scroll vertical continuo con lazy load y precarga
@@ -16,6 +22,12 @@ const REINTENTO_MS = 12000;
  * que cada una carga su recuadro mide cero. Por eso acá no se confía en la
  * posición de los elementos hasta que tienen alto real: ni para saltar a la
  * página guardada, ni para saber por cuál se va.
+ *
+ * En cuanto una imagen carga se anota su medida real y el hueco pasa a ser
+ * exacto. Antes se le sacaba el estilo al recuadro a mano, y eso se rompía
+ * feo con las tiras de webtoon: una tira de 1000x14000 metida en un hueco de
+ * proporción 2:3 se desborda quince veces su alto y se pisa con las de abajo,
+ * que es lo que se veía como páginas mal cortadas.
  */
 export function CascadeReader({
   pages,
@@ -35,6 +47,34 @@ export function CascadeReader({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // medida real de cada página, en cuanto su imagen la revela
+  const [medidas, setMedidas] = useState<Record<number, string>>({});
+
+  const anotarMedida = useCallback((pageNumber: number, img: HTMLImageElement) => {
+    const { naturalWidth: ancho, naturalHeight: alto } = img;
+    if (!ancho || !alto) return;
+    setMedidas((previas) =>
+      previas[pageNumber] ? previas : { ...previas, [pageNumber]: `${ancho} / ${alto}` }
+    );
+  }, []);
+
+  /**
+   * La proporción de la primera página que cargó, como molde para las que
+   * todavía no.
+   *
+   * Las páginas de un mismo capítulo se parecen entre sí, así que una tira de
+   * webtoon deja de reservarse un hueco de página de manga. No cuesta un
+   * pedido más y se acomoda solo a cada capítulo.
+   *
+   * Se deriva de las medidas en vez de guardarse aparte: si fuera su propio
+   * estado, el ref de cada imagen lo pisaría en cada render y entrarían en un
+   * ciclo de renders sin fin.
+   */
+  const proporcionTipica = useMemo(() => {
+    const paginas = Object.keys(medidas);
+    return paginas.length > 0 ? medidas[Number(paginas[0])] : null;
+  }, [medidas]);
 
   // mientras se acomoda en la página guardada no se reporta el avance, o se
   // guardaría una página cualquiera del camino
@@ -142,10 +182,14 @@ export function CascadeReader({
           }}
           className="w-full"
           style={{
-            // reserva el alto real de la página antes de cargar: sin saltos de
-            // scroll. Las fuentes externas no lo informan, así que se usa una
-            // proporción de webtoon como aproximación hasta que carga.
-            aspectRatio: p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : "2 / 3",
+            // el hueco que ocupa la página antes de cargar, para que el scroll
+            // no salte. Vale la medida que ya reveló su imagen; si todavía no
+            // cargó, la que informa la fuente; y si tampoco, la del capítulo.
+            aspectRatio:
+              medidas[p.pageNumber] ??
+              (p.width > 0 && p.height > 0
+                ? `${p.width} / ${p.height}`
+                : (proporcionTipica ?? PROPORCION_INICIAL)),
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,10 +202,15 @@ export function CascadeReader({
             loading={Math.abs(i + 1 - initialPage) <= 3 ? "eager" : "lazy"}
             draggable={false}
             referrerPolicy="no-referrer"
+            ref={(img) => {
+              // una imagen que ya estaba en la caché puede llegar cargada, y
+              // entonces onLoad no se dispara nunca
+              if (img?.complete) anotarMedida(p.pageNumber, img);
+            }}
             onLoad={(e) => {
               // al cargar, el recuadro toma su alto real y corre lo de abajo:
               // hay que volver a apuntar al objetivo
-              e.currentTarget.parentElement?.style.removeProperty("aspect-ratio");
+              anotarMedida(p.pageNumber, e.currentTarget);
               irAlObjetivo();
             }}
             onError={(e) => retryThroughProxy(e.currentTarget)}
