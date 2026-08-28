@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
+import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai } from "@/lib/ikigai";
@@ -47,6 +48,15 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
 
   const capitulos = orden === "asc" ? ficha.capitulos : [...ficha.capitulos].reverse();
 
+  // la misma serie sirve para guardarla y para anotarla en el historial
+  const serieGuardable = {
+    source: "ikigai" as const,
+    external_id: slug,
+    slug,
+    title: ficha.title,
+    cover_url: ficha.cover_url,
+  };
+
   return (
     <div className="space-y-8">
       <Link
@@ -82,15 +92,7 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <SaveExternalButton
-              serie={{
-                source: "ikigai",
-                external_id: slug,
-                slug,
-                title: ficha.title,
-                cover_url: ficha.cover_url,
-              }}
-            />
+            <SaveExternalButton serie={serieGuardable} />
             <a
               href={ficha.url_original}
               target="_blank"
@@ -138,6 +140,13 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
           {capitulos.map((c) => (
             <li key={c.id}>
               <Link
+                onClick={() =>
+                  anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: String(c.id),
+                    last_chapter_name: String(c.numero ?? c.id),
+                  })
+                }
                 href={`/leer-externo/ikigai/${c.id}?slug=${slug}${sufijoPagina(progreso, c.id === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.id === progreso.ultimoId,

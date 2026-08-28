@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { use, useCallback, useEffect, useState } from "react";
@@ -94,6 +95,15 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
 
   const readable = orden === "asc" ? chapters : [...chapters].reverse();
 
+  // la misma serie sirve para guardarla y para anotarla en el historial
+  const serieGuardable = {
+    source: "mangadex" as const,
+    external_id: series.id,
+    title: series.title,
+    cover_url: series.cover_url,
+    type: series.is_adult ? "adult" : "normal",
+  };
+
   return (
     <div className="space-y-10">
       <Link
@@ -162,21 +172,20 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
           <div className="flex flex-wrap items-center gap-3">
             {chapters.length > 0 && (
               <Link
+                onClick={() =>
+                  anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: String(chapters[0].chosen.id),
+                    last_chapter_name: String(chapters[0].number ?? chapters[0].chosen.id),
+                  })
+                }
                 href={`/leer-externo/${chapters[0].chosen.id}`}
                 className="rounded-xl bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:opacity-90"
               >
                 Empezar a leer
               </Link>
             )}
-            <SaveExternalButton
-              serie={{
-                source: "mangadex",
-                external_id: series.id,
-                title: series.title,
-                cover_url: series.cover_url,
-                type: series.is_adult ? "adult" : "normal",
-              }}
-            />
+            <SaveExternalButton serie={serieGuardable} />
             <div className="flex gap-1 rounded-xl border border-line bg-[var(--surface-raised)] p-1">
               {[
                 { key: "es", label: "Español" },
@@ -231,7 +240,17 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                       progreso.ultimoNumero !== null && Number(entry.number) < progreso.ultimoNumero
                     )}`}
                   >
-                    <Link href={`/leer-externo/${c.id}`} className="min-w-0 flex-1">
+                    <Link
+                      onClick={() =>
+                        anotarHistorial({
+                          ...serieGuardable,
+                          last_chapter_id: String(c.id),
+                          last_chapter_name: String(entry.number ?? c.id),
+                        })
+                      }
+                      href={`/leer-externo/${c.id}`}
+                      className="min-w-0 flex-1"
+                    >
                       <p className="truncate text-sm font-semibold text-ink">
                         {label}
                         {c.id === progreso.ultimoId && (
@@ -255,6 +274,13 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                     )}
 
                     <Link
+                      onClick={() =>
+                        anotarHistorial({
+                          ...serieGuardable,
+                          last_chapter_id: String(c.id),
+                          last_chapter_name: String(entry.number ?? c.id),
+                        })
+                      }
                       href={`/leer-externo/${c.id}`}
                       className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent"
                     >
@@ -267,6 +293,13 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                       {entry.versions.map((v) => (
                         <li key={v.id}>
                           <Link
+                            onClick={() =>
+                              anotarHistorial({
+                                ...serieGuardable,
+                                last_chapter_id: String(v.id),
+                                last_chapter_name: String(entry.number ?? v.id),
+                              })
+                            }
                             href={`/leer-externo/${v.id}`}
                             className="flex items-center gap-3 px-8 py-2.5 transition hover:bg-[color-mix(in_oklch,var(--accent)_10%,transparent)]"
                           >

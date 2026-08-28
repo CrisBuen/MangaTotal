@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
+import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { CW_NOMBRE, CW_WEB, imagenCw, serieCw, type FichaCw } from "@/lib/catharsis";
@@ -64,6 +65,14 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
   }
 
   const capitulos = orden === "asc" ? ficha.capitulos : [...ficha.capitulos].reverse();
+
+  // la misma serie sirve para guardarla y para anotarla en el historial
+  const serieGuardable = {
+    source: "catharsis" as const,
+    external_id: id,
+    title: ficha.nombre,
+    cover_url: ficha.portada ? imagenCw(ficha.portada, 400) : null,
+  };
   const primero = ficha.capitulos[0];
   const continuar = ficha.capitulos.find((c) => c.id === progreso.ultimoId);
   const arranque = continuar ?? primero;
@@ -115,6 +124,13 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
           <div className="flex flex-wrap items-center gap-3">
             {arranque && (
               <Link
+                onClick={() =>
+                  anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: String(arranque.id),
+                    last_chapter_name: String(arranque.etiqueta),
+                  })
+                }
                 href={hrefCapitulo(arranque.id, arranque.id === progreso.ultimoId)}
                 className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
               >
@@ -122,14 +138,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
               </Link>
             )}
 
-            <SaveExternalButton
-              serie={{
-                source: "catharsis",
-                external_id: id,
-                title: ficha.nombre,
-                cover_url: ficha.portada ? imagenCw(ficha.portada, 400) : null,
-              }}
-            />
+            <SaveExternalButton serie={serieGuardable} />
 
             <button
               onClick={actualizar}
@@ -178,6 +187,13 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
               return (
                 <Link
                   key={c.id}
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(c.id),
+                      last_chapter_name: String(c.etiqueta),
+                    })
+                  }
                   href={hrefCapitulo(c.id, esActual)}
                   title={`Capítulo ${c.etiqueta}`}
                   className={`flex min-h-11 items-center justify-center rounded-xl border border-line bg-panel px-2 text-sm font-bold tabular-nums text-ink transition hover:-translate-y-0.5 hover:border-accent hover:text-accent ${estiloCapitulo(

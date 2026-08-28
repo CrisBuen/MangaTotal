@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
+import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { TMO_NOMBRE, serieTmo } from "@/lib/zonatmo";
@@ -45,6 +46,16 @@ export default function SerieTmoPage(props: {
 
   const capitulos = orden === "asc" ? ficha.capitulos : [...ficha.capitulos].reverse();
 
+  // la misma serie sirve para guardarla y para anotarla en el historial
+  const serieGuardable = {
+    source: "tmo" as const,
+    external_id: `${tipo}/${id}/${slug}`,
+    slug,
+    title: ficha.title,
+    cover_url: ficha.cover_url,
+    type: tipo,
+  };
+
   return (
     <div className="space-y-8">
       <Link
@@ -81,16 +92,7 @@ export default function SerieTmoPage(props: {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <SaveExternalButton
-              serie={{
-                source: "tmo",
-                external_id: `${tipo}/${id}/${slug}`,
-                slug,
-                title: ficha.title,
-                cover_url: ficha.cover_url,
-                type: tipo,
-              }}
-            />
+            <SaveExternalButton serie={serieGuardable} />
             <a
               href={ficha.url_original}
               target="_blank"
@@ -138,6 +140,13 @@ export default function SerieTmoPage(props: {
           {capitulos.map((c) => (
             <li key={c.id}>
               <Link
+                onClick={() =>
+                  anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: String(c.id),
+                    last_chapter_name: String(c.numero ?? c.id),
+                  })
+                }
                 href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}${sufijoPagina(progreso, c.id === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.id === progreso.ultimoId,

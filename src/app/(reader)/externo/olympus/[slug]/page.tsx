@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { use } from "react";
+import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
@@ -74,6 +75,16 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
 
   const capitulosOrdenados = orden === "asc" ? capitulos : [...capitulos].reverse();
 
+  // la misma serie sirve para guardarla y para anotarla en el historial
+  const serieGuardable = {
+    source: "olympus" as const,
+    external_id: serie.slug,
+    slug: serie.slug,
+    title: serie.title,
+    cover_url: serie.cover_url,
+    type: serie.type,
+  };
+
   return (
     <div className="space-y-8">
       <Link
@@ -108,16 +119,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
             </p>
           </div>
 
-          <SaveExternalButton
-            serie={{
-              source: "olympus",
-              external_id: serie.slug,
-              slug: serie.slug,
-              title: serie.title,
-              cover_url: serie.cover_url,
-              type: serie.type,
-            }}
-          />
+          <SaveExternalButton serie={serieGuardable} />
 
           {/* atribución al grupo, en la ficha */}
           <a
@@ -167,6 +169,13 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
           {capitulosOrdenados.map((c) => (
             <li key={c.id}>
               <Link
+                onClick={() =>
+                  anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: String(c.id),
+                    last_chapter_name: String(c.name),
+                  })
+                }
                 href={`/leer-externo/olympus/${c.id}?slug=${serie.slug}&tipo=${serie.type}${sufijoPagina(progreso, String(c.id) === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   String(c.id) === progreso.ultimoId,

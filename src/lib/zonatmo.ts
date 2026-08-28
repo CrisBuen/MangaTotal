@@ -205,12 +205,43 @@ function tipoEnUrl(types: number[] | null | undefined): string {
   return nombreTipo(types).toLowerCase().replace(/\s+/g, "-");
 }
 
+/**
+ * Sus títulos llegan con entidades HTML sin resolver, así que en pantalla
+ * aparecía "Nyanta &amp; Pomeco" en vez del signo. Se resuelve acá y no con
+ * el navegador porque esto también corre en el servidor, donde no hay DOM.
+ */
+export function textoTmo(valor: string | null | undefined): string {
+  if (!valor) return "";
+  return valor
+    .replace(/&(#\d+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);/g, (entera, cuerpo: string) => {
+      if (cuerpo.startsWith("#")) {
+        const n = cuerpo[1] === "x" || cuerpo[1] === "X"
+          ? parseInt(cuerpo.slice(2), 16)
+          : parseInt(cuerpo.slice(1), 10);
+        return Number.isFinite(n) ? String.fromCodePoint(n) : entera;
+      }
+      const conocidas: Record<string, string> = {
+        amp: "&",
+        lt: "<",
+        gt: ">",
+        quot: '"',
+        apos: "'",
+        nbsp: " ",
+        hellip: "…",
+        ndash: "–",
+        mdash: "—",
+      };
+      return conocidas[cuerpo] ?? entera;
+    })
+    .trim();
+}
+
 function aSerie(item: ItemApi): SerieTmo {
   return {
     id: String(item._id),
     tipo: tipoEnUrl(item.types),
     slug: item.slug,
-    title: item.title || "Sin título",
+    title: textoTmo(item.title) || "Sin título",
     cover_url: urlPortada(item.cover),
     url_original: `${TMO_WEB}/manga/${item.slug}/`,
   };

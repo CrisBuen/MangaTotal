@@ -9,6 +9,7 @@ import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { buscarNovedades, type Novedad } from "@/components/library/novedades";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
+import { SeccionHistorial } from "@/components/library/SeccionHistorial";
 
 interface ContinueItem {
   series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
@@ -70,10 +71,11 @@ export default function BibliotecaPage() {
 
   const loggedIn = Boolean(me?.nickname);
 
-  // Las categorías siguen a la pestaña: en "Normal" no tienen por qué
-  // aparecer las del +18, y viceversa.
+  // Las categorías siguen a la pestaña, y solo se muestran dentro de
+  // "Normal" o "+18". En "Todo" no aparecen: ahí las del +18 quedaban a la
+  // vista de cualquiera, que no es donde corresponde.
   useEffect(() => {
-    const qs = filter === "normal" || filter === "adult" ? `?tipo=${filter}` : "";
+    const qs = `?tipo=${filter === "adult" ? "adult" : "normal"}`;
     fetch(`/api/tags${qs}`)
       .then((r) => r.json())
       .then((d) => Array.isArray(d) && setTags(d))
@@ -266,8 +268,11 @@ export default function BibliotecaPage() {
         />
       </section>
 
-      {/* Categorías: destino del enlace "Categorías" del menú */}
-      {tags.length > 0 && (
+      {/* Historial: lo que abriste para leer y no llegaste a guardar */}
+      {loggedIn && <SeccionHistorial />}
+
+      {/* Categorías: solo dentro de Normal o +18, nunca en Todo */}
+      {tags.length > 0 && (filter === "normal" || filter === "adult") && (
         <section id="categorias" className="scroll-mt-28" data-od-id="library-tags">
           <div className="mb-5 flex items-end justify-between gap-4">
             <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">

@@ -11,6 +11,7 @@ const PUBLIC_EXACT = new Set([
   "/",
   "/biblioteca",
   "/explorar",
+  "/aleatorio",
   "/anime",
   "/login",
   "/registro",
@@ -31,6 +32,9 @@ const PUBLIC_PREFIXES = [
   "/api/externo/olympus",
   "/api/externo/tmo",
   "/api/externo/leercapitulo",
+  "/api/externo/catharsis",
+  // la ruleta sortea entre los catálogos, que son públicos
+  "/api/aleatorio",
   // el catálogo de anime se navega como visitante; la lista exige sesión
   "/anime/",
   "/api/anime",

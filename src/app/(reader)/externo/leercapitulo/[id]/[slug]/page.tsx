@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
+import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { LC_NOMBRE, serieLc } from "@/lib/leercapitulo";
@@ -45,6 +46,16 @@ export default function SerieLcPage(props: {
 
   const capitulos = orden === "asc" ? ficha.capitulos : [...ficha.capitulos].reverse();
 
+  // la misma serie sirve para guardarla y para anotarla en el historial
+  const serieGuardable = {
+    source: "leercapitulo" as const,
+    external_id: `${ficha.id}/${ficha.slug}`,
+    slug: ficha.slug,
+    title: ficha.title,
+    cover_url: ficha.cover_url,
+    type: ficha.tipo ?? "normal",
+  };
+
   return (
     <div className="space-y-8">
       <Link
@@ -85,16 +96,7 @@ export default function SerieLcPage(props: {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <SaveExternalButton
-              serie={{
-                source: "leercapitulo",
-                external_id: `${ficha.id}/${ficha.slug}`,
-                slug: ficha.slug,
-                title: ficha.title,
-                cover_url: ficha.cover_url,
-                type: ficha.tipo ?? "normal",
-              }}
-            />
+            <SaveExternalButton serie={serieGuardable} />
             <a
               href={ficha.url_original}
               target="_blank"
@@ -143,6 +145,13 @@ export default function SerieLcPage(props: {
           {capitulos.map((c) => (
             <li key={c.id}>
               <Link
+                onClick={() =>
+                  anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: String(c.numero),
+                    last_chapter_name: String(c.numero),
+                  })
+                }
                 href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${sufijoPagina(progreso, c.numero === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.numero === progreso.ultimoId,

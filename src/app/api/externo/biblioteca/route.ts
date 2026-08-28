@@ -1,103 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { esFuenteExterna, publico, type FuenteExterna } from "@/lib/externas";
 
-const FUENTES = ["mangadex", "olympus", "tmo", "ikigai", "leercapitulo", "catharsis"] as const;
-type Fuente = (typeof FUENTES)[number];
-
-function publico(e: {
-  source: string;
-  externalId: string;
-  slug: string | null;
-  title: string;
-  coverUrl: string | null;
-  type: string | null;
-  lastChapterId: string | null;
-  lastChapterName: string | null;
-  lastPageNumber: number | null;
-  updatedAt: Date;
-}) {
-  const href = fichaHref(e.source, e.externalId, e.slug);
-  return {
-    source: e.source,
-    external_id: e.externalId,
-    slug: e.slug,
-    title: e.title,
-    cover_url: e.coverUrl,
-    type: e.type,
-    last_chapter_id: e.lastChapterId,
-    last_chapter_name: e.lastChapterName,
-    last_page_number: e.lastPageNumber,
-    updated_at: e.updatedAt,
-    // a dónde lleva la tarjeta dentro de MangaTotal
-    href,
-    // retomar la lectura exactamente donde quedó, si ya empezó
-    href_continuar: e.lastChapterId
-      ? capituloHref(e.source, e.externalId, e.slug, e.type, e.lastChapterId, e.lastPageNumber)
-      : href,
-  };
-}
-
-/** La ficha de la serie dentro de MangaTotal. */
-function fichaHref(source: string, externalId: string, slug: string | null): string {
-  if (source === "olympus") return `/externo/olympus/${slug ?? externalId}`;
-  if (source === "ikigai") return `/externo/ikigai/${externalId}`;
-  if (source === "tmo") return `/externo/tmo/${externalId}`;
-  if (source === "leercapitulo") return `/externo/leercapitulo/${externalId}`;
-  if (source === "catharsis") return `/externo/catharsis/${externalId}`;
-  return `/externo/${externalId}`;
-}
 
 /**
- * El lector, en el capítulo y la página donde quedó.
+ * GET /api/externo/biblioteca — series externas guardadas por el usuario.
  *
- * Cada fuente identifica sus capítulos a su manera y el lector necesita
- * saber de qué serie viene, así que el enlace se arma acá una sola vez.
+ * Con ?todo=1 vienen también las del historial (las que abrió un capítulo
+ * pero no guardó). El lector lo usa para anotar por dónde va aunque la
+ * serie todavía no esté en la biblioteca.
  */
-function capituloHref(
-  source: string,
-  externalId: string,
-  slug: string | null,
-  type: string | null,
-  chapterId: string,
-  page: number | null
-): string {
-  const pagina = page && page > 1 ? `page=${page}` : "";
-  const con = (base: string, extra = "") => {
-    const qs = [extra, pagina].filter(Boolean).join("&");
-    return qs ? `${base}?${qs}` : base;
-  };
-
-  if (source === "olympus") {
-    return con(`/leer-externo/olympus/${chapterId}`, `slug=${slug ?? externalId}&tipo=${type ?? "comic"}`);
-  }
-  if (source === "ikigai") {
-    return con(`/leer-externo/ikigai/${chapterId}`, `slug=${externalId}`);
-  }
-  if (source === "tmo") {
-    // el identificador guardado es "tipo/id/slug"
-    const [tipo = "manga", id = "", s = ""] = externalId.split("/");
-    return con(`/leer-externo/tmo/${chapterId}`, `tipo=${tipo}&id=${id}&slug=${s}`);
-  }
-  if (source === "leercapitulo") {
-    // el identificador guardado es "id/slug"
-    const [id = "", s = ""] = externalId.split("/");
-    return con(`/leer-externo/leercapitulo/${chapterId}`, `serie=${id}&slug=${s}`);
-  }
-  if (source === "catharsis") {
-    // Catharsis identifica serie y capítulo con el mismo tipo de código
-    return con(`/leer-externo/catharsis/${chapterId}`, `serie=${externalId}`);
-  }
-  return con(`/leer-externo/${chapterId}`);
-}
-
-/** GET /api/externo/biblioteca — series externas guardadas por el usuario. */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json([]);
 
+  const todo = req.nextUrl.searchParams.get("todo") === "1";
+
   const guardadas = await db.externalSeries.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, ...(todo ? {} : { saved: true }) },
     orderBy: { updatedAt: "desc" },
   });
   return NextResponse.json(guardadas.map(publico));
@@ -129,11 +50,11 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 });
   }
 
-  const source = body.source as Fuente;
+  const source = body.source as FuenteExterna;
   const externalId = String(body.external_id ?? "").trim();
   const title = String(body.title ?? "").trim();
 
-  if (!FUENTES.includes(source) || !externalId) {
+  if (!esFuenteExterna(source) || !externalId) {
     return NextResponse.json({ error: "Faltan datos de la serie" }, { status: 400 });
   }
 
@@ -161,6 +82,9 @@ export async function PUT(req: NextRequest) {
   }
 
   const datos = {
+    // un PUT con título es un guardado a mano: si venía del historial, pasa
+    // a la biblioteca
+    saved: true,
     slug: body.slug ?? null,
     title,
     coverUrl: body.cover_url ?? null,
@@ -190,10 +114,10 @@ export async function DELETE(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const params = req.nextUrl.searchParams;
-  const source = params.get("source") as Fuente;
+  const source = params.get("source") as FuenteExterna;
   const externalId = params.get("id")?.trim();
 
-  if (!FUENTES.includes(source) || !externalId) {
+  if (!esFuenteExterna(source) || !externalId) {
     return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
 

@@ -81,12 +81,15 @@ model ExternalSeries {
   lastChapterId   String?  @map("last_chapter_id")
   lastChapterName String?  @map("last_chapter_name")
   lastPageNumber  Int?     @map("last_page_number")
+  /// true = está en la biblioteca; false = solo quedó en el historial de
+  /// lectura, porque abrió un capítulo pero no llegó a guardarla.
+  saved           Boolean  @default(true)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, source, externalId])
-  @@index([userId, updatedAt])
+  @@index([userId, saved, updatedAt])
   @@map("external_series")
 }
 
