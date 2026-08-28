@@ -1,13 +1,17 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
-  "date": "2026-08-26",
+  "versionCode": 8,
+  "versionName": "1.7",
+  "date": "2026-08-28",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sizeMb": 4,
+  "sizeMb": 4.7,
   "changes": [
-    "Ikigai: ahora se listan todos los capítulos, en orden y con su fecha",
-    "Ikigai: portada correcta y ordenar por populares o recién agregadas",
-    "Mensaje claro cuando una fuente está caída"
+    "Cuando una fuente pide comprobar que sos una persona, ahora se resuelve dentro de la app",
+    "Las fuentes que bloquean a los servidores se piden desde tu teléfono",
+    "Nueva fuente: Catharsis World, con su catálogo completo",
+    "Historial: las series que abriste a leer y no llegaste a guardar",
+    "Aleatorio ahora es una ruleta entre todas las fuentes",
+    "Arreglado el lector: las tiras de webtoon ya no se cortan ni se pisan",
+    "En Perfil: elegir el navegador que decimos ser y borrar la verificación"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
