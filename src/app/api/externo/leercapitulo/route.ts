@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 import { paginasDelHtml } from "@/lib/leercapituloCodigo";
 
 /**
@@ -59,6 +60,10 @@ export async function GET(request: Request) {
     if (!ruta.startsWith("/leer/")) {
       return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
     }
+
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+
     const numero = ruta.split("/").filter(Boolean).pop() ?? "";
 
     try {
