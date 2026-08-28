@@ -1,3 +1,9 @@
+/**
+ * REGISTRO HISTÓRICO: el mecanismo real resultó ser una permutación
+ * escondida en un <meta> de la misma respuesta que trae las URLs. Este archivo
+ * ya no forma parte del camino activo; queda para conservar la investigación
+ * que permitió descartar la comparación de bordes.
+ */
 import sharp from "sharp";
 
 /**

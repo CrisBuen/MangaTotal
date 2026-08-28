@@ -36,7 +36,8 @@ justo lo que no se deduce del código.
 - `CAMBIO-DE-DOMINIO-ZONATMO.txt` — y además la receta para recompilar las apps
 - `CAMBIO-DE-DOMINIO-IKIGAI.txt`
 - `CAMBIO-DE-DOMINIO-OLYMPUS.txt`
-- `CAMBIO-DE-DOMINIO-LEERCAPITULO.txt` — incluye por qué está apagada
+- `CAMBIO-DE-DOMINIO-LEERCAPITULO.txt` — su alfabeto propio y cómo se
+  deshace el barajado de las páginas
 - `CAMBIO-DE-DOMINIO-CATHARSIS.txt`
 - `FIRMA-Y-PLAY-STORE.txt` — las dos claves de firma y qué pasa al publicar
 - `WINDOWS-DICE-QUE-ES-UN-VIRUS.txt` — el falso positivo de Defender

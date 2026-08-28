@@ -33,13 +33,28 @@ mal cortadas y no salta en pruebas rápidas, solo en capítulos largos.
 **Simplificarlo reintroduce el bug.**
 
 ### `LC_HABILITADA` en `src/lib/leercapitulo.ts`
-Parece una bandera olvidada. Es un interruptor deliberado: LeerCapítulo está
-apagada porque su servidor entrega las páginas barajadas en cada carga. No
-encenderla sin leer `CAMBIO-DE-DOMINIO-LEERCAPITULO.txt`.
+Parece una bandera olvidada. Es el interruptor de la fuente: hoy está en
+`true`, y ponerlo en `false` la oculta de Explorar sin tocar nada más. Es la
+salida rápida si LeerCapítulo vuelve a romperse.
+
+### `paginasDelHtml()` en `src/lib/leercapituloCodigo.ts`
+Recorre **todos** los `<meta>` buscando el que produzca una permutación
+válida, en vez de ir directo al que hoy trae la clave. No es rebusque: ese
+nombre está disfrazado a propósito y va a cambiar.
+
+Y si ninguno sirve, **lanza un error en vez de devolver el orden crudo**. Es
+deliberado: un capítulo desordenado se lee como que la app entera está rota,
+mientras que un error se ve y se arregla.
+
+La clave y las direcciones **tienen que salir de la misma respuesta**.
+Cambian juntas en cada pedido: pedir el capítulo dos veces mezcla dos
+barajados y da un resultado que parece bueno y no lo es.
 
 ### `src/lib/leercapituloOrden.ts`
-Parece código muerto. Es trabajo a medio terminar, documentado a propósito,
-para retomar el descifrado del orden de páginas.
+Parece código muerto y ya no se usa, pero **no lo borres**. Es el camino
+viejo —reconstruir el orden descargando todas las imágenes y comparando
+bordes— y queda como registro de por qué se buscó donde se buscó antes de
+encontrar el `<meta>`.
 
 ### Las páginas de cada fuente (`src/app/(reader)/externo/*`)
 Se parecen entre sí pero están escritas distinto **a pedido del dueño del

@@ -26,7 +26,7 @@ import { traerJson, fuenteNativaDisponible } from "./fuenteNativa";
  * Cuando el orden se pueda reconstruir, se vuelve a poner en true y listo:
  * el resto de la integración (catálogo, filtros, ficha, lector) funciona.
  */
-export const LC_HABILITADA: boolean = false;
+export const LC_HABILITADA: boolean = true;
 
 /** El servidor lo intenta primero, así que está disponible en todos lados. */
 export function lcDisponible(): boolean {

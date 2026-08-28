@@ -165,176 +165,121 @@ RECORDATORIOS
 - Guardar el permiso por escrito junto con los de las otras fuentes.
   LeerCapítulo republica trabajo de grupos de scanlation, así que su
   permiso cubre su sitio, no las traducciones en sí.
-===========================================================================
-
 
 ===========================================================================
- APAGADA: EL ORDEN DE LAS PAGINAS LLEGA BARAJADO   (28-08-2026)
+ EL ORDEN DE LAS PAGINAS: RESUELTO   (28-08-2026)
 ===========================================================================
 
-La fuente esta APAGADA. El interruptor es una sola linea:
+La fuente esta ENCENDIDA. El interruptor sigue existiendo por las dudas:
 
-    src/lib/leercapitulo.ts  ->  export const LC_HABILITADA = false;
+    src/lib/leercapitulo.ts  ->  export const LC_HABILITADA = true;
 
-Poniendolo en true vuelve tal como estaba. Todo lo demas de la integracion
-—catalogo, filtros, ficha, lector, guardado— funciona bien; lo unico roto
-es el orden de las paginas dentro de un capitulo.
-
-
----------------------------------------------------------------------------
-QUE PASA
----------------------------------------------------------------------------
-
-Su servidor devuelve las paginas de cada capitulo EN ORDEN ALEATORIO, y un
-orden distinto en cada carga. Por eso el capitulo empezaba por el medio y lo
-de la primera pagina aparecia al final, y salia distinto en Android que en
-la web: cada pedido recibe un barajado nuevo.
-
-Su propio lector SI las muestra en orden (comprobado en su web), asi que
-sabe rehacerlo. La logica esta en su script del lector, ofuscada.
+Ponerlo en false la oculta de Explorar sin tocar nada mas. Es la salida
+rapida si algun dia vuelve a fallar.
 
 
 ---------------------------------------------------------------------------
-LO QUE YA SE MIDIO (para no repetirlo)
+QUE PASABA
 ---------------------------------------------------------------------------
 
-  El decodificador y el ALFABETO estan BIEN. 61 paginas, cero caracteres
-  desconocidos, todas las imagenes descargan. El problema no esta ahi.
+Su servidor entrega las paginas de cada capitulo EN ORDEN ALEATORIO, y un
+orden distinto en cada carga. Ademas las direcciones de las imagenes son de
+un solo uso: cambian enteras entre pedidos.
 
-  Dos pedidos seguidos del mismo capitulo: 0 de 12 posiciones coinciden.
-  Son las mismas imagenes (14 de 14 aparecen en los dos), reordenadas.
-
-  Las URLs cambian ENTERAS entre pedidos. La misma imagen tuvo rutas de 19
-  y de 11 caracteres.
-
-  NO es deteccion de robots: con cabeceras completas de Chrome, Referer y
-  cookie PHPSESSID, sigue barajado.
-
-  El last-modified de cada archivo correlaciona con el orden real pero no
-  sirve: 38 de 61 comparten el mismo segundo.
-
-  Encadenar por bordes (las tiras estan cortadas de una imagen continua, y
-  el borde de abajo de una calza con el de arriba de la siguiente) produce
-  costuras casi perfectas —5 malas de 59— pero NO es estable: dos barajados
-  distintos dan cadenas distintas. Muchas tiras empiezan y terminan en
-  blanco, asi que hay muchas cadenas igual de continuas.
+Por eso los capitulos se leian empezando por el medio, con lo de la primera
+pagina al final, y salia distinto en Android que en la web.
 
 
 ---------------------------------------------------------------------------
-POR DONDE SEGUIR: LA PISTA BUENA
+COMO SE ARREGLA
 ---------------------------------------------------------------------------
 
-La ruta de cada imagen tiene 7 segmentos, y se descubrio que:
+La clave para deshacer el barajado VIENE EN EL MISMO HTML, escondida en el
+contenido de uno de los <meta> de la cabecera. Hoy va disfrazado con un
+nombre de etiqueta de publicidad.
 
-  - Los segmentos 1, 3, 4 y 5 tienen UNA SOLA firma de repeticiones para
-    las 53 URLs de un capitulo. Es decir: TODAS llevan el mismo texto
-    original ahi, cifrado con una sustitucion distinta en cada URL.
-  - El segmento 0 es relleno al azar (largo variable, 5 a 20).
-  - El segmento 6 (el del nombre del archivo) es el unico que cambia de
-    verdad: 11 firmas distintas. AHI VA EL NUMERO DE PAGINA.
+De ese contenido salen los indices: se dejan solo los numeros, se invierte
+el texto entero y se separa. El resultado es una permutacion completa de
+0 a N-1 que dice en que posicion va cada pagina.
 
-Aprovechando eso se puede reconstruir, para cada URL, la tabla que la
-traduce al alfabeto de la primera: se comparan los segmentos comunes
-posicion por posicion. Salio CONSISTENTE en 53 de 53, lo que confirma el
-mecanismo.
-
-El problema que quedo abierto: esa tabla cubre unos 21 caracteres, y el
-grupo central del segmento 6 usa otros que no aparecen en los segmentos
-comunes. Falta cubrirlos para poder ordenar.
-
-Dos caminos desde aca:
-
-  1. Ampliar la tabla. Hay que encontrar mas texto conocido, o deducir de
-     donde saca la clave cada URL (los segmentos 2 y 5 son de un solo
-     caracter y el 3 siempre empieza con el 2: huelen a clave).
-
-  2. Sacar la regla de su script. El archivo es
-     /assets/<hash>/1S/pVaTVp.js (unos 48 KB, ofuscado con arreglo de
-     cadenas troceadas). Referencia "#array_data" —aparece partido como
-     "#array_dat"— asi que ahi esta la funcion que hay que leer.
-
-     Conviene analizarlo en local y despues reimplementar la regla en
-     limpio. NO ejecutar su script en nuestro servidor.
-
-
-===========================================================================
- AVANCE: EL NUMERO DE PAGINA ESTA EN EL NOMBRE DEL ARCHIVO   (28-08-2026)
-===========================================================================
-
-SIGUE APAGADA. Lo de abajo es el avance de romper su cifrado, para que quien
-retome no empiece de cero. El codigo esta escrito y anda a medias:
-
-    src/lib/leercapituloCodigo.ts   base64 con su alfabeto (compartido)
-    src/lib/leercapituloOrden.ts    reconstruye el orden  <- lo que falta
-    /api/externo/leercapitulo?accion=capitulo   devuelve el capitulo ordenado
-
-Encender LC_HABILITADA hoy da capitulos ordenados en 1 de cada 6 series.
+Todo esto vive en paginasDelHtml(), en src/lib/leercapituloCodigo.ts.
 
 
 ---------------------------------------------------------------------------
-LO QUE SE DESCUBRIO
+LAS TRES TRAMPAS  (esto es lo que hay que respetar)
 ---------------------------------------------------------------------------
 
-La ruta de cada imagen tiene 7 o 9 tramos segun la serie, pero en todas:
+1. LA CLAVE Y LAS URLS TIENEN QUE SALIR DE LA MISMA RESPUESTA.
 
-  - Varios tramos tienen UNA SOLA firma de repeticiones para todas las
-    paginas del capitulo: llevan el mismo texto, cifrado con una sustitucion
-    distinta en cada URL. Comprobado consistente en 53 de 53.
-  - El ultimo tramo es el nombre del archivo, y sus DOS PRIMEROS CARACTERES
-    son el numero de pagina con cero adelante.
+   Cambian juntas en cada pedido. Si se vuelve a pedir el capitulo para
+   buscar la clave, se mezclan dos barajados distintos y sale un capitulo
+   desordenado QUE PARECE FUNCIONAR. Una sola lectura del HTML, las dos
+   cosas de ahi.
 
-Comparando los tramos comunes contra los de la primera pagina sale la tabla
-que traduce una URL al alfabeto de la otra. Que letra es cada digito sale de
-contar: en un capitulo de 53 paginas la decena 0 aparece 9 veces y la 5 solo
-4. Eso se verifico dos veces, con capitulos y alfabetos distintos:
+2. NO DEJAR FIJO EL NOMBRE DEL ATRIBUTO.
 
-    observado:  U:9  I:10  E:10  p:4
-    esperado:   0:9   1:10  2:10  3:10  4:10  5:4
+   Esta disfrazado a proposito y va a cambiar. El codigo recorre todos los
+   <meta> y se queda con el primero cuyo contenido produzca una permutacion
+   valida. Asi el dia que le cambien el nombre sigue andando solo.
 
-Para elegir entre las asignaciones que quedan se miran las imagenes: las
-tiras estan cortadas de un dibujo continuo, asi que en el orden bueno el
-borde de abajo de una calza con el de arriba de la siguiente. En un capitulo
-la ganadora dio union media 4.82 contra 8.31 de la segunda y 167 de la peor,
-y salio el MISMO orden en dos pedidos con barajados distintos.
+3. SI NO HAY PERMUTACION VALIDA, SE LANZA UN ERROR.
 
+   Nunca se devuelven las paginas en el orden crudo "por si acaso". Un
+   capitulo desordenado es peor que uno que no abre: el error se ve y se
+   arregla, el desorden se lee como que la app entera esta rota.
 
----------------------------------------------------------------------------
-POR QUE TODAVIA NO ALCANZA
----------------------------------------------------------------------------
-
-Una letra se puede traducir solo si su texto original aparece en los tramos
-comunes. Eso NO depende de la sustitucion, asi que pedir el capitulo muchas
-veces no agrega nada: se probo con 8 pedidos y la cobertura se clava en 44%
-desde el segundo.
-
-En la practica se recuperan 4 o 5 cifras de las 10. En capitulos donde eso
-deja pocas paginas con numero completo, las uniones entre tiras no alcanzan
-para decidir, sobre todo porque muchas tiras empiezan y terminan en blanco y
-ahi cualquier orden se ve continuo.
-
-Medido sobre 6 capitulos de series distintas: 1 estable, 5 no.
+   Se valida que la cantidad de indices coincida con la de paginas, que
+   sean enteros, que esten entre 0 y N-1, y que no haya repetidos ni
+   huecos.
 
 
 ---------------------------------------------------------------------------
-POR DONDE SEGUIR
+COMPROBADO
 ---------------------------------------------------------------------------
 
-  1. De donde saca la clave cada URL. La sustitucion la tiene que poder
-     deshacer su CDN sin guardar estado, asi que la clave viaja en la propia
-     direccion. El tramo 0 es de largo variable (5 a 20) y parece relleno,
-     pero solo tiene 16 firmas distintas para 53 URLs: no es al azar. Si se
-     entiende como se deriva la clave, se descifra todo y esto se termina.
+  El alfabeto de base64 esta bien y NO hay que tocarlo: coincidio 49 de 49
+  direcciones con su lector oficial.
 
-  2. Leer la funcion de su script. Es /assets/<hash>/1S/pVaTVp.js (48 KB,
-     ofuscado con arreglo de cadenas troceadas). Referencia "#array_data"
-     partido como "#array_dat". Conviene analizarlo en local y reimplementar
-     la regla en limpio; NO ejecutar su script en nuestro servidor.
+  La permutacion salio completa y valida en capitulos de 49, 41, 38, 27, 21
+  y 17 paginas, de series distintas.
 
-  3. Preguntarles de nuevo, ahora con el dato concreto: sus paginas salen
-     barajadas en cada carga y su lector las reordena del lado del cliente.
-     Quien haya escrito esa parte sabe con que las reordena.
+  Dos cargas del mismo capitulo, con barajados y URLs distintos, dieron la
+  misma imagen en la misma posicion (comprobado por ETag, que identifica el
+  archivo aunque cambie la direccion).
 
-Tambien queda pendiente el costo: resolver un capitulo baja todas sus
-imagenes en el servidor (de 1,3 a 15 segundos segun el capitulo). Si algun
-dia funciona, hay que guardar el resultado en cache por capitulo, usando el
-etag de cada imagen como identidad (es estable aunque la URL cambie).
+  Ante un HTML sin metas, con los metas vacios o con un digito cambiado, la
+  funcion LANZA el error en vez de devolver algo mal ordenado.
+
+
+---------------------------------------------------------------------------
+SI ALGUN DIA VUELVE A FALLAR
+---------------------------------------------------------------------------
+
+El sintoma va a ser el mensaje "LeerCapitulo cambio la forma de ordenar sus
+paginas". Quiere decir que ningun <meta> produjo una permutacion valida.
+
+Mirar entonces:
+
+  1. Si siguen mandando la clave en un <meta>. Bajar el HTML de un capitulo
+     y revisar las etiquetas de la cabecera a mano.
+  2. Si cambiaron la transformacion (hoy: dejar solo numeros, invertir todo
+     el texto, separar).
+  3. Si cambiaron el alfabeto de base64, lo que se nota antes porque
+     decodificar() avisa por su cuenta.
+
+Mientras tanto, LC_HABILITADA = false y la fuente queda oculta.
+
+
+---------------------------------------------------------------------------
+POR QUE EXISTE src/lib/leercapituloOrden.ts
+---------------------------------------------------------------------------
+
+Es el camino viejo, y NO forma parte del codigo activo. Reconstruia el orden
+descargando todas las imagenes del capitulo en el servidor y comparando los
+bordes de cada tira con la siguiente.
+
+Funcionaba, pero acertaba en 1 de cada 6 capitulos, y costaba entre 1 y 15
+segundos por capitulo. Se dejo como registro de la investigacion: explica
+por que se busco donde se busco antes de encontrar el <meta>.
+
+No borrarlo y no volver a conectarlo.
