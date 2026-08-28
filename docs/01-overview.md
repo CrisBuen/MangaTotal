@@ -1,61 +1,73 @@
-# 1. Visión general
+# 1. Qué es MangaTotal
 
-## 1.1 Qué es "Lector Total"
+## 1.1 En una frase
 
-Una aplicación web privada, autoalojada en tu propia PC, para leer tu
-biblioteca personal de manga/manhwa/manhua/doujinshi traducidos con Koharu
-(y cualquier otro cómic en formato imagen). Reemplaza el "arrastrar PNGs a
-un visor de imágenes" por una biblioteca organizada, con progreso de
-lectura, portadas, y modos de lectura pensados para cómic asiático.
+Una biblioteca de manga, manhwa y manhua que junta **el catálogo propio** (lo
+que sube el administrador) con **el de seis sitios externos** que dieron
+permiso por escrito, todo con el mismo lector y el mismo progreso de lectura.
 
-## 1.2 Alcance (importante)
+Vive en **https://manga-total.vercel.app** y se distribuye además como app de
+**Windows** y de **Android**.
 
-- Corre en `localhost` (o en tu red local si querés leerlo desde el celu/tablet en casa).
-- **No** tiene dominio público, **no** tiene certificados SSL de producción, **no** está pensada para exponerse a internet.
-- El registro de usuarios es solo para vos (y quien vos decidas dentro de tu casa/red). No hay flujo de "recuperar contraseña por email" porque no hay email — es un sistema cerrado. La contraseña se puede cambiar desde el perfil (sabiendo la actual).
-- **Modo visitante**: al entrar sin sesión no se fuerza el login — se ve la
-  biblioteca con el menú normal (noticias y catálogo Normal). Registrarse o
-  iniciar sesión (botones en el menú) hace falta para **leer**, guardar
-  progreso y marcar favoritos. Los visitantes nunca ven la sección +18.
+## 1.2 Cómo llegó a ser esto
 
-## 1.3 Problema que resuelve
+El proyecto nació como "Lector Total": una app privada, autoalojada en la PC
+del dueño, con SQLite, para leer capítulos propios exportados en `.zip`.
 
-| Problema actual | Solución en Lector Total |
+Hoy es otra cosa:
+
+| Antes | Ahora |
 |---|---|
-| Los PNG exportados de Koharu quedan sueltos en carpetas | Se importan como capítulos ordenados dentro de una serie |
-| No hay forma de "seguir donde quedaste" | Progreso de lectura por usuario y por capítulo |
-| Mezclar todo en una sola carpeta gigante | Biblioteca separada en series, con portada y metadatos |
-| Doujinshi H mezclado con manga normal | Separación por sección: Normal vs +18 |
-| Ver manga en un visor de fotos no está pensado para el formato | Modo cascada, modo RTL, pantalla completa |
+| Autoalojado en una PC | Vercel, público |
+| SQLite (un archivo) | Postgres en Neon |
+| Solo capítulos propios | Propios + seis fuentes externas |
+| Solo web | Web + Windows (Tauri) + Android (Capacitor) |
 
-## 1.4 Features principales
+Si encontrás documentación o comentarios que hablen de SQLite, de "tu propia
+PC" o de "Lector Total", **están viejos**. La verdad está en el código y en
+estos documentos.
 
-1. **Login / registro** — apodo + contraseña, fecha de nacimiento (dato
-   informativo/preferencia personal, no gate legal ya que la app es privada).
-   El primer usuario registrado queda como admin automáticamente.
-2. **Dashboard de administrador** (rol `is_admin`) — subir `.zip`, crear/editar
-   series, publicar noticias, ver historial de ingestas, gestionar usuarios.
-3. **Biblioteca del lector** — pestañas: **Todo** (noticias/anuncios),
-   **Normal** y **+18** (catálogos de series con portada y búsqueda; cada uno
-   con su propia fila de "Continuar leyendo"), y **★ Favoritos** (solo con
-   sesión iniciada).
-4. **Noticias** — el admin publica anuncios y novedades desde el dashboard;
-   aparecen en la pestaña "Todo" de la biblioteca. Los mangas nunca van a
-   "Todo": solo a su catálogo (Normal o +18).
-5. **Ingesta automática de `.zip`** — sube el archivo, la app extrae,
-   ordena y publica el capítulo sin intervención manual.
-6. **Lector de páginas** — 3 modos: cascada, RTL paginado, pantalla completa.
-7. **Progreso de lectura** — recuerda la última página leída por serie/usuario.
-8. **Perfil** — foto de perfil estilo red social (subir/quitar), cambio de
-   contraseña, preferencia +18 y modo de lectura preferido.
-9. **Calidad de imagen intacta** — las páginas se sirven tal cual se
-   extraen del `.zip`, sin recompresión con pérdida (el único procesado de
-   imagen es para miniaturas de portada y avatares).
+## 1.3 Qué hace
 
-## 1.5 Fuera de alcance (v1)
+- **Biblioteca propia**: el administrador sube capítulos en `.zip` y quedan
+  como series navegables.
+- **Fuentes externas**: MangaDex, Olympus, ZonaTMO, Ikigai, Catharsis World y
+  LeerCapítulo (esta última apagada, ver
+  [`08-fuentes-externas.md`](08-fuentes-externas.md)). Se leen dentro de
+  MangaTotal, con el mismo lector.
+- **Progreso unificado**: en qué capítulo y en qué página vas, sea la serie
+  propia o externa.
+- **Historial**: las series que abriste a leer y no llegaste a guardar.
+- **Anime**: seguimiento de series animadas vía AniList. **No se reproduce
+  video**: cada ficha lleva a las plataformas con licencia.
+- **Aleatorio**: una ruleta que sortea entre todas las fuentes.
 
-- Verificación de edad legal / cumplimiento normativo de plataformas públicas.
-- Traducción automática (eso ya lo resuelve Koharu, esta app solo consume el resultado).
-- Comentarios, likes públicos, redes sociales.
-- Apps móviles nativas (la web responsive alcanza para uso personal).
-- Multi-idioma de interfaz (queda en español).
+## 1.4 Qué NO hace, a propósito
+
+- **No aloja imágenes de las fuentes externas.** Las portadas y las páginas se
+  cargan siempre desde los servidores de cada sitio. MangaTotal solo guarda
+  direcciones y progreso.
+- **No reproduce anime.** La sección de anime es seguimiento y descubrimiento;
+  reproducir sería redistribuir material licenciado que nadie autorizó.
+- **No integra fuentes sin permiso.** Las seis integradas dieron permiso por
+  escrito. Ese permiso cubre el sitio de cada una, no las traducciones de
+  terceros que republiquen.
+
+Esto no es un detalle legal decorativo: es lo que hace que la app se pueda
+publicar en Play Store. Agregar reproducción de video o una fuente sin
+permiso pone en riesgo la publicación y al dueño del proyecto.
+
+## 1.5 Los tres lugares donde corre
+
+| Dónde | Qué es | Cómo se actualiza |
+|---|---|---|
+| **Web** | Next.js en Vercel | Cada push a `main` |
+| **Windows** | Tauri: una ventana que carga la web, más un puente nativo | Instalador nuevo, avisado desde la app |
+| **Android** | Capacitor: un WebView que carga la web, más un puente nativo | APK nuevo, avisado desde la app |
+
+Lo importante: **las dos apps cargan la misma web de Vercel**. Un cambio de
+interfaz o de una fuente llega a todo el mundo con un push, sin recompilar
+nada. Solo hay que recompilar cuando cambia el **código nativo** (el puente
+de las fuentes, el actualizador, los permisos).
+
+Ver [`10-apps-y-publicacion.md`](10-apps-y-publicacion.md).

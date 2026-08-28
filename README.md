@@ -1,37 +1,65 @@
-# Lector Total — Documentación del proyecto
+# MangaTotal
 
-Lector de manga/manhwa/manhua/doujinshi **personal y privado**. Pensado para
-un solo usuario administrador (vos) con la posibilidad de crear cuentas
-adicionales de confianza si en el futuro querés compartir acceso dentro de
-tu red local. **No está diseñado ni preparado para exposición pública en
-internet.**
+Biblioteca de manga, manhwa y manhua que junta el **catálogo propio** con el
+de **seis sitios externos** que dieron permiso por escrito, todo con el mismo
+lector y el mismo progreso de lectura.
 
-## Índice de documentos
+**https://manga-total.vercel.app** · también como app de **Windows** y de
+**Android**.
 
-| # | Documento | Contenido |
-|---|-----------|-----------|
-| 1 | [Visión general](docs/01-overview.md) | Objetivo, alcance, features principales |
-| 2 | [Arquitectura](docs/02-architecture.md) | Stack técnico, diagrama de componentes, estructura de carpetas |
-| 3 | [Base de datos](docs/03-database-schema.md) | Diagrama ER, tablas, columnas, relaciones |
-| 4 | [Pipeline de ingesta](docs/04-ingestion-pipeline.md) | Cómo se procesa un .zip de Koharu hasta quedar en la biblioteca |
-| 5 | [Flujos de usuario](docs/05-user-flows.md) | Registro, login, lectura, administración (diagramas de secuencia) |
-| 6 | [Modos de lectura (UX)](docs/06-reading-modes-ux.md) | Cascada, RTL (manga), pantalla completa |
-| 7 | [Especificación de API](docs/07-api-spec.md) | Endpoints REST, payloads, códigos de respuesta |
-| 8 | [Roadmap de implementación](docs/08-roadmap.md) | Fases sugeridas para construir esto en Claude Code |
+## Si venís a tocar el código, empezá acá
 
-## Estado
+1. **[`AGENTS.md`](AGENTS.md)** — qué **no** tocar y por qué. Este proyecto
+   tiene varias cosas que parecen un error y no lo son: casi todas se
+   arreglaron persiguiendo un bug difícil, y "limpiarlas" lo trae de vuelta.
+2. **[`docs/00-INDICE.md`](docs/00-INDICE.md)** — la documentación completa.
 
-**Implementado y funcionando** (Fases 0–5 del roadmap completas). Se arranca con
-`npm run dev` y se entra en `http://localhost:3000`. La primera cuenta que se
-registra queda como administradora.
+## Documentación
 
-## Resumen rápido
+| # | Documento | De qué trata |
+|---|---|---|
+| 1 | [Visión general](docs/01-overview.md) | Qué es, qué hace y qué no hace a propósito |
+| 2 | [Arquitectura](docs/02-arquitectura.md) | Stack, carpetas, decisiones y su porqué |
+| 3 | [Base de datos](docs/03-base-de-datos.md) | Los modelos de Prisma y sus trampas |
+| 4 | [Subida de capítulos](docs/04-subida-de-capitulos.md) | Cómo entra un `.zip` propio |
+| 5 | [Flujos de usuario](docs/05-flujos-de-usuario.md) | Visitante, lector, admin |
+| 6 | [El lector](docs/06-lector.md) | Modos de lectura, progreso, el arreglo de las tiras |
+| 7 | [API](docs/07-api.md) | Todas las rutas y quién puede llamarlas |
+| 8 | **[Fuentes externas](docs/08-fuentes-externas.md)** | **Las seis fuentes: cómo se conectó cada una** |
+| 9 | [Despliegue](docs/09-despliegue-vercel.md) | Vercel, Neon, variables, qué rompe el deploy |
+| 10 | [Apps y publicación](docs/10-apps-y-publicacion.md) | Tauri, Capacitor, firmas, Play Store |
 
-- **Stack**: Next.js (React + TypeScript) full-stack, SQLite + Prisma, Tailwind CSS.
-- **Alcance de red**: `localhost` / red local (LAN). Sin dominio público, sin puertos reenviados a internet.
-- **Acceso**: la biblioteca se puede **navegar como visitante** (sin cuenta); leer capítulos, guardar progreso y marcar favoritos requiere registrarse o iniciar sesión desde el menú.
-- **Portada ("Todo")**: muestra las **Noticias** que publica el admin (anuncios, cosas por venir). Los mangas nunca aparecen ahí: viven en su catálogo.
-- **Contenido**: se organiza en dos secciones — *Normal* y *+18* — como un filtro de biblioteca, no como un gate legal (la app entera es privada). La pestaña +18 solo la ven usuarios con esa preferencia activada.
-- **Ingesta**: subís el `.zip` que exporta Koharu (páginas `.png` numeradas), la app lo procesa solo, ordena las páginas y arma el capítulo automáticamente, sin recomprimir ni perder calidad.
-- **Lectura**: modo cascada (scroll continuo tipo webtoon), modo página a página derecha→izquierda (manga tradicional), y modo pantalla completa.
-- **Perfil**: foto de perfil estilo red social, cambio de contraseña, preferencia +18 y modo de lectura preferido.
+En la raíz hay además un `CAMBIO-DE-DOMINIO-*.txt` por cada fuente, con el
+detalle fino de cómo funciona y qué hacer si cambian algo.
+
+## En resumen
+
+- **Stack**: Next.js 15 (App Router, TypeScript), Prisma 6 sobre Postgres en
+  Neon, Tailwind. Imágenes propias en Vercel Blob.
+- **Apps**: Windows con Tauri (`desktop/`), Android con Capacitor
+  (`mobile/`). Las dos cargan la misma web, así que un cambio de interfaz o
+  de fuentes llega con un push, sin recompilar.
+- **Acceso**: los catálogos se miran sin cuenta; leer un capítulo, guardar
+  progreso y marcar favoritos exige registrarse.
+- **Fuentes externas**: MangaDex, Olympus, ZonaTMO, Ikigai y Catharsis World.
+  LeerCapítulo está integrada pero **apagada** — el motivo está en su `.txt`.
+- **No se aloja nada de las fuentes**: portadas y páginas se cargan desde sus
+  servidores. Tampoco se reproduce anime: esa sección es solo seguimiento.
+
+## Desarrollo
+
+```bash
+npm install
+npm run dev            # http://localhost:3000
+```
+
+Antes de subir cambios:
+
+```bash
+npx tsc --noEmit -p tsconfig.json
+npx next build
+```
+
+No hay tests automatizados. Un cambio en el lector o en una fuente **se
+comprueba abriendo un capítulo de verdad**: casi todos los bugs de este
+proyecto compilaban perfecto.
