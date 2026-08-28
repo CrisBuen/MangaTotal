@@ -1,23 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { DownloadSection } from "@/components/pwa/DownloadSection";
-import { SeriesCard, type SeriesSummary } from "@/components/library/SeriesCard";
+import { TopSemanal } from "@/components/home/TopSemanal";
 import { buttonStyles } from "@/components/ui/Button";
 import { Badge, Skeleton } from "@/components/ui/Feedback";
 
-interface HomeSeries extends SeriesSummary {
-  description?: string | null;
-  original_title?: string | null;
-  updated_at?: string;
-  tags?: { id: number; name: string; slug: string }[];
-}
-
-interface ContinueItem {
-  series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
-  chapter: { id: number; number: number; page_count: number };
-  lastPageNumber: number;
+interface Noticia {
+  titulo: string;
+  enlace: string;
+  fecha: string | null;
+  autor: string | null;
+  categoria: string | null;
+  imagen: string | null;
+  resumen: string;
 }
 
 interface Me {
@@ -25,76 +22,64 @@ interface Me {
   show_adult_content?: boolean;
 }
 
-/** Cada cuánto cambia la serie destacada del inicio. */
-const HERO_ROTATION_MS = 6000;
+/** Cada cuánto cambia la noticia del inicio. */
+const ROTACION_MS = 6000;
+
+/** Cuántas noticias entran en la rotación. Más que esto nadie las ve. */
+const CUANTAS = 6;
 
 export function HomeExperience() {
-  const [series, setSeries] = useState<HomeSeries[] | null>(null);
-  const [continues, setContinues] = useState<ContinueItem[]>([]);
+  const [noticias, setNoticias] = useState<Noticia[] | null>(null);
   const [me, setMe] = useState<Me>({});
-  const [catalogError, setCatalogError] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(0);
+  const [actual, setActual] = useState(0);
+  const [detenido, setDetenido] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/auth/me").then((response) => (response.ok ? response.json() : {})).catch(() => ({})),
-      // sin type: el visitante ve solo la sección normal y el usuario con
-      // +18 activado ve todo (la API aplica la preferencia por su cuenta)
-      fetch("/api/series")
-        .then(async (response) => {
-          if (!response.ok) throw new Error("catalog");
-          return response.json();
-        })
-        .catch(() => {
-          setCatalogError(true);
-          return [];
-        }),
-      fetch("/api/progress/continue")
-        .then((response) => (response.ok ? response.json() : []))
-        .catch(() => []),
-    ]).then(([meData, seriesData, continueData]) => {
-      setMe(meData ?? {});
-      setSeries(Array.isArray(seriesData) ? seriesData : []);
-      setContinues(Array.isArray(continueData) ? continueData : []);
-    });
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d) => setMe(d ?? {}))
+      .catch(() => setMe({}));
+
+    fetch("/api/noticias/externas")
+      .then((r) => (r.ok ? r.json() : { noticias: [] }))
+      .then((d) => setNoticias(Array.isArray(d.noticias) ? d.noticias.slice(0, CUANTAS) : []))
+      .catch(() => setNoticias([]));
   }, []);
 
-  // el hero rota entre las series propias más recientes, una cada 6 s
-  const highlights = useMemo(() => (series ?? []).slice(0, 6), [series]);
-
+  // la rotación se frena mientras el puntero está encima: si no, la noticia
+  // se cambia justo cuando alguien la está leyendo o va a tocar el botón
   useEffect(() => {
-    if (highlights.length < 2) return;
-    const timer = setInterval(
-      () => setHighlightIndex((index) => (index + 1) % highlights.length),
-      HERO_ROTATION_MS
+    if (detenido || (noticias?.length ?? 0) < 2) return;
+    const t = setInterval(
+      () => setActual((i) => (i + 1) % (noticias?.length ?? 1)),
+      ROTACION_MS
     );
-    return () => clearInterval(timer);
-  }, [highlights.length]);
+    return () => clearInterval(t);
+  }, [detenido, noticias?.length]);
 
-  // si el catálogo se acorta, no quedar apuntando fuera de rango
-  useEffect(() => {
-    setHighlightIndex((index) => (index < highlights.length ? index : 0));
-  }, [highlights.length]);
-
-  const featured = highlights[highlightIndex] ?? null;
+  const noticia = noticias?.[actual] ?? null;
 
   return (
     <div className="space-y-20 sm:space-y-24" data-od-id="home-page">
       <section
-        className="relative isolate min-h-[26rem] overflow-hidden rounded-[2rem] border border-line bg-panel shadow-2xl sm:min-h-[34rem]"
+        className="relative isolate min-h-[26rem] overflow-hidden rounded-[2rem] border border-line bg-panel shadow-2xl sm:min-h-[32rem]"
         data-od-id="home-hero"
+        onMouseEnter={() => setDetenido(true)}
+        onMouseLeave={() => setDetenido(false)}
       >
-        {featured?.cover_image_path && (
+        {noticia?.imagen && (
           <div className="absolute inset-x-0 top-0 h-56 sm:inset-y-0 sm:left-auto sm:right-0 sm:h-auto sm:w-[58%]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              key={featured.id}
-              src={`/api/images/${featured.cover_image_path}`}
-              alt={featured.title}
-              className="h-full w-full animate-[fadeIn_600ms_ease-out] object-cover object-top opacity-70 sm:object-center"
+              key={noticia.enlace}
+              src={noticia.imagen}
+              alt=""
+              className="h-full w-full animate-[fadeIn_600ms_ease-out] object-cover object-center opacity-70"
+              referrerPolicy="no-referrer"
             />
           </div>
         )}
+
         <div
           className="absolute inset-0 sm:hidden"
           style={{
@@ -109,51 +94,64 @@ export function HomeExperience() {
               "linear-gradient(90deg, var(--bg) 0%, color-mix(in oklch, var(--bg) 94%, transparent) 42%, color-mix(in oklch, var(--bg) 28%, transparent) 100%), linear-gradient(0deg, var(--bg) 0%, transparent 55%)",
           }}
         />
-        <div className="absolute -left-20 top-28 h-56 w-56 rounded-full bg-[var(--accent-soft)] blur-3xl" aria-hidden="true" />
+        <div
+          className="absolute -left-20 top-28 h-56 w-56 rounded-full bg-[var(--accent-soft)] blur-3xl"
+          aria-hidden="true"
+        />
 
-        <div className="relative z-10 flex min-h-[26rem] max-w-3xl flex-col justify-end px-5 py-8 sm:min-h-[34rem] sm:px-10 sm:py-12 lg:px-14 lg:py-16">
-          <div className="mb-auto flex items-center gap-3">
-            <Badge tone="accent">MangaTotal</Badge>
+        <div className="relative z-10 flex min-h-[26rem] max-w-3xl flex-col justify-end px-5 py-8 sm:min-h-[32rem] sm:px-10 sm:py-12 lg:px-14 lg:py-14">
+          <div className="mb-auto flex flex-wrap items-center gap-3">
+            <Badge tone="accent">Noticias</Badge>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-subtle">
-              {featured ? "Última incorporación" : "Biblioteca conectada"}
+              {noticia?.categoria || "Somos Kudasai"}
             </span>
           </div>
 
-          {series === null ? (
-            <div className="max-w-2xl space-y-4" aria-label="Cargando portada">
-              <Skeleton className="h-20 w-full" />
+          {noticias === null ? (
+            <div className="max-w-2xl space-y-4" aria-label="Cargando noticias">
+              <Skeleton className="h-14 w-full" />
               <Skeleton className="h-6 w-3/4" />
             </div>
-          ) : featured ? (
+          ) : noticia ? (
             <>
-              <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
-                {featured.chapter_count ?? 0} capítulo{featured.chapter_count === 1 ? "" : "s"}
-              </p>
-              <h1 className="line-clamp-4 max-w-3xl font-display text-[1.75rem] font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink sm:text-6xl sm:leading-[0.88] sm:tracking-[-0.06em] lg:text-7xl">
-                {featured.title}
+              <h1 className="line-clamp-3 max-w-2xl font-display text-2xl font-black uppercase leading-[1.02] tracking-[-0.03em] text-ink sm:text-4xl sm:leading-[0.95] lg:text-[2.75rem]">
+                {noticia.titulo}
               </h1>
-              <p className="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-subtle sm:mt-5 sm:line-clamp-none sm:text-base">
-                {featured.description || "Descubrí la incorporación más reciente del catálogo y revisá todos sus capítulos disponibles."}
+
+              <p className="mt-4 line-clamp-4 max-w-2xl text-sm leading-6 text-subtle sm:mt-5">
+                {noticia.resumen}
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link href={`/serie/${featured.slug}`} className={buttonStyles({ variant: "primary" })} data-od-id="hero-series-cta">
-                  Ver serie
-                </Link>
-                <Link href="/biblioteca" className={buttonStyles({ variant: "secondary" })}>
-                  Explorar catálogo
+
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <a
+                  href={noticia.enlace}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={buttonStyles({ variant: "primary" })}
+                  data-od-id="hero-noticia-cta"
+                >
+                  Abrir noticia ↗
+                </a>
+                <Link href="/noticias" className={buttonStyles({ variant: "secondary" })}>
+                  Ver todas
                 </Link>
               </div>
 
-              {highlights.length > 1 && (
-                <div className="mt-8 flex items-center gap-2" data-od-id="hero-dots">
-                  {highlights.map((item, index) => (
+              <p className="mt-5 font-mono text-[9px] uppercase tracking-[0.14em] text-subtle">
+                Publicado por Somos Kudasai
+                {noticia.autor && ` · ${noticia.autor}`}
+              </p>
+
+              {noticias.length > 1 && (
+                <div className="mt-6 flex items-center gap-2" data-od-id="hero-dots">
+                  {noticias.map((n, i) => (
                     <button
-                      key={item.id}
-                      onClick={() => setHighlightIndex(index)}
-                      aria-label={`Ver ${item.title}`}
-                      aria-current={index === highlightIndex}
+                      key={n.enlace}
+                      onClick={() => setActual(i)}
+                      aria-label={`Ver noticia ${i + 1}`}
+                      aria-current={i === actual}
                       className={`h-1.5 rounded-full transition-all ${
-                        index === highlightIndex
+                        i === actual
                           ? "w-8 bg-accent shadow-[var(--glow)]"
                           : "w-3 bg-[var(--surface-raised)] hover:bg-subtle"
                       }`}
@@ -168,17 +166,21 @@ export function HomeExperience() {
                 Todas tus historias. Una experiencia total.
               </h1>
               <p className="mt-5 max-w-xl text-sm leading-6 text-subtle sm:text-base">
-                {catalogError
-                  ? "El catálogo no está disponible en este momento. Podés reintentar desde la Biblioteca."
-                  : "Cuando publiques una serie, su portada y sus capítulos aparecerán aquí."}
+                Las noticias no están disponibles en este momento. El catálogo y las
+                fuentes funcionan con normalidad.
               </p>
-              <Link href="/biblioteca?f=normal" className={`mt-8 self-start ${buttonStyles({ variant: "primary" })}`}>
+              <Link
+                href="/biblioteca?f=normal"
+                className={`mt-8 self-start ${buttonStyles({ variant: "primary" })}`}
+              >
                 Abrir biblioteca
               </Link>
             </>
           )}
         </div>
       </section>
+
+      <TopSemanal />
 
       <section className="grid gap-5 md:grid-cols-2" data-od-id="home-library-access">
         <LibraryAccessCard
@@ -198,7 +200,11 @@ export function HomeExperience() {
           <LibraryAccessCard
             eyebrow="Cuenta"
             title={me.nickname ? "Configurar contenido" : "Guardá tu progreso"}
-            description={me.nickname ? "Administrá el contenido +18 y tu modo de lectura desde el perfil." : "Iniciá sesión para continuar lecturas y guardar favoritos."}
+            description={
+              me.nickname
+                ? "Administrá el contenido +18 y tu modo de lectura desde el perfil."
+                : "Iniciá sesión para continuar lecturas y guardar favoritos."
+            }
             href={me.nickname ? "/perfil" : "/login"}
           />
         )}
@@ -209,27 +215,33 @@ export function HomeExperience() {
   );
 }
 
-function SectionTitle({ eyebrow, title, href }: { eyebrow: string; title: string; href: string }) {
+function LibraryAccessCard({
+  eyebrow,
+  title,
+  description,
+  href,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  href: string;
+}) {
   return (
-    <div className="mb-8 flex items-end justify-between gap-5">
-      <div>
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">{eyebrow}</p>
-        <h2 className="mt-2 font-display text-3xl font-black uppercase tracking-[-0.04em] text-ink sm:text-4xl">{title}</h2>
-      </div>
-      <Link href={href} className="hidden min-h-11 items-center text-[11px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent sm:inline-flex">
-        Ver más →
-      </Link>
-    </div>
-  );
-}
-
-function LibraryAccessCard({ eyebrow, title, description, href }: { eyebrow: string; title: string; description: string; href: string }) {
-  return (
-    <Link href={href} className="group relative min-h-64 overflow-hidden rounded-[2rem] border border-line bg-panel p-7 transition hover:border-accent hover:shadow-[var(--glow)] sm:p-9">
-      <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[var(--accent-soft)] blur-3xl transition group-hover:scale-125" aria-hidden="true" />
+    <Link
+      href={href}
+      className="group relative min-h-64 overflow-hidden rounded-[2rem] border border-line bg-panel p-7 transition hover:border-accent hover:shadow-[var(--glow)] sm:p-9"
+    >
+      <div
+        className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[var(--accent-soft)] blur-3xl transition group-hover:scale-125"
+        aria-hidden="true"
+      />
       <div className="relative flex h-full flex-col">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">{eyebrow}</p>
-        <h3 className="mt-auto max-w-md font-display text-3xl font-black uppercase leading-none text-ink">{title}</h3>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
+          {eyebrow}
+        </p>
+        <h3 className="mt-auto max-w-md font-display text-3xl font-black uppercase leading-none text-ink">
+          {title}
+        </h3>
         <p className="mt-4 max-w-md text-sm leading-6 text-subtle">{description}</p>
       </div>
     </Link>

@@ -42,6 +42,8 @@ const PUBLIC_PREFIXES = [
   "/api/externo/catharsis",
   // la ruleta sortea entre los catálogos, que son públicos
   "/api/aleatorio",
+  // el top de la semana se ve en Inicio, que es pública
+  "/api/top-semanal",
   // el catálogo de anime se navega como visitante; la lista exige sesión
   "/anime/",
   "/api/anime",
