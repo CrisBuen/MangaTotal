@@ -29,6 +29,15 @@ export interface SerieDelTop {
 
 const CUANTAS = 18;
 
+/**
+ * Las novelas de texto no van en el top.
+ *
+ * Tienen capítulos, así que pasan el filtro del catálogo, pero son texto y no
+ * se leen como manga: en una rejilla de portadas desentonan. Catharsis tiene
+ * 59 marcadas así en el nombre.
+ */
+const ES_NOVELA = /novela/i;
+
 /** Cuántas trae cada fuente antes de mezclar. */
 const POR_FUENTE = 8;
 
@@ -186,6 +195,9 @@ export async function GET() {
 
   const vistas = new Set<string>();
   const series = barajar(candidatas, azar)
+    // vale para cualquier fuente, no solo Catharsis: el top es una vitrina y
+    // conviene que nada se cuele por un camino que no habíamos pensado
+    .filter((s) => !ES_NOVELA.test(s.titulo))
     .filter((s) => {
       const clave = s.fuente + ":" + s.href;
       if (vistas.has(clave)) return false;
