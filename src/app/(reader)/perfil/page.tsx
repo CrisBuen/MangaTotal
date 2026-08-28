@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
+import Link from "next/link";
 import { UpdateChecker } from "@/components/pwa/UpdateChecker";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Feedback";
@@ -199,28 +199,6 @@ export default function PerfilPage() {
       {/* preferencias */}
       <Surface className="space-y-6 p-6" data-od-id="profile-preferences">
         <h2 className="text-3xl text-ink">Preferencias</h2>
-        <div className="flex items-center justify-between gap-6 border-t-2 border-line pt-5">
-          <div>
-            <p className="text-sm font-bold text-ink">Mostrar contenido +18</p>
-            <p className="mt-1 text-xs text-subtle">
-              Filtro de biblioteca: activa la sección de doujinshi/+18.
-            </p>
-          </div>
-          <button
-            onClick={() => update({ show_adult_content: !me.show_adult_content })}
-            className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
-              me.show_adult_content ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
-            }`}
-            aria-pressed={me.show_adult_content}
-          >
-            <span
-              className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
-                me.show_adult_content ? "translate-x-6" : ""
-              }`}
-            />
-          </button>
-        </div>
-
         <div className="flex flex-col justify-between gap-4 border-t-2 border-line pt-5 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-bold text-ink">Modo de lectura preferido</p>
@@ -244,9 +222,15 @@ export default function PerfilPage() {
         </div>
 
         {saved && <Badge tone="success">Guardado</Badge>}
-      </Surface>
 
-      <AjustesFuentes />
+        <p className="border-t-2 border-line pt-5 text-xs leading-5 text-subtle">
+          El contenido +18 y las opciones avanzadas se mudaron a{" "}
+          <Link href="/ajustes" className="text-accent hover:underline">
+            Ajustes
+          </Link>
+          .
+        </p>
+      </Surface>
 
       {/* cambio de contraseña */}
       <form

@@ -33,9 +33,11 @@ const ITEMS = [
     icon: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm5 3v8l7-4z",
   },
   {
-    href: "/perfil",
-    label: "Perfil",
-    icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z",
+    // en el teléfono la barra solo da para cinco: Perfil, Ajustes,
+    // Noticias y Aleatorio viven dentro de Más
+    href: "/mas",
+    label: "Más",
+    icon: "M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
   },
 ];
 
