@@ -15,13 +15,33 @@ export const LC_NOMBRE = "LeerCapítulo";
 
 import { traerJson, fuenteNativaDisponible } from "./fuenteNativa";
 
+/**
+ * INTERRUPTOR DE LEERCAPÍTULO — poner en true para volver a mostrarla.
+ *
+ * Está apagada porque su servidor entrega las páginas de cada capítulo en
+ * orden aleatorio, distinto en cada carga, y todavía no sabemos rehacer el
+ * orden bueno. Con esto encendido, los capítulos se leen desordenados.
+ *
+ * Lo comprobado hasta ahora está en CAMBIO-DE-DOMINIO-LEERCAPITULO.txt.
+ * Cuando el orden se pueda reconstruir, se vuelve a poner en true y listo:
+ * el resto de la integración (catálogo, filtros, ficha, lector) funciona.
+ */
+export const LC_HABILITADA: boolean = false;
+
 /** El servidor lo intenta primero, así que está disponible en todos lados. */
 export function lcDisponible(): boolean {
-  return true;
+  return LC_HABILITADA;
 }
 
 /** Pide una página de su sitio y la devuelve lista para consultar. */
 async function pedir(ruta: string, fresco = false): Promise<Document> {
+  // apagada a propósito: ver LC_HABILITADA
+  if (!LC_HABILITADA) {
+    throw new Error(
+      "LeerCapítulo está fuera de servicio por ahora: su sitio devuelve las páginas de cada capítulo en orden aleatorio y se leerían desordenadas. El resto de las fuentes funciona con normalidad."
+    );
+  }
+
   let html: string | null = null;
 
   try {

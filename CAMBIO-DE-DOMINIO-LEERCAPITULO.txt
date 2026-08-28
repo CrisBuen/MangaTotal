@@ -166,3 +166,92 @@ RECORDATORIOS
   LeerCapítulo republica trabajo de grupos de scanlation, así que su
   permiso cubre su sitio, no las traducciones en sí.
 ===========================================================================
+
+
+===========================================================================
+ APAGADA: EL ORDEN DE LAS PAGINAS LLEGA BARAJADO   (28-08-2026)
+===========================================================================
+
+La fuente esta APAGADA. El interruptor es una sola linea:
+
+    src/lib/leercapitulo.ts  ->  export const LC_HABILITADA = false;
+
+Poniendolo en true vuelve tal como estaba. Todo lo demas de la integracion
+—catalogo, filtros, ficha, lector, guardado— funciona bien; lo unico roto
+es el orden de las paginas dentro de un capitulo.
+
+
+---------------------------------------------------------------------------
+QUE PASA
+---------------------------------------------------------------------------
+
+Su servidor devuelve las paginas de cada capitulo EN ORDEN ALEATORIO, y un
+orden distinto en cada carga. Por eso el capitulo empezaba por el medio y lo
+de la primera pagina aparecia al final, y salia distinto en Android que en
+la web: cada pedido recibe un barajado nuevo.
+
+Su propio lector SI las muestra en orden (comprobado en su web), asi que
+sabe rehacerlo. La logica esta en su script del lector, ofuscada.
+
+
+---------------------------------------------------------------------------
+LO QUE YA SE MIDIO (para no repetirlo)
+---------------------------------------------------------------------------
+
+  El decodificador y el ALFABETO estan BIEN. 61 paginas, cero caracteres
+  desconocidos, todas las imagenes descargan. El problema no esta ahi.
+
+  Dos pedidos seguidos del mismo capitulo: 0 de 12 posiciones coinciden.
+  Son las mismas imagenes (14 de 14 aparecen en los dos), reordenadas.
+
+  Las URLs cambian ENTERAS entre pedidos. La misma imagen tuvo rutas de 19
+  y de 11 caracteres.
+
+  NO es deteccion de robots: con cabeceras completas de Chrome, Referer y
+  cookie PHPSESSID, sigue barajado.
+
+  El last-modified de cada archivo correlaciona con el orden real pero no
+  sirve: 38 de 61 comparten el mismo segundo.
+
+  Encadenar por bordes (las tiras estan cortadas de una imagen continua, y
+  el borde de abajo de una calza con el de arriba de la siguiente) produce
+  costuras casi perfectas —5 malas de 59— pero NO es estable: dos barajados
+  distintos dan cadenas distintas. Muchas tiras empiezan y terminan en
+  blanco, asi que hay muchas cadenas igual de continuas.
+
+
+---------------------------------------------------------------------------
+POR DONDE SEGUIR: LA PISTA BUENA
+---------------------------------------------------------------------------
+
+La ruta de cada imagen tiene 7 segmentos, y se descubrio que:
+
+  - Los segmentos 1, 3, 4 y 5 tienen UNA SOLA firma de repeticiones para
+    las 53 URLs de un capitulo. Es decir: TODAS llevan el mismo texto
+    original ahi, cifrado con una sustitucion distinta en cada URL.
+  - El segmento 0 es relleno al azar (largo variable, 5 a 20).
+  - El segmento 6 (el del nombre del archivo) es el unico que cambia de
+    verdad: 11 firmas distintas. AHI VA EL NUMERO DE PAGINA.
+
+Aprovechando eso se puede reconstruir, para cada URL, la tabla que la
+traduce al alfabeto de la primera: se comparan los segmentos comunes
+posicion por posicion. Salio CONSISTENTE en 53 de 53, lo que confirma el
+mecanismo.
+
+El problema que quedo abierto: esa tabla cubre unos 21 caracteres, y el
+grupo central del segmento 6 usa otros que no aparecen en los segmentos
+comunes. Falta cubrirlos para poder ordenar.
+
+Dos caminos desde aca:
+
+  1. Ampliar la tabla. Hay que encontrar mas texto conocido, o deducir de
+     donde saca la clave cada URL (los segmentos 2 y 5 son de un solo
+     caracter y el 3 siempre empieza con el 2: huelen a clave).
+
+  2. Sacar la regla de su script. El archivo es
+     /assets/<hash>/1S/pVaTVp.js (unos 48 KB, ofuscado con arreglo de
+     cadenas troceadas). Referencia "#array_data" —aparece partido como
+     "#array_dat"— asi que ahi esta la funcion que hay que leer.
+
+     Conviene analizarlo en local y despues reimplementar la regla en
+     limpio. NO ejecutar su script en nuestro servidor.

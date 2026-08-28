@@ -13,6 +13,7 @@ import {
 } from "@/lib/ikigai";
 import { catalogoCw, imagenCw, type OrdenCw, type SerieCw } from "@/lib/catharsis";
 import {
+  LC_HABILITADA,
   LC_GENEROS,
   LC_INICIALES,
   LC_LISTAS,
@@ -534,7 +535,9 @@ export default function ExplorarPage() {
         {[
           ...FUENTES,
           { key: "tmo", label: "ZonaTMO" },
-          { key: "leercapitulo", label: "LeerCapítulo" },
+          // LeerCapítulo se oculta mientras su servidor devuelva las páginas
+          // desordenadas (ver el interruptor en src/lib/leercapitulo.ts)
+          ...(LC_HABILITADA ? [{ key: "leercapitulo", label: "LeerCapítulo" }] : []),
           { key: "catharsis", label: "Catharsis" },
           // Ikigai sí necesita el puente nativo: bloquea a los centros de datos
           ...(ikigaiHay ? [{ key: "ikigai", label: "Ikigai" }] : []),
