@@ -13,9 +13,9 @@ import { TMO_TIPOS, textoTmo } from "@/lib/zonatmo";
  * la serie: si una fuente falla —les pasa— se prueba con la siguiente, para
  * que la ruleta nunca quede trabada.
  *
- * Quedan afuera Ikigai y LeerCapítulo: la primera bloquea a los servidores y
- * la segunda no publica un listado que se pueda recorrer, así que desde acá
- * no se les puede pedir una serie cualquiera.
+ * LeerCapítulo queda afuera: está apagada, y además no publica un listado
+ * que se pueda recorrer al azar. Ikigai sí está, pero rechaza a los centros
+ * de datos, así que puede no aparecer nunca desde el servidor.
  */
 
 export interface SerieAlAzar {
@@ -156,6 +156,100 @@ async function deZonatmo(): Promise<SerieAlAzar | null> {
   };
 }
 
+interface ItemOly {
+  name: string;
+  slug: string;
+  cover: string | null;
+  chapter_count?: number;
+}
+
+/** Olympus se identifica a sí misma con nuestro nombre, como pidieron. */
+const UA_OLYMPUS = "MangaTotal/1.0 (+https://manga-total.vercel.app)";
+
+async function deOlympus(): Promise<SerieAlAzar | null> {
+  const listado = async (pagina: number) => {
+    const res = await fetch(`https://olympusxyz.com/api/series?page=${pagina}`, {
+      headers: { "User-Agent": UA_OLYMPUS, Accept: "application/json" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const cuerpo = (await res.json()) as {
+      data?: { series?: { last_page?: number; data?: ItemOly[] } };
+    };
+    return cuerpo.data?.series ?? null;
+  };
+
+  // primero cuántas páginas hay, después una cualquiera
+  const primera = await listado(1);
+  const paginas = primera?.last_page ?? 1;
+  const pagina = 1 + Math.floor(Math.random() * paginas);
+  const lista = pagina === 1 ? primera : await listado(pagina);
+
+  // algunas series suyas no tienen portada cargada: para una ruleta, mejor
+  // sortear entre las que sí
+  const items = (lista?.data ?? []).filter((s) => s.cover);
+  if (items.length === 0) return null;
+
+  const s = alAzar(items);
+  return {
+    fuente: "olympus",
+    fuenteNombre: "Olympus",
+    titulo: s.name.trim() || "Sin título",
+    portada: s.cover,
+    href: `/externo/olympus/${s.slug}`,
+    nota: s.chapter_count ? `${s.chapter_count} capítulos` : null,
+  };
+}
+
+/**
+ * Ikigai no tiene API: hay que leer la grilla de su biblioteca.
+ *
+ * Además rechaza a los centros de datos, así que desde el servidor esto
+ * puede no llegar nunca. No es un problema: si falla, la ruleta sigue con la
+ * fuente siguiente y nadie se entera.
+ */
+async function deIkigai(): Promise<SerieAlAzar | null> {
+  const pagina = 1 + Math.floor(Math.random() * 12);
+  const res = await fetch(
+    `https://visorikigai.gettocaboca.com/series/${pagina > 1 ? `?pagina=${pagina}` : ""}`,
+    {
+      headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" },
+      next: { revalidate: 600 },
+    }
+  );
+  if (!res.ok) return null;
+  const html = await res.text();
+
+  // Cada tarjeta es un enlace a la serie seguido de su portada. No se busca
+  // el cierre del enlace: sus direcciones de imagen son larguísimas y el
+  // </a> queda demasiado lejos. Alcanza con mirar la primera imagen que
+  // aparece después del enlace.
+  const vistos = new Set<string>();
+  const series: { slug: string; titulo: string; portada: string | null }[] = [];
+  for (const m of html.matchAll(/href="\/series\/([^"\/]+)\/"/g)) {
+    const slug = m[1];
+    if (vistos.has(slug)) continue;
+    vistos.add(slug);
+
+    const ventana = html.slice(m.index, m.index + 1500);
+    const img = ventana.match(/<img[^>]*>/)?.[0] ?? "";
+    const titulo = img.match(/alt="([^"]*)"/)?.[1]?.trim() ?? "";
+    const portada = img.match(/src="([^"]+)"/)?.[1] ?? null;
+    if (titulo) series.push({ slug, titulo, portada });
+  }
+  if (series.length === 0) return null;
+
+  const s = alAzar(series);
+  return {
+    fuente: "ikigai",
+    fuenteNombre: "Ikigai",
+    titulo: s.titulo,
+    portada: s.portada,
+    href: `/externo/ikigai/${s.slug}`,
+    nota: null,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   const verAdulto = Boolean(user?.showAdultContent);
@@ -168,6 +262,8 @@ export async function GET(req: NextRequest) {
     () => deCatharsis(),
     () => deMangadex(verAdulto),
     () => deZonatmo(),
+    () => deOlympus(),
+    () => deIkigai(),
   ];
 
   // se barajan y se prueban en ese orden: si una fuente está caída, la

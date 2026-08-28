@@ -12,6 +12,7 @@ const PUBLIC_EXACT = new Set([
   "/biblioteca",
   "/explorar",
   "/aleatorio",
+  "/noticias",
   "/anime",
   "/login",
   "/registro",

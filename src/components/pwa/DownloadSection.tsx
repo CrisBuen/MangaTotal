@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { enAppInstalada } from "@/lib/appVersion";
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -13,13 +14,20 @@ const ANDROID_APK = "/descargas/MangaTotal-android.apk";
 /**
  * Bloque de descarga del final del inicio: instalador de Windows y, en
  * Android, la instalación de la app desde el propio navegador (PWA).
+ *
+ * No aparece dentro de las apps: ahí ya está instalada, y ofrecer
+ * instalarla de nuevo no tiene sentido. En la web se muestra igual que
+ * siempre, que es donde hace falta.
  */
 export function DownloadSection() {
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  // null mientras no se sabe: en el servidor no hay forma de averiguarlo
+  const [enApp, setEnApp] = useState<boolean | null>(null);
 
   useEffect(() => {
+    setEnApp(enAppInstalada());
     setIsAndroid(/android/i.test(navigator.userAgent));
     setInstalled(window.matchMedia("(display-mode: standalone)").matches);
 
@@ -45,6 +53,8 @@ export function DownloadSection() {
     await prompt.userChoice;
     setPrompt(null);
   }
+
+  if (enApp !== false) return null;
 
   return (
     <section

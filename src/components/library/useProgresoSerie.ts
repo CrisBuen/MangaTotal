@@ -39,7 +39,9 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
     let cancelado = false;
 
     (async () => {
-      const res = await fetch("/api/externo/biblioteca").catch(() => null);
+      // ?todo=1: también las del historial, para que la ficha muestre por
+      // dónde ibas aunque no esté guardada
+      const res = await fetch("/api/externo/biblioteca?todo=1").catch(() => null);
       if (!res?.ok || cancelado) return;
 
       const guardadas: {

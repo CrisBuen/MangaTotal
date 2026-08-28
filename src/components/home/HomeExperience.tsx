@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DownloadSection } from "@/components/pwa/DownloadSection";
 import { SeriesCard, type SeriesSummary } from "@/components/library/SeriesCard";
 import { buttonStyles } from "@/components/ui/Button";
-import { Badge, EmptyState, Skeleton } from "@/components/ui/Feedback";
+import { Badge, Skeleton } from "@/components/ui/Feedback";
 
 interface HomeSeries extends SeriesSummary {
   description?: string | null;
@@ -20,13 +20,6 @@ interface ContinueItem {
   lastPageNumber: number;
 }
 
-interface Announcement {
-  id: number;
-  title: string;
-  body: string;
-  created_at: string;
-}
-
 interface Me {
   nickname?: string;
   show_adult_content?: boolean;
@@ -38,7 +31,6 @@ const HERO_ROTATION_MS = 6000;
 export function HomeExperience() {
   const [series, setSeries] = useState<HomeSeries[] | null>(null);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[] | null>(null);
   const [me, setMe] = useState<Me>({});
   const [catalogError, setCatalogError] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -60,14 +52,10 @@ export function HomeExperience() {
       fetch("/api/progress/continue")
         .then((response) => (response.ok ? response.json() : []))
         .catch(() => []),
-      fetch("/api/announcements")
-        .then((response) => (response.ok ? response.json() : []))
-        .catch(() => []),
-    ]).then(([meData, seriesData, continueData, announcementData]) => {
+    ]).then(([meData, seriesData, continueData]) => {
       setMe(meData ?? {});
       setSeries(Array.isArray(seriesData) ? seriesData : []);
       setContinues(Array.isArray(continueData) ? continueData : []);
-      setAnnouncements(Array.isArray(announcementData) ? announcementData : []);
     });
   }, []);
 
@@ -213,27 +201,6 @@ export function HomeExperience() {
             description={me.nickname ? "Administrá el contenido +18 y tu modo de lectura desde el perfil." : "Iniciá sesión para continuar lecturas y guardar favoritos."}
             href={me.nickname ? "/perfil" : "/login"}
           />
-        )}
-      </section>
-
-      <section id="noticias" data-od-id="home-news">
-        <SectionTitle eyebrow="Comunidad" title="Noticias" href="/biblioteca" />
-        {announcements === null ? (
-          <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
-        ) : announcements.length === 0 ? (
-          <EmptyState title="No hay noticias por ahora" description="Los anuncios publicados por administración aparecerán aquí." />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-3">
-            {announcements.slice(0, 3).map((announcement) => (
-              <article key={announcement.id} className="rounded-2xl border border-line bg-panel p-6" data-od-id={`home-news-${announcement.id}`}>
-                <time className="font-mono text-[9px] uppercase tracking-[0.13em] text-accent" dateTime={announcement.created_at}>
-                  {new Date(announcement.created_at).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" })}
-                </time>
-                <h3 className="mt-4 text-xl font-bold text-ink">{announcement.title}</h3>
-                <p className="mt-3 line-clamp-4 whitespace-pre-line text-sm leading-6 text-subtle">{announcement.body}</p>
-              </article>
-            ))}
-          </div>
         )}
       </section>
 

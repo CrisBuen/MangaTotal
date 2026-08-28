@@ -21,8 +21,9 @@ export function useProgresoExterno(entrada: {
 }) {
   const { source, externalId, chapterId, chapterName, pageNumber } = entrada;
 
-  // la serie está guardada: hasta saberlo no se manda nada
-  const guardada = useRef(false);
+  // la serie está anotada (en la biblioteca o en el historial): hasta
+  // saberlo no se manda nada
+  const anotada = useRef(false);
   // la página con la que se entró: al abrir el capítulo se reafirma esa, no
   // la 1, o abrir y salir borraría por dónde ibas
   const paginaDeEntrada = useRef(pageNumber ?? 1);
@@ -31,35 +32,31 @@ export function useProgresoExterno(entrada: {
 
   useEffect(() => {
     let cancelado = false;
-    guardada.current = false;
+    anotada.current = false;
 
     (async () => {
-      const res = await fetch("/api/externo/biblioteca").catch(() => null);
+      // ?todo=1 incluye las del historial: si abriste un capítulo, el avance
+      // se guarda aunque todavía no la hayas puesto en la biblioteca
+      const res = await fetch("/api/externo/biblioteca?todo=1").catch(() => null);
       if (!res?.ok || cancelado) return;
 
-      const guardadas: {
-        source: string;
-        external_id: string;
-        title: string;
-        cover_url: string | null;
-        slug: string | null;
-        type: string | null;
-      }[] = await res.json().catch(() => []);
+      const anotadas: { source: string; external_id: string }[] = await res
+        .json()
+        .catch(() => []);
 
-      const serie = guardadas.find((e) => e.source === source && e.external_id === externalId);
-      if (!serie || cancelado) return;
-      guardada.current = true;
+      const existe = anotadas.some((e) => e.source === source && e.external_id === externalId);
+      if (!existe || cancelado) return;
+      anotada.current = true;
 
+      // sin título a propósito: así la ruta lo toma como aviso de avance y no
+      // como un guardado a mano. Si se mandara el título, una serie del
+      // historial pasaría sola a la biblioteca con solo abrir un capítulo.
       fetch("/api/externo/biblioteca", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           source,
           external_id: externalId,
-          slug: serie.slug,
-          title: serie.title,
-          cover_url: serie.cover_url,
-          type: serie.type,
           last_chapter_id: chapterId,
           last_chapter_name: chapterName,
           last_page_number: paginaDeEntrada.current,
@@ -79,7 +76,7 @@ export function useProgresoExterno(entrada: {
     if (temporizador.current) clearTimeout(temporizador.current);
 
     temporizador.current = setTimeout(() => {
-      if (!guardada.current) return;
+      if (!anotada.current) return;
       ultimaPagina.current = pageNumber;
       fetch("/api/externo/biblioteca", {
         method: "PUT",

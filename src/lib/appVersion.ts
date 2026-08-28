@@ -173,3 +173,20 @@ export async function actualizarEscritorio(
     dejarDeEscuchar?.();
   }
 }
+
+/**
+ * True si esto corre dentro de una app instalada (Android o Windows) y no en
+ * el navegador.
+ *
+ * Sirve para no ofrecerle a alguien que instale la app cuando ya la está
+ * usando. En la web devuelve false y todo sigue igual que siempre.
+ */
+export function enAppInstalada(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as { __TAURI__?: unknown; Capacitor?: { isNativePlatform?: () => boolean } };
+  if (w.__TAURI__) return true;
+  if (w.Capacitor?.isNativePlatform?.()) return true;
+  // versiones viejas de la app no traen isNativePlatform, pero sí el marcador
+  // que se agrega al user agent
+  return isAndroidApp();
+}

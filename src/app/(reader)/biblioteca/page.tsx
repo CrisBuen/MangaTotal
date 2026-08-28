@@ -17,13 +17,6 @@ interface ContinueItem {
   lastPageNumber: number;
 }
 
-interface Announcement {
-  id: number;
-  title: string;
-  body: string;
-  created_at: string;
-}
-
 interface Me {
   nickname?: string;
   show_adult_content?: boolean;
@@ -50,15 +43,14 @@ interface TagChip {
   series_count: number;
 }
 
-type Filter = "todo" | "normal" | "adult" | "favoritos";
+type Filter = "normal" | "adult" | "favoritos";
 
 export default function BibliotecaPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [series, setSeries] = useState<SeriesSummary[] | null>(null);
   const [seriesError, setSeriesError] = useState(false);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
-  const [news, setNews] = useState<Announcement[] | null>(null);
-  const [filter, setFilter] = useState<Filter>("todo");
+  const [filter, setFilter] = useState<Filter>("normal");
   const [seccion, setSeccion] = useState<"lectura" | "animadas">("lectura");
   const [search, setSearch] = useState("");
   const [tags, setTags] = useState<TagChip[]>([]);
@@ -91,10 +83,6 @@ export default function BibliotecaPage() {
       .then((r) => r.json())
       .then((d) => Array.isArray(d) && setContinues(d))
       .catch(() => {});
-    fetch("/api/announcements")
-      .then((r) => r.json())
-      .then((d) => Array.isArray(d) && setNews(d))
-      .catch(() => setNews([]));
     fetch("/api/externo/biblioteca")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => Array.isArray(d) && setGuardadas(d))
@@ -121,7 +109,7 @@ export default function BibliotecaPage() {
     const url = new URL(window.location.href);
     if (seccion === "animadas") url.searchParams.set("s", "animadas");
     else url.searchParams.delete("s");
-    if (filter !== "todo") url.searchParams.set("f", filter);
+    if (filter !== "normal") url.searchParams.set("f", filter);
     else url.searchParams.delete("f");
     if (selectedTag) url.searchParams.set("tag", selectedTag);
     else url.searchParams.delete("tag");
@@ -131,7 +119,6 @@ export default function BibliotecaPage() {
   }, [restored, seccion, filter, selectedTag, search]);
 
   // el filtro por tag muestra catálogo aunque la pestaña sea "Todo"
-  const showCatalog = filter !== "todo" || selectedTag !== null;
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -200,7 +187,6 @@ export default function BibliotecaPage() {
   }, [load, search, filter, selectedTag]);
 
   const filters: { key: Filter; label: string }[] = [
-    { key: "todo", label: "Todo" },
     { key: "normal", label: "Normal" },
     ...(me?.show_adult_content ? [{ key: "adult" as Filter, label: "+18" }] : []),
     ...(loggedIn ? [{ key: "favoritos" as Filter, label: "Favoritos" }] : []),
@@ -383,69 +369,25 @@ export default function BibliotecaPage() {
         </section>
       )}
 
-      {!showCatalog && (
-        <>
-          <section data-od-id="library-news">
-            <div className="mb-6 flex items-end justify-between gap-4">
-              <h2 className="font-display text-4xl font-black uppercase leading-none text-ink sm:text-5xl">Noticias</h2>
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Actualizaciones</span>
-            </div>
-            {news === null ? (
-              <div className="space-y-3" aria-label="Cargando noticias">
-                <Skeleton className="h-24" />
-                <Skeleton className="h-24" />
-              </div>
-            ) : news.length === 0 ? (
-              <EmptyState
-                title="No hay noticias por ahora"
-                description="Los anuncios y novedades de MangaTotal aparecerán en esta sección."
-              />
-            ) : (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {news.map((n) => (
-                  <article
-                    key={n.id}
-                    className="grid gap-3 rounded-2xl border border-line bg-panel p-6 sm:grid-cols-[minmax(0,1fr)_auto]"
-                    data-od-id={`announcement-${n.id}`}
-                  >
-                    <div className="contents">
-                      <h3 className="text-xl font-bold leading-tight text-ink">{n.title}</h3>
-                      <time className="shrink-0 font-mono text-[11px] text-subtle" dateTime={n.created_at}>
-                        {new Date(n.created_at).toLocaleDateString("es-AR", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </time>
-                    </div>
-                    <p className="max-w-3xl whitespace-pre-line text-sm leading-6 text-subtle sm:col-span-2">{n.body}</p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+        {!loggedIn && (
+          <Surface className="grid gap-5 border-accent p-6 shadow-[var(--glow)] sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
+            <p className="text-sm text-subtle">
+              <Link href="/registro" className="font-bold text-ink underline underline-offset-4">
+                Creá tu cuenta
+              </Link>{" "}
+              o{" "}
+              <Link href="/login" className="font-bold text-ink underline underline-offset-4">
+                iniciá sesión
+              </Link>{" "}
+              para leer, guardar tu progreso y marcar favoritos.
+            </p>
+            <Link href="/registro" className={buttonStyles({ variant: "primary", size: "sm" })}>
+              Crear cuenta
+            </Link>
+          </Surface>
+        )}
 
-          {!loggedIn && (
-            <Surface className="grid gap-5 border-accent p-6 shadow-[var(--glow)] sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
-              <p className="text-sm text-subtle">
-                <Link href="/registro" className="font-bold text-ink underline underline-offset-4">
-                  Creá tu cuenta
-                </Link>{" "}
-                o{" "}
-                <Link href="/login" className="font-bold text-ink underline underline-offset-4">
-                  iniciá sesión
-                </Link>{" "}
-                para leer, guardar tu progreso y marcar favoritos.
-              </p>
-              <Link href="/registro" className={buttonStyles({ variant: "primary", size: "sm" })}>
-                Crear cuenta
-              </Link>
-            </Surface>
-          )}
-        </>
-      )}
-
-      {loggedIn && guardadas.length > 0 && (filter === "todo" || filter === "normal") && (
+      {loggedIn && guardadas.length > 0 && filter === "normal" && (
         <section data-od-id="library-external">
           <div className="mb-5 flex items-end justify-between gap-4">
             <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
@@ -515,7 +457,7 @@ export default function BibliotecaPage() {
       <section data-od-id="library-catalog">
         <div className="mb-5 flex items-end justify-between gap-4">
             <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
-              {showCatalog ? "Catálogo" : "Últimas actualizaciones"}
+              Catálogo
             </h2>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
               MangaTotal
