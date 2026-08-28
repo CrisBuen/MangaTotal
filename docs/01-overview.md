@@ -32,9 +32,7 @@ estos documentos.
 - **Biblioteca propia**: el administrador sube capítulos en `.zip` y quedan
   como series navegables.
 - **Fuentes externas**: MangaDex, Olympus, ZonaTMO, Ikigai, Catharsis World y
-  LeerCapítulo (esta última apagada, ver
-  [`08-fuentes-externas.md`](08-fuentes-externas.md)). Se leen dentro de
-  MangaTotal, con el mismo lector.
+  LeerCapítulo. Se leen dentro de MangaTotal, con el mismo lector.
 - **Progreso unificado**: en qué capítulo y en qué página vas, sea la serie
   propia o externa.
 - **Historial**: las series que abriste a leer y no llegaste a guardar.

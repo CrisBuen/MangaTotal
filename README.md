@@ -41,8 +41,8 @@ detalle fino de cómo funciona y qué hacer si cambian algo.
   de fuentes llega con un push, sin recompilar.
 - **Acceso**: los catálogos se miran sin cuenta; leer un capítulo, guardar
   progreso y marcar favoritos exige registrarse.
-- **Fuentes externas**: MangaDex, Olympus, ZonaTMO, Ikigai y Catharsis World.
-  LeerCapítulo está integrada pero **apagada** — el motivo está en su `.txt`.
+- **Fuentes externas**: MangaDex, Olympus, ZonaTMO, Ikigai, Catharsis World y
+  LeerCapítulo, todas con permiso por escrito de cada sitio.
 - **No se aloja nada de las fuentes**: portadas y páginas se cargan desde sus
   servidores. Tampoco se reproduce anime: esa sección es solo seguimiento.
 

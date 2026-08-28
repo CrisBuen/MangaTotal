@@ -30,7 +30,7 @@ republiquen.
 | **ZonaTMO** | `zonatmo.net` | API interna, desde el servidor | ✅ |
 | **Ikigai** | `visorikigai.gettocaboca.com` | **Puente nativo**: bloquea servidores | ✅ solo apps |
 | **Catharsis World** | `newcatharsis.dig-it.info` | Su almacén Directus, desde el servidor | ✅ |
-| **LeerCapítulo** | `www.leercapitulo.co` | HTML + código propio | ⛔ **apagada** |
+| **LeerCapítulo** | `www.leercapitulo.co` | HTML + código propio, desde el servidor | ✅ |
 
 ## 8.3 El contrato: qué expone cada fuente
 
@@ -117,25 +117,35 @@ Dos cosas que hay que respetar:
 
 Detalle en `CAMBIO-DE-DOMINIO-CATHARSIS.txt`.
 
-### LeerCapítulo — **apagada, y hay que dejarla apagada**
+### LeerCapítulo — la de las dos capas
 
-Interruptor: `LC_HABILITADA` en `src/lib/leercapitulo.ts`.
+Es la que más defensas tiene, y las dos hay que respetarlas.
 
-Su servidor entrega las páginas de cada capítulo **en orden aleatorio, y un
-orden distinto en cada carga**. Encenderla hoy muestra capítulos ilegibles en
-la mayoría de las series.
+**Primera: la lista de páginas va en base64 con un alfabeto propio.** No es
+el estándar. Está reconstruido en `src/lib/leercapituloCodigo.ts` y
+comprobado contra su lector oficial. **No tocarlo.**
 
-Lo que ya está resuelto y no hay que rehacer:
+**Segunda: las páginas llegan barajadas, distinto en cada carga**, y las
+direcciones de las imágenes son de un solo uso. La clave que deshace ese
+barajado viaja escondida en el contenido de uno de los `<meta>`.
 
-- El `array_data` de sus capítulos es base64 con **un alfabeto propio**,
-  reconstruido y guardado en `src/lib/leercapituloCodigo.ts`. Funciona.
-- El número de página está en los dos primeros caracteres del nombre del
-  archivo, cifrado con una sustitución distinta por URL. Se sabe descifrar
-  parcialmente (`src/lib/leercapituloOrden.ts`).
+Tres cosas que no se pueden cambiar:
 
-Lo que falta está escrito en `CAMBIO-DE-DOMINIO-LEERCAPITULO.txt`, con lo
-medido para no repetirlo. **`leercapituloOrden.ts` parece código muerto y no
-lo es**: es trabajo a medio terminar, dejado a propósito.
+1. **La clave y las direcciones salen de la misma respuesta.** Cambian
+   juntas: pedir el capítulo otra vez para buscar la clave mezcla dos
+   barajados y da un capítulo desordenado **que parece funcionar**.
+2. **No se deja fijo el nombre del atributo.** Está disfrazado de etiqueta de
+   publicidad y va a cambiar; el código recorre todos los `<meta>` y se queda
+   con el primero que dé una permutación válida.
+3. **Si ninguno sirve, se lanza un error.** Nunca se devuelve el orden crudo
+   "por si acaso".
+
+`src/lib/leercapituloOrden.ts` es el camino viejo —comparar los bordes de
+las tiras— y **ya no se usa**. Se conserva como registro de la
+investigación: acertaba 1 de cada 6 capítulos y costaba hasta 15 segundos.
+No lo borres ni lo vuelvas a conectar.
+
+Todo el detalle en `CAMBIO-DE-DOMINIO-LEERCAPITULO.txt`.
 
 ## 8.6 Agregar una fuente nueva: la lista
 

@@ -51,7 +51,7 @@ no se pierde por dónde iba ([`03`](03-base-de-datos.md)).
 ## 5.4 Explorar
 
 Una pestaña por fuente. La de Ikigai aparece **solo en las apps**, porque su
-sitio bloquea a los servidores. La de LeerCapítulo no aparece: está apagada.
+sitio bloquea a los servidores.
 
 Cada pestaña tiene sus propios filtros, su búsqueda y un botón **Actualizar**
 que salta la caché para ver lo recién subido.
