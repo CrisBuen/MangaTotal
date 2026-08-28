@@ -55,6 +55,31 @@ STORAGE_PROVIDER="blob"
 BLOB_READ_WRITE_TOKEN="..."
 ```
 
+### DATABASE_URL: usar la direccion con pooler
+
+En Vercel cada peticion puede caer en una instancia distinta, y cada una abre
+su propia conexion contra Postgres. Con poca gente no se nota. Con trafico se
+agotan las conexiones y empiezan errores intermitentes, que aparecen justo el
+dia que llega la gente y son de los mas dificiles de diagnosticar.
+
+En Neon hay dos direcciones para la misma base. Hay que usar **la que lleva
+`-pooler` en el host**:
+
+```
+  sirve       ...@ep-algo-123456-pooler.us-east-2.aws.neon.tech/...
+  no sirve    ...@ep-algo-123456.us-east-2.aws.neon.tech/...
+```
+
+Se copia desde el panel de Neon, en *Connection string*, marcando la opcion
+de conexion agrupada (*Pooled connection*).
+
+Si falta, la app funciona igual pero deja un aviso en los registros de Vercel
+al arrancar: `[base de datos] DATABASE_URL no parece la direccion con pooler`.
+
+El limite de conexiones por instancia lo pone el codigo solo cuando corre en
+Vercel (`src/lib/db.ts`), asi que no hay que agregar `connection_limit` a
+mano. Si se agrega, se respeta el valor puesto.
+
 Los nombres del proveedor pueden variar, pero el codigo debe validar las variables. Nunca poner secretos en el codigo, README, commits ni variables `NEXT_PUBLIC_`.
 
 ## Configuracion de Vercel

@@ -54,4 +54,20 @@ export function assertDatabaseUrl(): void {
       "DATABASE_URL debe ser una conexión Postgres (postgresql://...) en producción."
     );
   }
+
+  // Aviso, no error: sin la dirección con pooler, cada instancia abre su
+  // propia conexión contra Postgres, y en Vercel hay muchas a la vez. Anda
+  // igual hasta que llega gente; recién ahí empiezan los errores
+  // intermitentes, que es el peor momento para descubrirlo.
+  if (process.env.VERCEL && !url.includes("-pooler.") && !avisadoDelPooler) {
+    avisadoDelPooler = true;
+    console.warn(
+      "[base de datos] DATABASE_URL no parece la dirección con pooler. En Neon " +
+        "es la que lleva -pooler en el host. Sin eso, con tráfico se agotan las " +
+        "conexiones. Ver deployment-vercel.md."
+    );
+  }
 }
+
+/** Para que el aviso salga una vez por instancia y no en cada consulta. */
+let avisadoDelPooler = false;
