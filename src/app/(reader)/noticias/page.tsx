@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
-import { SectionHeading } from "@/components/ui/Surface";
+import { SectionHeading, Surface } from "@/components/ui/Surface";
 
 interface Noticia {
   id: number;
@@ -11,67 +11,169 @@ interface Noticia {
   created_at: string;
 }
 
+interface NoticiaExterna {
+  titulo: string;
+  enlace: string;
+  fecha: string | null;
+  autor: string | null;
+  categoria: string | null;
+  imagen: string | null;
+  resumen: string;
+}
+
+const KUDASAI = "https://somoskudasai.com";
+
+const fecha = (valor: string) =>
+  new Date(valor).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+
 /**
- * Noticias, en su propia página.
+ * Noticias: las propias y las del mundo del anime y el manga.
  *
- * Antes vivían como una sección al final de Inicio y el enlace del menú era
- * un ancla que bajaba hasta ahí. Al tener página propia, el menú lleva a un
- * lugar de verdad y no hay que repetirlas en dos pantallas.
+ * Las de afuera vienen de Somos Kudasai, integradas con su permiso. Se
+ * muestra el titular con un resumen corto y la nota se lee en su sitio: es lo
+ * correcto con quien la escribió, y así la integración les suma visitas.
  */
 export default function NoticiasPage() {
-  const [noticias, setNoticias] = useState<Noticia[] | null>(null);
+  const [propias, setPropias] = useState<Noticia[] | null>(null);
+  const [externas, setExternas] = useState<NoticiaExterna[] | null>(null);
 
   useEffect(() => {
     fetch("/api/announcements")
       .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setNoticias(Array.isArray(d) ? d : []))
-      .catch(() => setNoticias([]));
+      .then((d) => setPropias(Array.isArray(d) ? d : []))
+      .catch(() => setPropias([]));
+
+    fetch("/api/noticias/externas")
+      .then((r) => (r.ok ? r.json() : { noticias: [] }))
+      .then((d) => setExternas(Array.isArray(d.noticias) ? d.noticias : []))
+      .catch(() => setExternas([]));
   }, []);
 
   return (
-    <div className="space-y-10" data-od-id="news-page">
+    <div className="space-y-14" data-od-id="news-page">
       <SectionHeading
         eyebrow="Comunidad"
         title="Noticias"
-        description="Anuncios y novedades de MangaTotal."
+        description="Lo de MangaTotal y lo que pasa en el mundo del anime y el manga."
       />
 
-      {noticias === null ? (
-        <div className="space-y-4">
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
+      {/* las propias primero: son los avisos del servicio */}
+      {propias !== null && propias.length > 0 && (
+        <section>
+          <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+            De MangaTotal
+          </h2>
+          <div className="space-y-4">
+            {propias.map((n) => (
+              <article
+                key={n.id}
+                className="rounded-2xl border border-accent bg-panel p-6 sm:p-8"
+                data-od-id={`news-${n.id}`}
+              >
+                <time
+                  className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent"
+                  dateTime={n.created_at}
+                >
+                  {fecha(n.created_at)}
+                </time>
+                <h3 className="mt-3 text-2xl font-black leading-tight text-ink">{n.title}</h3>
+                <p className="mt-4 whitespace-pre-line text-sm leading-7 text-subtle">{n.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <h2 className="font-display text-3xl font-black uppercase leading-none text-ink">
+            Anime y manga
+          </h2>
+          <a
+            href={KUDASAI}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent hover:underline"
+          >
+            Por Somos Kudasai ↗
+          </a>
         </div>
-      ) : noticias.length === 0 ? (
+
+        {externas === null ? (
+          <div className="space-y-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
+        ) : externas.length === 0 ? (
+          <EmptyState
+            title="No se pudieron cargar las noticias"
+            description="Su sitio no respondió en este momento. Probá más tarde."
+          />
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {externas.map((n) => (
+                <a
+                  key={n.enlace}
+                  href={n.enlace}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-panel transition hover:-translate-y-1 hover:border-accent hover:shadow-[var(--glow)]"
+                >
+                  {n.imagen && (
+                    <div className="aspect-video overflow-hidden bg-[var(--surface-raised)]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={n.imagen}
+                        alt=""
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+                  <div className="flex flex-1 flex-col p-5">
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-accent">
+                      {n.categoria ?? "Noticias"}
+                      {n.fecha && ` · ${fecha(n.fecha)}`}
+                    </p>
+                    <h3 className="mt-3 line-clamp-3 text-lg font-bold leading-[1.2] text-ink transition group-hover:text-accent">
+                      {n.titulo}
+                    </h3>
+                    <p className="mt-3 line-clamp-3 flex-1 text-xs leading-6 text-subtle">
+                      {n.resumen}
+                    </p>
+                    <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                      {n.autor ? `${n.autor} · ` : ""}Leer en su sitio ↗
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            <p className="mt-6 text-xs leading-6 text-subtle">
+              Las noticias son de{" "}
+              <a
+                href={KUDASAI}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-accent hover:underline"
+              >
+                Somos Kudasai
+              </a>
+              , integradas con su permiso. Acá se muestra el titular y un resumen; la nota completa
+              se lee en su sitio.
+            </p>
+          </>
+        )}
+      </section>
+
+      {propias !== null && propias.length === 0 && externas !== null && externas.length === 0 && (
         <EmptyState
           title="No hay noticias por ahora"
-          description="Los anuncios publicados por administración aparecerán acá."
+          description="Los anuncios de MangaTotal aparecerán acá."
         />
-      ) : (
-        <div className="space-y-4">
-          {noticias.map((n) => (
-            <article
-              key={n.id}
-              className="rounded-2xl border border-line bg-panel p-6 sm:p-8"
-              data-od-id={`news-${n.id}`}
-            >
-              <time
-                className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent"
-                dateTime={n.created_at}
-              >
-                {new Date(n.created_at).toLocaleDateString("es-AR", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </time>
-              <h2 className="mt-3 font-display text-2xl font-black uppercase leading-tight text-ink sm:text-3xl">
-                {n.title}
-              </h2>
-              <p className="mt-4 whitespace-pre-line text-sm leading-7 text-subtle">{n.body}</p>
-            </article>
-          ))}
-        </div>
       )}
     </div>
   );

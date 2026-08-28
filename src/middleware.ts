@@ -34,6 +34,8 @@ const PUBLIC_PREFIXES = [
   "/api/series/",
   "/api/externo/series",
   // el catálogo y sus filtros son públicos; el capítulo valida sesión por su cuenta
+  // las noticias son públicas, como la página que las muestra
+  "/api/noticias",
   "/api/externo/olympus",
   "/api/externo/tmo",
   "/api/externo/leercapitulo",

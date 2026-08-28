@@ -1,0 +1,106 @@
+===========================================================================
+ SOMOS KUDASAI EN MANGATOTAL  (noticias)
+===========================================================================
+
+Integrado con su permiso. Su nombre y el enlace a su sitio aparecen en la
+seccion y en cada noticia.
+
+Sitio: https://somoskudasai.com
+
+
+---------------------------------------------------------------------------
+QUE SE MUESTRA, Y QUE NO
+---------------------------------------------------------------------------
+
+Se muestra: titular, imagen, categoria, autor, fecha y un resumen corto
+(200 caracteres, cortado en el ultimo espacio).
+
+NO se muestra la nota completa. Cada tarjeta enlaza a su sitio, que es donde
+se lee. Es a proposito, por dos motivos: es lo correcto con quien la
+escribio, y asi la integracion les SUMA visitas en vez de quitarselas.
+
+Si alguna vez se piensa en traer el texto completo: no. Eso convierte una
+integracion que les conviene en una que les compite, y ademas es contenido
+de ellos.
+
+
+---------------------------------------------------------------------------
+DE DONDE SALEN
+---------------------------------------------------------------------------
+
+Es WordPress, pero su REST API (/wp-json/) esta DESHABILITADA: responde 404.
+Lo que si funciona son los feeds RSS, y estan por categoria:
+
+    https://somoskudasai.com/noticias/feed/               <- el que se usa
+    https://somoskudasai.com/noticias/anime/feed/
+    https://somoskudasai.com/noticias/cultura-otaku/feed/
+
+Ojo: https://somoskudasai.com/feed/ responde 200 pero devuelve VACIO. No es
+ese. La lista completa de feeds sale de los <link rel="alternate"> del HTML
+de cualquier pagina suya.
+
+El feed de /noticias/ trae 25 items y cubre todas las categorias.
+
+
+---------------------------------------------------------------------------
+QUE TRAE CADA ITEM
+---------------------------------------------------------------------------
+
+    <title>          titular, texto plano
+    <link>           direccion de la nota
+    <pubDate>        fecha RFC 822
+    <dc:creator>     autor, en CDATA
+    <category>       categoria, en CDATA
+    <media:content>  la imagen, en el atributo url=
+    <description>    el resumen, en CDATA y con HTML adentro
+
+Cuidado al parsear: casi todo viene en CDATA y con espacios y saltos de
+linea alrededor. Hay que limpiar CDATA, quitar etiquetas y resolver
+entidades (&amp; &#8217; &hellip; y compania). Eso lo hace la funcion
+`texto()` en la ruta.
+
+
+---------------------------------------------------------------------------
+DONDE ESTA EN EL CODIGO
+---------------------------------------------------------------------------
+
+    src/app/api/noticias/externas/route.ts   baja el feed y lo normaliza
+    src/app/(reader)/noticias/page.tsx       la pagina, con las dos secciones
+
+La pagina muestra primero las noticias propias (las de /api/announcements,
+que subis vos desde /admin/noticias) y despues las de Kudasai.
+
+Se guarda en cache 15 minutos (VIDA_SEGUNDOS). Si su sitio no responde, la
+pagina sigue mostrando las propias y avisa que las de afuera no cargaron: no
+se rompe nada.
+
+
+---------------------------------------------------------------------------
+SI CAMBIAN ALGO
+---------------------------------------------------------------------------
+
+Si dejan de aparecer noticias, mirar en este orden:
+
+  1. Que el feed siga vivo:
+       curl -sL --compressed "https://somoskudasai.com/noticias/feed/" | head -c 500
+
+  2. Si cambio de direccion, sacar la nueva de los <link rel="alternate">
+     del HTML de su portada, y actualizar FEED en la ruta.
+
+  3. Si cambiaron las etiquetas del feed (por ejemplo la imagen deja de
+     venir en <media:content>), ajustar la ruta. Todo el parseo esta en un
+     solo archivo.
+
+  4. Si algun dia habilitan /wp-json/, conviene pasarse: da los mismos datos
+     en JSON y sin parsear XML a mano.
+
+
+---------------------------------------------------------------------------
+RECORDATORIOS
+---------------------------------------------------------------------------
+
+- La integracion existe porque Somos Kudasai dio su permiso. No sacar su
+  nombre ni los enlaces a su sitio.
+- No se aloja nada: las imagenes se cargan desde su CDN.
+- Guardar el permiso por escrito junto con los de las otras fuentes.
+===========================================================================
