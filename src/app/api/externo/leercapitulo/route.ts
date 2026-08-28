@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { paginasDelHtml } from "@/lib/leercapituloCodigo";
+import { ordenarPaginas } from "@/lib/leercapituloOrden";
 
 /**
  * Puente del servidor hacia LeerCapítulo (integrada con su permiso).
@@ -29,10 +31,72 @@ function aligerar(html: string): string {
     .replace(/\s{2,}/g, " ");
 }
 
+/** Los capítulos vecinos salen de su selector, que trae la lista entera. */
+function vecinos(html: string, numero: string) {
+  const numeros = [...html.matchAll(/<option[^>]*value="([^"]*\/leer\/[^"]*)"/g)]
+    .map((m) => m[1].split("/").filter(Boolean).pop() ?? "")
+    .filter(Boolean);
+
+  const i = numeros.indexOf(numero);
+  return {
+    // los listan del más nuevo al más viejo
+    anterior: i >= 0 && i + 1 < numeros.length ? numeros[i + 1] : null,
+    siguiente: i > 0 ? numeros[i - 1] : null,
+  };
+}
+
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const ruta = params.get("ruta") ?? "";
   const fresco = params.get("fresco") === "1";
+
+  // Un capítulo se resuelve entero acá: su servidor entrega las páginas
+  // barajadas y con direcciones de un solo uso, así que hay que decodificarlas
+  // y ordenarlas dentro del mismo pedido en que se piden.
+  if (params.get("accion") === "capitulo") {
+    if (!ruta.startsWith("/leer/")) {
+      return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
+    }
+    const numero = ruta.split("/").filter(Boolean).pop() ?? "";
+
+    try {
+      const res = await fetch(BASE + ruta, {
+        headers: {
+          "User-Agent": UA,
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "es-ES,es;q=0.9",
+        },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: "LeerCapítulo no respondió desde el servidor", bloqueado: true },
+          { status: 502 }
+        );
+      }
+
+      const html = await res.text();
+      const crudas = paginasDelHtml(html);
+      if (crudas.length === 0) {
+        return NextResponse.json({ error: "Este capítulo no trae páginas" }, { status: 404 });
+      }
+
+      const respuesta = NextResponse.json({
+        paginas: await ordenarPaginas(crudas),
+        numero,
+        ...vecinos(html, numero),
+        url_original: BASE + ruta,
+      });
+      // las direcciones son de un solo uso: no se guardan en caché
+      respuesta.headers.set("Cache-Control", "no-store");
+      return respuesta;
+    } catch {
+      return NextResponse.json(
+        { error: "No se pudo contactar con LeerCapítulo", bloqueado: true },
+        { status: 502 }
+      );
+    }
+  }
 
   if (!ruta.startsWith("/") || ruta.includes("..") || !RUTAS_PERMITIDAS.some((p) => ruta.startsWith(p))) {
     return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });

@@ -35,11 +35,8 @@ export function lcDisponible(): boolean {
 
 /** Pide una página de su sitio y la devuelve lista para consultar. */
 async function pedir(ruta: string, fresco = false): Promise<Document> {
-  // apagada a propósito: ver LC_HABILITADA
   if (!LC_HABILITADA) {
-    throw new Error(
-      "LeerCapítulo está fuera de servicio por ahora: su sitio devuelve las páginas de cada capítulo en orden aleatorio y se leerían desordenadas. El resto de las fuentes funciona con normalidad."
-    );
+    throw new Error("LeerCapítulo está fuera de servicio por ahora.");
   }
 
   let html: string | null = null;
@@ -318,42 +315,6 @@ export function urlCapituloLc(id: string, slug: string, numero: string): string 
 
 // ── páginas de un capítulo ───────────────────────────────────────────────
 
-/**
- * Su alfabeto de base64, en orden de valor (0 a 63).
- *
- * No es el estándar: tienen el suyo desde hace años y ya nadie del equipo
- * sabe cuál era, así que se reconstruyó comparando un capítulo con las
- * direcciones que su propia página termina cargando. Tres valores (59, 62 y
- * 63) nunca aparecieron en las pruebas y quedan como hueco: si algún día
- * salen, la función avisa en vez de devolver una imagen rota.
- */
-const ALFABETO = "3EHLxNd2bWq8hIl65CKGv4wY9gaZRTVMoPm1znAeDscpSBkr0FOXJyf7uij tU  ";
-
-const VALOR_DE = new Map<string, number>();
-for (let v = 0; v < ALFABETO.length; v++) {
-  if (ALFABETO[v] !== " ") VALOR_DE.set(ALFABETO[v], v);
-}
-
-/** base64 con el alfabeto de ellos. */
-function decodificar(texto: string): string {
-  const limpio = texto.replace(/\s+/g, "").replace(/=+$/, "");
-  let bits = "";
-  for (const c of limpio) {
-    const v = VALOR_DE.get(c);
-    if (v === undefined) {
-      throw new Error(
-        "LeerCapítulo cambió la forma de codificar sus páginas. Hay que revisar el alfabeto en src/lib/leercapitulo.ts."
-      );
-    }
-    bits += v.toString(2).padStart(6, "0");
-  }
-
-  let salida = "";
-  for (let i = 0; i + 8 <= bits.length; i += 8) {
-    salida += String.fromCharCode(parseInt(bits.slice(i, i + 8), 2));
-  }
-  return salida;
-}
 
 export interface PaginasLc {
   paginas: string[];
@@ -363,36 +324,30 @@ export interface PaginasLc {
   url_original: string;
 }
 
-/** Páginas de un capítulo, más sus vecinos para encadenar la lectura. */
+/**
+ * Páginas de un capítulo, YA EN ORDEN, más sus vecinos.
+ *
+ * Esto no se resuelve en el dispositivo como el resto de la fuente: su
+ * servidor entrega las páginas barajadas, con un barajado distinto en cada
+ * carga, y rehacer el orden bueno exige mirar las imágenes. Eso pasa en
+ * nuestro servidor (ver src/lib/leercapituloOrden.ts) y por eso acá se pide
+ * el capítulo entero de una, sin puente nativo de por medio: un capítulo
+ * desordenado es peor que un capítulo que no abre.
+ */
 export async function paginasLc(id: string, slug: string, numero: string): Promise<PaginasLc> {
-  const doc = await pedir(`/leer/${id}/${slug}/${numero}/`);
+  const ruta = `/leer/${id}/${slug}/${numero}/`;
+  const res = await fetch(
+    `/api/externo/leercapitulo?accion=capitulo&ruta=${encodeURIComponent(ruta)}`,
+    { cache: "no-store" }
+  );
 
-  const crudo = doc.querySelector("#array_data")?.textContent?.trim();
-  if (!crudo) throw new Error("Este capítulo no trae páginas");
+  if (!res.ok) {
+    const cuerpo = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(cuerpo?.error ?? "No se pudo abrir este capítulo");
+  }
 
-  const paginas = decodificar(crudo)
-    .split(",")
-    .map((u) => u.trim())
-    .filter((u) => u.startsWith("http"));
+  const datos = (await res.json()) as PaginasLc;
+  if (!datos.paginas?.length) throw new Error("Este capítulo no trae páginas");
 
-  if (paginas.length === 0) throw new Error("Este capítulo no trae páginas");
-
-  // su selector de capítulos trae la lista entera: de ahí salen los vecinos
-  const numeros = Array.from(doc.querySelectorAll('select[rel="chap-select"] option'))
-    .map((o) => o.getAttribute("value") ?? "")
-    .map((v) => v.split("/").filter(Boolean).pop() ?? "")
-    .filter(Boolean);
-
-  const i = numeros.indexOf(numero);
-  // los listan del más nuevo al más viejo
-  const anterior = i >= 0 && i + 1 < numeros.length ? numeros[i + 1] : null;
-  const siguiente = i > 0 ? numeros[i - 1] : null;
-
-  return {
-    paginas,
-    numero,
-    anterior,
-    siguiente,
-    url_original: urlCapituloLc(id, slug, numero),
-  };
+  return { ...datos, url_original: urlCapituloLc(id, slug, numero) };
 }
