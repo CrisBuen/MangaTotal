@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { paginasDelHtml } from "@/lib/leercapituloCodigo";
-import { ordenarPaginas } from "@/lib/leercapituloOrden";
 
 /**
  * Puente del servidor hacia LeerCapítulo (integrada con su permiso).
@@ -33,9 +32,13 @@ function aligerar(html: string): string {
 
 /** Los capítulos vecinos salen de su selector, que trae la lista entera. */
 function vecinos(html: string, numero: string) {
-  const numeros = [...html.matchAll(/<option[^>]*value="([^"]*\/leer\/[^"]*)"/g)]
-    .map((m) => m[1].split("/").filter(Boolean).pop() ?? "")
-    .filter(Boolean);
+  const numeros = [
+    ...new Set(
+      [...html.matchAll(/<option[^>]*value="([^"]*\/leer\/[^"]*)"/g)]
+        .map((m) => m[1].split("/").filter(Boolean).pop() ?? "")
+        .filter(Boolean)
+    ),
+  ];
 
   const i = numeros.indexOf(numero);
   return {
@@ -50,9 +53,8 @@ export async function GET(request: Request) {
   const ruta = params.get("ruta") ?? "";
   const fresco = params.get("fresco") === "1";
 
-  // Un capítulo se resuelve entero acá: su servidor entrega las páginas
-  // barajadas y con direcciones de un solo uso, así que hay que decodificarlas
-  // y ordenarlas dentro del mismo pedido en que se piden.
+  // Un capítulo se resuelve entero acá: las URLs y la clave que deshace su
+  // barajado cambian juntas, así que tienen que salir de este mismo pedido.
   if (params.get("accion") === "capitulo") {
     if (!ruta.startsWith("/leer/")) {
       return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
@@ -76,13 +78,13 @@ export async function GET(request: Request) {
       }
 
       const html = await res.text();
-      const crudas = paginasDelHtml(html);
-      if (crudas.length === 0) {
+      const paginas = paginasDelHtml(html);
+      if (paginas.length === 0) {
         return NextResponse.json({ error: "Este capítulo no trae páginas" }, { status: 404 });
       }
 
       const respuesta = NextResponse.json({
-        paginas: await ordenarPaginas(crudas),
+        paginas,
         numero,
         ...vecinos(html, numero),
         url_original: BASE + ruta,
@@ -90,7 +92,10 @@ export async function GET(request: Request) {
       // las direcciones son de un solo uso: no se guardan en caché
       respuesta.headers.set("Cache-Control", "no-store");
       return respuesta;
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("CAMBIO-DE-DOMINIO-LEERCAPITULO.txt")) {
+        return NextResponse.json({ error: error.message }, { status: 502 });
+      }
       return NextResponse.json(
         { error: "No se pudo contactar con LeerCapítulo", bloqueado: true },
         { status: 502 }

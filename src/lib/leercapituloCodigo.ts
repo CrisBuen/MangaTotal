@@ -6,8 +6,8 @@
  *   1. La lista de páginas viaja en base64 con un alfabeto propio de ellos
  *      (ALFABETO). Eso lo resuelve `decodificar`.
  *   2. Cada dirección que sale de ahí viene, además, con la ruta cifrada, y
- *      la lista llega BARAJADA en un orden distinto en cada carga. De eso se
- *      ocupa src/lib/leercapituloOrden.ts.
+ *      la lista llega BARAJADA en un orden distinto en cada carga. El orden
+ *      correcto viaja escondido en el contenido de uno de los <meta>.
  *
  * Este archivo no depende del navegador ni del servidor: lo usan los dos.
  */
@@ -49,12 +49,67 @@ export function decodificar(texto: string): string {
   return salida;
 }
 
-/** Las direcciones de las páginas tal como vienen: sin ordenar. */
+function atributo(etiqueta: string, nombre: string): string | null {
+  const encontrado = etiqueta.match(
+    new RegExp(`\\b${nombre}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i")
+  );
+  return encontrado ? (encontrado[1] ?? encontrado[2] ?? encontrado[3]) : null;
+}
+
+function indicesDelMeta(contenido: string): number[] | null {
+  const partes = contenido
+    .replace(/[^0-9]+/g, "-")
+    .split("")
+    .reverse()
+    .join("")
+    .split("-");
+
+  if (partes.some((parte) => !/^\d+$/.test(parte))) return null;
+  return partes.map(Number);
+}
+
+function esPermutacionCompleta(indices: number[], cantidad: number): boolean {
+  if (indices.length !== cantidad) return false;
+
+  const vistos = new Set<number>();
+  for (const indice of indices) {
+    if (!Number.isInteger(indice) || indice < 0 || indice >= cantidad || vistos.has(indice)) {
+      return false;
+    }
+    vistos.add(indice);
+  }
+  return vistos.size === cantidad;
+}
+
+/**
+ * Saca y ordena las páginas desde una sola respuesta del capítulo.
+ *
+ * La clave del orden y las URLs cambian juntas en cada pedido. Volver a pedir
+ * el capítulo para buscar la clave mezcla dos barajados distintos y produce
+ * un resultado que parece válido, pero se lee desordenado.
+ */
 export function paginasDelHtml(html: string): string[] {
   const crudo = html.match(/id="array_data"[^>]*>([\s\S]*?)<\/p>/)?.[1]?.trim();
   if (!crudo) return [];
-  return decodificar(crudo)
+
+  const paginas = decodificar(crudo)
     .split(",")
     .map((u) => u.trim())
     .filter((u) => u.startsWith("http"));
+
+  if (paginas.length === 0) return [];
+
+  for (const meta of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const contenido = atributo(meta[0], "content");
+    if (!contenido) continue;
+
+    const indices = indicesDelMeta(contenido);
+    if (indices && esPermutacionCompleta(indices, paginas.length)) {
+      return indices.map((indice) => paginas[indice]);
+    }
+  }
+
+  throw new Error(
+    "LeerCapítulo cambió la forma de ordenar sus páginas; revisar CAMBIO-DE-DOMINIO-LEERCAPITULO.txt."
+  );
 }
