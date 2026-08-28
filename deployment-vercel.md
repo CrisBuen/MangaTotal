@@ -76,9 +76,24 @@ de conexion agrupada (*Pooled connection*).
 Si falta, la app funciona igual pero deja un aviso en los registros de Vercel
 al arrancar: `[base de datos] DATABASE_URL no parece la direccion con pooler`.
 
-El limite de conexiones por instancia lo pone el codigo solo cuando corre en
-Vercel (`src/lib/db.ts`), asi que no hay que agregar `connection_limit` a
-mano. Si se agrega, se respeta el valor puesto.
+**Si se usa la integracion de Neon en Vercel**, esa variable la administra la
+integracion: aparece con el icono de Neon, es de solo lectura y se
+resincroniza sola cada vez que se cambia la contraseña del rol. No se puede
+editar a mano, y no hace falta.
+
+Por eso los parametros que Prisma necesita los pone el codigo al arrancar,
+solo cuando corre en Vercel (`src/lib/db.ts`):
+
+- `connection_limit=1` — una conexion por instancia.
+- `pgbouncer=true` — solo si el host lleva `-pooler`. Sin esto aparecen
+  errores de *prepared statement already exists*, intermitentes y solo con
+  trafico.
+
+Lo que ya venga puesto a mano en la direccion se respeta.
+
+Tras cambiar la contraseña en Neon hay que **redesplegar** en Vercel: las
+variables se resincronizan solas, pero el despliegue que esta corriendo sigue
+con la anterior hasta que se rehace.
 
 Los nombres del proveedor pueden variar, pero el codigo debe validar las variables. Nunca poner secretos en el codigo, README, commits ni variables `NEXT_PUBLIC_`.
 

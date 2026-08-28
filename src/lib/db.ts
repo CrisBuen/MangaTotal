@@ -17,14 +17,31 @@ import { assertDatabaseUrl } from "./env";
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 /**
- * Sin servidor propio conviene una conexión por instancia: son muchas
- * instancias y cada una vive poco. Es lo que recomienda Prisma para este
- * caso. Si la dirección ya trae el parámetro puesto a mano, se respeta.
+ * Ajusta la dirección para correr sin servidor propio.
+ *
+ * Dos cosas:
+ *
+ *   · Una conexión por instancia. Son muchas instancias y cada una vive
+ *     poco, así que es lo que recomienda Prisma para este caso.
+ *
+ *   · Con el endpoint agrupado de Neon (el que lleva `-pooler`), avisarle a
+ *     Prisma que hay un PgBouncer en modo transacción. Sin eso aparecen
+ *     errores de "prepared statement already exists", intermitentes y solo
+ *     con tráfico, que son justo los que se quieren evitar.
+ *
+ * Se hace acá y no en la variable de entorno porque en Vercel esa variable
+ * la administra la integración de Neon: es de solo lectura y se resincroniza
+ * sola cada vez que cambia la contraseña.
+ *
+ * Lo que ya venga puesto a mano en la dirección se respeta.
  */
-function conexionUnica(url: string): string {
+function paraServidorEfimero(url: string): string {
   try {
     const u = new URL(url);
     if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", "1");
+    if (u.hostname.includes("-pooler") && !u.searchParams.has("pgbouncer")) {
+      u.searchParams.set("pgbouncer", "true");
+    }
     return u.toString();
   } catch {
     // si no se puede leer, se deja tal cual: mejor eso que romper el arranque
@@ -38,7 +55,7 @@ function crearCliente(): PrismaClient {
   const url = process.env.DATABASE_URL;
   // VERCEL solo existe cuando corre allá; en local no se toca nada
   if (url && process.env.VERCEL) {
-    return new PrismaClient({ datasourceUrl: conexionUnica(url) });
+    return new PrismaClient({ datasourceUrl: paraServidorEfimero(url) });
   }
   return new PrismaClient();
 }
