@@ -1,0 +1,108 @@
+===========================================================================
+ FIRMA DE LA APP Y PUBLICACION EN PLAY STORE
+===========================================================================
+
+Hay DOS claves distintas en juego. Confundirlas rompe las instalaciones de
+la gente, asi que conviene tener claro cual es cual.
+
+
+---------------------------------------------------------------------------
+1. LA CLAVE DE DEPURACION  (la que se usa hoy para repartir el APK)
+---------------------------------------------------------------------------
+
+  Archivo: C:\Users\CrisPC\.android\debug.keystore
+  Es la que Android genera sola en cada maquina.
+
+  Con ella esta firmado el APK que se reparte desde la web:
+      public/descargas/MangaTotal-android.apk
+
+  SHA256:
+      C3:F1:72:C1:8A:92:88:31:B3:D7:BB:C0:03:43:79:3E:
+      C6:DA:E1:E4:4E:EB:90:FA:B3:31:EF:17:85:06:70:0F
+
+  Se sigue usando para ese APK a proposito: mientras no cambie, cada version
+  nueva se instala encima de la anterior sin desinstalar nada.
+
+  Para Play Store NO sirve.
+
+
+---------------------------------------------------------------------------
+2. LA CLAVE DE PUBLICACION  (la de Play Store)   *** LA IMPORTANTE ***
+---------------------------------------------------------------------------
+
+  Archivo:      C:\Users\CrisPC\.keystores\mangatotal-release.jks
+  Alias:        mangatotal
+  Contraseña:   esta en mobile/firma.local.json  (NO va al repositorio)
+  Vence:        en 10.000 dias (año 2053)
+
+  SHA256:
+      5F:E8:1F:75:60:0F:C8:21:5B:FE:E8:35:C0:11:1F:A2:
+      4C:D9:9D:F8:E5:CC:1C:66:C2:90:37:71:B9:A3:B7:BA
+
+  >>> HACER COPIA DE SEGURIDAD DE ESE ARCHIVO Y DE LA CONTRASEÑA, FUERA DE
+  >>> ESTA MAQUINA. Si se pierden, Google NO los puede recuperar: no se
+  >>> podria volver a actualizar la app nunca mas. Habria que publicarla de
+  >>> cero, con otro identificador, y perder las instalaciones y las reseñas.
+
+  Guardarlos en dos lugares distintos (por ejemplo un gestor de contraseñas
+  y un disco aparte). No en el repositorio, que es publico.
+
+
+---------------------------------------------------------------------------
+COMO SE COMPILAN LOS ARTEFACTOS DE PUBLICACION
+---------------------------------------------------------------------------
+
+  cd "D:\Pagina Web mangastotal\mobile"
+  npx cap sync android
+  npm run patch
+  $env:JAVA_HOME = "$env:USERPROFILE\.jdks\jdk-21.0.12.1+1"
+  $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+  cd android; .\gradlew.bat assembleRelease bundleRelease; cd ..
+
+  Quedan en:
+      android\app\build\outputs\bundle\release\app-release.aab   <- Play Store
+      android\app\build\outputs\apk\release\app-release.apk      <- de prueba
+
+  'npm run patch' se encarga de la firma: lee mobile/firma.local.json y
+  escribe android/keystore.properties, que es de donde gradle saca la clave.
+  Si ese archivo no esta, compila sin firmar y no rompe nada.
+
+  A Play Store se sube el .AAB, no el APK.
+
+
+---------------------------------------------------------------------------
+LO QUE VA A PASAR AL PUBLICAR: HAY QUE AVISARLO
+---------------------------------------------------------------------------
+
+Android no deja actualizar una app si la firma cambia. Y cambia: hoy el APK
+que se reparte esta firmado con la clave de depuracion, y el de Play Store va
+con la de publicacion.
+
+Entonces, para quien ya tenga instalado el APK de la web:
+
+  - Instalar la version de Play Store le va a fallar ("aplicacion no
+    instalada").
+  - Tiene que DESINSTALAR primero y volver a instalar desde Play Store.
+  - Al desinstalar se pierde lo guardado en el telefono, pero la biblioteca,
+    el progreso y el historial viven en la cuenta, asi que vuelven al entrar.
+
+Conviene avisarlo en la web antes de publicar, y decidirlo cuanto antes:
+mientras mas gente instale el APK de la web, mas gente pasa por ese paso.
+
+Una vez en Play Store esto no vuelve a ocurrir. Google usa "Play App
+Signing": uno sube firmado con la clave de publicacion y ellos firman lo que
+le llega a la gente, asi que las actualizaciones siguen normales.
+
+
+---------------------------------------------------------------------------
+COMPROBAR UNA FIRMA ANTES DE PUBLICAR
+---------------------------------------------------------------------------
+
+  keytool -printcert -jarfile <archivo .apk o .aab>
+
+  Para el APK de la web, el SHA256 tiene que ser el de la seccion 1.
+  Para lo que va a Play Store, el de la seccion 2.
+
+  Si el APK de la web sale con otra firma, NO publicarlo: a la gente le va a
+  fallar la actualizacion.
+===========================================================================

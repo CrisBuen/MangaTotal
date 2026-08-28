@@ -160,6 +160,8 @@ RECOMPILAR Y PUBLICAR LAS APPS
     ..\public\descargas\MangaTotal-android.apk -Force
   # y actualizar public\descargas\android-version.json
 
+  Para firmar para Play Store, ver FIRMA-Y-PLAY-STORE.txt
+
   OJO CON LA FIRMA DEL APK. Se compila 'assembleDebug' a proposito: el APK
   publicado esta firmado con la clave de depuracion de esta maquina
   (~\.android\debug.keystore). Un APK firmado con otra clave NO se instala

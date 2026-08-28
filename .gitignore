@@ -16,6 +16,13 @@ lector-total.db-journal
 *.db-shm
 
 # secretos locales
+# claves de firma: NUNCA al repositorio (es publico)
+# artefactos firmados para Play Store: se generan, no se versionan
+/playstore/
+*.jks
+*.keystore
+firma.local.json
+mobile/firma.local.json
 .env
 .env.local
 .env*.local
