@@ -80,6 +80,8 @@ export interface DesktopRelease {
   versionName: string;
   date: string;
   installerUrl: string;
+  /** Huella publicada para detectar una descarga alterada. */
+  sha256: string;
   sizeMb: number;
   changes: string[];
 }

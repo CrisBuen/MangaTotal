@@ -3,6 +3,7 @@
   "versionName": "1.3",
   "date": "2026-08-28",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
+  "sha256": "D54D3A60BBB399A2BD31DAD502A7B6C37528413B3AF2241CEC764FAA779375F9",
   "sizeMb": 2.9,
   "changes": [
     "Cuando una fuente pide comprobar que sos una persona, ahora se resuelve dentro de la app",
