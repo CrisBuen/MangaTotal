@@ -1,13 +1,14 @@
 {
-  "versionCode": 12,
-  "versionName": "1.8.2",
+  "versionCode": 13,
+  "versionName": "1.9.0",
   "date": "2026-08-29",
   "apkUrl": "/descargas/MangaTotal-android.apk",
+  "sha256": "09318A168123C2953E860ABE1E846FF3A921AE9492641C23F0490C27CA6FBD21",
   "sizeMb": 4.7,
   "changes": [
-    "Los episodios de anime ahora abren directamente en pantalla completa horizontal",
-    "El reproductor se ajusta al tamaño real de la pantalla y ya no conserva el lienzo vertical gigante",
-    "Al salir del episodio se recuperan la orientación y las barras normales de Android"
+    "La app ahora usa el dominio oficial www.mangatotal.com",
+    "Las actualizaciones se verifican antes de abrir el instalador",
+    "Mayor protección del inicio de sesión y de las fuentes externas"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

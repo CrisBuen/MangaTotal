@@ -11,6 +11,8 @@ export interface AndroidRelease {
   versionName: string;
   date: string;
   apkUrl: string;
+  /** Huella publicada para verificar manualmente el APK descargado. */
+  sha256?: string;
   /** Copia en otro dominio: el WebView de la app no descarga del propio sitio. */
   apkExternalUrl?: string;
   sizeMb: number;

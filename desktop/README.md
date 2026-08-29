@@ -39,7 +39,7 @@ las siguientes son mucho más rápidas.
 El instalador queda en:
 
 ```
-desktop\src-tauri\target\release\bundle\nsis\MangaTotal_0.1.0_x64-setup.exe
+desktop\src-tauri\target\release\bundle\nsis\MangaTotal_1.4.0_x64-setup.exe
 ```
 
 Ese `.exe` es el que se instala y se puede compartir.
