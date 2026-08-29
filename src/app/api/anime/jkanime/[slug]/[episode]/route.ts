@@ -22,12 +22,42 @@ export async function GET(
 
   const { slug, episode } = await context.params;
   const source = req.nextUrl.searchParams.get("source")?.slice(0, 80) ?? null;
+  const pideManifest = req.nextUrl.searchParams.get("format") === "manifest";
   try {
     if (!(user.showAdultContent || user.isAdmin) && (await esAdultoJkanime(slug))) {
       return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
     }
     const reproduccion = await reproduccionJkanime(slug, episode, source);
-    return NextResponse.json(reproduccion, {
+    if (pideManifest) {
+      if (reproduccion.playback.kind !== "hls") {
+        return NextResponse.json(
+          { error: "Esta fuente no entrega video HLS" },
+          { status: 409 }
+        );
+      }
+      return new NextResponse(reproduccion.playback.manifest, {
+        headers: {
+          "Content-Type": "application/vnd.apple.mpegurl; charset=utf-8",
+          "Cache-Control": "private, no-store, max-age=0",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
+
+    const respuesta =
+      reproduccion.playback.kind === "hls"
+        ? {
+            ...reproduccion,
+            playback: {
+              kind: "hls" as const,
+              url: `${req.nextUrl.pathname}?${new URLSearchParams({
+                source: reproduccion.selected_source,
+                format: "manifest",
+              })}`,
+            },
+          }
+        : reproduccion;
+    return NextResponse.json(respuesta, {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
       },

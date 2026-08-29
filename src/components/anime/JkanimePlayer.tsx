@@ -28,7 +28,7 @@ interface Reproduccion {
   sources: Fuente[];
   selected_source: string;
   playback:
-    | { kind: "hls"; manifest: string }
+    | { kind: "hls"; url: string }
     | { kind: "embed"; url: string };
 }
 
@@ -161,11 +161,21 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
     video.load();
     setMediaReady(false);
     setPlaying(false);
-    const manifestUrl = URL.createObjectURL(
-      new Blob([data.playback.manifest], { type: "application/vnd.apple.mpegurl" })
-    );
+    let espera: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      setError(
+        "El reproductor no pudo abrir el manifiesto en 20 segundos. Código: hls-timeout."
+      );
+      setControlsVisible(true);
+    }, 20_000);
+
+    const terminarEspera = () => {
+      if (!espera) return;
+      clearTimeout(espera);
+      espera = null;
+    };
 
     const iniciar = () => {
+      terminarEspera();
       if (startPosition > 0 && Number.isFinite(video.duration)) {
         video.currentTime = Math.min(startPosition, Math.max(0, video.duration - 1));
       }
@@ -174,41 +184,52 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       setMediaReady(true);
       void video.play().catch(() => setControlsVisible(true));
     };
+    const errorNativo = () => {
+      terminarEspera();
+      setError("El dispositivo rechazó el video HLS. Código: media-error.");
+      setControlsVisible(true);
+    };
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = manifestUrl;
+      video.src = data.playback.url;
       video.addEventListener("loadedmetadata", iniciar, { once: true });
+      video.addEventListener("error", errorNativo, { once: true });
     } else if (Hls.isSupported()) {
       const hls = new Hls({
-        // Los WebView de Tauri y Capacitor no comparten de forma uniforme las
-        // URLs blob con un worker. El manifiesto es pequeño y se procesa acá.
+        // Se mantiene sin worker para que Tauri y Capacitor usen el mismo
+        // contexto autenticado al pedir el manifiesto a MangaTotal.
         enableWorker: false,
         lowLatencyMode: false,
         manifestLoadingTimeOut: 15_000,
         manifestLoadingMaxRetry: 1,
       });
       hlsRef.current = hls;
-      hls.loadSource(manifestUrl);
-      hls.attachMedia(video);
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(data.playback.url));
       hls.on(Hls.Events.MANIFEST_PARSED, iniciar);
       hls.on(Hls.Events.ERROR, (_event, details) => {
         if (details.fatal) {
-          setError("Esta fuente dejó de responder. Probá recargarla o elegí otra.");
+          terminarEspera();
+          setError(
+            `Esta fuente dejó de responder. Código: ${details.details || details.type}.`
+          );
           setControlsVisible(true);
         }
       });
+      hls.attachMedia(video);
     } else {
+      terminarEspera();
       setError("Este dispositivo no admite reproducción HLS.");
     }
 
     return () => {
+      terminarEspera();
       video.removeEventListener("loadedmetadata", iniciar);
+      video.removeEventListener("error", errorNativo);
       hlsRef.current?.destroy();
       hlsRef.current = null;
       video.pause();
       video.removeAttribute("src");
       video.load();
-      URL.revokeObjectURL(manifestUrl);
     };
   }, [data, startPosition]);
 
