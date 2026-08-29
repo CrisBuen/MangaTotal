@@ -129,3 +129,21 @@ textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
 }
+
+/*
+ * Respaldo para versiones Android anteriores al puente de orientación.
+ * El APK nuevo rota la Activity de verdad; mientras Android completa ese
+ * cambio (o si screen.orientation lo rechaza), el reproductor ya ocupa un
+ * lienzo horizontal exacto y no conserva el alto gigante del modo retrato.
+ */
+@media (orientation: portrait) {
+  .android-anime-horizontal {
+    inset: auto !important;
+    top: 0 !important;
+    left: 100dvw !important;
+    width: 100dvh !important;
+    height: 100dvw !important;
+    transform: rotate(90deg);
+    transform-origin: top left;
+  }
+}

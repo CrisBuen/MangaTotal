@@ -164,3 +164,9 @@ SI CAMBIA EL DOMINIO O EL HTML
 Última comprobación técnica: directorio, episodios, Desu, Magi y un wrapper
 alternativo respondieron. El manifiesto y un segmento HLS devolvieron 200 y
 Access-Control-Allow-Origin: *.
+
+En Android, cualquier reproductor animado entra mediante
+activarReproductorHorizontalAndroid(): oculta las barras y fuerza paisaje
+desde PantallaPlugin. Al salir restaura la orientación anterior. El CSS
+android-anime-horizontal queda como respaldo para APK viejos y para el breve
+instante mientras Android recalcula el viewport.

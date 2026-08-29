@@ -1,14 +1,13 @@
 {
-  "versionCode": 11,
-  "versionName": "1.8.1",
-  "date": "2026-08-28",
+  "versionCode": 12,
+  "versionName": "1.8.2",
+  "date": "2026-08-29",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sizeMb": 4.7,
+  "sizeMb": 3.3,
   "changes": [
-    "La barra y el engranaje ahora arrancan ocultos: aparecen al tocar y se van al volver a tocar",
-    "Pantalla completa esconde también la barra de estado del teléfono",
-    "El modo de lectura vive en el engranaje de abajo, al alcance del pulgar",
-    "El gesto de atrás vuelve a donde estabas y no al capítulo anterior"
+    "Los episodios de anime ahora abren directamente en pantalla completa horizontal",
+    "El reproductor se ajusta al tamaño real de la pantalla y ya no conserva el lienzo vertical gigante",
+    "Al salir del episodio se recuperan la orientación y las barras normales de Android"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

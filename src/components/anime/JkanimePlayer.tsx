@@ -4,8 +4,11 @@ import Hls from "hls.js";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  activarReproductorHorizontalAndroid,
   activarPantallaCompleta,
+  enAppAndroid,
   pantallaCompletaEsTotal,
+  salirReproductorHorizontalAndroid,
   salirPantallaCompleta,
 } from "@/lib/pantalla";
 
@@ -69,6 +72,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [androidPlayer, setAndroidPlayer] = useState(false);
 
   const guardarProgreso = useCallback((position: number, total: number) => {
     const info = dataRef.current;
@@ -238,9 +242,12 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
 
   useEffect(() => {
     const nativa = pantallaCompletaEsTotal();
+    const android = enAppAndroid();
     setNativeFullscreen(nativa);
+    setAndroidPlayer(android);
     if (nativa) {
-      void activarPantallaCompleta();
+      if (android) void activarReproductorHorizontalAndroid();
+      else void activarPantallaCompleta();
       setIsFullscreen(true);
     } else {
       setIsFullscreen(Boolean(document.fullscreenElement));
@@ -253,7 +260,8 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
     return () => {
       document.removeEventListener("fullscreenchange", cambio);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      void salirPantallaCompleta();
+      if (android) void salirReproductorHorizontalAndroid();
+      else void salirPantallaCompleta();
     };
   }, []);
 
@@ -327,7 +335,10 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
   };
 
   const alternarFullscreen = async () => {
-    if (isFullscreen) await salirPantallaCompleta();
+    if (androidPlayer) {
+      if (isFullscreen) await salirReproductorHorizontalAndroid();
+      else await activarReproductorHorizontalAndroid();
+    } else if (isFullscreen) await salirPantallaCompleta();
     else await activarPantallaCompleta();
     if (nativeFullscreen) setIsFullscreen((value) => !value);
     mostrarControles();
@@ -335,7 +346,8 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
 
   const volver = async () => {
     guardarProgreso(currentRef.current, durationRef.current);
-    await salirPantallaCompleta();
+    if (androidPlayer) await salirReproductorHorizontalAndroid();
+    else await salirPantallaCompleta();
     router.push(`/explorar/jkanime/${slug}`);
   };
 
@@ -343,7 +355,9 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
 
   return (
     <div
-      className="fixed inset-0 z-[100] overflow-hidden bg-black text-white"
+      className={`fixed inset-0 z-[100] h-[100dvh] w-[100dvw] overflow-hidden bg-black text-white ${
+        androidPlayer ? "android-anime-horizontal" : ""
+      }`}
       onPointerMove={mostrarControles}
       data-od-id="jkanime-native-player"
     >

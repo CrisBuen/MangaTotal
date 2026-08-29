@@ -1,5 +1,6 @@
 package app.mangatotal.android;
 
+import android.content.pm.ActivityInfo;
 import android.view.View;
 import android.view.Window;
 
@@ -29,12 +30,45 @@ public class PantallaPlugin extends Plugin {
 
     /** Si la lectura estaba en pantalla completa cuando se dejó la app. */
     private boolean inmersivaActiva = false;
+    /** Solo los reproductores de video fuerzan paisaje. */
+    private boolean horizontalActiva = false;
+    private int orientacionAnterior = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 
     @PluginMethod
     public void inmersiva(PluginCall call) {
         inmersivaActiva = Boolean.TRUE.equals(call.getBoolean("activa", false));
         aplicar(inmersivaActiva);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void orientacion(PluginCall call) {
+        boolean horizontal = Boolean.TRUE.equals(call.getBoolean("horizontal", false));
+        if (horizontal && !horizontalActiva) {
+            orientacionAnterior = getActivity().getRequestedOrientation();
+        }
+        horizontalActiva = horizontal;
+        aplicarOrientacion(horizontal);
+        call.resolve();
+    }
+
+    private void aplicarOrientacion(boolean horizontal) {
+        getActivity().runOnUiThread(() -> {
+            getActivity().setRequestedOrientation(
+                horizontal
+                    ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    : orientacionAnterior
+            );
+
+            // El cambio de orientación puede hacer reaparecer las barras.
+            // Se vuelve a aplicar el modo inmersivo cuando el nuevo viewport
+            // ya quedó medido, sin recrear el WebView.
+            if (horizontal) {
+                getActivity().getWindow().getDecorView().postDelayed(() -> {
+                    if (horizontalActiva && inmersivaActiva) aplicar(true);
+                }, 350);
+            }
+        });
     }
 
     private void aplicar(boolean activa) {
@@ -66,6 +100,7 @@ public class PantallaPlugin extends Plugin {
     @Override
     protected void handleOnResume() {
         super.handleOnResume();
+        if (horizontalActiva) aplicarOrientacion(true);
         if (inmersivaActiva) aplicar(true);
     }
 }

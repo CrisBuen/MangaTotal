@@ -11,6 +11,7 @@
 
 interface PluginPantalla {
   inmersiva(opciones: { activa: boolean }): Promise<void>;
+  orientacion?(opciones: { horizontal: boolean }): Promise<void>;
 }
 
 interface CapacitorGlobal {
@@ -87,4 +88,53 @@ export async function salirPantallaCompleta(): Promise<void> {
     return;
   }
   if (document.fullscreenElement) await document.exitFullscreen?.().catch(() => {});
+}
+
+interface OrientacionNavegador {
+  lock?: (orientacion: "landscape") => Promise<void>;
+  unlock?: () => void;
+}
+
+async function orientarConNavegador(horizontal: boolean): Promise<void> {
+  if (typeof screen === "undefined") return;
+  const orientacion = screen.orientation as OrientacionNavegador | undefined;
+  if (horizontal) {
+    await orientacion?.lock?.("landscape").catch(() => {});
+  } else {
+    orientacion?.unlock?.();
+  }
+}
+
+/**
+ * Modo de reproducción de video en Android.
+ *
+ * A diferencia de la lectura, el video además fuerza paisaje. Queda separado
+ * para que cualquier proveedor animado futuro reutilice exactamente la misma
+ * entrada y salida sin acoplarse a JKAnime.
+ */
+export async function activarReproductorHorizontalAndroid(): Promise<void> {
+  const nativo = pluginPantalla();
+  if (nativo) {
+    await nativo.inmersiva({ activa: true }).catch(() => {});
+    const orientada = nativo.orientacion
+      ? await nativo.orientacion({ horizontal: true }).then(() => true).catch(() => false)
+      : false;
+    if (!orientada) await orientarConNavegador(true);
+    return;
+  }
+
+  await activarPantallaCompleta();
+  await orientarConNavegador(true);
+}
+
+/** Devuelve orientación y barras al estado normal al abandonar el episodio. */
+export async function salirReproductorHorizontalAndroid(): Promise<void> {
+  const nativo = pluginPantalla();
+  if (nativo) {
+    await nativo.orientacion?.({ horizontal: false }).catch(() => {});
+    await nativo.inmersiva({ activa: false }).catch(() => {});
+  } else {
+    await orientarConNavegador(false);
+    await salirPantallaCompleta();
+  }
 }
