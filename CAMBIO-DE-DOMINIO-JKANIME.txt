@@ -26,15 +26,19 @@ QUÉ HACE MANGATOTAL
 
 4. Desu y Magi pasan por los endpoints /jkplayer/um y /jkplayer/umv de
    JKAnime. Esos endpoints entregan un manifiesto HLS firmado y temporal.
-   MangaTotal lo reproduce con su propio <video> + hls.js, lo que permite
+   La API consume esa firma inmediatamente, vuelve absolutas las direcciones
+   del manifiesto y lo entrega en memoria al reproductor. Esto es necesario
+   porque la firma nace en Vercel y deja de responder si se abre después desde
+   la IP del PC o del celular. Los segmentos siguen viajando directamente del
+   CDN al usuario: MangaTotal no retransmite video. El <video> + hls.js permite
    pausa, seek, pantalla completa y recordar el segundo exacto.
 5. Las demás fuentes aparecen en la misma barra nativa, pero conservan el
    wrapper oficial /jkplayer/c1 de JKAnime dentro de un iframe aislado. El
    sandbox no permite popups ni sacar al usuario de MangaTotal.
 
-Las URLs HLS solo viven en la respuesta de la API y en la memoria del
-reproductor mientras se mira el episodio. No se guardan, no se descargan, no
-se cachean y MangaTotal no sirve segmentos de video.
+El manifiesto HLS solo vive en la respuesta de la API y en la memoria del
+reproductor mientras se mira el episodio. No se guarda ni se cachea. MangaTotal
+no descarga, retransmite ni sirve los segmentos de video.
 
 
 QUÉ NO HAY QUE HACER

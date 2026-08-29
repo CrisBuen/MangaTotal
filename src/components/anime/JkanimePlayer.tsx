@@ -27,7 +27,9 @@ interface Reproduccion {
   poster_url: string | null;
   sources: Fuente[];
   selected_source: string;
-  playback: { kind: "hls" | "embed"; url: string };
+  playback:
+    | { kind: "hls"; manifest: string }
+    | { kind: "embed"; url: string };
 }
 
 const OCULTAR_CONTROLES_MS = 3500;
@@ -159,6 +161,9 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
     video.load();
     setMediaReady(false);
     setPlaying(false);
+    const manifestUrl = URL.createObjectURL(
+      new Blob([data.playback.manifest], { type: "application/vnd.apple.mpegurl" })
+    );
 
     const iniciar = () => {
       if (startPosition > 0 && Number.isFinite(video.duration)) {
@@ -171,15 +176,19 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
     };
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = data.playback.url;
+      video.src = manifestUrl;
       video.addEventListener("loadedmetadata", iniciar, { once: true });
     } else if (Hls.isSupported()) {
       const hls = new Hls({
-        enableWorker: true,
+        // Los WebView de Tauri y Capacitor no comparten de forma uniforme las
+        // URLs blob con un worker. El manifiesto es pequeño y se procesa acá.
+        enableWorker: false,
         lowLatencyMode: false,
+        manifestLoadingTimeOut: 15_000,
+        manifestLoadingMaxRetry: 1,
       });
       hlsRef.current = hls;
-      hls.loadSource(data.playback.url);
+      hls.loadSource(manifestUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, iniciar);
       hls.on(Hls.Events.ERROR, (_event, details) => {
@@ -199,6 +208,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       video.pause();
       video.removeAttribute("src");
       video.load();
+      URL.revokeObjectURL(manifestUrl);
     };
   }, [data, startPosition]);
 

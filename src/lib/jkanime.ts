@@ -74,10 +74,9 @@ export interface ReproduccionJkanime {
   poster_url: string | null;
   sources: FuenteEpisodioJkanime[];
   selected_source: string;
-  playback: {
-    kind: "hls" | "embed";
-    url: string;
-  };
+  playback:
+    | { kind: "hls"; manifest: string }
+    | { kind: "embed"; url: string };
   url_original: string;
 }
 
@@ -578,6 +577,91 @@ function fuentesDeEpisodio(html: string): FuenteInterna[] {
   return fuentes;
 }
 
+function absolutizarManifest(manifest: string, base: URL): string {
+  return manifest
+    .split(/\r?\n/)
+    .map((linea) => {
+      const limpia = linea.trim();
+      if (!limpia) return linea;
+
+      if (limpia.startsWith("#")) {
+        // Claves, audio y subtítulos pueden traer su dirección dentro de URI="...".
+        return linea.replace(/URI=(["'])([^"']+)\1/gi, (_match, comilla: string, uri: string) => {
+          try {
+            return `URI=${comilla}${new URL(uri, base).toString()}${comilla}`;
+          } catch {
+            return _match;
+          }
+        });
+      }
+
+      try {
+        return new URL(limpia, base).toString();
+      } catch {
+        return linea;
+      }
+    })
+    .join("\n");
+}
+
+async function pedirManifestHls(url: URL, referer: string, profundidad = 0): Promise<string> {
+  if (profundidad > 2) {
+    throw new ErrorJkanime("JKAnime devolvió demasiados manifiestos HLS encadenados");
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: {
+        "User-Agent": UA,
+        Accept: "application/vnd.apple.mpegurl,application/x-mpegURL,text/plain,*/*",
+        Referer: referer,
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new ErrorJkanime("No se pudo abrir el video HLS de JKAnime");
+  }
+  if (!res.ok) throw new ErrorJkanime(`El video HLS de JKAnime respondió ${res.status}`);
+
+  const largo = Number(res.headers.get("content-length"));
+  if (Number.isFinite(largo) && largo > 2_000_000) {
+    throw new ErrorJkanime("JKAnime devolvió un manifiesto HLS demasiado grande");
+  }
+  const manifest = await res.text();
+  if (manifest.length > 2_000_000 || !manifest.trimStart().startsWith("#EXTM3U")) {
+    throw new ErrorJkanime("JKAnime devolvió un manifiesto HLS inválido");
+  }
+
+  // Algunos reproductores entregan primero un manifiesto maestro. Elegimos la
+  // variante de mayor ancho de banda mientras todavía estamos en el mismo
+  // servidor que recibió la firma temporal; el dispositivo nunca ve esa firma.
+  if (manifest.includes("#EXT-X-STREAM-INF") && !manifest.includes("#EXTINF")) {
+    const lineas = manifest.split(/\r?\n/);
+    const variantes: Array<{ ancho: number; url: URL }> = [];
+    for (let i = 0; i < lineas.length; i += 1) {
+      const info = lineas[i].trim();
+      if (!info.startsWith("#EXT-X-STREAM-INF")) continue;
+      const ancho = Number(/BANDWIDTH=(\d+)/i.exec(info)?.[1] ?? 0);
+      const siguiente = lineas.slice(i + 1).find((linea) => {
+        const valor = linea.trim();
+        return valor.length > 0 && !valor.startsWith("#");
+      });
+      if (!siguiente) continue;
+      try {
+        variantes.push({ ancho, url: new URL(siguiente.trim(), url) });
+      } catch {
+        // Una variante rota no invalida las otras.
+      }
+    }
+    const mejor = variantes.sort((a, b) => b.ancho - a.ancho)[0];
+    if (!mejor) throw new ErrorJkanime("JKAnime no entregó una variante HLS válida");
+    return pedirManifestHls(mejor.url, url.toString(), profundidad + 1);
+  }
+
+  return absolutizarManifest(manifest, url);
+}
+
 async function hlsDePlayer(playerUrl: string, referer: string): Promise<string> {
   let url: URL;
   try {
@@ -612,7 +696,7 @@ async function hlsDePlayer(playerUrl: string, referer: string): Promise<string> 
   try {
     const salida = new URL(hls);
     if (salida.protocol !== "https:") throw new Error();
-    return salida.toString();
+    return pedirManifestHls(salida, url.toString());
   } catch {
     throw new ErrorJkanime("JKAnime no entregó video HLS para esta fuente");
   }
@@ -646,7 +730,7 @@ export async function reproduccionJkanime(
     if (fuente.kind === "hls" && fuente.playerUrl) {
       return {
         kind: "hls",
-        url: await hlsDePlayer(fuente.playerUrl, urlOriginal),
+        manifest: await hlsDePlayer(fuente.playerUrl, urlOriginal),
       };
     }
     if (fuente.kind === "embed" && fuente.remote && fuente.server) {
