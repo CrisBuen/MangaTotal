@@ -88,7 +88,13 @@ Todas aceptan `?fresco=1` para saltar la caché: es lo que usa el botón
 | `GET /api/anime` · `[id]` | Buscar y ver fichas (AniList) |
 | `GET/POST/DELETE /api/anime/lista` | Lo que sigue el usuario |
 | `GET /api/anime/novedades` | Cuántos episodios le faltan ver |
+| `GET /api/anime/jkanime` | Directorio, búsqueda y filtros de JKAnime |
+| `GET /api/anime/jkanime/[slug]` | Ficha y una página de episodios |
 | `GET /api/aleatorio` | Una serie al azar de cualquier fuente |
+
+Todas las rutas `/api/anime/*` exigen sesión y `animeEnabled`. Las de JKAnime
+no devuelven servidores de video: el reproductor se abre con la URL oficial
+del episodio.
 
 `/api/aleatorio` sortea la fuente y después la serie. Si una falla, prueba la
 siguiente: la ruleta no se traba nunca. Acepta `?evitar=` para no repetir.

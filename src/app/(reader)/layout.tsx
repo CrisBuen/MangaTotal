@@ -11,7 +11,12 @@ export default async function ReaderLayout({ children }: { children: React.React
       <AppHeader
         user={
           user
-            ? { nickname: user.nickname, avatarPath: user.avatarPath, isAdmin: user.isAdmin }
+            ? {
+                nickname: user.nickname,
+                avatarPath: user.avatarPath,
+                isAdmin: user.isAdmin,
+                animeEnabled: user.animeEnabled,
+              }
             : null
         }
       />
@@ -31,7 +36,7 @@ export default async function ReaderLayout({ children }: { children: React.React
       >
         {children}
       </main>
-      <MobileNav />
+      <MobileNav animeEnabled={Boolean(user?.animeEnabled)} />
     </div>
   );
 }

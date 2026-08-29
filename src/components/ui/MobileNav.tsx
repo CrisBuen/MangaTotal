@@ -41,8 +41,9 @@ const ITEMS = [
   },
 ];
 
-export function MobileNav() {
+export function MobileNav({ animeEnabled }: { animeEnabled: boolean }) {
   const pathname = usePathname();
+  const items = ITEMS.filter((item) => item.href !== "/anime" || animeEnabled);
 
   return (
     <nav
@@ -52,7 +53,7 @@ export function MobileNav() {
       data-od-id="mobile-nav"
     >
       <ul className="mx-auto flex max-w-md items-stretch">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <li key={item.href} className="flex-1">

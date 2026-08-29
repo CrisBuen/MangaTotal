@@ -14,6 +14,7 @@ model User {
   birthdate            DateTime?
   isAdmin              Boolean           @default(false) @map("is_admin")
   showAdultContent     Boolean           @default(false) @map("show_adult_content")
+  animeEnabled         Boolean           @default(false) @map("anime_enabled")
   preferredReadingMode String            @default("cascade") @map("preferred_reading_mode")
   avatarPath           String?           @map("avatar_path")
   createdAt            DateTime          @default(now()) @map("created_at")

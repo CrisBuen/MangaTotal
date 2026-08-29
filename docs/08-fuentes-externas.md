@@ -6,7 +6,7 @@ antes de tocar cualquier cosa bajo `src/lib/<fuente>.ts`,
 
 ## 8.1 Lo primero: el permiso
 
-**Las seis fuentes están integradas con permiso por escrito de cada sitio.**
+**Las fuentes están integradas con permiso de cada sitio.**
 Eso es lo que hace legítimo el proyecto y lo que permite publicarlo en Play
 Store.
 
@@ -21,7 +21,7 @@ De ahí salen tres reglas que no se negocian:
 El permiso cubre el sitio de cada uno, no las traducciones de terceros que
 republiquen.
 
-## 8.2 Las seis
+## 8.2 Las siete
 
 | Fuente | Dominio | Cómo se lee | Estado |
 |---|---|---|---|
@@ -31,6 +31,7 @@ republiquen.
 | **Ikigai** | `visorikigai.gettocaboca.com` | **Puente nativo**: bloquea servidores | ✅ solo apps |
 | **Catharsis World** | `newcatharsis.dig-it.info` | Su almacén Directus, desde el servidor | ✅ |
 | **LeerCapítulo** | `www.leercapitulo.co` | HTML + código propio, desde el servidor | ✅ |
+| **JKAnime** | `jkanime.net` | Directorio/episodios por servidor; reproductor oficial incrustado | ✅ |
 
 ## 8.3 El contrato: qué expone cada fuente
 
@@ -146,6 +147,17 @@ investigación: acertaba 1 de cada 6 capítulos y costaba hasta 15 segundos.
 No lo borres ni lo vuelvas a conectar.
 
 Todo el detalle en `CAMBIO-DE-DOMINIO-LEERCAPITULO.txt`.
+
+### JKAnime — no convertirla en un extractor
+
+Es una fuente animada y por eso su contrato es distinto. `src/lib/jkanime.ts`
+lee el directorio, la ficha y la lista paginada de episodios. Al tocar uno,
+MangaTotal incrusta `https://jkanime.net/<slug>/<episodio>/`.
+
+**Nunca sacar del HTML las URLs de Desu, Magi ni los demás servidores.**
+Esas direcciones cambian, pueden ser temporales y no son el acuerdo de
+integración. La página oficial conserva el reproductor, la selección de
+fuentes y sus decisiones. Detalle en `CAMBIO-DE-DOMINIO-JKANIME.txt`.
 
 ## 8.6 Agregar una fuente nueva: la lista
 

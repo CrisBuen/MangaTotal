@@ -31,6 +31,10 @@ const QUERY = `
 /** GET /api/anime/:id — ficha completa de un anime. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  if (!user.animeEnabled) {
+    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  }
   const { id: raw } = await ctx.params;
   const id = parseInt(raw, 10);
   if (!Number.isInteger(id) || id <= 0) {
@@ -41,7 +45,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const data = await aniFetch<{ Media: AniMedia }>(QUERY, { id }, 600);
     if (!data.Media) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-    if (data.Media.isAdult && !(user?.showAdultContent || user?.isAdmin)) {
+    if (data.Media.isAdult && !(user.showAdultContent || user.isAdmin)) {
       return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
     }
 

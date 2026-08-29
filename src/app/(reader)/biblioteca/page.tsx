@@ -20,6 +20,7 @@ interface ContinueItem {
 interface Me {
   nickname?: string;
   show_adult_content?: boolean;
+  anime_enabled?: boolean;
 }
 
 interface SerieGuardada {
@@ -77,7 +78,11 @@ export default function BibliotecaPage() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setMe(d ?? {}))
+      .then((d) => {
+        const actual = d ?? {};
+        setMe(actual);
+        if (!actual.anime_enabled) setSeccion("lectura");
+      })
       .catch(() => setMe({}));
     fetch("/api/progress/continue")
       .then((r) => r.json())
@@ -203,7 +208,9 @@ export default function BibliotecaPage() {
       <div className="flex gap-1" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
-          { key: "animadas", label: "Series animadas" },
+          ...(me?.anime_enabled
+            ? [{ key: "animadas" as const, label: "Series animadas" }]
+            : []),
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -221,7 +228,7 @@ export default function BibliotecaPage() {
         ))}
       </div>
 
-      {seccion === "animadas" ? (
+      {seccion === "animadas" && me?.anime_enabled ? (
         <SeccionAnimadas busqueda={search} />
       ) : (
        <>

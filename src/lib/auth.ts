@@ -59,6 +59,7 @@ export function publicUser(user: {
   birthdate: Date | null;
   isAdmin: boolean;
   showAdultContent: boolean;
+  animeEnabled: boolean;
   preferredReadingMode: string;
   avatarPath: string | null;
   createdAt: Date;
@@ -69,6 +70,7 @@ export function publicUser(user: {
     birthdate: user.birthdate,
     is_admin: user.isAdmin,
     show_adult_content: user.showAdultContent,
+    anime_enabled: user.animeEnabled,
     preferred_reading_mode: user.preferredReadingMode,
     avatar_path: user.avatarPath,
     created_at: user.createdAt,

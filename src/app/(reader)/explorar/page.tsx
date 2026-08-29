@@ -105,6 +105,7 @@ export default function ExplorarPage() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [fuente, setFuente] = useState("mangadex");
+  const [animeHabilitado, setAnimeHabilitado] = useState(false);
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
   const [olympusLastPage, setOlympusLastPage] = useState(1);
@@ -221,6 +222,15 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     setIkigaiHay(ikigaiDisponible());
+  }, []);
+
+  useEffect(() => {
+    // La tarjeta animada es personal: no aparece para visitantes ni para
+    // cuentas que todavía no activaron Anime en Seguridad y privacidad.
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((me) => setAnimeHabilitado(Boolean(me?.anime_enabled)))
+      .catch(() => setAnimeHabilitado(false));
   }, []);
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
@@ -526,6 +536,36 @@ export default function ExplorarPage() {
         title="Explorar"
         description="Series publicadas por grupos de scanlation en MangaDex. Se leen acá mismo, con tu progreso guardado."
       />
+
+      <div className={`grid gap-3 ${animeHabilitado ? "sm:grid-cols-2" : ""}`}>
+        <div className="rounded-2xl border border-accent bg-[var(--accent-soft)] p-5 shadow-[var(--glow)]">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-accent">
+            Sección activa
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
+            Sección de lectura
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-subtle">
+            Manga, manhwa y manhua de las fuentes integradas.
+          </p>
+        </div>
+        {animeHabilitado && (
+          <Link
+            href="/anime"
+            className="group rounded-2xl border border-line bg-panel p-5 transition hover:-translate-y-0.5 hover:border-accent hover:shadow-[var(--glow)]"
+          >
+            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-subtle transition group-hover:text-accent">
+              JKAnime
+            </p>
+            <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
+              Sección animada
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-subtle">
+              Catálogo, episodios y reproductor oficial de la fuente.
+            </p>
+          </Link>
+        )}
+      </div>
 
       {/* fuente: cada grupo publica su propio catálogo */}
       <div className="flex flex-wrap items-center gap-2">

@@ -66,10 +66,16 @@ Si una fuente está caída prueba con la siguiente, así que nunca se traba.
 
 ## 5.6 Anime
 
-Buscar en AniList, agregar a la lista, llevar la cuenta de episodios vistos.
-**No se reproduce video**: cada ficha lleva a las plataformas con licencia.
-Esto no es una limitación técnica sino una decisión — ver
-[`01`](01-overview.md).
+Viene oculta. La persona la activa en **Ajustes → Seguridad y privacidad**;
+recién entonces aparece en las barras y como **Sección animada** en Explorar.
+
+JKAnime es la fuente predeterminada: directorio, filtros, ficha y episodios.
+Al tocar un episodio se incrusta su página oficial completa, de modo que
+JKAnime sigue controlando el reproductor, Desu y las fuentes alternativas.
+MangaTotal no extrae ni guarda enlaces de video.
+
+AniList queda como fuente de información y seguimiento: agregar a Mi lista,
+llevar episodios vistos y abrir plataformas oficiales.
 
 ## 5.7 Administración
 

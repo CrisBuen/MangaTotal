@@ -36,8 +36,9 @@ estos documentos.
 - **Progreso unificado**: en qué capítulo y en qué página vas, sea la serie
   propia o externa.
 - **Historial**: las series que abriste a leer y no llegaste a guardar.
-- **Anime**: seguimiento de series animadas vía AniList. **No se reproduce
-  video**: cada ficha lleva a las plataformas con licencia.
+- **Anime**: catálogo y episodios de JKAnime, con su página oficial de
+  reproducción dentro de MangaTotal. AniList se conserva para seguimiento y
+  enlaces a plataformas oficiales. La sección viene apagada por cuenta.
 - **Aleatorio**: una ruleta que sortea entre todas las fuentes.
 
 ## 1.4 Qué NO hace, a propósito

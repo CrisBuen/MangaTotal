@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
@@ -9,6 +10,7 @@ import { SectionHeading, Surface } from "@/components/ui/Surface";
 interface Me {
   nickname?: string;
   show_adult_content?: boolean;
+  anime_enabled?: boolean;
 }
 
 /**
@@ -19,8 +21,10 @@ interface Me {
  * en Seguridad y privacidad, y viene apagado.
  */
 export default function AjustesPage() {
+  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [guardado, setGuardado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -30,16 +34,41 @@ export default function AjustesPage() {
   }, []);
 
   async function cambiarAdulto(valor: boolean) {
+    setError(null);
     const res = await fetch("/api/auth/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ show_adult_content: valor }),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error ?? "No se pudo guardar el ajuste");
+      return;
+    }
     const data = await res.json();
     setMe((m) => (m ? { ...m, show_adult_content: data.user.show_adult_content } : m));
     setGuardado(true);
     setTimeout(() => setGuardado(false), 1500);
+  }
+
+  async function cambiarAnime(valor: boolean) {
+    setError(null);
+    const res = await fetch("/api/auth/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anime_enabled: valor }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error ?? "No se pudo guardar el ajuste");
+      return;
+    }
+    const data = await res.json();
+    setMe((m) => (m ? { ...m, anime_enabled: data.user.anime_enabled } : m));
+    setGuardado(true);
+    setTimeout(() => setGuardado(false), 1500);
+    // El encabezado y la barra móvil se dibujan en el servidor.
+    router.refresh();
   }
 
   const conSesion = Boolean(me?.nickname);
@@ -95,6 +124,34 @@ export default function AjustesPage() {
                 />
               </button>
             </div>
+            <div className="flex items-center justify-between gap-6 border-t border-line pt-6">
+              <div>
+                <p className="text-sm font-bold text-ink">Activar sección Anime</p>
+                <p className="mt-1 text-xs leading-5 text-subtle">
+                  Viene apagada. Al encenderla aparece Anime en la navegación y la sección
+                  animada dentro de Explorar.
+                </p>
+              </div>
+              <button
+                onClick={() => cambiarAnime(!me?.anime_enabled)}
+                className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
+                  me?.anime_enabled ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
+                }`}
+                aria-pressed={Boolean(me?.anime_enabled)}
+                aria-label="Activar sección Anime"
+              >
+                <span
+                  className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
+                    me?.anime_enabled ? "translate-x-6" : ""
+                  }`}
+                />
+              </button>
+            </div>
+            {error && (
+              <p role="alert" className="text-sm text-red-400">
+                {error}
+              </p>
+            )}
             {guardado && <Badge tone="success">Guardado</Badge>}
           </Surface>
         )}

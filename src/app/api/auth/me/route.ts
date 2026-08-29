@@ -12,27 +12,36 @@ export async function GET() {
     nickname: user.nickname,
     is_admin: user.isAdmin,
     show_adult_content: user.showAdultContent,
+    anime_enabled: user.animeEnabled,
     preferred_reading_mode: user.preferredReadingMode,
     avatar_path: user.avatarPath,
     birthdate: user.birthdate,
   });
 }
 
-/** Preferencias propias: show_adult_content y preferred_reading_mode. */
+/** Preferencias propias: contenido adulto, anime y modo de lectura. */
 export async function PATCH(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
   }
 
-  let body: { show_adult_content?: boolean; preferred_reading_mode?: string };
+  let body: {
+    show_adult_content?: boolean;
+    anime_enabled?: boolean;
+    preferred_reading_mode?: string;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 });
   }
 
-  const data: { showAdultContent?: boolean; preferredReadingMode?: string } = {};
+  const data: {
+    showAdultContent?: boolean;
+    animeEnabled?: boolean;
+    preferredReadingMode?: string;
+  } = {};
   if (typeof body.show_adult_content === "boolean") {
     // encenderla exige fecha de nacimiento cargada y 18 años cumplidos
     if (body.show_adult_content) {
@@ -51,6 +60,10 @@ export async function PATCH(req: NextRequest) {
       }
     }
     data.showAdultContent = body.show_adult_content;
+  }
+  if (typeof body.anime_enabled === "boolean") {
+    // Es distinto del filtro +18: habilita la sección animada completa.
+    data.animeEnabled = body.anime_enabled;
   }
   if (body.preferred_reading_mode !== undefined) {
     if (!["cascade", "rtl"].includes(body.preferred_reading_mode)) {

@@ -31,6 +31,9 @@ function publicEntry(e: {
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  if (!user.animeEnabled) {
+    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  }
 
   const status = req.nextUrl.searchParams.get("status");
   const entries = await db.animeEntry.findMany({
@@ -52,6 +55,9 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  if (!user.animeEnabled) {
+    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  }
 
   let body: {
     anilist_id?: number;
@@ -117,6 +123,9 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  if (!user.animeEnabled) {
+    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  }
 
   const anilistId = parseInt(req.nextUrl.searchParams.get("anilist_id") ?? "", 10);
   if (!Number.isInteger(anilistId)) {

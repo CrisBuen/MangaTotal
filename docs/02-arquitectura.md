@@ -23,7 +23,7 @@ src/
       explorar/        catálogo de las fuentes externas (una pestaña c/u)
       externo/         fichas de series externas, una carpeta por fuente
       serie/           ficha de una serie propia
-      anime/           seguimiento vía AniList
+      anime/           JKAnime (reproducción oficial) + seguimiento vía AniList
       aleatorio/       la ruleta
       perfil/          cuenta, preferencias y ajustes de fuentes
     (admin)/           subir capítulos, usuarios, noticias

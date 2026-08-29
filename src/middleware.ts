@@ -17,7 +17,6 @@ const PUBLIC_EXACT = new Set([
   "/ajustes",
   "/estadisticas",
   "/acerca-de",
-  "/anime",
   "/login",
   "/registro",
   "/api/auth/login",
@@ -44,9 +43,6 @@ const PUBLIC_PREFIXES = [
   "/api/aleatorio",
   // el top de la semana se ve en Inicio, que es pública
   "/api/top-semanal",
-  // el catálogo de anime se navega como visitante; la lista exige sesión
-  "/anime/",
-  "/api/anime",
 ];
 
 interface SessionData {
