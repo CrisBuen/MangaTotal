@@ -71,26 +71,52 @@ model AnimeEntry {
 /// Anime guardado desde fuentes externas reproducibles. No se aloja video:
 /// solo la referencia a la ficha original de cada proveedor.
 model ExternalAnime {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @map("user_id")
-  source        String
-  externalId    String   @map("external_id")
-  slug          String?
-  title         String
-  coverUrl      String?  @map("cover_url")
-  type          String?
-  status        String?
-  totalEpisodes Int?     @map("total_episodes")
-  isAdult       Boolean  @default(false) @map("is_adult")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                Int                            @id @default(autoincrement())
+  userId            Int                            @map("user_id")
+  source            String
+  externalId        String                         @map("external_id")
+  slug              String?
+  title             String
+  coverUrl          String?                        @map("cover_url")
+  type              String?
+  status            String?
+  totalEpisodes     Int?                           @map("total_episodes")
+  isAdult           Boolean                        @default(false) @map("is_adult")
+  saved             Boolean                        @default(true)
+  lastEpisodeId     String?                        @map("last_episode_id")
+  lastEpisodeNumber String?                        @map("last_episode_number")
+  lastEpisodeTitle  String?                        @map("last_episode_title")
+  lastWatchedAt     DateTime?                      @map("last_watched_at")
+  createdAt         DateTime                       @default(now()) @map("created_at")
+  updatedAt         DateTime                       @updatedAt @map("updated_at")
+  user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodeProgress   ExternalAnimeEpisodeProgress[]
 
   @@unique([userId, source, externalId])
   @@index([userId, updatedAt])
+  @@index([userId, saved, updatedAt])
   @@map("external_anime")
 }
 
+/// Minuto visto por episodio de una fuente animada. Las URLs temporales del
+/// video nunca llegan a esta tabla: solo se recuerda el progreso del usuario.
+model ExternalAnimeEpisodeProgress {
+  id              Int           @id @default(autoincrement())
+  externalAnimeId Int           @map("external_anime_id")
+  episodeId       String        @map("episode_id")
+  episodeNumber   String        @map("episode_number")
+  episodeTitle    String?       @map("episode_title")
+  positionSeconds Int           @default(0) @map("position_seconds")
+  durationSeconds Int           @default(0) @map("duration_seconds")
+  completed       Boolean       @default(false)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  externalAnime   ExternalAnime @relation(fields: [externalAnimeId], references: [id], onDelete: Cascade)
+
+  @@unique([externalAnimeId, episodeId])
+  @@index([externalAnimeId, updatedAt])
+  @@map("external_anime_episode_progress")
+}
 
 /// Series de fuentes externas (MangaDex, Olympus) guardadas por el usuario,
 /// con el capítulo por el que va. No se aloja contenido: solo la referencia.

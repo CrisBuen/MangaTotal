@@ -71,13 +71,19 @@ Viene oculta. La persona la activa en **Ajustes → Seguridad y privacidad**;
 recién entonces aparece en las barras y como **Sección animada** en Explorar.
 
 JKAnime es la fuente predeterminada: directorio, filtros, ficha y episodios.
-Al tocar un episodio se incrusta su página oficial completa, de modo que
-JKAnime sigue controlando el reproductor, Desu y las fuentes alternativas.
-MangaTotal no extrae ni guarda enlaces de video.
+Al tocar un episodio se entra directamente al reproductor nativo y se pide
+pantalla completa dentro del mismo gesto. Desu y Magi usan HLS temporal;
+las demás fuentes aparecen en la barra inferior y conservan el wrapper
+oficial de JKAnime dentro de un iframe aislado, sin popups.
+
+Con Desu y Magi el reproductor recuerda el segundo exacto del episodio. Los
+iframes alternativos no exponen su reloj a MangaTotal. Las direcciones de
+video son efímeras: MangaTotal no las guarda, descarga ni retransmite.
 
 El botón **Guardar en Anime animado** conserva una referencia a la ficha de
 JKAnime. Esa biblioteca está separada de las lecturas y de AnimeList, y usa
 `source + externalId` para admitir más proveedores en el futuro.
+Si ya se miró un episodio, la tarjeta muestra **Retomar ep. N · minuto**.
 
 AniList queda como fuente de información y seguimiento: agregar a Mi lista,
 llevar episodios vistos y abrir plataformas oficiales.

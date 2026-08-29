@@ -90,12 +90,14 @@ Todas aceptan `?fresco=1` para saltar la caché: es lo que usa el botón
 | `GET /api/anime/novedades` | Cuántos episodios le faltan ver |
 | `GET /api/anime/jkanime` | Directorio, búsqueda y filtros de JKAnime |
 | `GET /api/anime/jkanime/[slug]` | Ficha y una página de episodios |
+| `GET /api/anime/jkanime/[slug]/[episode]` | Fuentes y reproducción efímera del episodio |
 | `GET/PUT/DELETE /api/anime/externo/biblioteca` | Anime externo guardado |
+| `GET/PATCH /api/anime/externo/progreso` | Segundo visto por episodio externo |
 | `GET /api/aleatorio` | Una serie al azar de cualquier fuente |
 
-Todas las rutas `/api/anime/*` exigen sesión y `animeEnabled`. Las de JKAnime
-no devuelven servidores de video: el reproductor se abre con la URL oficial
-del episodio.
+Todas las rutas `/api/anime/*` exigen sesión y `animeEnabled`. La respuesta
+de reproducción de JKAnime no se cachea: Desu/Magi incluyen un HLS temporal y
+las alternativas un wrapper oficial. Ninguna URL se persiste en la base.
 
 `/api/aleatorio` sortea la fuente y después la serie. Si una falla, prueba la
 siguiente: la ruleta no se traba nunca. Acepta `?evitar=` para no repetir.

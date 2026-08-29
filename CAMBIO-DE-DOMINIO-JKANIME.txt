@@ -7,8 +7,11 @@ Dominio: https://jkanime.net
 CDN de portadas y miniaturas: https://cdn.jkdesa.com
 
 El dueño de MangaTotal informó un acuerdo directo con los creadores de
-JKAnime realizado por llamada de Discord para integrar su catálogo y su
-reproductor. No quitar su nombre, la atribución ni los enlaces a su sitio.
+JKAnime realizado por llamada de Discord para integrar su catálogo y
+reconstruir su selector de reproducción dentro de MangaTotal. También
+aclararon que la publicidad y las ventanas emergentes pertenecen a los hosts
+externos, no a JKAnime, y autorizaron omitirlas. No quitar su nombre, la
+atribución ni los enlaces a su sitio.
 
 
 QUÉ HACE MANGATOTAL
@@ -16,27 +19,39 @@ QUÉ HACE MANGATOTAL
 
 1. Lee el directorio público de JKAnime.
 2. Muestra su ficha y su lista paginada de episodios.
-3. Al elegir un episodio, incrusta la PÁGINA OFICIAL completa:
+3. Al elegir un episodio, lee únicamente la configuración de fuentes que
+   JKAnime publica en su página oficial:
 
        https://jkanime.net/<slug>/<episodio>/
 
-Así el reproductor inicial (Desu al comprobarlo), el engranaje y las fuentes
-alternativas siguen siendo de JKAnime. MangaTotal no elige servidores, no
-descubre archivos de video y no almacena direcciones de reproducción.
+4. Desu y Magi pasan por los endpoints /jkplayer/um y /jkplayer/umv de
+   JKAnime. Esos endpoints entregan un manifiesto HLS firmado y temporal.
+   MangaTotal lo reproduce con su propio <video> + hls.js, lo que permite
+   pausa, seek, pantalla completa y recordar el segundo exacto.
+5. Las demás fuentes aparecen en la misma barra nativa, pero conservan el
+   wrapper oficial /jkplayer/c1 de JKAnime dentro de un iframe aislado. El
+   sandbox no permite popups ni sacar al usuario de MangaTotal.
+
+Las URLs HLS solo viven en la respuesta de la API y en la memoria del
+reproductor mientras se mira el episodio. No se guardan, no se descargan, no
+se cachean y MangaTotal no sirve segmentos de video.
 
 
 QUÉ NO HAY QUE HACER
 --------------------
 
-- No copiar los iframes internos de Desu, Magi, Okru, StreamWish u otros.
-- No decodificar ni guardar el arreglo JavaScript video.
-- No crear un reproductor propio.
-- No cachear la página del episodio ni sus tokens.
-- No convertir jkanime.ts en un extractor de streams.
+- No persistir manifiestos HLS, firmas, tokens, iframes ni URLs remotas.
+- No descargar, retransmitir ni cachear el video desde MangaTotal/Vercel.
+- No perseguir la URL final dentro de Mega, StreamWish, VOE, Vidhide,
+  Filemoon, Mixdrop, Mp4upload, Streamtape o Doodstream.
+- No agregar un extractor diferente para cada host externo.
+- No aceptar desde el cliente una URL arbitraria: todas las fuentes deben
+  salir de la página oficial del episodio y validarse en el servidor.
 
-Esas direcciones son una implementación interna y pueden cambiar por
-episodio o por carga. La frontera estable y autorizada es la página oficial
-del episodio.
+La excepción deliberada son Desu y Magi: JKAnime los entrega mediante sus
+propios /jkplayer y autorizó usarlos como HLS temporal en el reproductor
+nativo. Si esa interfaz cambia, no intentar romper una protección; confirmar
+el nuevo contrato con JKAnime.
 
 
 DIRECTORIO
@@ -103,6 +118,12 @@ guarda la referencia y los metadatos de la ficha; no guarda videos ni los
 servidores internos del reproductor. En Biblioteca aparece como Anime animado,
 separado de AnimeList (que sigue siendo el seguimiento de AniList).
 
+external_anime_episode_progress guarda posición, duración y completado por
+episodio. external_anime recuerda cuál fue el último episodio, incluso si la
+serie quedó solo en el historial (saved=false). Ninguna de esas tablas recibe
+la URL de reproducción. El segundo exacto se puede medir con Desu/Magi; un
+iframe alternativo no permite leer su reloj por la separación de orígenes.
+
 Esto es independiente de show_adult_content. El género hentai solo se expone
 si esa segunda preferencia está activa o la cuenta es administradora.
 
@@ -114,12 +135,15 @@ SI CAMBIA EL DOMINIO O EL HTML
 2. Cambiar solo JKANIME_WEB y los parsers de src/lib/jkanime.ts.
 3. Comprobar /directorio, /buscar, una ficha corta, una de más de
    16 episodios y un episodio real.
-4. Verificar en web, Windows y Android que la página oficial carga dentro
-   del iframe y que cambiar de Desu a otra fuente sigue siendo acción del
-   usuario dentro de JKAnime.
-5. Si JKAnime empieza a enviar X-Frame-Options o frame-ancestors, no
-   saltarse la protección: hablar con ellos y acordar el nuevo método.
+4. Verificar que Desu y Magi devuelven HLS HTTPS con CORS tanto en el
+   manifiesto como en sus segmentos.
+5. Verificar en web, Windows y Android: autoplay o botón de play, pausa,
+   seek, pantalla completa, selector de fuentes, reanudación y salida.
+6. Comprobar al menos una alternativa /jkplayer/c1 y confirmar que el sandbox
+   bloquea popups y navegación superior.
+7. Si JKAnime cambia /jkplayer o agrega protecciones, hablar con ellos y
+   acordar el nuevo método. No saltarse la protección.
 
-Última comprobación técnica: el directorio, el POST de episodios y una página
-de reproducción respondieron 200; la página no enviaba una prohibición de
-incrustación.
+Última comprobación técnica: directorio, episodios, Desu, Magi y un wrapper
+alternativo respondieron. El manifiesto y un segmento HLS devolvieron 200 y
+Access-Control-Allow-Origin: *.

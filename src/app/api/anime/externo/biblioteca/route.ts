@@ -22,9 +22,16 @@ export async function GET() {
   const entradas = await db.externalAnime.findMany({
     where: {
       userId: user.id,
+      saved: true,
       ...(user.showAdultContent || user.isAdmin ? {} : { isAdult: false }),
     },
     orderBy: { updatedAt: "desc" },
+    include: {
+      episodeProgress: {
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+      },
+    },
   });
   return NextResponse.json(entradas.map(animeExternoPublico));
 }
@@ -88,6 +95,7 @@ export async function PUT(req: NextRequest) {
     status: body.status ? String(body.status).slice(0, 80) : null,
     totalEpisodes: Number.isInteger(total) && total >= 0 ? total : null,
     isAdult,
+    saved: true,
   };
 
   const entrada = await db.externalAnime.upsert({
@@ -98,7 +106,10 @@ export async function PUT(req: NextRequest) {
   return NextResponse.json(animeExternoPublico(entrada));
 }
 
-/** Quita el anime de la biblioteca animada. */
+/**
+ * Quita el anime de la biblioteca animada. Si ya fue visto se conserva como
+ * historial; borrar la tarjeta no debe borrar también el minuto de reproducción.
+ */
 export async function DELETE(req: NextRequest) {
   const user = await getSessionUser();
   const rechazo = acceso(user);
@@ -111,8 +122,15 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
 
-  await db.externalAnime
-    .delete({ where: { userId_source_externalId: { userId: user.id, source, externalId } } })
-    .catch(() => {});
+  const llave = { userId_source_externalId: { userId: user.id, source, externalId } };
+  const entrada = await db.externalAnime.findUnique({
+    where: llave,
+    select: { lastWatchedAt: true },
+  });
+  if (entrada?.lastWatchedAt) {
+    await db.externalAnime.update({ where: llave, data: { saved: false } });
+  } else {
+    await db.externalAnime.delete({ where: llave }).catch(() => {});
+  }
   return new NextResponse(null, { status: 204 });
 }

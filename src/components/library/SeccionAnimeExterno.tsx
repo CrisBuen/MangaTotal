@@ -12,7 +12,16 @@ interface Entrada {
   type: string | null;
   status: string | null;
   total_episodes: number | null;
+  last_episode_number: string | null;
+  last_position_seconds: number;
+  last_duration_seconds: number;
   href: string;
+  resume_href: string | null;
+}
+
+function minuto(segundos: number): string {
+  const total = Math.max(0, Math.floor(segundos));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 /** Biblioteca de anime reproducible, separada de AniList y de las lecturas. */
@@ -81,7 +90,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
           {visibles.map((entrada) => (
             <Link
               key={`${entrada.source}:${entrada.external_id}`}
-              href={entrada.href}
+              href={entrada.resume_href ?? entrada.href}
               className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
@@ -108,6 +117,14 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
+                {entrada.resume_href && entrada.last_episode_number && (
+                  <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent">
+                    Retomar ep. {entrada.last_episode_number}
+                    {entrada.last_position_seconds > 0
+                      ? ` · ${minuto(entrada.last_position_seconds)}`
+                      : ""}
+                  </p>
+                )}
               </div>
             </Link>
           ))}

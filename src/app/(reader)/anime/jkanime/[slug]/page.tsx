@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalAnimeButton } from "@/components/anime/SaveExternalAnimeButton";
+import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { Surface } from "@/components/ui/Surface";
 import type { FichaJkanime } from "@/lib/jkanime";
 
@@ -170,7 +171,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {ficha.episodes.map((episode) => (
-              <Link
+              <EpisodeWatchLink
                 key={episode.id || episode.number}
                 href={`/anime/jkanime/${ficha.slug}/${episode.number}`}
                 className="group overflow-hidden rounded-2xl border border-line bg-panel transition hover:-translate-y-0.5 hover:border-accent"
@@ -193,7 +194,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
                   </p>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold text-ink">{episode.title}</p>
                 </div>
-              </Link>
+              </EpisodeWatchLink>
             ))}
           </div>
         )}

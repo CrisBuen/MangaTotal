@@ -29,11 +29,22 @@ export interface AnimeExternoFila {
   status: string | null;
   totalEpisodes: number | null;
   isAdult: boolean;
+  saved: boolean;
+  lastEpisodeId: string | null;
+  lastEpisodeNumber: string | null;
+  lastEpisodeTitle: string | null;
+  lastWatchedAt: Date | null;
   updatedAt: Date;
+  episodeProgress?: {
+    positionSeconds: number;
+    durationSeconds: number;
+    completed: boolean;
+  }[];
 }
 
 export function animeExternoPublico(e: AnimeExternoFila) {
   const source = e.source as FuenteAnimeExterna;
+  const ultimo = e.episodeProgress?.[0] ?? null;
   return {
     source,
     external_id: e.externalId,
@@ -43,7 +54,18 @@ export function animeExternoPublico(e: AnimeExternoFila) {
     type: e.type,
     status: e.status,
     total_episodes: e.totalEpisodes,
+    last_episode_id: e.lastEpisodeId,
+    last_episode_number: e.lastEpisodeNumber,
+    last_episode_title: e.lastEpisodeTitle,
+    last_position_seconds: ultimo?.positionSeconds ?? 0,
+    last_duration_seconds: ultimo?.durationSeconds ?? 0,
+    completed: ultimo?.completed ?? false,
+    last_watched_at: e.lastWatchedAt,
     updated_at: e.updatedAt,
     href: fichaAnimeHref(source, e.externalId, e.slug),
+    resume_href:
+      e.slug && e.lastEpisodeNumber
+        ? `/anime/${source}/${e.slug}/${e.lastEpisodeNumber}`
+        : null,
   };
 }

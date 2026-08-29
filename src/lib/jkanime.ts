@@ -1,10 +1,10 @@
 /**
  * Adaptador de lectura para JKAnime, integrado con permiso de sus creadores.
  *
- * Acá solo se leen el directorio, las fichas y la lista pública de episodios.
- * Los servidores de video no se extraen ni se guardan: el episodio se abre
- * mediante la página oficial de JKAnime, que conserva su reproductor y su
- * selector de fuentes.
+ * Además del directorio y las fichas, el adaptador reconstruye el selector de
+ * fuentes que JKAnime publica en cada episodio. Desu y Magi entregan HLS
+ * temporal para el reproductor nativo; las demás conservan el wrapper oficial
+ * de JKAnime. Ninguna dirección de reproducción se guarda en la base de datos.
  */
 
 export const JKANIME_NOMBRE = "JKAnime";
@@ -53,6 +53,31 @@ export interface FichaJkanime {
   episodes: EpisodioJkanime[];
   page: number;
   last_page: number;
+  url_original: string;
+}
+
+export interface FuenteEpisodioJkanime {
+  id: string;
+  label: string;
+  kind: "hls" | "embed";
+}
+
+export interface ReproduccionJkanime {
+  external_id: string;
+  slug: string;
+  series_title: string;
+  cover_url: string | null;
+  total_episodes: number | null;
+  episode_id: string;
+  episode_number: string;
+  episode_title: string;
+  poster_url: string | null;
+  sources: FuenteEpisodioJkanime[];
+  selected_source: string;
+  playback: {
+    kind: "hls" | "embed";
+    url: string;
+  };
   url_original: string;
 }
 
@@ -446,5 +471,252 @@ export async function fichaJkanime(slug: string, requestedPage = 1): Promise<Fic
     page,
     last_page: Math.max(1, Math.ceil(total / 16)),
     url_original: url,
+  };
+}
+
+interface FuenteInterna extends FuenteEpisodioJkanime {
+  playerUrl?: string;
+  remote?: string;
+  server?: string;
+}
+
+interface ServidorCrudo {
+  remote?: string;
+  server?: string;
+}
+
+/** Igual que jsonAsignado, pero para los arreglos JSON publicados en la ficha. */
+function jsonArrayAsignado<T>(html: string, nombre: string): T[] {
+  const marca = new RegExp(`\\bvar\\s+${nombre}\\s*=\\s*`).exec(html);
+  if (!marca) return [];
+  const inicio = html.indexOf("[", marca.index + marca[0].length);
+  if (inicio < 0) return [];
+
+  let profundidad = 0;
+  let enTexto = false;
+  let comilla = "";
+  let escapado = false;
+  for (let i = inicio; i < html.length; i += 1) {
+    const c = html[i];
+    if (enTexto) {
+      if (escapado) escapado = false;
+      else if (c === "\\") escapado = true;
+      else if (c === comilla) enTexto = false;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      enTexto = true;
+      comilla = c;
+    } else if (c === "[") {
+      profundidad += 1;
+    } else if (c === "]") {
+      profundidad -= 1;
+      if (profundidad === 0) {
+        try {
+          return JSON.parse(html.slice(inicio, i + 1)) as T[];
+        } catch {
+          throw new ErrorJkanime("JKAnime devolvió fuentes alternativas inválidas");
+        }
+      }
+    }
+  }
+  throw new ErrorJkanime("JKAnime devolvió fuentes alternativas incompletas");
+}
+
+function atributo(attrs: string, nombre: string): string | null {
+  const seguro = nombre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`\\b${seguro}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attrs);
+  return match ? decodificarHtml(match[2]) : null;
+}
+
+function fuentesDeEpisodio(html: string): FuenteInterna[] {
+  const etiquetas = new Map<number, string>();
+  for (const enlace of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
+    const attrs = enlace[1];
+    const clases = atributo(attrs, "class") ?? "";
+    if (!/(?:^|\s)servers(?:\s|$)/i.test(clases)) continue;
+    const indice = Number(atributo(attrs, "data-id"));
+    const label = texto(enlace[2]);
+    if (Number.isInteger(indice) && indice >= 0 && label) etiquetas.set(indice, label);
+  }
+
+  const playerUrls = new Map<number, string>();
+  for (const asignacion of html.matchAll(/\bvideo\[(\d+)\]\s*=\s*'(<iframe[\s\S]*?)';/gi)) {
+    const indice = Number(asignacion[1]);
+    const src = atributo(asignacion[2], "src");
+    if (!src) continue;
+    try {
+      const url = new URL(src, JKANIME_WEB);
+      if (url.origin !== JKANIME_WEB || !url.pathname.startsWith("/jkplayer/")) continue;
+      playerUrls.set(indice, url.toString());
+    } catch {
+      // una fuente rota no debe impedir que carguen las demás
+    }
+  }
+
+  const fuentes: FuenteInterna[] = [...playerUrls.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([indice, playerUrl]) => ({
+      id: `base-${indice}`,
+      label: etiquetas.get(indice) ?? `Fuente ${indice + 1}`,
+      kind: "hls" as const,
+      playerUrl,
+    }));
+
+  for (const [indice, servidor] of jsonArrayAsignado<ServidorCrudo>(html, "servers").entries()) {
+    const remote = String(servidor.remote ?? "").trim();
+    const server = texto(servidor.server);
+    if (!remote || !server) continue;
+    fuentes.push({
+      id: `remote-${indice}`,
+      label: server,
+      kind: "embed",
+      remote,
+      server,
+    });
+  }
+  return fuentes;
+}
+
+async function hlsDePlayer(playerUrl: string, referer: string): Promise<string> {
+  let url: URL;
+  try {
+    url = new URL(playerUrl);
+  } catch {
+    throw new ErrorJkanime("JKAnime devolvió un reproductor inválido");
+  }
+  if (url.origin !== JKANIME_WEB || !url.pathname.startsWith("/jkplayer/")) {
+    throw new ErrorJkanime("JKAnime devolvió un reproductor no autorizado");
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: {
+        "User-Agent": UA,
+        Accept: "text/html,application/xhtml+xml",
+        Referer: referer,
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new ErrorJkanime("No se pudo abrir el reproductor de JKAnime");
+  }
+  if (!res.ok) throw new ErrorJkanime(`El reproductor de JKAnime respondió ${res.status}`);
+  const html = await res.text();
+  const cruda =
+    /<source[^>]+src=["']([^"']+\.m3u8[^"']*)["']/i.exec(html)?.[1] ??
+    /\burl\s*:\s*["']([^"']+\.m3u8[^"']*)["']/i.exec(html)?.[1] ??
+    "";
+  const hls = decodificarHtml(cruda);
+  try {
+    const salida = new URL(hls);
+    if (salida.protocol !== "https:") throw new Error();
+    return salida.toString();
+  } catch {
+    throw new ErrorJkanime("JKAnime no entregó video HLS para esta fuente");
+  }
+}
+
+/**
+ * Reconstruye la reproducción publicada por JKAnime para un episodio.
+ *
+ * Las URLs son efímeras y solo se devuelven en esta respuesta; nunca se
+ * persisten ni se descargan desde MangaTotal.
+ */
+export async function reproduccionJkanime(
+  slug: string,
+  episodio: string,
+  sourceId?: string | null
+): Promise<ReproduccionJkanime> {
+  const urlOriginal = urlEpisodioJkanime(slug, episodio);
+  const res = await pedirHtml(urlOriginal, true);
+  if (res.status === 404) throw new ErrorJkanime("Episodio no encontrado", 404);
+  if (!res.ok) throw new ErrorJkanime(`JKAnime respondió ${res.status}`);
+  const html = await res.text();
+
+  const fuentes = fuentesDeEpisodio(html);
+  if (fuentes.length === 0) throw new ErrorJkanime("JKAnime no devolvió fuentes para este episodio");
+  let elegida =
+    fuentes.find((fuente) => fuente.id === sourceId) ??
+    fuentes.find((fuente) => fuente.label.toLowerCase() === "desu") ??
+    fuentes[0];
+
+  async function abrir(fuente: FuenteInterna): Promise<ReproduccionJkanime["playback"]> {
+    if (fuente.kind === "hls" && fuente.playerUrl) {
+      return {
+        kind: "hls",
+        url: await hlsDePlayer(fuente.playerUrl, urlOriginal),
+      };
+    }
+    if (fuente.kind === "embed" && fuente.remote && fuente.server) {
+      const params = new URLSearchParams({
+        u: fuente.remote,
+        s: fuente.server.toLowerCase(),
+      });
+      return {
+        kind: "embed",
+        url: `${JKANIME_WEB}/jkplayer/c1?${params}`,
+      };
+    }
+    throw new ErrorJkanime("La fuente elegida no está disponible");
+  }
+
+  let playback: ReproduccionJkanime["playback"] | null = null;
+  let ultimoError: unknown;
+  const candidatas = sourceId
+    ? [elegida]
+    : [elegida, ...fuentes.filter((fuente) => fuente.id !== elegida.id)];
+  for (const fuente of candidatas) {
+    try {
+      playback = await abrir(fuente);
+      elegida = fuente;
+      break;
+    } catch (error) {
+      ultimoError = error;
+    }
+  }
+  if (!playback) {
+    if (ultimoError instanceof ErrorJkanime) throw ultimoError;
+    throw new ErrorJkanime("Ninguna fuente respondió para este episodio");
+  }
+
+  const externalId = /\/ajax\/episodes\/(\d+)\//i.exec(html)?.[1] ?? "";
+  const episodeId =
+    /\bid=["']guardar-capitulo["'][^>]+data-capitulo=["']([^"']+)/i.exec(html)?.[1] ??
+    episodio;
+  const seriesTitle =
+    texto(/\bid=["']marcar_visto["'][^>]+data-title=["']([^"']+)/i.exec(html)?.[1]) ||
+    texto(/<div class=["'][^"']*video-info[^"']*["'][\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i.exec(html)?.[1]);
+  if (!externalId || !seriesTitle) {
+    throw new ErrorJkanime("JKAnime cambió los datos de identificación del episodio");
+  }
+
+  const cover =
+    /<div class=["'][^"']*video-info[^"']*["'][\s\S]*?<img[^>]+src=["']([^"']+)/i.exec(html)?.[1] ??
+    null;
+  const poster =
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)/i.exec(html)?.[1] ??
+    null;
+  const totalMatch =
+    /<div class=["'][^"']*video-info[^"']*["'][\s\S]*?<span[^>]*>\s*(\d+)\s+episodios/i.exec(html);
+  const episodeTitle =
+    texto(/<div class=["']breadcrumb__links["']>[\s\S]*?<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1]) ||
+    `Episodio ${episodio} - ${seriesTitle}`;
+
+  return {
+    external_id: externalId,
+    slug,
+    series_title: seriesTitle,
+    cover_url: cover?.startsWith("https://") ? decodificarHtml(cover) : null,
+    total_episodes: totalMatch ? Number(totalMatch[1]) : null,
+    episode_id: episodeId,
+    episode_number: episodio,
+    episode_title: episodeTitle,
+    poster_url: poster?.startsWith("https://") ? decodificarHtml(poster) : null,
+    sources: fuentes.map(({ id, label, kind }) => ({ id, label, kind })),
+    selected_source: elegida.id,
+    playback,
+    url_original: urlOriginal,
   };
 }

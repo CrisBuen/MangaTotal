@@ -31,7 +31,7 @@ republiquen.
 | **Ikigai** | `visorikigai.gettocaboca.com` | **Puente nativo**: bloquea servidores | ✅ solo apps |
 | **Catharsis World** | `newcatharsis.dig-it.info` | Su almacén Directus, desde el servidor | ✅ |
 | **LeerCapítulo** | `www.leercapitulo.co` | HTML + código propio, desde el servidor | ✅ |
-| **JKAnime** | `jkanime.net` | Directorio/episodios por servidor; reproductor oficial incrustado | ✅ |
+| **JKAnime** | `jkanime.net` | Directorio/episodios por servidor; reproductor nativo autorizado | ✅ |
 
 ## 8.3 El contrato: qué expone cada fuente
 
@@ -148,16 +148,17 @@ No lo borres ni lo vuelvas a conectar.
 
 Todo el detalle en `CAMBIO-DE-DOMINIO-LEERCAPITULO.txt`.
 
-### JKAnime — no convertirla en un extractor
+### JKAnime — reproductor nativo, URLs efímeras
 
 Es una fuente animada y por eso su contrato es distinto. `src/lib/jkanime.ts`
-lee el directorio, la ficha y la lista paginada de episodios. Al tocar uno,
-MangaTotal incrusta `https://jkanime.net/<slug>/<episodio>/`.
+lee el directorio, la ficha, los episodios y el selector que JKAnime publica.
+Desu/Magi se reproducen como HLS temporal en el video nativo de MangaTotal.
+Las demás fuentes usan el wrapper oficial `/jkplayer/c1` dentro de un sandbox
+sin popups.
 
-**Nunca sacar del HTML las URLs de Desu, Magi ni los demás servidores.**
-Esas direcciones cambian, pueden ser temporales y no son el acuerdo de
-integración. La página oficial conserva el reproductor, la selección de
-fuentes y sus decisiones. Detalle en `CAMBIO-DE-DOMINIO-JKANIME.txt`.
+**Nunca guardar ni retransmitir esas URLs, y nunca extraer el stream final de
+los hosts alternativos.** El permiso y las fronteras técnicas completas están
+en `CAMBIO-DE-DOMINIO-JKANIME.txt`.
 
 ## 8.6 Agregar una fuente nueva: la lista
 

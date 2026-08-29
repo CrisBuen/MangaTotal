@@ -93,6 +93,14 @@ identificador, el slug y metadatos de la ficha; nunca direcciones de video.
 Está separado de `AnimeEntry` para que AnimeList y Anime animado no mezclen
 conceptos. Las rutas internas se arman en `src/lib/animeExternos.ts`.
 
+`saved` separa una tarjeta guardada de una serie que quedó solamente en el
+historial. Los campos `lastEpisode*` indican qué retomar.
+
+### `ExternalAnimeEpisodeProgress`
+Posición y duración por episodio de un anime externo. Permite volver al
+segundo exacto y marcar un episodio como completado. No guarda manifiestos,
+tokens, iframes ni URLs de video.
+
 ### `Tag`, `Favorite`, `Announcement`, `IngestionJob`
 Categorías del catálogo propio, favoritos, las noticias que publica el
 administrador, y el registro de cada `.zip` subido (con su estado y el error
