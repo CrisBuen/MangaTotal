@@ -190,11 +190,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       setControlsVisible(true);
     };
 
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = data.playback.url;
-      video.addEventListener("loadedmetadata", iniciar, { once: true });
-      video.addEventListener("error", errorNativo, { once: true });
-    } else if (Hls.isSupported()) {
+    if (Hls.isSupported()) {
       const hls = new Hls({
         // Se mantiene sin worker para que Tauri y Capacitor usen el mismo
         // contexto autenticado al pedir el manifiesto a MangaTotal.
@@ -216,6 +212,13 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         }
       });
       hls.attachMedia(video);
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari/iOS no siempre tiene MediaSource, pero sí HLS nativo real.
+      // Chromium y WebView2 pueden responder "maybe" y fallar al reproducir,
+      // por eso esta comprobación debe quedar después de hls.js.
+      video.src = data.playback.url;
+      video.addEventListener("loadedmetadata", iniciar, { once: true });
+      video.addEventListener("error", errorNativo, { once: true });
     } else {
       terminarEspera();
       setError("Este dispositivo no admite reproducción HLS.");

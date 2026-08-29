@@ -33,6 +33,10 @@ QUÉ HACE MANGATOTAL
    válido. Los segmentos siguen viajando directamente del CDN al usuario:
    MangaTotal no retransmite video. El <video> + hls.js permite pausa, seek,
    pantalla completa y recordar el segundo exacto.
+   En Chromium, WebView2 y Android se elige hls.js antes de consultar
+   canPlayType(): esos motores pueden responder "maybe" para HLS aunque su
+   reproducción nativa termine en media-error. HLS nativo queda como respaldo
+   para Safari/iOS cuando MediaSource no está disponible.
 5. Las demás fuentes aparecen en la misma barra nativa, pero conservan el
    wrapper oficial /jkplayer/c1 de JKAnime dentro de un iframe aislado. El
    sandbox no permite popups ni sacar al usuario de MangaTotal.
