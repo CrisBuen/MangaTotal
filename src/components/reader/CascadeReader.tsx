@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { retryThroughProxy } from "./pageImage";
 import type { ChapterLink, ReaderPage } from "./types";
@@ -221,13 +222,13 @@ export function CascadeReader({
       <div className="flex w-full flex-col items-center gap-4 border-t border-line py-12">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Fin del capítulo</p>
         {nextChapter ? (
-          <Link
+          <EnlaceCapitulo
             href={`/leer/${nextChapter.id}`}
             data-next-chapter
             className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 text-xs font-bold uppercase tracking-[0.08em] text-canvas shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
           >
             Siguiente capítulo ({nextChapter.number}) →
-          </Link>
+          </EnlaceCapitulo>
         ) : (
           <Link
             href={seriesHref ?? `/serie/${seriesSlug}`}

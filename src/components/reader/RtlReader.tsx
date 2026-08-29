@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect } from "react";
 import { retryThroughProxy } from "./pageImage";
 import type { ChapterLink, ReaderPage } from "./types";
@@ -95,12 +96,12 @@ export function RtlReader({
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Fin del capítulo</p>
           <div className="flex gap-2">
             {nextChapter && (
-              <Link
+              <EnlaceCapitulo
                 href={`/leer/${nextChapter.id}`}
                 className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-4 text-xs font-bold uppercase tracking-[0.08em] text-canvas shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
               >
                 ← Capítulo {nextChapter.number}
-              </Link>
+              </EnlaceCapitulo>
             )}
             <Link
               href={seriesHref ?? `/serie/${seriesSlug}`}
@@ -114,12 +115,12 @@ export function RtlReader({
 
       {currentPage === 1 && prevChapter && (
         <div className="absolute left-3 top-3 z-10">
-          <Link
+          <EnlaceCapitulo
             href={`/leer/${prevChapter.id}`}
             className="inline-flex min-h-11 items-center rounded-xl border border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] px-3 text-xs font-bold text-ink backdrop-blur-lg transition hover:border-accent hover:bg-panel"
           >
             Capítulo anterior ({prevChapter.number}) →
-          </Link>
+          </EnlaceCapitulo>
         </div>
       )}
     </div>

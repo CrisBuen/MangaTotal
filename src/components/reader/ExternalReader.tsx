@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BotonVolver } from "./BotonVolver";
 import { CascadeReader } from "./CascadeReader";
@@ -190,12 +191,12 @@ export function ExternalReader({
       {/* navegación entre capítulos: siempre a una versión legible */}
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-3 px-4 pb-12 pt-2">
         {prevChapter && (
-          <Link
+          <EnlaceCapitulo
             href={`/leer-externo/${prevChapter.id}`}
             className="rounded-xl border border-line bg-panel px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-ink transition hover:border-accent"
           >
             ← Capítulo {prevChapter.number ?? "anterior"}
-          </Link>
+          </EnlaceCapitulo>
         )}
         <Link
           href={backHref}
@@ -204,12 +205,12 @@ export function ExternalReader({
           Ver capítulos
         </Link>
         {nextChapter && (
-          <Link
+          <EnlaceCapitulo
             href={`/leer-externo/${nextChapter.id}`}
             className="rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bg)] transition hover:opacity-90"
           >
             Capítulo {nextChapter.number ?? "siguiente"} →
-          </Link>
+          </EnlaceCapitulo>
         )}
       </div>
 
