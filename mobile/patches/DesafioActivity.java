@@ -9,6 +9,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -48,7 +49,7 @@ public class DesafioActivity extends Activity {
 
         final String direccion = getIntent().getStringExtra(EXTRA_URL);
         final String ua = getIntent().getStringExtra(EXTRA_UA);
-        if (direccion == null || direccion.isEmpty()) {
+        if (!FuentesPlugin.direccionPermitida(direccion)) {
             cerrar(false);
             return;
         }
@@ -65,8 +66,27 @@ public class DesafioActivity extends Activity {
         ajustes.setUserAgentString(ua);
         ajustes.setLoadWithOverviewMode(true);
         ajustes.setUseWideViewPort(true);
+        ajustes.setAllowFileAccess(false);
+        ajustes.setAllowContentAccess(false);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            ajustes.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            ajustes.setSafeBrowsingEnabled(true);
+        }
 
-        navegador.setWebViewClient(new WebViewClient());
+        navegador.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return !FuentesPlugin.direccionPermitida(request.getUrl().toString());
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return !FuentesPlugin.direccionPermitida(url);
+            }
+        });
         navegador.loadUrl(direccion);
 
         desde = System.currentTimeMillis();

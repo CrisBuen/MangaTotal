@@ -14,9 +14,12 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Locale;
+
+import javax.net.ssl.HttpsURLConnection;
 
 /**
  * Puente para leer las fuentes que bloquean a los servidores.
@@ -62,6 +65,8 @@ public class FuentesPlugin extends Plugin {
     };
 
     private static final int TIEMPO_ESPERA_MS = 20000;
+    private static final int MAX_REDIRECCIONES = 5;
+    private static final int MAX_RESPUESTA_BYTES = 20 * 1024 * 1024;
 
     @PluginMethod
     public void traerPagina(final PluginCall call) {
@@ -69,50 +74,63 @@ public class FuentesPlugin extends Plugin {
         final String ua = uaDe(call.getString("userAgent"));
 
         new Thread(() -> {
-            HttpURLConnection conexion = null;
+            HttpsURLConnection conexion = null;
             try {
                 URL destino = new URL(direccion);
-                String host = destino.getHost();
-                if (!permitido(host)) {
-                    call.reject("Dominio no permitido: " + host);
+                for (int salto = 0; salto <= MAX_REDIRECCIONES; salto++) {
+                    if (!direccionPermitida(destino)) {
+                        call.reject("Dirección de fuente no permitida");
+                        return;
+                    }
+
+                    conexion = (HttpsURLConnection) destino.openConnection();
+                    conexion.setInstanceFollowRedirects(false);
+                    conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
+                    conexion.setReadTimeout(TIEMPO_ESPERA_MS);
+                    conexion.setRequestProperty("User-Agent", ua);
+                    conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
+                    conexion.setRequestProperty(
+                        "Accept",
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,*/*;q=0.8"
+                    );
+
+                    // el permiso de Cloudflare vive en el almacén de cookies del
+                    // sistema: lo dejó ahí la ventana de verificación
+                    String cookies = CookieManager.getInstance().getCookie(destino.toString());
+                    if (cookies != null && !cookies.isEmpty()) {
+                        conexion.setRequestProperty("Cookie", cookies);
+                    }
+
+                    int estado = conexion.getResponseCode();
+                    if (esRedireccion(estado)) {
+                        String ubicacion = conexion.getHeaderField("Location");
+                        conexion.disconnect();
+                        conexion = null;
+                        if (ubicacion == null || ubicacion.trim().isEmpty() || salto == MAX_REDIRECCIONES) {
+                            call.reject("La fuente devolvió una redirección inválida");
+                            return;
+                        }
+                        destino = new URL(destino, ubicacion);
+                        continue;
+                    }
+
+                    // Cloudflare pide verificar que hay una persona: la ventana la
+                    // abre la web llamando a resolverDesafio
+                    if (estado == 403 || estado == 503) {
+                        call.reject("DESAFIO:" + destino.getHost());
+                        return;
+                    }
+                    if (estado < 200 || estado >= 300) {
+                        call.reject("La fuente respondió " + estado);
+                        return;
+                    }
+
+                    JSObject salida = new JSObject();
+                    salida.put("status", estado);
+                    salida.put("data", leer(conexion.getInputStream()));
+                    call.resolve(salida);
                     return;
                 }
-
-                conexion = (HttpURLConnection) destino.openConnection();
-                conexion.setInstanceFollowRedirects(true);
-                conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
-                conexion.setReadTimeout(TIEMPO_ESPERA_MS);
-                conexion.setRequestProperty("User-Agent", ua);
-                conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
-                conexion.setRequestProperty(
-                    "Accept",
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,*/*;q=0.8"
-                );
-
-                // el permiso de Cloudflare vive en el almacén de cookies del
-                // sistema: lo dejó ahí la ventana de verificación
-                String cookies = CookieManager.getInstance().getCookie(direccion);
-                if (cookies != null && !cookies.isEmpty()) {
-                    conexion.setRequestProperty("Cookie", cookies);
-                }
-
-                int estado = conexion.getResponseCode();
-
-                // Cloudflare pide verificar que hay una persona: la ventana la
-                // abre la web llamando a resolverDesafio
-                if (estado == 403 || estado == 503) {
-                    call.reject("DESAFIO:" + host);
-                    return;
-                }
-                if (estado < 200 || estado >= 300) {
-                    call.reject("La fuente respondió " + estado);
-                    return;
-                }
-
-                JSObject salida = new JSObject();
-                salida.put("status", estado);
-                salida.put("data", leer(conexion.getInputStream()));
-                call.resolve(salida);
             } catch (Exception e) {
                 call.reject(mensaje(e));
             } finally {
@@ -126,8 +144,8 @@ public class FuentesPlugin extends Plugin {
     @PluginMethod
     public void resolverDesafio(PluginCall call) {
         String direccion = call.getString("url", "");
-        if (direccion.isEmpty()) {
-            call.reject("Dirección inválida");
+        if (!direccionPermitida(direccion)) {
+            call.reject("Dirección de verificación no permitida");
             return;
         }
 
@@ -161,12 +179,33 @@ public class FuentesPlugin extends Plugin {
         return elegido != null && !elegido.trim().isEmpty() ? elegido.trim() : UA_NAVEGADOR;
     }
 
+    public static boolean direccionPermitida(String direccion) {
+        try {
+            return direccionPermitida(new URL(direccion));
+        } catch (Exception ignorado) {
+            return false;
+        }
+    }
+
+    public static boolean direccionPermitida(URL destino) {
+        if (
+            destino == null ||
+            !"https".equalsIgnoreCase(destino.getProtocol()) ||
+            destino.getUserInfo() != null ||
+            (destino.getPort() != -1 && destino.getPort() != 443)
+        ) {
+            return false;
+        }
+        return permitido(destino.getHost());
+    }
+
     private static boolean permitido(String host) {
         if (host == null) {
             return false;
         }
+        String normalizado = host.toLowerCase(Locale.ROOT);
         for (String p : PERMITIDOS) {
-            if (host.equals(p) || host.endsWith("." + p)) {
+            if (normalizado.equals(p) || normalizado.endsWith("." + p)) {
                 return true;
             }
         }
@@ -177,11 +216,21 @@ public class FuentesPlugin extends Plugin {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         byte[] trozo = new byte[8192];
         int leidos;
+        int total = 0;
         while ((leidos = entrada.read(trozo)) != -1) {
+            total += leidos;
+            if (total > MAX_RESPUESTA_BYTES) {
+                entrada.close();
+                throw new IOException("La fuente respondió un archivo demasiado grande");
+            }
             buffer.write(trozo, 0, leidos);
         }
         entrada.close();
         return buffer.toString("UTF-8");
+    }
+
+    private static boolean esRedireccion(int estado) {
+        return estado == 301 || estado == 302 || estado == 303 || estado == 307 || estado == 308;
     }
 
     /** Sin conexión el mensaje del sistema viene vacío, y así no se entiende. */
