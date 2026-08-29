@@ -43,19 +43,16 @@ export const getSessionUser = cache(async () => {
   const session = await getSession();
   if (!session.userId) return null;
   const user = await db.user.findUnique({ where: { id: session.userId } });
-  if (!user) {
-    session.destroy();
-    return null;
-  }
+  if (!user) return null;
 
   // Las cookies anteriores a esta migración no llevaban versión. Se aceptan
   // solo mientras la cuenta siga en la versión inicial para no cerrarles la
-  // sesión a todos durante el despliegue.
+  // sesión a todos durante el despliegue. No se reescriben acá: esta función
+  // también corre desde Server Components, donde Next no permite modificar
+  // cookies. El próximo login ya guarda la versión de forma normal.
   if (session.sessionVersion === undefined && user.sessionVersion === 1) {
-    session.sessionVersion = 1;
-    await session.save();
+    return user;
   } else if (session.sessionVersion !== user.sessionVersion) {
-    session.destroy();
     return null;
   }
   return user;

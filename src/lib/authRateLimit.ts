@@ -55,7 +55,12 @@ export async function consumirLimite(
       async (tx) => {
         // Serializa solamente los intentos de esta clave. Evita que una ráfaga
         // concurrente atraviese el límite antes de que se actualice la fila.
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+        // pg_advisory_xact_lock devuelve el pseudotipo void, que Prisma no
+        // puede deserializar directamente. IS NULL obliga a Postgres a
+        // devolver un booleano soportado sin cambiar el efecto del bloqueo.
+        await tx.$queryRaw<{ locked: boolean }[]>`
+          SELECT pg_advisory_xact_lock(hashtext(${key})) IS NULL AS locked
+        `;
         const actual = await tx.authRateLimit.findUnique({ where: { key } });
 
         if (actual?.blockedUntil && actual.blockedUntil > ahora) {
@@ -103,7 +108,11 @@ export async function consumirLimite(
       },
       { timeout: 5_000 }
     );
-  } catch {
+  } catch (error) {
+    console.error(
+      "No se pudo consultar el limitador de autenticación:",
+      error instanceof Error ? error.message : "Error desconocido"
+    );
     // Si el limitador no puede consultar su estado, es más seguro no ejecutar
     // una comparación de contraseña costosa sin ninguna defensa.
     return { permitido: false, reintentarEn: 30, noDisponible: true };
