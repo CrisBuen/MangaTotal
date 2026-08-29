@@ -8,6 +8,7 @@ export interface SessionData {
   userId?: number;
   nickname?: string;
   isAdmin?: boolean;
+  sessionVersion?: number;
 }
 
 export const SESSION_COOKIE_NAME = "lector_total_session";
@@ -42,7 +43,22 @@ export const getSessionUser = cache(async () => {
   const session = await getSession();
   if (!session.userId) return null;
   const user = await db.user.findUnique({ where: { id: session.userId } });
-  return user ?? null;
+  if (!user) {
+    session.destroy();
+    return null;
+  }
+
+  // Las cookies anteriores a esta migración no llevaban versión. Se aceptan
+  // solo mientras la cuenta siga en la versión inicial para no cerrarles la
+  // sesión a todos durante el despliegue.
+  if (session.sessionVersion === undefined && user.sessionVersion === 1) {
+    session.sessionVersion = 1;
+    await session.save();
+  } else if (session.sessionVersion !== user.sessionVersion) {
+    session.destroy();
+    return null;
+  }
+  return user;
 });
 
 /** Igual que getSessionUser pero exige is_admin. */

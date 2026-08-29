@@ -11,6 +11,7 @@ model User {
   id                   Int               @id @default(autoincrement())
   nickname             String            @unique
   passwordHash         String            @map("password_hash")
+  sessionVersion       Int               @default(1) @map("session_version")
   birthdate            DateTime?
   isAdmin              Boolean           @default(false) @map("is_admin")
   showAdultContent     Boolean           @default(false) @map("show_adult_content")
@@ -25,6 +26,19 @@ model User {
   externalSeries       ExternalSeries[]
 
   @@map("users")
+}
+
+/// Contadores de abuso de autenticación. La clave es un HMAC: no guarda en
+/// claro ni la IP ni el apodo usados durante un intento.
+model AuthRateLimit {
+  key             String    @id
+  attempts        Int       @default(0)
+  windowStartedAt DateTime  @map("window_started_at")
+  blockedUntil    DateTime? @map("blocked_until")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([updatedAt])
+  @@map("auth_rate_limits")
 }
 
 model Series {
