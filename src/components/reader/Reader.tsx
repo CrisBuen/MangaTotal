@@ -40,6 +40,9 @@ export function Reader({
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
   // en Android el puente esconde además las barras del sistema
   const [inmersivaNativa, setInmersivaNativa] = useState(false);
+  // la misma información que inmersivaNativa, pero legible desde los
+  // manejadores que se registran una sola vez al montar
+  const usaPuenteNativo = useRef(false);
   const [controlsVisible, setControlsVisible] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -118,6 +121,7 @@ export function Reader({
   useEffect(() => {
     const nativa = pantallaCompletaEsTotal();
     setInmersivaNativa(nativa);
+    usaPuenteNativo.current = nativa;
     if (!nativa) return;
 
     activarPantallaCompleta();
@@ -131,6 +135,9 @@ export function Reader({
 
   useEffect(() => {
     function onChange() {
+      // con el puente nativo la pantalla completa no pasa por el navegador,
+      // así que este aviso no sabe nada y pisaría el estado bueno
+      if (usaPuenteNativo.current) return;
       const fs = Boolean(document.fullscreenElement);
       setIsFullscreen(fs);
       setControlsVisible(!fs ? true : false);

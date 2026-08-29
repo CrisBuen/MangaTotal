@@ -13,12 +13,43 @@ interface PluginPantalla {
   inmersiva(opciones: { activa: boolean }): Promise<void>;
 }
 
+interface CapacitorGlobal {
+  Plugins?: { Pantalla?: PluginPantalla };
+  registerPlugin?: (nombre: string) => PluginPantalla;
+}
+
+let recordado: PluginPantalla | null | undefined;
+
+/**
+ * El plugin nativo, buscado por los dos caminos.
+ *
+ * `Capacitor.Plugins` solo tiene los plugins que traen su parte en
+ * JavaScript. Los que son solo nativos —como este— hay que pedirlos con
+ * `registerPlugin`, y si se busca únicamente en `Plugins` no aparece nunca:
+ * la app se comporta como si el puente no existiera y la barra de estado
+ * sigue tapando la lectura.
+ */
 function pluginPantalla(): PluginPantalla | null {
-  if (typeof window === "undefined") return null;
-  const p = (
-    window as unknown as { Capacitor?: { Plugins?: { Pantalla?: PluginPantalla } } }
-  ).Capacitor?.Plugins?.Pantalla;
-  return p?.inmersiva ? p : null;
+  if (recordado !== undefined) return recordado;
+  if (typeof window === "undefined") return (recordado = null);
+
+  const capacitor = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
+  if (!capacitor) return (recordado = null);
+
+  const directo = capacitor.Plugins?.Pantalla;
+  if (directo?.inmersiva) return (recordado = directo);
+
+  if (typeof capacitor.registerPlugin === "function") {
+    try {
+      const p = capacitor.registerPlugin("Pantalla");
+      // devuelve un intermediario aunque el plugin no exista; en la web y
+      // en Windows no se llega hasta acá porque no hay Capacitor
+      if (p) return (recordado = p);
+    } catch {
+      // no está registrado en esta plataforma
+    }
+  }
+  return (recordado = null);
 }
 
 /** True si esto corre dentro de la app de Android. */

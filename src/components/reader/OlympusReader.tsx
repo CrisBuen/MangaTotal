@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { EnlaceCapitulo } from "./EnlaceCapitulo";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BotonVolver } from "./BotonVolver";
 import { CascadeReader } from "./CascadeReader";
 import { FullscreenToggle } from "./FullscreenToggle";
@@ -63,6 +63,9 @@ export function OlympusReader({
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
   // en Android el puente esconde además las barras del sistema
   const [inmersivaNativa, setInmersivaNativa] = useState(false);
+  // la misma información que inmersivaNativa, pero legible desde los
+  // manejadores que se registran una sola vez al montar
+  const usaPuenteNativo = useRef(false);
 
   useProgresoExterno({
     source,
@@ -109,6 +112,7 @@ export function OlympusReader({
   useEffect(() => {
     const nativa = pantallaCompletaEsTotal();
     setInmersivaNativa(nativa);
+    usaPuenteNativo.current = nativa;
     if (!nativa) return;
 
     activarPantallaCompleta();
@@ -122,6 +126,9 @@ export function OlympusReader({
 
   useEffect(() => {
     function onChange() {
+      // con el puente nativo la pantalla completa no pasa por el navegador,
+      // así que este aviso no sabe nada y pisaría el estado bueno
+      if (usaPuenteNativo.current) return;
       const fs = Boolean(document.fullscreenElement);
       setIsFullscreen(fs);
       setControlsVisible(!fs);
