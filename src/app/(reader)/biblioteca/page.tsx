@@ -264,8 +264,8 @@ export default function BibliotecaPage() {
       {/* Categorías: solo dentro de Normal o +18, nunca en Todo */}
       {tags.length > 0 && (filter === "normal" || filter === "adult") && (
         <section id="categorias" className="scroll-mt-28" data-od-id="library-tags">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
               Categorías
             </h2>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
@@ -302,8 +302,8 @@ export default function BibliotecaPage() {
       {/* Continuar leyendo */}
       {loggedIn && hayQueContinuar && (
         <section data-od-id="continue-reading">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
               Continuar leyendo
             </h2>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
@@ -396,8 +396,8 @@ export default function BibliotecaPage() {
 
       {loggedIn && guardadas.length > 0 && filter === "normal" && (
         <section data-od-id="library-external">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
               Guardadas de otras fuentes
             </h2>
             <button
@@ -462,8 +462,8 @@ export default function BibliotecaPage() {
       )}
 
       <section data-od-id="library-catalog">
-        <div className="mb-5 flex items-end justify-between gap-4">
-            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
               Catálogo
             </h2>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">

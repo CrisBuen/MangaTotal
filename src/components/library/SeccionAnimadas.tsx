@@ -148,8 +148,8 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
 
       {continuando.length > 0 && (
         <section>
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
               Continuar viendo
             </h2>
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
@@ -165,8 +165,8 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
       )}
 
       <section>
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
             Series animadas
           </h2>
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">

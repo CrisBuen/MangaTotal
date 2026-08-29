@@ -63,8 +63,8 @@ export function SeccionHistorial() {
 
   return (
     <section id="historial" className="scroll-mt-28" data-od-id="library-history">
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <h2 className="font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
           Historial
         </h2>
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">

@@ -67,12 +67,12 @@ export function TopSemanal() {
 
   return (
     <section data-od-id="home-top-semanal">
-      <div className="mb-8 flex items-end justify-between gap-5">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
             De todas las fuentes
           </p>
-          <h2 className="mt-2 font-display text-3xl font-black uppercase tracking-[-0.04em] text-ink sm:text-4xl">
+          <h2 className="mt-2 min-w-0 font-display text-3xl font-black uppercase tracking-[-0.04em] text-ink sm:text-4xl">
             Top semanal
           </h2>
         </div>
