@@ -4,7 +4,7 @@ Biblioteca de manga, manhwa y manhua que junta el **catálogo propio** con el
 de **seis sitios externos** que dieron permiso por escrito, todo con el mismo
 lector y el mismo progreso de lectura.
 
-**https://manga-total.vercel.app** · también como app de **Windows** y de
+**https://www.mangatotal.com** · también como app de **Windows** y de
 **Android**.
 
 ## Si venís a tocar el código, empezá acá

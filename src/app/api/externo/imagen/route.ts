@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   const upstream = await fetch(url, {
-    headers: { "User-Agent": "MangaTotal/1.0 (manga-total.vercel.app)" },
+    headers: { "User-Agent": "MangaTotal/1.0 (www.mangatotal.com)" },
     next: { revalidate: 3600 },
   }).catch(() => null);
 

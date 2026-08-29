@@ -169,15 +169,15 @@ positive: the file contains no malicious code.
 
 Details:
 - Public source code: https://github.com/CrisBuen/MangaTotal
-- Official download: https://manga-total.vercel.app/descargas/MangaTotal-windows-setup.exe
+- Official download: https://www.mangatotal.com/descargas/MangaTotal-windows-setup.exe
 - Built with Tauri 2 (Rust), packaged with NSIS, compiled from the source
   above.
 
 What the application does: it opens a WebView window that loads
-https://manga-total.vercel.app, and it can download its own updates from
+https://www.mangatotal.com, and it can download its own updates from
 that same domain. It does not modify system files, does not persist
 outside its installation folder, and does not contact any host other than
-manga-total.vercel.app and the manga sources the user explicitly opens.
+www.mangatotal.com and the manga sources the user explicitly opens.
 
 The detection appears to be a generic machine-learning heuristic (the !ml
 suffix) triggered because the installer is not yet signed with a code

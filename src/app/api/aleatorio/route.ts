@@ -164,7 +164,7 @@ interface ItemOly {
 }
 
 /** Olympus se identifica a sí misma con nuestro nombre, como pidieron. */
-const UA_OLYMPUS = "MangaTotal/1.0 (+https://manga-total.vercel.app)";
+const UA_OLYMPUS = "MangaTotal/1.0 (+https://www.mangatotal.com)";
 
 async function deOlympus(): Promise<SerieAlAzar | null> {
   const listado = async (pagina: number) => {

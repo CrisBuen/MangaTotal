@@ -4,7 +4,7 @@ App nativa que muestra MangaTotal en su propia ventana, con ícono en el
 escritorio y sin barra del navegador. Pesa unos pocos MB porque usa el
 WebView2 que ya trae Windows, no un navegador embebido.
 
-La app carga `https://manga-total.vercel.app`, así que **siempre está
+La app carga `https://www.mangatotal.com`, así que **siempre está
 actualizada**: cada deploy de la web se ve en el acto, sin reinstalar nada.
 
 ## Qué hay que instalar una sola vez

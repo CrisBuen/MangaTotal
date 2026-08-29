@@ -61,7 +61,7 @@ export interface FiltrosOlympus {
   q?: string;
 }
 
-const UA = "MangaTotal/1.0 (+https://manga-total.vercel.app)";
+const UA = "MangaTotal/1.0 (+https://www.mangatotal.com)";
 
 /** Capítulos con acceso anticipado: Olympus los reserva a quienes los apoyan. */
 const PREFIJO_PROTEGIDO = "/cp/";

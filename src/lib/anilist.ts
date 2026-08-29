@@ -47,7 +47,7 @@ export async function aniFetch<T>(
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      "User-Agent": "MangaTotal/1.0 (manga-total.vercel.app)",
+      "User-Agent": "MangaTotal/1.0 (www.mangatotal.com)",
     },
     body: JSON.stringify({ query, variables }),
     next: { revalidate: revalidateSeconds },

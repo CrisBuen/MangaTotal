@@ -5,7 +5,7 @@
  */
 
 const MD_API = "https://api.mangadex.org";
-const USER_AGENT = "MangaTotal/1.0 (manga-total.vercel.app)";
+const USER_AGENT = "MangaTotal/1.0 (www.mangatotal.com)";
 
 /** Idiomas que la UI ofrece; "es" incluye español de España y LATAM. */
 export const LANG_GROUPS: Record<string, string[]> = {

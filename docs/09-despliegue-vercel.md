@@ -1,11 +1,16 @@
 # 9. Despliegue en Vercel
 
-**https://manga-total.vercel.app** — se despliega solo con cada push a
+**https://www.mangatotal.com** — se despliega solo con cada push a
 `main`. No hay paso manual.
 
 Y las dos apps (Windows y Android) cargan **esta misma web**. Un cambio acá
 llega a todo el mundo enseguida; romperla rompe las tres plataformas a la
 vez.
+
+El alias antiguo `https://manga-total.vercel.app` se mantiene asociado al
+mismo proyecto mientras existan instalaciones anteriores a Android 1.9.0 o
+Windows 1.4.0. Esas versiones llevan la dirección compilada adentro; quitar
+el alias las dejaría sin web y sin camino de actualización.
 
 ## 9.1 Qué corre en cada deploy
 

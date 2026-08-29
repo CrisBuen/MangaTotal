@@ -4,7 +4,7 @@
   "description": "Permisos de la ventana principal",
   "windows": ["main"],
   "remote": {
-    "urls": ["https://manga-total.vercel.app"]
+    "urls": ["https://www.mangatotal.com"]
   },
   "permissions": ["core:default", "core:app:allow-version"]
 }

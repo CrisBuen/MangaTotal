@@ -6,7 +6,7 @@ Una biblioteca de manga, manhwa y manhua que junta **el catálogo propio** (lo
 que sube el administrador) con **el de seis sitios externos** que dieron
 permiso por escrito, todo con el mismo lector y el mismo progreso de lectura.
 
-Vive en **https://manga-total.vercel.app** y se distribuye además como app de
+Vive en **https://www.mangatotal.com** y se distribuye además como app de
 **Windows** y de **Android**.
 
 ## 1.2 Cómo llegó a ser esto

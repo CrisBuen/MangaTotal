@@ -3,7 +3,7 @@
 ## 10.1 Lo primero que hay que entender
 
 Las dos apps **no tienen su propia interfaz**. Son una ventana que carga
-`https://manga-total.vercel.app`, más un puente nativo.
+`https://www.mangatotal.com`, más un puente nativo.
 
 Eso decide cuándo hay que recompilar:
 
