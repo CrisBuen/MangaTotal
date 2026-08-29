@@ -15,17 +15,20 @@ erDiagram
     User ||--o{ Favorite : "marca"
     User ||--o{ ExternalSeries : "guarda / leyó"
     User ||--o{ AnimeEntry : "sigue"
+    User ||--o{ ExternalAnime : "guarda"
     Series ||--o{ Chapter : "tiene"
     Series }o--o{ Tag : "se clasifica con"
     Chapter ||--o{ Page : "tiene"
 ```
 
-Hay dos mundos que **no se cruzan en la base**:
+Hay tres mundos que **no se cruzan en la base**:
 
 - **Catálogo propio**: `Series → Chapter → Page`, con el progreso en
   `ReadingProgress`.
-- **Fuentes externas**: todo en una sola tabla, `ExternalSeries`. No hay
+- **Lecturas externas**: todo en una sola tabla, `ExternalSeries`. No hay
   capítulos ni páginas guardadas: se piden al sitio de origen cada vez.
+- **Anime externo**: referencias guardadas en `ExternalAnime`; las fichas,
+  episodios y el reproductor siguen viniendo de cada proveedor.
 
 ## 3.2 Los modelos
 
@@ -83,6 +86,12 @@ página.
 ### `AnimeEntry`
 Seguimiento de anime contra AniList. `anilistId` es el id de allá. **No hay
 video**: solo cuántos episodios lleva vistos.
+
+### `ExternalAnime`
+Anime reproducible guardado desde fuentes externas. Conserva la fuente, su
+identificador, el slug y metadatos de la ficha; nunca direcciones de video.
+Está separado de `AnimeEntry` para que AnimeList y Anime animado no mezclen
+conceptos. Las rutas internas se arman en `src/lib/animeExternos.ts`.
 
 ### `Tag`, `Favorite`, `Announcement`, `IngestionJob`
 Categorías del catálogo propio, favoritos, las noticias que publica el

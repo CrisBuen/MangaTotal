@@ -21,6 +21,7 @@ model User {
   progress             ReadingProgress[]
   favorites            Favorite[]
   animeEntries         AnimeEntry[]
+  externalAnime        ExternalAnime[]
   externalSeries       ExternalSeries[]
 
   @@map("users")
@@ -65,6 +66,29 @@ model AnimeEntry {
   @@unique([userId, anilistId])
   @@index([userId, status])
   @@map("anime_entries")
+}
+
+/// Anime guardado desde fuentes externas reproducibles. No se aloja video:
+/// solo la referencia a la ficha original de cada proveedor.
+model ExternalAnime {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  source        String
+  externalId    String   @map("external_id")
+  slug          String?
+  title         String
+  coverUrl      String?  @map("cover_url")
+  type          String?
+  status        String?
+  totalEpisodes Int?     @map("total_episodes")
+  isAdult       Boolean  @default(false) @map("is_adult")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, source, externalId])
+  @@index([userId, updatedAt])
+  @@map("external_anime")
 }
 
 

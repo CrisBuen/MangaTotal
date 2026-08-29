@@ -18,10 +18,11 @@ El +18 se filtra en el servidor, no escondiendo cosas en la interfaz.
 
 ## 5.2 Biblioteca
 
-Dos bibliotecas en el mismo lugar, con un selector arriba:
+Tres bibliotecas en el mismo lugar, con un selector arriba:
 
 - **Series de lectura** — lo que se lee.
-- **Series animadas** — seguimiento de anime.
+- **AnimeList** — seguimiento informativo de AniList.
+- **Anime animado** — series guardadas desde fuentes externas reproducibles.
 
 Dentro de "Series de lectura", las pestañas son **Todo**, **Normal**, **+18**
 (solo si la persona lo activó) y **Favoritos**.
@@ -73,6 +74,10 @@ JKAnime es la fuente predeterminada: directorio, filtros, ficha y episodios.
 Al tocar un episodio se incrusta su página oficial completa, de modo que
 JKAnime sigue controlando el reproductor, Desu y las fuentes alternativas.
 MangaTotal no extrae ni guarda enlaces de video.
+
+El botón **Guardar en Anime animado** conserva una referencia a la ficha de
+JKAnime. Esa biblioteca está separada de las lecturas y de AnimeList, y usa
+`source + externalId` para admitir más proveedores en el futuro.
 
 AniList queda como fuente de información y seguimiento: agregar a Mi lista,
 llevar episodios vistos y abrir plataformas oficiales.

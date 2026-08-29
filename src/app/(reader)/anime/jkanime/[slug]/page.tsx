@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
+import { SaveExternalAnimeButton } from "@/components/anime/SaveExternalAnimeButton";
 import { Surface } from "@/components/ui/Surface";
 import type { FichaJkanime } from "@/lib/jkanime";
 
@@ -120,14 +121,28 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
             {ficha.aired_at && <p>Emitido: <span className="text-ink">{ficha.aired_at}</span></p>}
           </div>
 
-          <a
-            href={ficha.url_original}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:border-accent"
-          >
-            Ver ficha en JKAnime ↗
-          </a>
+          <div className="flex flex-wrap items-start gap-3">
+            <SaveExternalAnimeButton
+              anime={{
+                source: "jkanime",
+                external_id: String(ficha.id),
+                slug: ficha.slug,
+                title: ficha.title,
+                cover_url: ficha.cover_url,
+                type: ficha.type,
+                status: ficha.status,
+                total_episodes: ficha.total_episodes,
+              }}
+            />
+            <a
+              href={ficha.url_original}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:border-accent"
+            >
+              Ver ficha en JKAnime ↗
+            </a>
+          </div>
         </div>
       </div>
 

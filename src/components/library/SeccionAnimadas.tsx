@@ -29,9 +29,8 @@ const ESTADOS: { key: string; label: string }[] = [
 ];
 
 /**
- * Series animadas de la biblioteca: lo mismo que la sección de lectura pero
- * para el seguimiento de anime. No se reproduce nada acá — cada ficha lleva
- * a las plataformas con licencia que publica AniList.
+ * AnimeList conserva el seguimiento informativo que ya existía con AniList.
+ * La reproducción desde fuentes externas vive en Anime animado, aparte.
  */
 export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
@@ -76,8 +75,8 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
   if (entradas.length === 0) {
     return (
       <EmptyState
-        title="Todavía no seguís ninguna serie animada"
-        description="Buscá una en la pestaña Anime y agregala para llevar la cuenta de los episodios."
+        title="Todavía no tenés entradas en AnimeList"
+        description="Desde una ficha de AniList podés agregarla para llevar la cuenta de episodios."
         action={
           <Link
             href="/anime"
@@ -167,7 +166,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
       <section>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
-            Series animadas
+            AnimeList
           </h2>
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
             AniList

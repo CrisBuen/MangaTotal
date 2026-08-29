@@ -9,6 +9,7 @@ import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { buscarNovedades, type Novedad } from "@/components/library/novedades";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
+import { SeccionAnimeExterno } from "@/components/library/SeccionAnimeExterno";
 import { SeccionHistorial } from "@/components/library/SeccionHistorial";
 
 interface ContinueItem {
@@ -52,7 +53,7 @@ export default function BibliotecaPage() {
   const [seriesError, setSeriesError] = useState(false);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [filter, setFilter] = useState<Filter>("normal");
-  const [seccion, setSeccion] = useState<"lectura" | "animadas">("lectura");
+  const [seccion, setSeccion] = useState<"lectura" | "animelist" | "anime-animado">("lectura");
   const [search, setSearch] = useState("");
   const [tags, setTags] = useState<TagChip[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -96,7 +97,8 @@ export default function BibliotecaPage() {
     // (así "atrás" desde una serie vuelve a la misma sección)
     const params = new URLSearchParams(window.location.search);
     const urlSeccion = params.get("s");
-    if (urlSeccion === "animadas") setSeccion("animadas");
+    if (urlSeccion === "animadas" || urlSeccion === "animelist") setSeccion("animelist");
+    if (urlSeccion === "anime-animado") setSeccion("anime-animado");
     const urlFilter = params.get("f");
     if (urlFilter && ["normal", "adult", "favoritos"].includes(urlFilter)) {
       setFilter(urlFilter as Filter);
@@ -112,7 +114,7 @@ export default function BibliotecaPage() {
   useEffect(() => {
     if (!restored) return;
     const url = new URL(window.location.href);
-    if (seccion === "animadas") url.searchParams.set("s", "animadas");
+    if (seccion !== "lectura") url.searchParams.set("s", seccion);
     else url.searchParams.delete("s");
     if (filter !== "normal") url.searchParams.set("f", filter);
     else url.searchParams.delete("f");
@@ -204,12 +206,15 @@ export default function BibliotecaPage() {
         title="Biblioteca"
         description="Explorá tus series, retomá lecturas y encontrá contenido por categoría."
       />
-      {/* Lectura o animadas: dos bibliotecas distintas, mismo lugar */}
+      {/* Lectura, AniList y fuentes animadas se guardan por separado. */}
       <div className="flex gap-1" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
           ...(me?.anime_enabled
-            ? [{ key: "animadas" as const, label: "Series animadas" }]
+            ? [
+                { key: "animelist" as const, label: "AnimeList" },
+                { key: "anime-animado" as const, label: "Anime animado" },
+              ]
             : []),
         ] as const).map((t) => (
           <button
@@ -228,8 +233,10 @@ export default function BibliotecaPage() {
         ))}
       </div>
 
-      {seccion === "animadas" && me?.anime_enabled ? (
+      {seccion === "animelist" && me?.anime_enabled ? (
         <SeccionAnimadas busqueda={search} />
+      ) : seccion === "anime-animado" && me?.anime_enabled ? (
+        <SeccionAnimeExterno busqueda={search} />
       ) : (
        <>
       <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
