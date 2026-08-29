@@ -1,18 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { isAndroidApp } from "@/lib/appVersion";
 
 /**
  * "Más": lo que no entra en la barra de abajo.
  *
- * En el teléfono la barra solo da para cinco pestañas, así que Noticias,
- * Aleatorio y todo lo de la cuenta viven acá. En pantalla grande estos
- * accesos ya están arriba, pero la página funciona igual.
+ * En Android la barra solo da para cinco pestañas, así que Noticias y
+ * Aleatorio viven acá. En la web y Windows esos dos accesos ya están en el
+ * encabezado y no se repiten.
  */
 const SECCIONES: {
   titulo: string;
-  entradas: { href: string; label: string; descripcion: string; icono: string }[];
+  entradas: {
+    href: string;
+    label: string;
+    descripcion: string;
+    icono: string;
+    soloAndroid?: boolean;
+  }[];
 }[] = [
   {
     titulo: "Descubrir",
@@ -22,12 +30,14 @@ const SECCIONES: {
         label: "Aleatorio",
         descripcion: "Una serie al azar de cualquiera de las fuentes",
         icono: "M12 2 4 6v6c0 5 3.4 9.4 8 10 4.6-.6 8-5 8-10V6zm0 5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 6c1.7 0 3 1.3 3 3H9c0-1.7 1.3-3 3-3z",
+        soloAndroid: true,
       },
       {
         href: "/noticias",
         label: "Noticias",
         descripcion: "Anuncios y novedades de MangaTotal",
         icono: "M4 4h16v16H4zm2 3v2h12V7zm0 4v2h12v-2zm0 4v2h8v-2z",
+        soloAndroid: true,
       },
       {
         href: "/estadisticas",
@@ -63,6 +73,12 @@ const SECCIONES: {
 ];
 
 export default function MasPage() {
+  const [android, setAndroid] = useState(false);
+
+  useEffect(() => {
+    setAndroid(isAndroidApp());
+  }, []);
+
   return (
     <div className="space-y-10" data-od-id="more-page">
       <SectionHeading eyebrow="MangaTotal" title="Más" description="Todo lo demás, en un solo lugar." />
@@ -73,7 +89,9 @@ export default function MasPage() {
             {seccion.titulo}
           </h2>
           <Surface className="divide-y divide-line p-0">
-            {seccion.entradas.map((e) => (
+            {seccion.entradas
+              .filter((entrada) => android || !entrada.soloAndroid)
+              .map((e) => (
               <Link
                 key={e.href}
                 href={e.href}
@@ -94,7 +112,7 @@ export default function MasPage() {
                   ›
                 </span>
               </Link>
-            ))}
+              ))}
           </Surface>
         </section>
       ))}

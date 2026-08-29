@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { buttonStyles } from "./Button";
 import { HeaderNavLink } from "./HeaderNavLink";
-import { InstallButton } from "@/components/pwa/InstallButton";
 import { LogoutButton } from "./LogoutButton";
 import { RandomSeriesButton } from "./RandomSeriesButton";
 
@@ -80,7 +79,19 @@ export function AppHeader({
         </nav>
 
         <div className="ml-auto flex min-h-11 items-center gap-1.5" data-od-id="account-actions">
-          <InstallButton />
+          {mode !== "admin" && (
+            <Link
+              href="/mas"
+              className={buttonStyles({
+                variant: "secondary",
+                size: "sm",
+                className: "hidden lg:inline-flex",
+              })}
+              data-od-id="more-link"
+            >
+              Más
+            </Link>
+          )}
           {mode === "admin" && (
             <Link href="/" className={buttonStyles({ variant: "ghost", size: "sm" })}>
               <span className="sm:hidden">Sitio</span>
