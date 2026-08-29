@@ -6,6 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import { BotonVolver } from "./BotonVolver";
 import { CascadeReader } from "./CascadeReader";
 import { FullscreenToggle } from "./FullscreenToggle";
+import { AjustesLectura, BotonAjustes } from "./AjustesLectura";
+import {
+  activarPantallaCompleta,
+  pantallaCompletaEsTotal,
+  salirPantallaCompleta,
+} from "@/lib/pantalla";
 import { RtlReader } from "./RtlReader";
 import type { ReaderPage, ReadingMode } from "./types";
 import { useProgresoExterno } from "./useProgresoExterno";
@@ -54,6 +60,9 @@ export function OlympusReader({
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
+  // en Android el puente esconde además las barras del sistema
+  const [inmersivaNativa, setInmersivaNativa] = useState(false);
 
   useProgresoExterno({
     source,
@@ -78,8 +87,37 @@ export function OlympusReader({
   }, []);
 
   const toggleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else document.documentElement.requestFullscreen().catch(() => {});
+    const saliendo = isFullscreen;
+    if (saliendo) salirPantallaCompleta();
+    else activarPantallaCompleta();
+
+    // el navegador avisa por "fullscreenchange"; el puente nativo no, así que
+    // con él hay que llevar el estado a mano
+    if (inmersivaNativa) {
+      setIsFullscreen(!saliendo);
+      setControlsVisible(saliendo);
+    }
+  }, [isFullscreen, inmersivaNativa]);
+
+  /**
+   * En el teléfono se entra a leer directo a pantalla completa.
+   *
+   * Es lo que se espera de un lector en el celular, y con las barras del
+   * sistema escondidas la página gana el alto que en una pantalla angosta se
+   * nota. Al dejar el capítulo se devuelven.
+   */
+  useEffect(() => {
+    const nativa = pantallaCompletaEsTotal();
+    setInmersivaNativa(nativa);
+    if (!nativa) return;
+
+    activarPantallaCompleta();
+    setIsFullscreen(true);
+    setControlsVisible(false);
+
+    return () => {
+      salirPantallaCompleta();
+    };
   }, []);
 
   useEffect(() => {
@@ -142,22 +180,15 @@ export function OlympusReader({
             </a>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="flex rounded-lg border border-line bg-[var(--surface-raised)] p-0.5">
-              {(["cascade", "rtl"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => changeMode(m)}
-                  className={`rounded-md px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] transition ${
-                    mode === m ? "bg-accent text-[var(--bg)]" : "text-subtle hover:text-ink"
-                  }`}
-                >
-                  {m === "cascade" ? "Cascada" : "RTL"}
-                </button>
-              ))}
+          {/* el modo de lectura se mudó al engranaje de abajo: en la franja
+              de arriba de un teléfono no entra, y ahí no se alcanza con el
+              pulgar. Donde las barras del sistema no se esconden se deja el
+              botón de salir, o no habría cómo volver. */}
+          {!inmersivaNativa && (
+            <div className="flex shrink-0 items-center gap-2">
+              <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
             </div>
-            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
-          </div>
+          )}
         </div>
       </header>
 
@@ -167,6 +198,17 @@ export function OlympusReader({
           style={{ height: `${progressPct}%` }}
         />
       </div>
+
+      <BotonAjustes onClick={() => setAjustesAbiertos(true)} visible={showBar} />
+      <AjustesLectura
+        abierto={ajustesAbiertos}
+        modo={mode}
+        onModo={(m) => {
+          changeMode(m);
+          setAjustesAbiertos(false);
+        }}
+        onCerrar={() => setAjustesAbiertos(false)}
+      />
 
       <div onClick={alternarControles}>
         {mode === "cascade" ? (

@@ -1,17 +1,15 @@
 {
-  "versionCode": 9,
-  "versionName": "1.7.1",
+  "versionCode": 10,
+  "versionName": "1.8",
   "date": "2026-08-28",
   "apkUrl": "/descargas/MangaTotal-android.apk",
   "sizeMb": 4.7,
   "changes": [
-    "Arreglado: el aviso de actualización ya no vuelve a salir cuando la app está al día",
-    "Cuando una fuente pide comprobar que sos una persona, ahora se resuelve dentro de la app",
-    "Las fuentes que bloquean a los servidores se piden desde tu teléfono",
-    "Nueva fuente: Catharsis World, con su catálogo completo",
-    "Historial: las series que abriste a leer y no llegaste a guardar",
-    "Aleatorio ahora es una ruleta entre todas las fuentes",
-    "Arreglado el lector: las tiras de webtoon ya no se cortan ni se pisan"
+    "Al abrir un capítulo entra directo a pantalla completa, sin la barra de estado ni la de gestos",
+    "El modo de lectura pasó a un engranaje abajo, al alcance del pulgar",
+    "Un toque muestra los controles y el siguiente los oculta",
+    "El gesto de atrás vuelve a donde estabas y no al capítulo anterior",
+    "Se quitó el botón de salir: ahora se sale con el gesto de siempre"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

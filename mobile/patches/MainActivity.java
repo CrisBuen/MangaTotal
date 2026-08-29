@@ -39,6 +39,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // el puente de fuentes tiene que existir antes de que arranque la web
         registerPlugin(FuentesPlugin.class);
+        registerPlugin(PantallaPlugin.class);
         super.onCreate(savedInstanceState);
 
         WebView webView = this.bridge != null ? this.bridge.getWebView() : null;

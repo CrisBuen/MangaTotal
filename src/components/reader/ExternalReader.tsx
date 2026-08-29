@@ -6,6 +6,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BotonVolver } from "./BotonVolver";
 import { CascadeReader } from "./CascadeReader";
 import { FullscreenToggle } from "./FullscreenToggle";
+import { AjustesLectura, BotonAjustes } from "./AjustesLectura";
+import {
+  activarPantallaCompleta,
+  pantallaCompletaEsTotal,
+  salirPantallaCompleta,
+} from "@/lib/pantalla";
 import { RtlReader } from "./RtlReader";
 import type { ReaderPage, ReadingMode } from "./types";
 import { useProgresoExterno } from "./useProgresoExterno";
@@ -50,6 +56,9 @@ export function ExternalReader({
   const [mode, setMode] = useState<ReadingMode>(initialMode);
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
+  // en Android el puente esconde además las barras del sistema
+  const [inmersivaNativa, setInmersivaNativa] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,8 +78,13 @@ export function ExternalReader({
   // pantalla completa sobre el documento, no sobre este contenedor: así
   // sobrevive al pasar de capítulo (el contenedor se desmonta, el documento no)
   const toggleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else document.documentElement.requestFullscreen().catch(() => {});
+    const saliendo = isFullscreen;
+    if (saliendo) salirPantallaCompleta();
+    else activarPantallaCompleta();
+    if (inmersivaNativa) {
+      setIsFullscreen(!saliendo);
+      setControlsVisible(saliendo);
+    }
   }, []);
 
   useEffect(() => {
@@ -85,12 +99,37 @@ export function ExternalReader({
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
+  /**
+   * Un toque alterna los controles: el segundo los oculta en vez de obligar a
+   * esperar a que se vayan solos.
+   */
   const revealControls = useCallback(() => {
     if (!isFullscreen) return;
-    setControlsVisible(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setControlsVisible(false), CONTROLS_HIDE_MS);
+    setControlsVisible((visibles) => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (visibles) return false;
+      hideTimerRef.current = setTimeout(() => setControlsVisible(false), CONTROLS_HIDE_MS);
+      return true;
+    });
   }, [isFullscreen]);
+
+  /**
+   * En el teléfono se entra a leer directo a pantalla completa, con las barras
+   * del sistema escondidas. Al dejar el capítulo se devuelven.
+   */
+  useEffect(() => {
+    const nativa = pantallaCompletaEsTotal();
+    setInmersivaNativa(nativa);
+    if (!nativa) return;
+
+    activarPantallaCompleta();
+    setIsFullscreen(true);
+    setControlsVisible(false);
+
+    return () => {
+      salirPantallaCompleta();
+    };
+  }, []);
 
   const showBar = !isFullscreen || controlsVisible;
   const progressPct = pages.length > 0 ? (currentPage / pages.length) * 100 : 0;
@@ -140,20 +179,12 @@ export function ExternalReader({
                 {currentPage} / {pages.length}
               </span>
             )}
-            <div className="flex rounded-lg border border-line bg-[var(--surface-raised)] p-0.5">
-              {(["cascade", "rtl"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => changeMode(m)}
-                  className={`rounded-md px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] transition ${
-                    mode === m ? "bg-accent text-[var(--bg)]" : "text-subtle hover:text-ink"
-                  }`}
-                >
-                  {m === "cascade" ? "Cascada" : "RTL"}
-                </button>
-              ))}
-            </div>
-            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+            {/* el modo de lectura vive ahora en el engranaje de abajo, al
+                alcance del pulgar. Donde las barras del sistema no se
+                esconden se deja el botón de salir. */}
+            {!inmersivaNativa && (
+              <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+            )}
           </div>
         </div>
       </header>
@@ -214,7 +245,18 @@ export function ExternalReader({
         )}
       </div>
 
-      {isFullscreen && controlsVisible && (
+      <BotonAjustes onClick={() => setAjustesAbiertos(true)} visible={showBar} />
+      <AjustesLectura
+        abierto={ajustesAbiertos}
+        modo={mode}
+        onModo={(m) => {
+          changeMode(m);
+          setAjustesAbiertos(false);
+        }}
+        onCerrar={() => setAjustesAbiertos(false)}
+      />
+
+      {isFullscreen && controlsVisible && !inmersivaNativa && (
         <button
           onClick={toggleFullscreen}
           className="fixed right-4 z-50 rounded-full border border-line bg-[var(--surface-raised)] px-4 py-2 text-sm text-ink shadow-lg"
