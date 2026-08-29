@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { isAndroidApp } from "@/lib/appVersion";
 
 interface Me {
   nickname?: string;
@@ -21,12 +21,13 @@ interface Me {
  * en Seguridad y privacidad, y viene apagado.
  */
 export default function AjustesPage() {
-  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
+  const [enAndroid, setEnAndroid] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setEnAndroid(isAndroidApp());
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setMe(d ?? {}))
@@ -67,8 +68,6 @@ export default function AjustesPage() {
     setMe((m) => (m ? { ...m, anime_enabled: data.user.anime_enabled } : m));
     setGuardado(true);
     setTimeout(() => setGuardado(false), 1500);
-    // El encabezado y la barra móvil se dibujan en el servidor.
-    router.refresh();
   }
 
   const conSesion = Boolean(me?.nickname);
@@ -124,29 +123,31 @@ export default function AjustesPage() {
                 />
               </button>
             </div>
-            <div className="flex items-center justify-between gap-6 border-t border-line pt-6">
-              <div>
-                <p className="text-sm font-bold text-ink">Activar sección Anime</p>
-                <p className="mt-1 text-xs leading-5 text-subtle">
-                  Viene apagada. Al encenderla aparece Anime en la navegación y la sección
-                  animada dentro de Explorar.
-                </p>
-              </div>
-              <button
-                onClick={() => cambiarAnime(!me?.anime_enabled)}
-                className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
-                  me?.anime_enabled ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
-                }`}
-                aria-pressed={Boolean(me?.anime_enabled)}
-                aria-label="Activar sección Anime"
-              >
-                <span
-                  className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
-                    me?.anime_enabled ? "translate-x-6" : ""
+            {enAndroid && (
+              <div className="flex items-center justify-between gap-6 border-t border-line pt-6">
+                <div>
+                  <p className="text-sm font-bold text-ink">Activar sección animada</p>
+                  <p className="mt-1 text-xs leading-5 text-subtle">
+                    Viene apagada en Android. Al encenderla aparece JKAnime dentro de Explorar y
+                    la biblioteca de anime animado. AniList permanece disponible siempre.
+                  </p>
+                </div>
+                <button
+                  onClick={() => cambiarAnime(!me?.anime_enabled)}
+                  className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
+                    me?.anime_enabled ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
                   }`}
-                />
-              </button>
-            </div>
+                  aria-pressed={Boolean(me?.anime_enabled)}
+                  aria-label="Activar sección animada"
+                >
+                  <span
+                    className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
+                      me?.anime_enabled ? "translate-x-6" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
             {error && (
               <p role="alert" className="text-sm text-red-400">
                 {error}

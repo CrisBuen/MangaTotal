@@ -336,7 +336,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
   const volver = async () => {
     guardarProgreso(currentRef.current, durationRef.current);
     await salirPantallaCompleta();
-    router.push(`/anime/jkanime/${slug}`);
+    router.push(`/explorar/jkanime/${slug}`);
   };
 
   const esHls = data?.playback.kind === "hls";

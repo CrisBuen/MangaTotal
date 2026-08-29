@@ -7,6 +7,6 @@ import { getSessionUser } from "@/lib/auth";
  */
 export default async function AnimeLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
-  if (!user?.animeEnabled) redirect("/ajustes");
+  if (!user) redirect("/login");
   return children;
 }

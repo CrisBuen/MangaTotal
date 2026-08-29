@@ -57,7 +57,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
         description="Elegí una serie de JKAnime y guardala para encontrarla acá."
         action={
           <Link
-            href="/anime"
+            href="/explorar?seccion=animada"
             className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
           >
             Explorar anime

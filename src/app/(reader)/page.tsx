@@ -2,7 +2,7 @@ import { HomeExperience } from "@/components/home/HomeExperience";
 
 /**
  * Inicio. Vive dentro del grupo (reader) para compartir la cabecera y la
- * barra de abajo con Biblioteca, Explorar, Anime y Perfil: así al cambiar
+ * barra de abajo con Biblioteca, Explorar, AniList y Perfil: así al cambiar
  * de pestaña solo se reemplaza el contenido, no toda la pantalla.
  */
 export default function Home() {

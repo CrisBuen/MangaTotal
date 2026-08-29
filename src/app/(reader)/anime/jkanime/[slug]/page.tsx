@@ -55,10 +55,10 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
   return (
     <div className="space-y-9">
       <Link
-        href="/anime"
+        href="/explorar?seccion=animada"
         className="inline-block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
       >
-        ← Anime
+        ← Explorar anime
       </Link>
 
       <div className="flex flex-col gap-7 sm:flex-row">
@@ -173,7 +173,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
             {ficha.episodes.map((episode) => (
               <EpisodeWatchLink
                 key={episode.id || episode.number}
-                href={`/anime/jkanime/${ficha.slug}/${episode.number}`}
+                href={`/explorar/jkanime/${ficha.slug}/${episode.number}`}
                 className="group overflow-hidden rounded-2xl border border-line bg-panel transition hover:-translate-y-0.5 hover:border-accent"
               >
                 <div className="aspect-video bg-[var(--surface-raised)]">

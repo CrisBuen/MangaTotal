@@ -37,8 +37,9 @@ Cuenta. Lo que importa fuera de lo obvio:
 
 - `showAdultContent` — si es `false`, nunca se le muestra contenido +18. Un
   visitante sin sesión cuenta como `false`.
-- `animeEnabled` — activa la sección animada, que viene oculta y apagada para
-  cada cuenta. No reemplaza ni implica `showAdultContent`.
+- `animeEnabled` — en Android activa la sección animada de JKAnime, que viene
+  oculta por los requisitos de Play Store. Web, Windows y AniList no dependen
+  de esta preferencia. No reemplaza ni implica `showAdultContent`.
 - `preferredReadingMode` — `cascade` (webtoon, scroll vertical) o `rtl`
   (manga, página por página de derecha a izquierda).
 - `isAdmin` — habilita `/admin` y las rutas `/api/admin/*`.

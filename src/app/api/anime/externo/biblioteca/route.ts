@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { animeExternoPublico, esFuenteAnimeExterna, type FuenteAnimeExterna } from "@/lib/animeExternos";
+import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ErrorJkanime, esAdultoJkanime } from "@/lib/jkanime";
 
-function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
+async function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!user.animeEnabled) {
-    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+    return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
   return null;
 }
@@ -15,7 +16,7 @@ function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
 /** Anime de fuentes reproducibles guardado por el usuario. */
 export async function GET() {
   const user = await getSessionUser();
-  const rechazo = acceso(user);
+  const rechazo = await acceso(user);
   if (rechazo) return rechazo;
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
@@ -39,7 +40,7 @@ export async function GET() {
 /** Guarda una referencia externa; nunca guarda direcciones de video. */
 export async function PUT(req: NextRequest) {
   const user = await getSessionUser();
-  const rechazo = acceso(user);
+  const rechazo = await acceso(user);
   if (rechazo) return rechazo;
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
@@ -112,7 +113,7 @@ export async function PUT(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   const user = await getSessionUser();
-  const rechazo = acceso(user);
+  const rechazo = await acceso(user);
   if (rechazo) return rechazo;
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 

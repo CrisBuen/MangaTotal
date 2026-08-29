@@ -33,9 +33,6 @@ const CONSULTA = `
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!user.animeEnabled) {
-    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
-  }
 
   const seguidos = await db.animeEntry.findMany({
     where: { userId: user.id },

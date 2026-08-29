@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import {
   ErrorJkanime,
@@ -16,8 +17,8 @@ export async function GET(
 ) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!user.animeEnabled) {
-    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+    return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
 
   const { slug, episode } = await context.params;

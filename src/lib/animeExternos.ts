@@ -15,8 +15,8 @@ export function esFuenteAnimeExterna(valor: unknown): valor is FuenteAnimeExtern
 }
 
 export function fichaAnimeHref(source: FuenteAnimeExterna, externalId: string, slug: string | null) {
-  if (source === "jkanime") return `/anime/jkanime/${slug ?? externalId}`;
-  return "/anime";
+  if (source === "jkanime") return `/explorar/jkanime/${slug ?? externalId}`;
+  return "/explorar?seccion=animada";
 }
 
 export interface AnimeExternoFila {
@@ -65,7 +65,7 @@ export function animeExternoPublico(e: AnimeExternoFila) {
     href: fichaAnimeHref(source, e.externalId, e.slug),
     resume_href:
       e.slug && e.lastEpisodeNumber
-        ? `/anime/${source}/${e.slug}/${e.lastEpisodeNumber}`
+        ? `/explorar/${source}/${e.slug}/${e.lastEpisodeNumber}`
         : null,
   };
 }

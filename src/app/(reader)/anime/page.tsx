@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AnimeGridCard, type AnimeCard } from "@/components/anime/AnimeGridCard";
-import { JkanimeCatalog } from "@/components/anime/JkanimeCatalog";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 
 const SORTS = [
@@ -43,7 +42,6 @@ const GENRE_ES: Record<string, string> = {
 };
 
 export default function AnimePage() {
-  const [fuente, setFuente] = useState<"jkanime" | "anilist">("jkanime");
   const [anime, setAnime] = useState<AnimeCard[] | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("popular");
@@ -57,7 +55,6 @@ export default function AnimePage() {
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
-    if (fuente !== "anilist") return;
     setError(false);
     const params = new URLSearchParams({ sort, page: String(page) });
     if (search.trim()) params.set("q", search.trim());
@@ -76,7 +73,7 @@ export default function AnimePage() {
       setError(true);
       setAnime([]);
     }
-  }, [search, sort, season, format, status, genres, page, fuente]);
+  }, [search, sort, season, format, status, genres, page]);
 
   useEffect(() => {
     setAnime(null);
@@ -93,13 +90,9 @@ export default function AnimePage() {
   return (
     <div className="space-y-10">
       <SectionHeading
-        eyebrow={fuente === "jkanime" ? "Catálogo animado" : "Catálogo de AniList"}
+        eyebrow="Catálogo de AniList"
         title="Anime"
-        description={
-          fuente === "jkanime"
-            ? "Elegí una serie, revisá sus episodios y mirala con el reproductor oficial de JKAnime."
-            : "Datos de AniList para seguir lo que estás viendo y descubrir dónde verlo oficialmente."
-        }
+        description="Datos de AniList para seguir lo que estás viendo y descubrir dónde verlo oficialmente."
         action={
           <Link
             href="/anime/mi-lista"
@@ -110,32 +103,6 @@ export default function AnimePage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
-          Fuente
-        </span>
-        {[
-          { key: "jkanime" as const, label: "JKAnime" },
-          { key: "anilist" as const, label: "AniList" },
-        ].map((option) => (
-          <button
-            key={option.key}
-            onClick={() => setFuente(option.key)}
-            className={`rounded-xl border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
-              fuente === option.key
-                ? "border-accent bg-[var(--accent-soft)] text-accent"
-                : "border-line text-subtle hover:text-ink"
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-
-      {fuente === "jkanime" ? (
-        <JkanimeCatalog />
-      ) : (
-        <>
       <div className="flex flex-wrap items-center gap-3">
         <select
           value={sort}
@@ -311,8 +278,6 @@ export default function AnimePage() {
       <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
         Datos de anime provistos por AniList · MangaTotal no aloja ni reproduce video
       </p>
-        </>
-      )}
     </div>
   );
 }

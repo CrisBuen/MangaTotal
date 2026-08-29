@@ -47,9 +47,6 @@ const QUERY = `
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!user.animeEnabled) {
-    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
-  }
   const params = req.nextUrl.searchParams;
 
   const search = params.get("q")?.trim() || undefined;

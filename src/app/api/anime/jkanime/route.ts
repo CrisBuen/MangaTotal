@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { catalogoJkanime, ErrorJkanime } from "@/lib/jkanime";
 
 export const runtime = "nodejs";
 
-/** Catálogo autorizado de JKAnime. La activación se comprueba también acá. */
+/** Catálogo autorizado de JKAnime. En Android se comprueba también la activación. */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!user.animeEnabled) {
-    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+    return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
 
   const p = req.nextUrl.searchParams;

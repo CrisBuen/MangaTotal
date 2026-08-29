@@ -11,6 +11,7 @@ import { buscarNovedades, type Novedad } from "@/components/library/novedades";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
 import { SeccionAnimeExterno } from "@/components/library/SeccionAnimeExterno";
 import { SeccionHistorial } from "@/components/library/SeccionHistorial";
+import { isAndroidApp } from "@/lib/appVersion";
 
 interface ContinueItem {
   series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
@@ -54,6 +55,7 @@ export default function BibliotecaPage() {
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [filter, setFilter] = useState<Filter>("normal");
   const [seccion, setSeccion] = useState<"lectura" | "animelist" | "anime-animado">("lectura");
+  const [animeAnimadoHabilitado, setAnimeAnimadoHabilitado] = useState(false);
   const [search, setSearch] = useState("");
   const [tags, setTags] = useState<TagChip[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -82,7 +84,11 @@ export default function BibliotecaPage() {
       .then((d) => {
         const actual = d ?? {};
         setMe(actual);
-        if (!actual.anime_enabled) setSeccion("lectura");
+        const permitido = !isAndroidApp() || Boolean(actual.anime_enabled);
+        setAnimeAnimadoHabilitado(permitido);
+        if (!permitido) {
+          setSeccion((valor) => (valor === "anime-animado" ? "lectura" : valor));
+        }
       })
       .catch(() => setMe({}));
     fetch("/api/progress/continue")
@@ -210,11 +216,9 @@ export default function BibliotecaPage() {
       <div className="flex gap-1" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
-          ...(me?.anime_enabled
-            ? [
-                { key: "animelist" as const, label: "AnimeList" },
-                { key: "anime-animado" as const, label: "Anime animado" },
-              ]
+          { key: "animelist" as const, label: "AnimeList" },
+          ...(animeAnimadoHabilitado
+            ? [{ key: "anime-animado" as const, label: "Anime animado" }]
             : []),
         ] as const).map((t) => (
           <button
@@ -233,9 +237,9 @@ export default function BibliotecaPage() {
         ))}
       </div>
 
-      {seccion === "animelist" && me?.anime_enabled ? (
+      {seccion === "animelist" ? (
         <SeccionAnimadas busqueda={search} />
-      ) : seccion === "anime-animado" && me?.anime_enabled ? (
+      ) : seccion === "anime-animado" && animeAnimadoHabilitado ? (
         <SeccionAnimeExterno busqueda={search} />
       ) : (
        <>

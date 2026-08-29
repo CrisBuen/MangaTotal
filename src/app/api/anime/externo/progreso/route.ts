@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { esFuenteAnimeExterna, type FuenteAnimeExterna } from "@/lib/animeExternos";
+import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ErrorJkanime, esAdultoJkanime } from "@/lib/jkanime";
 
 const MAX_SECONDS = 12 * 60 * 60;
 
-function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
+async function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!user.animeEnabled) {
-    return NextResponse.json({ error: "La sección Anime está desactivada" }, { status: 403 });
+  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+    return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
   return null;
 }
@@ -26,7 +27,7 @@ function segundos(value: unknown): number {
 /** Devuelve el minuto guardado para un episodio concreto. */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
-  const rechazo = acceso(user);
+  const rechazo = await acceso(user);
   if (rechazo) return rechazo;
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   const user = await getSessionUser();
-  const rechazo = acceso(user);
+  const rechazo = await acceso(user);
   if (rechazo) return rechazo;
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 

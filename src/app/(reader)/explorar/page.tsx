@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { JkanimeCatalog } from "@/components/anime/JkanimeCatalog";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { isAndroidApp } from "@/lib/appVersion";
 import {
   IKIGAI_GENEROS,
   IKIGAI_ORDENES,
@@ -90,6 +92,63 @@ interface Genre {
   name: string;
 }
 
+type SeccionExplorar = "lectura" | "animada";
+
+function SelectorSecciones({
+  seccion,
+  animeHabilitado,
+  onChange,
+}: {
+  seccion: SeccionExplorar;
+  animeHabilitado: boolean;
+  onChange: (seccion: SeccionExplorar) => void;
+}) {
+  const tarjeta = (activa: boolean) =>
+    `group rounded-2xl border p-5 text-left transition ${
+      activa
+        ? "border-accent bg-[var(--accent-soft)] shadow-[var(--glow)]"
+        : "border-line bg-panel hover:-translate-y-0.5 hover:border-accent hover:shadow-[var(--glow)]"
+    }`;
+
+  return (
+    <div className={`grid gap-3 ${animeHabilitado ? "sm:grid-cols-2" : ""}`}>
+      <button className={tarjeta(seccion === "lectura")} onClick={() => onChange("lectura")}>
+        <p
+          className={`font-mono text-[9px] font-bold uppercase tracking-[0.14em] ${
+            seccion === "lectura" ? "text-accent" : "text-subtle group-hover:text-accent"
+          }`}
+        >
+          {seccion === "lectura" ? "Sección activa" : "Lectura"}
+        </p>
+        <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
+          Sección de lectura
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-subtle">
+          Manga, manhwa y manhua de las fuentes integradas.
+        </p>
+      </button>
+
+      {animeHabilitado && (
+        <button className={tarjeta(seccion === "animada")} onClick={() => onChange("animada")}>
+          <p
+            className={`font-mono text-[9px] font-bold uppercase tracking-[0.14em] ${
+              seccion === "animada" ? "text-accent" : "text-subtle group-hover:text-accent"
+            }`}
+          >
+            {seccion === "animada" ? "Sección activa" : "JKAnime"}
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
+            Sección animada
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-subtle">
+            Catálogo, episodios y reproductor oficial de la fuente.
+          </p>
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ExplorarPage() {
   const [series, setSeries] = useState<ExternalSeries[] | null>(null);
   const [lang, setLang] = useState("es");
@@ -105,6 +164,7 @@ export default function ExplorarPage() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [fuente, setFuente] = useState("mangadex");
+  const [seccion, setSeccion] = useState<SeccionExplorar>("lectura");
   const [animeHabilitado, setAnimeHabilitado] = useState(false);
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
@@ -225,12 +285,23 @@ export default function ExplorarPage() {
   }, []);
 
   useEffect(() => {
-    // La tarjeta animada es personal: no aparece para visitantes ni para
-    // cuentas que todavía no activaron Anime en Seguridad y privacidad.
+    // La Play Store exige que esta sección llegue oculta en Android. En web
+    // y Windows no hay ese filtro, así que JKAnime está disponible siempre.
+    if (!isAndroidApp()) {
+      setAnimeHabilitado(true);
+      return;
+    }
     fetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
-      .then((me) => setAnimeHabilitado(Boolean(me?.anime_enabled)))
-      .catch(() => setAnimeHabilitado(false));
+      .then((me) => {
+        const habilitado = Boolean(me?.anime_enabled);
+        setAnimeHabilitado(habilitado);
+        if (!habilitado) setSeccion("lectura");
+      })
+      .catch(() => {
+        setAnimeHabilitado(false);
+        setSeccion("lectura");
+      });
   }, []);
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
@@ -353,6 +424,7 @@ export default function ExplorarPage() {
     const p = new URLSearchParams(window.location.search);
     const leer = (k: string) => p.get(k) || null;
 
+    if (leer("seccion") === "animada") setSeccion("animada");
     const f = leer("fuente");
     if (f) setFuente(f);
     const q = leer("q");
@@ -401,6 +473,7 @@ export default function ExplorarPage() {
       else url.searchParams.set(k, String(v));
     };
 
+    poner("seccion", seccion === "animada" ? "animada" : null);
     poner("fuente", fuente === "mangadex" ? null : fuente);
     poner("q", search.trim() || null);
 
@@ -439,7 +512,7 @@ export default function ExplorarPage() {
 
     window.history.replaceState(null, "", url.toString());
   }, [
-    restaurado, fuente, search, offset, order, lang,
+    restaurado, seccion, fuente, search, offset, order, lang,
     olympusPage, olyOrden, olyGenero, olyEstado, olyTipo,
     tmoPage, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden,
     ikiPage, ikiTipo, ikiGenero, ikiOrden,
@@ -529,6 +602,35 @@ export default function ExplorarPage() {
   const page = Math.floor(offset / 24) + 1;
   const lastPage = Math.max(1, Math.ceil(Math.min(total, 9500) / 24));
 
+  if (seccion === "animada" && animeHabilitado) {
+    return (
+      <div className="space-y-10">
+        <SectionHeading
+          eyebrow="Catálogo animado"
+          title="Anime"
+          description="Elegí una serie, revisá sus episodios y mirala con el reproductor oficial de JKAnime."
+        />
+
+        <SelectorSecciones
+          seccion={seccion}
+          animeHabilitado={animeHabilitado}
+          onChange={setSeccion}
+        />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            Fuente
+          </span>
+          <span className="rounded-xl border border-accent bg-[var(--accent-soft)] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
+            JKAnime
+          </span>
+        </div>
+
+        <JkanimeCatalog />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-10">
       <SectionHeading
@@ -537,35 +639,11 @@ export default function ExplorarPage() {
         description="Series publicadas por grupos de scanlation en MangaDex. Se leen acá mismo, con tu progreso guardado."
       />
 
-      <div className={`grid gap-3 ${animeHabilitado ? "sm:grid-cols-2" : ""}`}>
-        <div className="rounded-2xl border border-accent bg-[var(--accent-soft)] p-5 shadow-[var(--glow)]">
-          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-accent">
-            Sección activa
-          </p>
-          <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
-            Sección de lectura
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-subtle">
-            Manga, manhwa y manhua de las fuentes integradas.
-          </p>
-        </div>
-        {animeHabilitado && (
-          <Link
-            href="/anime"
-            className="group rounded-2xl border border-line bg-panel p-5 transition hover:-translate-y-0.5 hover:border-accent hover:shadow-[var(--glow)]"
-          >
-            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-subtle transition group-hover:text-accent">
-              JKAnime
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
-              Sección animada
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-subtle">
-              Catálogo, episodios y reproductor oficial de la fuente.
-            </p>
-          </Link>
-        )}
-      </div>
+      <SelectorSecciones
+        seccion={seccion}
+        animeHabilitado={animeHabilitado}
+        onChange={setSeccion}
+      />
 
       {/* fuente: cada grupo publica su propio catálogo */}
       <div className="flex flex-wrap items-center gap-2">

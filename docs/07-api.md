@@ -95,9 +95,12 @@ Todas aceptan `?fresco=1` para saltar la caché: es lo que usa el botón
 | `GET/PATCH /api/anime/externo/progreso` | Segundo visto por episodio externo |
 | `GET /api/aleatorio` | Una serie al azar de cualquier fuente |
 
-Todas las rutas `/api/anime/*` exigen sesión y `animeEnabled`. La respuesta
-de reproducción de JKAnime no se cachea: Desu/Magi incluyen un HLS temporal y
-las alternativas un wrapper oficial. Ninguna URL se persiste en la base.
+Todas las rutas `/api/anime/*` exigen sesión. Las de AniList están disponibles
+en todas las plataformas; las de JKAnime, biblioteca externa y progreso
+también exigen `animeEnabled` cuando la solicitud viene de la app Android.
+La respuesta de reproducción de JKAnime no se cachea: Desu/Magi incluyen un
+HLS temporal y las alternativas un wrapper oficial. Ninguna URL se persiste
+en la base.
 
 `/api/aleatorio` sortea la fuente y después la serie. Si una falla, prueba la
 siguiente: la ruleta no se traba nunca. Acepta `?evitar=` para no repetir.

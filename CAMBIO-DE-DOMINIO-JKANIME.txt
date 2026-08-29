@@ -119,13 +119,21 @@ código y no inventar un token global.
 ACTIVACIÓN Y CONTENIDO ADULTO
 -----------------------------
 
-La sección Anime es optativa por cuenta (users.anime_enabled) y viene en
-false. El layout, las barras y todas las APIs la comprueban.
+JKAnime vive dentro de Explorar, en la tarjeta Sección animada. No comparte
+la pestaña superior de AniList: /anime queda reservado al catálogo y al
+seguimiento informativo de AniList.
+
+En web y Windows la sección animada está disponible siempre. En Android se
+oculta hasta que la cuenta activa users.anime_enabled, que viene en false por
+los requisitos de publicación de Play Store. Las APIs de JKAnime y de su
+progreso repiten esa comprobación usando el user-agent de la solicitud. Las
+APIs de AniList no dependen de esa preferencia.
 
 Las series guardadas van a external_anime con source=jkanime. Esa tabla solo
 guarda la referencia y los metadatos de la ficha; no guarda videos ni los
 servidores internos del reproductor. En Biblioteca aparece como Anime animado,
-separado de AnimeList (que sigue siendo el seguimiento de AniList).
+separada de AnimeList (que sigue siendo el seguimiento de AniList y está
+disponible en todas las plataformas).
 
 external_anime_episode_progress guarda posición, duración y completado por
 episodio. external_anime recuerda cuál fue el último episodio, incluso si la

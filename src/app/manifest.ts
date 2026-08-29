@@ -26,7 +26,7 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       { name: "Biblioteca", url: "/biblioteca" },
       { name: "Explorar", url: "/explorar" },
-      { name: "Anime", url: "/anime" },
+      { name: "AniList", url: "/anime" },
     ],
   };
 }

@@ -9,7 +9,6 @@ interface HeaderUser {
   nickname: string;
   avatarPath: string | null;
   isAdmin: boolean;
-  animeEnabled?: boolean;
 }
 
 const adminLinks = [
@@ -34,10 +33,9 @@ export function AppHeader({
           { href: "/", label: "Inicio", exact: true },
           { href: "/biblioteca", label: "Biblioteca", exact: true },
           { href: "/explorar", label: "Explorar" },
-          { href: "/anime", label: "Anime" },
-          { href: "/biblioteca#categorias", label: "Categorías" },
+          { href: "/anime", label: "AniList" },
           { href: "/noticias", label: "Noticias" },
-        ].filter((link) => link.href !== "/anime" || user?.animeEnabled);
+        ];
 
   return (
     <header

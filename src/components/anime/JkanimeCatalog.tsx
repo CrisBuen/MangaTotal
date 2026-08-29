@@ -234,7 +234,7 @@ export function JkanimeCatalog() {
           {series.map((anime) => (
             <Link
               key={anime.slug}
-              href={`/anime/jkanime/${anime.slug}`}
+              href={`/explorar/jkanime/${anime.slug}`}
               className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">

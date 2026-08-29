@@ -51,8 +51,16 @@ no se pierde por dónde iba ([`03`](03-base-de-datos.md)).
 
 ## 5.4 Explorar
 
-Una pestaña por fuente. La de Ikigai aparece **solo en las apps**, porque su
-sitio bloquea a los servidores.
+Explorar tiene dos secciones internas: **Sección de lectura**, con una pestaña
+por fuente, y **Sección animada**, con JKAnime. Cambiar entre ellas no abandona
+la ruta ni la pestaña superior Explorar.
+
+La sección animada está siempre visible en web y Windows. En Android se oculta
+hasta activarla desde Seguridad y privacidad. AniList vive en su propia pestaña
+superior y permanece disponible en todas las plataformas.
+
+La fuente Ikigai de lectura aparece **solo en las apps**, porque su sitio
+bloquea a los servidores.
 
 Cada pestaña tiene sus propios filtros, su búsqueda y un botón **Actualizar**
 que salta la caché para ver lo recién subido.

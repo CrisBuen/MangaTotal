@@ -82,7 +82,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
             href="/anime"
             className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
           >
-            Ir a Anime
+            Ir a AniList
           </Link>
         }
       />
