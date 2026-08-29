@@ -1,0 +1,25 @@
+# Vercel solo necesita la aplicación web. Estos árboles contienen cachés,
+# binarios nativos y secretos locales que no deben formar parte del despliegue.
+.git/
+.next/
+node_modules/
+storage/
+playstore/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+mobile/node_modules/
+mobile/android/
+.env
+.env.local
+.env*.local
+*.jks
+*.keystore
+firma.local.json
+mobile/firma.local.json
+*.log
+lector-total.db
+lector-total.db-journal
+*.db-wal
+*.db-shm
+tsconfig.tsbuildinfo
