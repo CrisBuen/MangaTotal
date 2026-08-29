@@ -3,6 +3,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { getSessionAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MAX_ZIP_BYTES, processZip, type IngestOptions } from "@/lib/ingest";
+import { origenPermitido } from "@/lib/requestSecurity";
 
 // tiempo extra para procesar el zip tras responder (Vercel, ver after())
 export const maxDuration = 300;
@@ -13,6 +14,9 @@ export const maxDuration = 300;
  * Responde 202 { jobId } y procesa en segundo plano (docs/05 §5.4).
  */
 export async function POST(req: NextRequest) {
+  if (!origenPermitido(req)) {
+    return NextResponse.json({ error: "Origen de solicitud no permitido" }, { status: 403 });
+  }
   const admin = await getSessionAdmin();
   if (!admin) return NextResponse.json({ error: "Solo admin" }, { status: 403 });
 

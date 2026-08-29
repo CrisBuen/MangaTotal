@@ -1,5 +1,6 @@
 import { unsealData } from "iron-session";
 import { NextRequest, NextResponse } from "next/server";
+import { origenPermitido } from "@/lib/requestSecurity";
 
 const COOKIE_NAME = "lector_total_session";
 const TTL = 60 * 60 * 24 * 30;
@@ -52,6 +53,10 @@ interface SessionData {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith("/api/") && !origenPermitido(req)) {
+    return NextResponse.json({ error: "Origen de solicitud no permitido" }, { status: 403 });
+  }
 
   if (
     PUBLIC_EXACT.has(pathname) ||

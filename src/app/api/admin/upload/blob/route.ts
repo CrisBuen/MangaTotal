@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionAdmin } from "@/lib/auth";
 import { MAX_ZIP_BYTES } from "@/lib/ingest";
+import { origenPermitido } from "@/lib/requestSecurity";
 
 /**
  * POST /api/admin/upload/blob — emite tokens para que el navegador suba el
@@ -19,6 +20,11 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json()) as HandleUploadBody;
+  // El callback upload-completed viene firmado y lo verifica handleUpload.
+  // La emisión del token sí nace en nuestro navegador y exige mismo origen.
+  if (body.type === "blob.generate-client-token" && !origenPermitido(request)) {
+    return NextResponse.json({ error: "Origen de solicitud no permitido" }, { status: 403 });
+  }
 
   try {
     const jsonResponse = await handleUpload({

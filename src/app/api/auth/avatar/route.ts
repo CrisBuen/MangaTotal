@@ -3,11 +3,15 @@ import sharp from "sharp";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getObjectStorage } from "@/lib/object-storage";
+import { origenPermitido } from "@/lib/requestSecurity";
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
 /** POST /api/auth/avatar — multipart con "file": foto de perfil del usuario. */
 export async function POST(req: NextRequest) {
+  if (!origenPermitido(req)) {
+    return NextResponse.json({ error: "Origen de solicitud no permitido" }, { status: 403 });
+  }
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
@@ -57,7 +61,10 @@ export async function POST(req: NextRequest) {
 }
 
 /** DELETE /api/auth/avatar — quitar la foto de perfil. */
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  if (!origenPermitido(req)) {
+    return NextResponse.json({ error: "Origen de solicitud no permitido" }, { status: 403 });
+  }
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
