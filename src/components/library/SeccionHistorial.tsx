@@ -72,7 +72,7 @@ export function SeccionHistorial() {
         </span>
       </div>
 
-      <div className="flex gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5">
+      <div className="flex min-w-0 gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5">
         {entradas.map((e) => (
           <div key={`${e.source}:${e.external_id}`} className="group relative w-36 shrink-0">
             <button

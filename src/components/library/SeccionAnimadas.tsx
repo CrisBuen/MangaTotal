@@ -104,7 +104,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
   return (
     <div className="space-y-12">
       <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-3 sm:flex-row sm:items-center">
-        <div className="flex gap-1 overflow-x-auto">
+        <div className="flex min-w-0 gap-1 overflow-x-auto">
           <button
             onClick={() => setEstado(null)}
             className={`min-h-11 shrink-0 rounded-xl px-4 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
@@ -156,7 +156,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
               Tu progreso
             </span>
           </div>
-          <div className="flex gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5">
+          <div className="flex min-w-0 gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5">
             {continuando.map((e) => (
               <Tarjeta key={e.anilist_id} entrada={e} novedad={novedades[e.anilist_id]} ancho />
             ))}

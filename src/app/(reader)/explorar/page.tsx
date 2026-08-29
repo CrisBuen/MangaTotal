@@ -1122,7 +1122,7 @@ export default function ExplorarPage() {
             <h2 className="mb-4 font-display text-xl font-black uppercase tracking-[-0.03em] text-ink">
               Lo más leído esta semana
             </h2>
-            <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
+            <div className="-mx-1 flex min-w-0 gap-4 overflow-x-auto px-1 pb-2">
               {tmoPopulares.map((t) => (
                 <Link
                   key={t.id}

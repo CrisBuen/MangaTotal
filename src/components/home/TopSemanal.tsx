@@ -85,7 +85,7 @@ export function TopSemanal() {
 
       <div
         ref={carril}
-        className="-mx-1 flex snap-x snap-mandatory gap-5 overflow-x-auto px-1 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="-mx-1 flex min-w-0 snap-x snap-mandatory gap-5 overflow-x-auto px-1 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {series === null
           ? Array.from({ length: 6 }).map((_, i) => (

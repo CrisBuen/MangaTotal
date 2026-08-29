@@ -226,7 +226,11 @@ export default function BibliotecaPage() {
       ) : (
        <>
       <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
-        <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Secciones de biblioteca">
+        <div
+          className="flex min-w-0 gap-1 overflow-x-auto"
+          role="tablist"
+          aria-label="Secciones de biblioteca"
+        >
           {filters.map((f) => (
             <button
               key={f.key}
@@ -248,7 +252,7 @@ export default function BibliotecaPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar serie…"
-          className={`sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
+          className={`min-w-0 sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
           aria-label="Buscar serie"
           data-od-id="library-search"
         />
@@ -306,7 +310,10 @@ export default function BibliotecaPage() {
               Tu progreso
             </span>
           </div>
-          <div className="flex gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5" data-od-id="continue-reading-list">
+          <div
+            className="flex min-w-0 gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5"
+            data-od-id="continue-reading-list"
+          >
             {continuesVisible.map((c) => (
               <Link
                 key={c.series.id}
