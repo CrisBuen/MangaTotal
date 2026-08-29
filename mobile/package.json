@@ -7,7 +7,9 @@
     "add:android": "cap add android && npm run patch",
     "sync": "cap sync android",
     "open": "cap open android",
-    "build:apk": "cd android && gradlew.bat assembleRelease",
+    "build:apk": "npm run patch && cd android && gradlew.bat assembleDebug",
+    "build:playstore": "npm run patch && cd android && gradlew.bat bundleRelease",
+    "publicar:apk": "npm run build:apk && node scripts/publicar-apk.mjs",
     "patch": "node scripts/patch.mjs"
   },
   "devDependencies": {

@@ -100,6 +100,14 @@ cd "D:\Pagina Web mangastotal\mobile\android"
 El APK queda en `app\build\outputs\apk\debug\app-debug.apk` y se copia a
 `public\descargas\MangaTotal-android.apk` para publicarlo en el sitio.
 
+**Importante:** las actualizaciones directas instaladas hasta la versión
+1.8.1 pertenecen a la cadena firmada con el certificado debug original. Un
+APK `release` firmado con la clave de Google Play no puede actualizar esas
+instalaciones: Android lo rechaza como “conflicto con un paquete”. Para el
+APK descargable del sitio se usa siempre `npm run publicar:apk`, que compila
+en debug y comprueba la huella y la versión antes de copiarlo. La compilación
+de Play Store queda separada en `npm run build:playstore`.
+
 ## Parche del gesto "atrás" (`patches/MainActivity.java`)
 
 Por defecto Capacitor no maneja el historial del WebView, así que el gesto
@@ -130,13 +138,9 @@ Pasos:
 cd "D:\Pagina Web mangastotal\mobile"
 npx cap sync android
 
-# 2. compilar
+# 2. compilar, comprobar la firma compatible y copiar al sitio
 $env:JAVA_HOME = "$env:USERPROFILE\.jdks\jdk-21.0.12.1+1"
-cd android; .\gradlew.bat assembleDebug; cd ..
-
-# 3. publicar el APK en el sitio
-Copy-Item android\app\build\outputs\apk\debug\app-debug.apk `
-  ..\public\descargas\MangaTotal-android.apk -Force
+npm run publicar:apk
 ```
 
 3. Editar `public/descargas/android-version.json` con el `versionCode`
