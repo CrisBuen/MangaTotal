@@ -16,7 +16,9 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -28,6 +30,7 @@ import javax.net.ssl.HttpsURLConnection;
  * web de arriba no distingue una plataforma de la otra:
  *
  *   · traerPagina        pide la página desde la conexión del teléfono
+ *   · enviarJson         usa el buscador JSON oficial de una fuente
  *   · resolverDesafio    abre el "no soy un robot" de Cloudflare
  *   · limpiarVerificacion borra el permiso cuando queda trabado
  *
@@ -131,6 +134,84 @@ public class FuentesPlugin extends Plugin {
                     call.resolve(salida);
                     return;
                 }
+            } catch (Exception e) {
+                call.reject(mensaje(e));
+            } finally {
+                if (conexion != null) {
+                    conexion.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    /**
+     * POST limitado para el buscador oficial de Ikigai.
+     *
+     * No es un proxy abierto: conserva la lista blanca de dominios, limita el
+     * cuerpo y solo permite el identificador alfanumérico que espera Qwik.
+     */
+    @PluginMethod
+    public void enviarJson(final PluginCall call) {
+        final String direccion = call.getString("url", "");
+        final String cuerpo = call.getString("body", "");
+        final String qrl = call.getString("qrl", "");
+        final String ua = uaDe(call.getString("userAgent"));
+
+        if (!direccionPermitida(direccion)) {
+            call.reject("Dirección de fuente no permitida");
+            return;
+        }
+        if (!qrl.matches("[A-Za-z0-9_-]{1,128}")) {
+            call.reject("Identificador de búsqueda inválido");
+            return;
+        }
+
+        final byte[] bytes = cuerpo.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > 128 * 1024) {
+            call.reject("El pedido de búsqueda es demasiado grande");
+            return;
+        }
+
+        new Thread(() -> {
+            HttpsURLConnection conexion = null;
+            try {
+                URL destino = new URL(direccion);
+                conexion = (HttpsURLConnection) destino.openConnection();
+                conexion.setInstanceFollowRedirects(false);
+                conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
+                conexion.setReadTimeout(TIEMPO_ESPERA_MS);
+                conexion.setRequestMethod("POST");
+                conexion.setDoOutput(true);
+                conexion.setFixedLengthStreamingMode(bytes.length);
+                conexion.setRequestProperty("User-Agent", ua);
+                conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
+                conexion.setRequestProperty("Content-Type", "application/qwik-json");
+                conexion.setRequestProperty("Accept", "application/json, application/qwik-json, text/plain");
+                conexion.setRequestProperty("X-QRL", qrl);
+
+                String cookies = CookieManager.getInstance().getCookie(destino.toString());
+                if (cookies != null && !cookies.isEmpty()) {
+                    conexion.setRequestProperty("Cookie", cookies);
+                }
+
+                try (OutputStream salida = conexion.getOutputStream()) {
+                    salida.write(bytes);
+                }
+
+                int estado = conexion.getResponseCode();
+                if (estado == 403 || estado == 503) {
+                    call.reject("DESAFIO:" + destino.getHost());
+                    return;
+                }
+                if (estado < 200 || estado >= 300) {
+                    call.reject("La fuente respondió " + estado);
+                    return;
+                }
+
+                JSObject salida = new JSObject();
+                salida.put("status", estado);
+                salida.put("data", leer(conexion.getInputStream()));
+                call.resolve(salida);
             } catch (Exception e) {
                 call.reject(mensaje(e));
             } finally {

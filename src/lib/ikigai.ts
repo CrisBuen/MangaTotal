@@ -13,7 +13,12 @@
  *
  * ⚠️ SI CAMBIAN DE DOMINIO: ver CAMBIO-DE-DOMINIO-IKIGAI.txt en la raíz.
  */
-import { traerDocumento, fuenteNativaDisponible } from "./fuenteNativa";
+import {
+  enviarJsonNativo,
+  fuenteNativaDisponible,
+  traerDocumento,
+  traerTexto,
+} from "./fuenteNativa";
 
 export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
 export const IKIGAI_NOMBRE = "Ikigai Mangas";
@@ -64,12 +69,220 @@ export interface SerieIkigai {
   url_original: string;
 }
 
+interface SerieIndiceIkigai {
+  id?: string | number;
+  name?: string;
+  other_names?: string | string[] | null;
+  slug?: string;
+  cover?: string | null;
+  chapter_count?: number;
+  type?: string | null;
+  format?: string | null;
+  is_mature?: boolean;
+  view_count?: number;
+  status?: string | null;
+}
+
+interface RespuestaQwik {
+  _entry: string;
+  _objs: unknown[];
+}
+
+let indiceCompleto: Promise<SerieIndiceIkigai[]> | null = null;
+
+function referenciaQwik(valor: string, total: number): number | null {
+  if (!/^[0-9a-z]+$/.test(valor)) return null;
+  const indice = Number.parseInt(valor, 36);
+  return Number.isInteger(indice) && indice >= 0 && indice < total ? indice : null;
+}
+
+/**
+ * Qwik guarda cada valor una sola vez y luego usa índices en base 36.
+ * Se reconstruye únicamente la respuesta de su propio buscador.
+ */
+function decodificarQwik(respuesta: RespuestaQwik): unknown {
+  const objetos = respuesta._objs;
+  const cache = new Map<number, unknown>();
+
+  const resolverIndice = (indice: number): unknown => {
+    if (cache.has(indice)) return cache.get(indice);
+    const crudo = objetos[indice];
+
+    // Se registra antes de bajar para tolerar referencias compartidas.
+    if (Array.isArray(crudo)) {
+      const salida: unknown[] = [];
+      cache.set(indice, salida);
+      for (const valor of crudo) salida.push(resolverValor(valor));
+      return salida;
+    }
+    if (crudo && typeof crudo === "object") {
+      const salida: Record<string, unknown> = {};
+      cache.set(indice, salida);
+      for (const [clave, valor] of Object.entries(crudo)) {
+        salida[clave] = resolverValor(valor);
+      }
+      return salida;
+    }
+
+    // Un string almacenado en _objs es un valor real, no otra referencia.
+    cache.set(indice, crudo);
+    return crudo;
+  };
+
+  const resolverValor = (valor: unknown): unknown => {
+    if (typeof valor !== "string") return valor;
+    const indice = referenciaQwik(valor, objetos.length);
+    return indice === null ? valor : resolverIndice(indice);
+  };
+
+  return resolverValor(respuesta._entry);
+}
+
+function escaparRegex(valor: string): string {
+  return valor.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+
+/**
+ * El nombre del módulo Qwik cambia en cada despliegue de Ikigai. Se descubre
+ * desde el botón Buscar y desde sus imports, en vez de dejar un hash fijo que
+ * volvería a romper la lupa al próximo despliegue.
+ */
+async function descriptorBusquedaIkigai() {
+  const doc = await traerDocumento(IKIGAI_WEB + "/series/");
+  const evento = doc
+    .querySelector('button[aria-label="Buscar"]')
+    ?.getAttribute("on:click");
+  const moduloBusqueda = evento?.split("#")[0];
+  if (!moduloBusqueda || !/^[A-Za-z0-9_-]+\.js$/.test(moduloBusqueda)) {
+    throw new Error("Ikigai cambió la entrada de su buscador");
+  }
+
+  const codigoBusqueda = await traerTexto(IKIGAI_WEB + "/build/" + moduloBusqueda);
+  const dependencia = codigoBusqueda.match(
+    /import\{g as [A-Za-z_$][\w$]*\}from"\.\/([^"]+\.js)"/
+  )?.[1];
+  if (!dependencia || !/^[A-Za-z0-9_-]+\.js$/.test(dependencia)) {
+    throw new Error("Ikigai cambió el módulo de su buscador");
+  }
+
+  const codigoDatos = await traerTexto(IKIGAI_WEB + "/build/" + dependencia);
+  const nombreLocal = codigoDatos.match(/([A-Za-z_$][\w$]*) as g(?:,|})/)?.[1];
+  if (!nombreLocal) throw new Error("Ikigai cambió la exportación de su buscador");
+
+  const simbolo = codigoDatos.match(
+    new RegExp(
+      "(?:const\\s+|,)" +
+        escaparRegex(nombreLocal) +
+        "=\\w+\\(\\w+\\(\"([^\"]+)\"\\)\\)"
+    )
+  )?.[1];
+  if (!simbolo) throw new Error("Ikigai cambió la función de su buscador");
+
+  const qrl = simbolo.split("_").pop();
+  if (!qrl || !/^[A-Za-z0-9_-]+$/.test(qrl)) {
+    throw new Error("Ikigai devolvió un identificador de búsqueda inválido");
+  }
+  return { dependencia, simbolo, qrl };
+}
+
+async function cargarIndiceCompleto(): Promise<SerieIndiceIkigai[]> {
+  const { dependencia, simbolo, qrl } = await descriptorBusquedaIkigai();
+  const body = JSON.stringify({
+    _entry: "1",
+    _objs: ["\u0002" + dependencia + "#" + simbolo, ["0"]],
+  });
+  const texto = await enviarJsonNativo(
+    IKIGAI_WEB + "/series/?qfunc=" + encodeURIComponent(qrl),
+    body,
+    qrl
+  );
+  const respuesta = JSON.parse(texto) as RespuestaQwik;
+  if (!respuesta || !Array.isArray(respuesta._objs)) {
+    throw new Error("Ikigai devolvió una búsqueda inválida");
+  }
+  const series = decodificarQwik(respuesta);
+  if (!Array.isArray(series)) throw new Error("Ikigai cambió el formato de su buscador");
+  return series.filter(
+    (serie): serie is SerieIndiceIkigai =>
+      Boolean(serie && typeof serie === "object" && "slug" in serie && "name" in serie)
+  );
+}
+
+function indiceIkigai(): Promise<SerieIndiceIkigai[]> {
+  if (!indiceCompleto) {
+    indiceCompleto = cargarIndiceCompleto().catch((error) => {
+      indiceCompleto = null;
+      throw error;
+    });
+  }
+  return indiceCompleto;
+}
+
+function normalizarBusqueda(valor: string): string {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+async function buscarIkigai(
+  consulta: string,
+  page: number,
+  filtros: FiltrosIkigai
+) {
+  const palabras = normalizarBusqueda(consulta).split(/\s+/).filter(Boolean);
+  const todas = await indiceIkigai();
+  const resultados = todas
+    .filter((serie) => {
+      const nombres = [
+        serie.name ?? "",
+        ...(Array.isArray(serie.other_names)
+          ? serie.other_names
+          : serie.other_names
+            ? [serie.other_names]
+            : []),
+      ];
+      const texto = normalizarBusqueda(nombres.join(" "));
+      const tipo = (serie.format || serie.type || "").toLocaleLowerCase("es");
+      return (
+        palabras.every((palabra) => texto.includes(palabra)) &&
+        (!filtros.tipo || tipo === filtros.tipo.toLocaleLowerCase("es"))
+      );
+    })
+    .sort((a, b) => {
+      const aEmpieza = normalizarBusqueda(a.name ?? "").startsWith(palabras[0] ?? "") ? 1 : 0;
+      const bEmpieza = normalizarBusqueda(b.name ?? "").startsWith(palabras[0] ?? "") ? 1 : 0;
+      return bEmpieza - aEmpieza || (b.view_count ?? 0) - (a.view_count ?? 0);
+    });
+
+  const porPagina = 50;
+  const inicio = Math.max(0, page - 1) * porPagina;
+  const pagina = resultados.slice(inicio, inicio + porPagina);
+  const series: SerieIkigai[] = pagina.map((serie) => {
+    const slug = String(serie.slug);
+    const portada = serie.cover ? new URL(serie.cover, IKIGAI_WEB).toString() : null;
+    return {
+      slug,
+      title: String(serie.name || "Sin título"),
+      cover_url: portada,
+      tipo: serie.format || serie.type || null,
+      url_original: IKIGAI_WEB + "/series/" + slug + "/",
+    };
+  });
+  return { series, page, hayMas: inicio + porPagina < resultados.length };
+}
+
 /** Catálogo paginado (20 obras por página en su biblioteca). */
 export async function catalogoIkigai(page: number, filtros: FiltrosIkigai = {}) {
+  if (filtros.q?.trim()) {
+    return buscarIkigai(filtros.q.trim(), page, filtros);
+  }
+
   const qs = new URLSearchParams();
   // su paginador usa "pagina", no "page"
   if (page > 1) qs.set("pagina", String(page));
-  if (filtros.q) qs.set("search", filtros.q);
   // sus filtros llegan como listas: tipos[] y generos[]
   if (filtros.tipo) qs.append("tipos[]", filtros.tipo);
   if (filtros.genero) qs.append("generos[]", filtros.genero);

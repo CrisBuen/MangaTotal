@@ -1,5 +1,5 @@
 {
-  "versionCode": 15,
-  "versionName": "1.9.2",
+  "versionCode": 16,
+  "versionName": "1.9.3",
   "_nota": "Única fuente de la versión de Android. scripts/patch.mjs la escribe en android/app/build.gradle y en capacitor.config.json (appendUserAgent), que es de donde la app se identifica ante la web. La carpeta android/ no se versiona, así que sin esto el número se perdía cada vez que Capacitor la regeneraba."
 }

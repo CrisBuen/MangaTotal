@@ -205,8 +205,27 @@ export default function ExplorarPage() {
   const [recarga, setRecarga] = useState(0);
   const [refrescando, setRefrescando] = useState(false);
   const pedirFresco = useRef(false);
+  const solicitudes = useRef<Record<string, number>>({});
 
-  const cargarCw = useCallback(async () => {
+  // Una respuesta lenta de la consulta anterior no puede reemplazar la que
+  // corresponde al texto que está visible ahora. Esto era especialmente
+  // frecuente al escribir con 4G: el catálogo inicial llegaba después de la
+  // búsqueda y hacía parecer que la lupa no funcionaba.
+  const nuevaSolicitud = useCallback((clave: string) => {
+    const version = (solicitudes.current[clave] ?? 0) + 1;
+    solicitudes.current[clave] = version;
+    return version;
+  }, []);
+  const solicitudVigente = useCallback(
+    (clave: string, version: number) => solicitudes.current[clave] === version,
+    []
+  );
+  const cancelarSolicitud = useCallback((clave: string, version: number) => {
+    if (solicitudes.current[clave] === version) solicitudes.current[clave] = version + 1;
+  }, []);
+
+  const cargarCw = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("catharsis", solicitud)) return;
     setError(false);
     const fresco = pedirFresco.current;
     try {
@@ -223,37 +242,46 @@ export default function ExplorarPage() {
           force: fresco,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (!solicitudVigente("catharsis", solicitud)) return;
             setCw(guardado.series);
             setCwPaginas(guardado.paginas);
           },
         }
       );
+      if (!solicitudVigente("catharsis", solicitud)) return;
       setCw(r.series);
       setCwPaginas(r.paginas);
     } catch (err) {
+      if (!solicitudVigente("catharsis", solicitud)) return;
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setCw([]);
     } finally {
+      if (!solicitudVigente("catharsis", solicitud)) return;
       pedirFresco.current = false;
       setRefrescando(false);
     }
     // recarga entra en las dependencias para que el botón de actualizar
     // vuelva a pedir aunque no haya cambiado ningún filtro
-  }, [cwPage, cwOrden, search, recarga]);
+  }, [cwPage, cwOrden, search, recarga, solicitudVigente]);
 
   useEffect(() => {
     if (fuente !== "catharsis") return;
+    const solicitud = nuevaSolicitud("catharsis");
     if (!pedirFresco.current) setCw(null);
-    const t = setTimeout(cargarCw, search ? 400 : 0);
-    return () => clearTimeout(t);
-  }, [cargarCw, search, fuente]);
+    const t = setTimeout(() => void cargarCw(solicitud), search ? 400 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("catharsis", solicitud);
+    };
+  }, [cargarCw, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
   useEffect(() => {
     setCwPage(1);
   }, [search, fuente, cwOrden]);
 
-  const cargarLc = useCallback(async () => {
+  const cargarLc = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("leercapitulo", solicitud)) return;
     setError(false);
     const fresco = pedirFresco.current;
     try {
@@ -274,32 +302,40 @@ export default function ExplorarPage() {
           force: fresco,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (!solicitudVigente("leercapitulo", solicitud)) return;
             setLc(guardado.series);
             setLcMas(guardado.hayMas);
             setLcPaginable(guardado.paginable);
           },
         },
       );
+      if (!solicitudVigente("leercapitulo", solicitud)) return;
       setLc(r.series);
       setLcMas(r.hayMas);
       setLcPaginable(r.paginable);
     } catch (err) {
+      if (!solicitudVigente("leercapitulo", solicitud)) return;
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setLc([]);
     } finally {
+      if (!solicitudVigente("leercapitulo", solicitud)) return;
       pedirFresco.current = false;
       setRefrescando(false);
     }
-  }, [lcPage, search, lcGenero, lcInicial, lcLista, recarga]);
+  }, [lcPage, search, lcGenero, lcInicial, lcLista, recarga, solicitudVigente]);
 
   useEffect(() => {
     if (fuente !== "leercapitulo") return;
+    const solicitud = nuevaSolicitud("leercapitulo");
     // al refrescar no se vacía la grilla: se reemplaza cuando llega
     if (!pedirFresco.current) setLc(null);
-    const t = setTimeout(cargarLc, search ? 400 : 0);
-    return () => clearTimeout(t);
-  }, [cargarLc, search, fuente]);
+    const t = setTimeout(() => void cargarLc(solicitud), search ? 400 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("leercapitulo", solicitud);
+    };
+  }, [cargarLc, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
   useEffect(() => {
     setLcPage(1);
@@ -362,7 +398,8 @@ export default function ExplorarPage() {
       .catch(() => setTmoPopulares([]));
   }, [fuente, tmoPopulares.length]);
 
-  const cargarTmo = useCallback(async () => {
+  const cargarTmo = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("tmo", solicitud)) return;
     setError(false);
     const fresco = pedirFresco.current;
     try {
@@ -385,31 +422,39 @@ export default function ExplorarPage() {
           force: fresco,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (!solicitudVigente("tmo", solicitud)) return;
             setTmo(guardado.series);
             setTmoMas(guardado.hayMas);
             setTmoPaginas(guardado.totalPaginas);
           },
         },
       );
+      if (!solicitudVigente("tmo", solicitud)) return;
       setTmo(r.series);
       setTmoMas(r.hayMas);
       setTmoPaginas(r.totalPaginas);
     } catch (err) {
+      if (!solicitudVigente("tmo", solicitud)) return;
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setTmo([]);
     } finally {
+      if (!solicitudVigente("tmo", solicitud)) return;
       pedirFresco.current = false;
       setRefrescando(false);
     }
-  }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden, recarga]);
+  }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden, recarga, solicitudVigente]);
 
   useEffect(() => {
     if (fuente !== "tmo") return;
+    const solicitud = nuevaSolicitud("tmo");
     if (!pedirFresco.current) setTmo(null);
-    const t = setTimeout(cargarTmo, search ? 400 : 0);
-    return () => clearTimeout(t);
-  }, [cargarTmo, search, fuente]);
+    const t = setTimeout(() => void cargarTmo(solicitud), search ? 400 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("tmo", solicitud);
+    };
+  }, [cargarTmo, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
   useEffect(() => {
     setTmoPage(1);
@@ -419,7 +464,8 @@ export default function ExplorarPage() {
   const [ikiPage, setIkiPage] = useState(1);
   const [ikiMas, setIkiMas] = useState(false);
 
-  const cargarIki = useCallback(async () => {
+  const cargarIki = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("ikigai", solicitud)) return;
     setError(false);
     try {
       const r = await cargarConCacheAndroid(
@@ -435,29 +481,37 @@ export default function ExplorarPage() {
           force: pedirFresco.current,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (!solicitudVigente("ikigai", solicitud)) return;
             setIki(guardado.series);
             setIkiMas(guardado.hayMas);
           },
         }
       );
+      if (!solicitudVigente("ikigai", solicitud)) return;
       setIki(r.series);
       setIkiMas(r.hayMas);
     } catch (err) {
+      if (!solicitudVigente("ikigai", solicitud)) return;
       setError(true);
       setErrorDetalle(err instanceof Error ? err.message : null);
       setIki([]);
     } finally {
+      if (!solicitudVigente("ikigai", solicitud)) return;
       pedirFresco.current = false;
       setRefrescando(false);
     }
-  }, [ikiPage, search, ikiTipo, ikiGenero, ikiOrden, recarga]);
+  }, [ikiPage, search, ikiTipo, ikiGenero, ikiOrden, recarga, solicitudVigente]);
 
   useEffect(() => {
     if (fuente !== "ikigai") return;
+    const solicitud = nuevaSolicitud("ikigai");
     if (!pedirFresco.current) setIki(null);
-    const t = setTimeout(cargarIki, search ? 400 : 0);
-    return () => clearTimeout(t);
-  }, [cargarIki, search, fuente]);
+    const t = setTimeout(() => void cargarIki(solicitud), search ? 400 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("ikigai", solicitud);
+    };
+  }, [cargarIki, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
   useEffect(() => {
     setIkiPage(1);
@@ -604,7 +658,8 @@ export default function ExplorarPage() {
     cwPage, cwOrden,
   ]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("mangadex", solicitud)) return;
     setError(false);
     const params = new URLSearchParams({ lang, offset: String(offset), order });
     for (const o of origin) params.append("origin", o);
@@ -628,30 +683,39 @@ export default function ExplorarPage() {
           force: fresco,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (!solicitudVigente("mangadex", solicitud)) return;
             setSeries(guardado.series);
             setTotal(guardado.total);
           },
         }
       );
+      if (!solicitudVigente("mangadex", solicitud)) return;
       setSeries(data.series);
       setTotal(data.total);
     } catch {
+      if (!solicitudVigente("mangadex", solicitud)) return;
       setError(true);
       setSeries([]);
     } finally {
+      if (!solicitudVigente("mangadex", solicitud)) return;
       pedirFresco.current = false;
       setRefrescando(false);
     }
-  }, [lang, search, offset, order, status, selectedGenres, origin, recarga]);
+  }, [lang, search, offset, order, status, selectedGenres, origin, recarga, solicitudVigente]);
 
   useEffect(() => {
     if (fuente !== "mangadex") return;
+    const solicitud = nuevaSolicitud("mangadex");
     if (!pedirFresco.current) setSeries(null);
-    const t = setTimeout(load, search ? 350 : 0);
-    return () => clearTimeout(t);
-  }, [load, search, fuente]);
+    const t = setTimeout(() => void load(solicitud), search ? 350 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("mangadex", solicitud);
+    };
+  }, [load, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
-  const cargarOlympus = useCallback(async () => {
+  const cargarOlympus = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("olympus", solicitud)) return;
     setError(false);
     const params = new URLSearchParams({ page: String(olympusPage), orden: olyOrden });
     if (search.trim()) params.set("q", search.trim());
@@ -678,28 +742,36 @@ export default function ExplorarPage() {
           force: fresco,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (!solicitudVigente("olympus", solicitud)) return;
             setOlympus(guardado.series);
             setOlympusLastPage(guardado.last_page);
           },
         }
       );
+      if (!solicitudVigente("olympus", solicitud)) return;
       setOlympus(data.series);
       setOlympusLastPage(data.last_page);
     } catch {
+      if (!solicitudVigente("olympus", solicitud)) return;
       setError(true);
       setOlympus([]);
     } finally {
+      if (!solicitudVigente("olympus", solicitud)) return;
       pedirFresco.current = false;
       setRefrescando(false);
     }
-  }, [olympusPage, search, olyOrden, olyGenero, olyEstado, olyTipo, recarga]);
+  }, [olympusPage, search, olyOrden, olyGenero, olyEstado, olyTipo, recarga, solicitudVigente]);
 
   useEffect(() => {
     if (fuente !== "olympus") return;
+    const solicitud = nuevaSolicitud("olympus");
     if (!pedirFresco.current) setOlympus(null);
-    const t = setTimeout(cargarOlympus, search ? 350 : 0);
-    return () => clearTimeout(t);
-  }, [cargarOlympus, search, fuente]);
+    const t = setTimeout(() => void cargarOlympus(solicitud), search ? 350 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("olympus", solicitud);
+    };
+  }, [cargarOlympus, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
   useEffect(() => {
     setOlympusPage(1);

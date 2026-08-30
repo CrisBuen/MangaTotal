@@ -1,15 +1,15 @@
 {
-  "versionCode": 15,
-  "versionName": "1.9.2",
+  "versionCode": 16,
+  "versionName": "1.9.3",
   "date": "2026-08-30",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "242C1127883D96C430BB33B6A50A4C3EE9037BDDC89963B2B659E9DB7DCF1765",
+  "sha256": "263430A116193F14C6992E0C62E8E840C13DBBE29EA86839BAAEE1217B1A96FB",
   "sizeMb": 4.5,
   "changes": [
-    "El Top semanal aparece al instante al volver a Inicio",
-    "Los controles del video y el selector de fuentes ya no se superponen",
-    "El botón Fuentes abre únicamente la lista de reproductores",
-    "El reproductor reduce redibujados innecesarios en Android"
+    "La búsqueda ya no es reemplazada por resultados antiguos cuando la conexión está lenta",
+    "LeerCapítulo vuelve a buscar en todo su catálogo con su endpoint actual",
+    "Ikigai busca en su índice global oficial sin recorrer cientos de páginas",
+    "El Top semanal conserva el último resultado válido y ofrece reintento si la red falla"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

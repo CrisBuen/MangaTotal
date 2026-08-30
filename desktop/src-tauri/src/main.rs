@@ -134,6 +134,62 @@ async fn traer_pagina(
     Err("La fuente hizo demasiadas redirecciones".into())
 }
 
+/// POST restringido que replica el buscador oficial de Ikigai.
+///
+/// La web no puede hacerlo por CORS y su servidor bloquea a Vercel. La URL
+/// sigue pasando por la misma lista blanca que las páginas normales.
+#[tauri::command]
+async fn enviar_json(
+    app: AppHandle,
+    url: String,
+    body: String,
+    qrl: String,
+    user_agent: Option<String>,
+) -> Result<String, String> {
+    let destino = validar_url_fuente(&url)?;
+    let host = destino.host_str().unwrap_or_default().to_string();
+    let qrl_valido = !qrl.is_empty()
+        && qrl.len() <= 128
+        && qrl
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !qrl_valido {
+        return Err("Identificador de búsqueda inválido".into());
+    }
+    if body.len() > 128 * 1024 {
+        return Err("El pedido de búsqueda es demasiado grande".into());
+    }
+
+    let permiso = app
+        .state::<Permisos>()
+        .0
+        .lock()
+        .map_err(|_| "no se pudo leer el permiso".to_string())?
+        .get(&host)
+        .cloned();
+    let http = cliente_sin_redirecciones(ua_de(&user_agent))?;
+    let mut pedido = http
+        .post(destino)
+        .header("Accept-Language", "es-ES,es;q=0.9")
+        .header("Content-Type", "application/qwik-json")
+        .header("Accept", "application/json, application/qwik-json, text/plain")
+        .header("X-QRL", qrl)
+        .body(body);
+    if let Some(cookie) = permiso {
+        pedido = pedido.header("Cookie", cookie);
+    }
+
+    let respuesta = pedido.send().await.map_err(|e| e.to_string())?;
+    let estado = respuesta.status().as_u16();
+    if !respuesta.status().is_success() {
+        if estado == 403 || estado == 503 {
+            return Err(format!("DESAFIO:{host}"));
+        }
+        return Err(format!("La fuente respondió {estado}"));
+    }
+    respuesta.text().await.map_err(|e| e.to_string())
+}
+
 /// Abre una ventana para que la persona resuelva el "no soy un robot" de
 /// Cloudflare, y guarda el permiso que este entrega.
 ///
@@ -440,6 +496,7 @@ fn main() {
         .manage(ActualizacionPendiente::default())
         .invoke_handler(tauri::generate_handler![
             traer_pagina,
+            enviar_json,
             resolver_desafio,
             limpiar_verificacion,
             descargar_actualizacion,

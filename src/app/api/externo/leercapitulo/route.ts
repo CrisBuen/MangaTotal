@@ -10,7 +10,14 @@ import { paginasDelHtml } from "@/lib/leercapituloCodigo";
  * por el puente nativo de la app (ver src/lib/fuenteNativa.ts).
  */
 const BASE = "https://www.leercapitulo.co";
-const RUTAS_PERMITIDAS = ["/", "/manga/", "/genre/", "/initial/", "/leer/"];
+const RUTAS_PERMITIDAS = [
+  "/",
+  "/manga/",
+  "/genre/",
+  "/initial/",
+  "/leer/",
+  "/search-autocomplete",
+];
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -129,6 +136,16 @@ export async function GET(request: Request) {
         { error: "LeerCapítulo no respondió desde el servidor", bloqueado: true },
         { status: 502 }
       );
+    }
+
+    // La lupa del sitio ya no usa /?s=. Consulta este endpoint JSON y el
+    // formulario viejo simplemente devuelve el catálogo de inicio completo.
+    // Se conserva el puente para que web, Windows y Android busquen igual.
+    if (ruta.startsWith("/search-autocomplete")) {
+      const data = (await res.json()) as unknown;
+      const respuesta = NextResponse.json({ data });
+      if (fresco) respuesta.headers.set("Cache-Control", "no-store");
+      return respuesta;
     }
 
     const respuesta = NextResponse.json({ html: aligerar(await res.text()) });

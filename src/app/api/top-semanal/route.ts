@@ -47,6 +47,21 @@ const TMO_SUBIDAS = `${TMO_WEB}/wp-content/uploads`;
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+/** Una fuente caída no puede retener la respuesta completa del Inicio. */
+async function conLimite<T>(trabajo: () => Promise<T>, milisegundos = 4_000): Promise<T> {
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      trabajo(),
+      new Promise<T>((_, rechazar) => {
+        temporizador = setTimeout(() => rechazar(new Error("La fuente agotó el tiempo")), milisegundos);
+      }),
+    ]);
+  } finally {
+    if (temporizador) clearTimeout(temporizador);
+  }
+}
+
 /** Año y número de semana: el mismo valor durante siete días. */
 function semanaDelAno(fecha = new Date()): number {
   const d = new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate()));
@@ -104,7 +119,7 @@ async function deCatharsis(): Promise<SerieDelTop[]> {
   // Se dejan fuera las novelas de texto: tienen capítulos, así que pasan el
   // filtro del catálogo, pero no se leen como manga y desentonan en un top.
   return [...series]
-    .filter((s) => !/novela/i.test(s.nombre))
+    .filter((s) => !ES_NOVELA.test(s.nombre))
     .sort((a, b) => b.capitulos - a.capitulos)
     .slice(0, POR_FUENTE * 3)
     .map((s) => ({
@@ -179,11 +194,11 @@ export async function GET() {
   // si una fuente está caída, el top sale igual con las demás
   const porFuente = await Promise.all(
     [
-      delCatalogoPropio(verAdulto),
-      deCatharsis(),
-      deMangadex(verAdulto),
-      deZonatmo(),
-    ].map((p) => p.catch(() => [] as SerieDelTop[]))
+      () => delCatalogoPropio(verAdulto),
+      () => deCatharsis(),
+      () => deMangadex(verAdulto),
+      () => deZonatmo(),
+    ].map((trabajo) => conLimite(trabajo).catch(() => [] as SerieDelTop[]))
   );
 
   const azar = azarConSemilla(semanaDelAno());

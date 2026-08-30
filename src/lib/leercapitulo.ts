@@ -15,6 +15,7 @@ export const LC_NOMBRE = "LeerCapítulo";
 
 import {
   traerDocumento,
+  traerJson,
   fuenteAndroidDisponible,
   fuenteNativaDisponible,
 } from "./fuenteNativa";
@@ -225,18 +226,90 @@ function seriesDelDocumento(doc: Document, dentro?: string): SerieLc[] {
 
 const POR_PAGINA = 30;
 
+interface ResultadoBusquedaLc {
+  value?: string;
+  label?: string;
+  link?: string;
+  thumbnail?: string;
+}
+
+/**
+ * La búsqueda visible de LeerCapítulo usa un autocompletado JSON. El antiguo
+ * /?s=texto fue retirado: responde 200, pero ignora el texto y devuelve el
+ * inicio, que hacía parecer que nuestra lupa no filtraba nada.
+ */
+async function buscarLc(termino: string, fresco: boolean): Promise<SerieLc[]> {
+  const ruta = `/search-autocomplete?term=${encodeURIComponent(termino)}`;
+  let resultados: ResultadoBusquedaLc[] | null = null;
+  let errorAndroid: unknown = null;
+
+  if (fuenteAndroidDisponible()) {
+    try {
+      resultados = await traerJson<ResultadoBusquedaLc[]>(`${LC_WEB}${ruta}`);
+    } catch (error) {
+      errorAndroid = error;
+    }
+  }
+
+  if (resultados === null) {
+    try {
+      const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
+      const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
+        cache: fresco ? "no-store" : "default",
+      });
+      if (res.ok) {
+        const cuerpo = (await res.json()) as { data?: ResultadoBusquedaLc[] };
+        if (Array.isArray(cuerpo.data)) resultados = cuerpo.data;
+      }
+    } catch {
+      // Si nuestro servidor no llega, las apps todavía pueden pedirlo directo.
+    }
+  }
+
+  if (resultados === null) {
+    if (!fuenteNativaDisponible()) {
+      throw new Error("LeerCapítulo no está respondiendo en este momento.");
+    }
+    if (errorAndroid) throw errorAndroid;
+    resultados = await traerJson<ResultadoBusquedaLc[]>(`${LC_WEB}${ruta}`);
+  }
+
+  const series: SerieLc[] = [];
+  const vistos = new Set<string>();
+  for (const item of resultados) {
+    const link = item.link ?? "";
+    const partes = partesDeSerie(link);
+    if (!partes || vistos.has(partes.id)) continue;
+    vistos.add(partes.id);
+    series.push({
+      ...partes,
+      title: item.label?.trim() || item.value?.trim() || "Sin título",
+      cover_url: urlAbsoluta(item.thumbnail),
+      url_original: `${LC_WEB}/manga/${partes.id}/${partes.slug}/`,
+    });
+  }
+  return series;
+}
+
 /**
  * Catálogo paginado. Sin filtros muestra lo último que actualizaron; con
  * género o inicial recorre esa lista, que es la forma de ver todo el
  * catálogo porque no publican un listado general.
  */
 export async function catalogoLc(page: number, filtros: FiltrosLc = {}, fresco = false) {
+  if (filtros.q?.trim()) {
+    return {
+      series: await buscarLc(filtros.q.trim(), fresco),
+      page: 1,
+      paginable: false,
+      hayMas: false,
+    };
+  }
+
   let ruta: string;
   let dentro: string | undefined;
 
-  if (filtros.q) {
-    ruta = `/?s=${encodeURIComponent(filtros.q)}`;
-  } else if (filtros.genero) {
+  if (filtros.genero) {
     ruta = `/genre/${filtros.genero}/?page=${page}`;
   } else if (filtros.inicial) {
     ruta = `/initial/${filtros.inicial}/?page=${page}`;

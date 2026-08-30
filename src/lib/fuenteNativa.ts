@@ -20,6 +20,12 @@ interface PluginFuentes {
     url: string;
     userAgent: string | null;
   }): Promise<{ status: number; data: string }>;
+  enviarJson?(opciones: {
+    url: string;
+    body: string;
+    qrl: string;
+    userAgent: string | null;
+  }): Promise<{ status: number; data: string }>;
   resolverDesafio(opciones: { url: string; userAgent: string | null }): Promise<{ ok: boolean }>;
   limpiarVerificacion(): Promise<void>;
 }
@@ -30,6 +36,11 @@ interface Puente {
     /** El puente de Capacitor devuelve un objeto cuando la respuesta es JSON. */
     data: string | object;
   }>;
+  post?(opciones: {
+    url: string;
+    headers?: Record<string, string>;
+    data?: string;
+  }): Promise<{ status: number; data: string | object }>;
 }
 
 function capacitorPlugins() {
@@ -153,6 +164,92 @@ export async function traerDocumento(url: string): Promise<Document> {
   }
 
   return new DOMParser().parseFromString(String(res.data), "text/html");
+}
+
+/** Pide un recurso de texto sin interpretarlo como HTML. */
+export async function traerTexto(url: string): Promise<string> {
+  const nativo = puente();
+  if (!nativo) {
+    throw new Error("Esta fuente solo está disponible en la app de Android o de Windows");
+  }
+
+  const res = await nativo.get({
+    url,
+    headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" },
+  });
+  if (res.status !== 200) throw new Error("La fuente respondió " + res.status);
+  return typeof res.data === "string" ? res.data : JSON.stringify(res.data);
+}
+
+/**
+ * Envía el pequeño sobre JSON que usa la búsqueda oficial de Ikigai.
+ *
+ * Se hace en el puente nativo porque el navegador no puede cruzar su CORS y
+ * Vercel está bloqueado por la fuente. La URL sigue pasando por la misma
+ * lista blanca estricta de dominios que el resto de los pedidos.
+ */
+export async function enviarJsonNativo(
+  url: string,
+  body: string,
+  qrl: string
+): Promise<string> {
+  const fuentes = pluginFuentes();
+  if (fuentes?.enviarJson) {
+    try {
+      const res = await fuentes.enviarJson({
+        url,
+        body,
+        qrl,
+        userAgent: userAgentElegido(),
+      });
+      if (res.status !== 200) throw new Error("La fuente respondió " + res.status);
+      return String(res.data);
+    } catch (err) {
+      throw comoDesafio(err);
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    const tauri = (
+      window as unknown as {
+        __TAURI__?: {
+          core?: { invoke: (comando: string, args?: Record<string, unknown>) => Promise<unknown> };
+          http?: { fetch: (url: string, init?: RequestInit) => Promise<Response> };
+        };
+      }
+    ).__TAURI__;
+
+    if (tauri?.core?.invoke) {
+      try {
+        return String(
+          await tauri.core.invoke("enviar_json", {
+            url,
+            body,
+            qrl,
+            userAgent: userAgentElegido(),
+          })
+        );
+      } catch (err) {
+        throw comoDesafio(err);
+      }
+    }
+
+    if (tauri?.http?.fetch) {
+      const res = await tauri.http.fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/qwik-json",
+          Accept: "application/json, application/qwik-json, text/plain",
+          "X-QRL": qrl,
+        },
+        body,
+      });
+      if (!res.ok) throw new Error("La fuente respondió " + res.status);
+      return res.text();
+    }
+  }
+
+  throw new Error("Actualizá MangaTotal para usar la búsqueda global de esta fuente");
 }
 
 /** Pide un JSON y lo devuelve ya parseado. */

@@ -1,14 +1,14 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
-  "date": "2026-08-29",
+  "versionCode": 6,
+  "versionName": "1.5",
+  "date": "2026-08-30",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "5528F81AB1E4AC3DA0FE9EE18CAE13AFEBF30970B820C5318864A263222AFE04",
-  "sizeMb": 2.9,
+  "sha256": "71469521A480C72D7BB15159873804D904996E41FF77A3B48861BA5E968F004D",
+  "sizeMb": 2.7,
   "changes": [
-    "La app ahora usa el dominio oficial www.mangatotal.com",
-    "El actualizador valida dominio, ruta, tamaño y SHA-256 antes de ejecutar",
-    "Los puentes de fuentes exigen HTTPS y vuelven a validar cada redirección",
-    "Mayor protección del inicio de sesión y de las operaciones de cuenta"
+    "La búsqueda ya no es reemplazada por resultados antiguos cuando la conexión está lenta",
+    "LeerCapítulo vuelve a buscar en todo su catálogo con su endpoint actual",
+    "Ikigai incorpora búsqueda global mediante el puente nativo restringido",
+    "Una fuente externa lenta o caída ya no bloquea el Top semanal"
   ]
 }

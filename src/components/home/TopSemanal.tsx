@@ -34,7 +34,9 @@ let topAndroidEnMemoria: RespuestaTop | null = null;
 function topInicialAndroid(): SerieDelTop[] | null {
   if (typeof navigator === "undefined" || !isAndroidApp()) return null;
   const semana = semanaDelAno();
-  return topAndroidEnMemoria?.semana === semana ? topAndroidEnMemoria.series : null;
+  return topAndroidEnMemoria?.semana === semana && topAndroidEnMemoria.series.length > 0
+    ? topAndroidEnMemoria.series
+    : null;
 }
 
 /**
@@ -53,6 +55,8 @@ export function TopSemanal() {
   const carril = useRef<HTMLDivElement>(null);
   const [puedeIzquierda, setPuedeIzquierda] = useState(false);
   const [puedeDerecha, setPuedeDerecha] = useState(false);
+  const [fallo, setFallo] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let activa = true;
@@ -60,41 +64,50 @@ export function TopSemanal() {
 
     const aplicar = (respuesta: RespuestaTop) => {
       if (!activa) return;
+      if (!Array.isArray(respuesta.series) || respuesta.series.length === 0) return;
       const normalizada = {
-        series: Array.isArray(respuesta.series) ? respuesta.series : [],
+        series: respuesta.series,
         semana: Number(respuesta.semana) || semana,
       };
       if (typeof navigator !== "undefined" && isAndroidApp()) {
         topAndroidEnMemoria = normalizada;
       }
+      setFallo(false);
       setSeries(normalizada.series);
     };
 
     void cargarConCacheAndroid<RespuestaTop>(
-      `inicio:top-semanal:${semana}`,
+      // v2 evita reutilizar el resultado vacío que guardó la versión anterior.
+      `inicio:top-semanal:v2:${semana}`,
       async (signal) => {
-        const respuesta = await fetch("/api/top-semanal", { signal });
+        const respuesta = await fetch("/api/top-semanal", { signal, cache: "no-store" });
         if (!respuesta.ok) throw new Error("No se pudo cargar el Top semanal");
-        return (await respuesta.json()) as RespuestaTop;
+        const datos = (await respuesta.json()) as RespuestaTop;
+        // Un vacío transitorio no es un Top válido y nunca debe entrar al caché.
+        if (!Array.isArray(datos.series) || datos.series.length === 0) {
+          throw new Error("El Top semanal llegó vacío");
+        }
+        return datos;
       },
       {
         // El contenido depende de la cuenta porque respeta la preferencia +18.
         privateData: true,
-        freshForMs: 5 * 60 * 1000,
+        // Dentro de la misma semana prima mostrarlo al instante al volver a Inicio.
+        freshForMs: 6 * 60 * 60 * 1000,
         maxAgeMs: 9 * 24 * 60 * 60 * 1000,
-        timeoutMs: 10_000,
+        timeoutMs: 8_000,
         onCached: aplicar,
       }
     )
       .then(aplicar)
       .catch(() => {
-        if (activa) setSeries((actual) => actual ?? []);
+        if (activa) setFallo(true);
       });
 
     return () => {
       activa = false;
     };
-  }, []);
+  }, [intento]);
 
   const revisarFlechas = useCallback(() => {
     const el = carril.current;
@@ -122,8 +135,6 @@ export function TopSemanal() {
     el.scrollBy({ left: hacia * (el.clientWidth * 0.85), behavior: "smooth" });
   }
 
-  if (series !== null && series.length === 0) return null;
-
   return (
     <section data-od-id="home-top-semanal">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
@@ -147,7 +158,23 @@ export function TopSemanal() {
         className="-mx-1 flex min-w-0 snap-x snap-mandatory gap-5 overflow-x-auto px-1 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {series === null
-          ? Array.from({ length: 6 }).map((_, i) => (
+          ? fallo
+            ? (
+              <div className="flex min-h-64 w-full flex-col items-center justify-center gap-4 rounded-2xl border border-line bg-panel px-6 text-center">
+                <p className="text-sm text-subtle">No se pudo cargar el Top semanal.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFallo(false);
+                    setIntento((actual) => actual + 1);
+                  }}
+                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink transition hover:border-accent hover:text-accent"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )
+            : Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="w-40 shrink-0 sm:w-44">
                 <Skeleton className="aspect-[2/3] w-full rounded-2xl" />
               </div>
