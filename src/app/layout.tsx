@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
 import { AndroidUpdateBanner } from "@/components/pwa/AndroidUpdateBanner";
 import { DesktopUpdater } from "@/components/pwa/DesktopUpdater";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es-ES">
       <body>
         {children}
+        <AnalyticsTracker />
         <UpdatePrompt />
         <AndroidUpdateBanner />
         <DesktopUpdater />

@@ -22,6 +22,7 @@ const PUBLIC_EXACT = new Set([
   "/registro",
   "/api/auth/login",
   "/api/auth/register",
+  "/api/analytics",
   "/api/series",
   "/api/announcements",
   "/api/tags",

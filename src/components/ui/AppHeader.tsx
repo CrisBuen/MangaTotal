@@ -12,6 +12,7 @@ interface HeaderUser {
 
 const adminLinks = [
   { href: "/admin", label: "Resumen", exact: true },
+  { href: "/admin/analiticas", label: "Analíticas" },
   { href: "/admin/subir", label: "Subir capítulo" },
   { href: "/admin/series", label: "Series" },
   { href: "/admin/noticias", label: "Noticias" },

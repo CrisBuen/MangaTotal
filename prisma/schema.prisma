@@ -41,6 +41,40 @@ model AuthRateLimit {
   @@map("auth_rate_limits")
 }
 
+/// Presencia anónima de una instalación. No guarda cuenta, IP, apodo ni la
+/// obra exacta: alcanza para saber cuánta gente está activa y en qué sección.
+model AnalyticsPresence {
+  visitorId String   @id @map("visitor_id")
+  section   String
+  source    String?
+  platform  String
+  firstSeen DateTime @default(now()) @map("first_seen")
+  lastSeen  DateTime @default(now()) @map("last_seen")
+
+  @@index([lastSeen])
+  @@index([source, lastSeen])
+  @@index([section, lastSeen])
+  @@map("analytics_presence")
+}
+
+/// Aperturas reales de capítulos y episodios. El dedupeKey limita recargas
+/// repetidas dentro de la misma ventana sin conservar la ruta del contenido.
+model AnalyticsEvent {
+  id         BigInt   @id @default(autoincrement())
+  visitorId  String   @map("visitor_id")
+  eventType  String   @map("event_type")
+  section    String
+  source     String?
+  platform   String
+  dedupeKey  String   @unique @map("dedupe_key")
+  occurredAt DateTime @default(now()) @map("occurred_at")
+
+  @@index([occurredAt])
+  @@index([eventType, occurredAt])
+  @@index([source, occurredAt])
+  @@map("analytics_events")
+}
+
 model Series {
   id             Int               @id @default(autoincrement())
   title          String
