@@ -58,6 +58,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
   const durationRef = useRef(0);
   const lastSavedRef = useRef(0);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastUiUpdateRef = useRef(0);
 
   const [data, setData] = useState<Reproduccion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [sourcesVisible, setSourcesVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [androidPlayer, setAndroidPlayer] = useState(false);
@@ -275,15 +277,27 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
   }, [guardarProgreso]);
 
   const mostrarControles = useCallback(() => {
+    if (androidPlayer) setSourcesVisible(false);
     setControlsVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(
       () => setControlsVisible(false),
       OCULTAR_CONTROLES_MS
     );
+  }, [androidPlayer]);
+
+  /** En Android el selector es una capa propia: no vuelve a abrir controles. */
+  const mostrarFuentesAndroid = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    setControlsVisible(false);
+    setSourcesVisible(true);
   }, []);
 
   const alternarControles = () => {
+    if (androidPlayer && sourcesVisible) {
+      mostrarControles();
+      return;
+    }
     if (controlsVisible) {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       setControlsVisible(false);
@@ -301,11 +315,21 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
   };
 
   const cambiarFuente = async (source: Fuente) => {
-    if (!data || source.id === data.selected_source) return;
+    if (!data) return;
+    if (source.id === data.selected_source) {
+      if (androidPlayer) setSourcesVisible(false);
+      return;
+    }
     const position = currentRef.current;
     guardarProgreso(position, durationRef.current);
+    if (androidPlayer) setSourcesVisible(false);
     await cargar(source.id, position);
-    mostrarControles();
+    if (androidPlayer) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setControlsVisible(false);
+    } else {
+      mostrarControles();
+    }
   };
 
   const cambiarTiempo = (value: number) => {
@@ -358,7 +382,11 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       className={`fixed inset-0 z-[100] h-[100dvh] w-[100dvw] overflow-hidden bg-black text-white ${
         androidPlayer ? "android-anime-horizontal" : ""
       }`}
-      onPointerMove={mostrarControles}
+      onPointerMove={(event) => {
+        // Un dedo apoyado genera muchos pointermove aunque casi no se mueva.
+        // En Android eso mantenía todas las capas abiertas y hacía render de más.
+        if (!androidPlayer || event.pointerType === "mouse") mostrarControles();
+      }}
       data-od-id="jkanime-native-player"
     >
       {data?.poster_url && (
@@ -402,8 +430,14 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
               const total = event.currentTarget.duration;
               currentRef.current = position;
               durationRef.current = Number.isFinite(total) ? total : 0;
-              setCurrentTime(position);
-              setDuration(durationRef.current);
+              const ahora = performance.now();
+              // El WebView no necesita redibujar el reproductor cuatro veces
+              // por segundo. Los refs conservan precisión para progreso/salida.
+              if (!androidPlayer || ahora - lastUiUpdateRef.current >= 500) {
+                lastUiUpdateRef.current = ahora;
+                setCurrentTime(position);
+                setDuration(durationRef.current);
+              }
               if (Math.abs(position - lastSavedRef.current) >= GUARDAR_CADA_SEGUNDOS) {
                 guardarProgreso(position, durationRef.current);
               }
@@ -490,7 +524,9 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       </div>
 
       <div
-        className={`absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black via-black/90 to-transparent px-3 pt-16 transition-opacity sm:px-6 ${
+        className={`absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black via-black/90 to-transparent transition-opacity ${
+          androidPlayer ? "px-4 pt-10" : "px-3 pt-16 sm:px-6"
+        } ${
           controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
@@ -522,40 +558,44 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
               aria-label="Progreso del episodio"
             />
             <div className="mt-3 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={alternarPlay}
-                className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-lg hover:border-accent"
-                aria-label={playing ? "Pausar" : "Reproducir"}
-              >
-                {playing ? "Ⅱ" : "▶"}
-              </button>
-              <button
-                type="button"
-                onClick={alternarMute}
-                className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-base hover:border-accent"
-                aria-label={muted ? "Activar sonido" : "Silenciar"}
-              >
-                {muted ? "×" : "♪"}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={muted ? 0 : volume}
-                onChange={(event) => cambiarVolumen(Number(event.target.value))}
-                className="hidden w-24 accent-[var(--accent)] sm:block"
-                aria-label="Volumen"
-              />
-              <span className="font-mono text-[10px] tabular-nums text-white/75">
+              {!androidPlayer && (
+                <>
+                  <button
+                    type="button"
+                    onClick={alternarPlay}
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-lg hover:border-accent"
+                    aria-label={playing ? "Pausar" : "Reproducir"}
+                  >
+                    {playing ? "Ⅱ" : "▶"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={alternarMute}
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-base hover:border-accent"
+                    aria-label={muted ? "Activar sonido" : "Silenciar"}
+                  >
+                    {muted ? "×" : "♪"}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={muted ? 0 : volume}
+                    onChange={(event) => cambiarVolumen(Number(event.target.value))}
+                    className="hidden w-24 accent-[var(--accent)] sm:block"
+                    aria-label="Volumen"
+                  />
+                </>
+              )}
+              <span className={`font-mono text-[10px] tabular-nums text-white/75 ${androidPlayer ? "ml-auto" : ""}`}>
                 {reloj(currentTime)} / {reloj(duration)}
               </span>
             </div>
           </>
         )}
 
-        <div className="mt-3 border-t border-white/15 pt-3">
+        {!androidPlayer && <div className="mt-3 border-t border-white/15 pt-3">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/45">
               Fuentes
@@ -578,13 +618,45 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
           <p className="mt-2 font-mono text-[8px] uppercase tracking-[0.1em] text-white/40">
             Reproducción provista por JKAnime · MangaTotal no aloja el video
           </p>
-        </div>
+        </div>}
       </div>
 
-      {!controlsVisible && (
+      {androidPlayer && sourcesVisible && (
+        <div
+          className="absolute inset-x-0 bottom-0 z-50 bg-gradient-to-t from-black via-black/95 to-black/70 px-4 pt-5"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          onClick={(event) => event.stopPropagation()}
+          data-od-id="jkanime-android-sources"
+        >
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <span className="shrink-0 pr-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/55">
+              Fuentes
+            </span>
+            {data?.sources.map((source) => (
+              <button
+                key={source.id}
+                type="button"
+                onClick={() => void cambiarFuente(source)}
+                className={`min-h-11 shrink-0 rounded-xl border px-4 font-mono text-[10px] font-bold uppercase tracking-[0.08em] transition ${
+                  source.id === data.selected_source
+                    ? "border-accent bg-accent text-black"
+                    : "border-white/25 bg-white/5 text-white"
+                }`}
+              >
+                {source.label}
+              </button>
+            ))}
+          </div>
+          <p className="font-mono text-[8px] uppercase tracking-[0.1em] text-white/40">
+            Reproducción provista por JKAnime · MangaTotal no aloja el video
+          </p>
+        </div>
+      )}
+
+      {!controlsVisible && !sourcesVisible && (
         <button
           type="button"
-          onClick={mostrarControles}
+          onClick={androidPlayer ? mostrarFuentesAndroid : mostrarControles}
           className="absolute bottom-4 right-3 z-50 min-h-11 rounded-full border border-white/20 bg-black/35 px-4 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-white/60 backdrop-blur-md hover:border-accent hover:text-white"
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >

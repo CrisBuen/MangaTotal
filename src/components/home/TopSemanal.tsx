@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/Feedback";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { isAndroidApp } from "@/lib/appVersion";
 
 interface SerieDelTop {
   fuente: string;
@@ -11,6 +13,28 @@ interface SerieDelTop {
   portada: string | null;
   href: string;
   nota: string | null;
+}
+
+interface RespuestaTop {
+  series: SerieDelTop[];
+  semana: number;
+}
+
+/** La misma numeración UTC que usa la API para cambiar el ranking los lunes. */
+function semanaDelAno(fecha = new Date()): number {
+  const d = new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const enero = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return d.getUTCFullYear() * 100 + Math.ceil(((d.getTime() - enero.getTime()) / 86400000 + 1) / 7);
+}
+
+/** Sobrevive a la navegación interna para que volver a Inicio no dibuje esqueletos. */
+let topAndroidEnMemoria: RespuestaTop | null = null;
+
+function topInicialAndroid(): SerieDelTop[] | null {
+  if (typeof navigator === "undefined" || !isAndroidApp()) return null;
+  const semana = semanaDelAno();
+  return topAndroidEnMemoria?.semana === semana ? topAndroidEnMemoria.series : null;
 }
 
 /**
@@ -25,16 +49,51 @@ interface SerieDelTop {
  * src/app/api/top-semanal/route.ts.
  */
 export function TopSemanal() {
-  const [series, setSeries] = useState<SerieDelTop[] | null>(null);
+  const [series, setSeries] = useState<SerieDelTop[] | null>(topInicialAndroid);
   const carril = useRef<HTMLDivElement>(null);
   const [puedeIzquierda, setPuedeIzquierda] = useState(false);
   const [puedeDerecha, setPuedeDerecha] = useState(false);
 
   useEffect(() => {
-    fetch("/api/top-semanal")
-      .then((r) => (r.ok ? r.json() : { series: [] }))
-      .then((d) => setSeries(Array.isArray(d.series) ? d.series : []))
-      .catch(() => setSeries([]));
+    let activa = true;
+    const semana = semanaDelAno();
+
+    const aplicar = (respuesta: RespuestaTop) => {
+      if (!activa) return;
+      const normalizada = {
+        series: Array.isArray(respuesta.series) ? respuesta.series : [],
+        semana: Number(respuesta.semana) || semana,
+      };
+      if (typeof navigator !== "undefined" && isAndroidApp()) {
+        topAndroidEnMemoria = normalizada;
+      }
+      setSeries(normalizada.series);
+    };
+
+    void cargarConCacheAndroid<RespuestaTop>(
+      `inicio:top-semanal:${semana}`,
+      async (signal) => {
+        const respuesta = await fetch("/api/top-semanal", { signal });
+        if (!respuesta.ok) throw new Error("No se pudo cargar el Top semanal");
+        return (await respuesta.json()) as RespuestaTop;
+      },
+      {
+        // El contenido depende de la cuenta porque respeta la preferencia +18.
+        privateData: true,
+        freshForMs: 5 * 60 * 1000,
+        maxAgeMs: 9 * 24 * 60 * 60 * 1000,
+        timeoutMs: 10_000,
+        onCached: aplicar,
+      }
+    )
+      .then(aplicar)
+      .catch(() => {
+        if (activa) setSeries((actual) => actual ?? []);
+      });
+
+    return () => {
+      activa = false;
+    };
   }, []);
 
   const revisarFlechas = useCallback(() => {
