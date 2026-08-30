@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 
@@ -18,6 +19,7 @@ interface Entrada {
   last_duration_seconds: number;
   completed: boolean;
   href: string;
+  resume_href: string | null;
 }
 
 interface ProgresoAnime {
@@ -35,12 +37,15 @@ function coincide(entrada: Entrada, busqueda: string): boolean {
   return texto ? entrada.title.toLocaleLowerCase("es").includes(texto) : true;
 }
 
-function TarjetaProgreso({ entrada }: { entrada: Entrada }) {
-  return (
-    <Link
-      href={entrada.href}
-      className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-    >
+function TarjetaProgreso({
+  entrada,
+  reanudar = false,
+}: {
+  entrada: Entrada;
+  reanudar?: boolean;
+}) {
+  const contenido = (
+    <>
       <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
         {entrada.cover_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -70,18 +75,31 @@ function TarjetaProgreso({ entrada }: { entrada: Entrada }) {
           </p>
         )}
       </div>
-    </Link>
+    </>
   );
+
+  const className =
+    "group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  if (reanudar && entrada.resume_href) {
+    return (
+      <EpisodeWatchLink href={entrada.resume_href} className={className}>
+        {contenido}
+      </EpisodeWatchLink>
+    );
+  }
+  return <Link href={entrada.href} className={className}>{contenido}</Link>;
 }
 
 function BloqueProgreso({
   titulo,
   detalle,
   entradas,
+  reanudar = false,
 }: {
   titulo: string;
   detalle: string;
   entradas: Entrada[];
+  reanudar?: boolean;
 }) {
   if (entradas.length === 0) return null;
   return (
@@ -100,6 +118,7 @@ function BloqueProgreso({
             <TarjetaProgreso
               key={`${titulo}:${entrada.source}:${entrada.external_id}`}
               entrada={entrada}
+              reanudar={reanudar}
             />
           ))}
         </div>
@@ -171,7 +190,12 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
   return (
     <div className="space-y-12" data-od-id="external-anime-library">
       <BloqueProgreso titulo="Historial" detalle="Visto y sin guardar" entradas={historial} />
-      <BloqueProgreso titulo="Continuar viendo" detalle="Tu progreso" entradas={continuar} />
+      <BloqueProgreso
+        titulo="Continuar viendo"
+        detalle="Tu progreso"
+        entradas={continuar}
+        reanudar
+      />
 
       <section className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
