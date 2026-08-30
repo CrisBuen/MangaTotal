@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 import type { SerieJkanime } from "@/lib/jkanime";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 const SORTS = [
   { value: "", label: "Más recientes" },
@@ -96,9 +97,27 @@ export function JkanimeCatalog() {
     setError(null);
     if (!fresh.current) setSeries(null);
     try {
-      const res = await fetch(`/api/anime/jkanime?${params}`);
-      const data = (await res.json()) as CatalogResponse;
-      if (!res.ok) throw new Error(data.error ?? "JKAnime no respondió");
+      const fresco = fresh.current;
+      const data = await cargarConCacheAndroid<CatalogResponse>(
+        `explorar:jkanime:${params.toString().replace(/&?fresh=1/, "")}`,
+        async (signal) => {
+          const res = await fetch(`/api/anime/jkanime?${params}`, { signal });
+          const respuesta = (await res.json()) as CatalogResponse;
+          if (!res.ok) throw new Error(respuesta.error ?? "JKAnime no respondió");
+          return respuesta;
+        },
+        {
+          force: fresco,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            setSeries(guardado.series);
+            setPage(guardado.page);
+            setLastPage(guardado.lastPage);
+            setTotal(guardado.total);
+            setAdultEnabled(guardado.adult_enabled);
+          },
+        }
+      );
       setSeries(data.series);
       setPage(data.page);
       setLastPage(data.lastPage);

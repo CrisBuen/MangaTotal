@@ -2,9 +2,11 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { isAndroidApp } from "@/lib/appVersion";
 
 const VISITOR_KEY = "mangatotal_analytics_id";
 const HEARTBEAT_MS = 45_000;
+const HEARTBEAT_ANDROID_MS = 90_000;
 
 type Contexto = {
   section: string;
@@ -132,9 +134,11 @@ export function AnalyticsTracker() {
 
     void enviar({ ...base, contentKey: actual.contentKey });
 
+    // En el teléfono alcanza con un pulso cada 90 s para seguir contando
+    // presencia en tiempo real y se reduce a la mitad el trabajo de red.
     const intervalo = window.setInterval(() => {
       if (document.visibilityState === "visible") void enviar(base);
-    }, HEARTBEAT_MS);
+    }, isAndroidApp() ? HEARTBEAT_ANDROID_MS : HEARTBEAT_MS);
 
     const alVolver = () => {
       if (document.visibilityState === "visible") void enviar(base);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 interface Entrada {
   source: string;
@@ -29,8 +30,18 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/anime/externo/biblioteca", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : []))
+    cargarConCacheAndroid<Entrada[]>(
+      "biblioteca:anime-externo",
+      async (signal) => {
+        const res = await fetch("/api/anime/externo/biblioteca", {
+          cache: "no-store",
+          signal,
+        });
+        if (!res.ok) throw new Error("anime externo");
+        return res.json();
+      },
+      { privateData: true, onCached: setEntradas }
+    )
       .then((data) => setEntradas(Array.isArray(data) ? data : []))
       .catch(() => setEntradas([]));
   }, []);

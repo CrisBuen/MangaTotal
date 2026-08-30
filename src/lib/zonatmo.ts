@@ -21,7 +21,7 @@ export const TMO_CDN = "https://cdn.zonatmo.to";
 export const TMO_SUBIDAS = `${TMO_WEB}/wp-content/uploads`;
 export const TMO_NOMBRE = "ZonaTMO";
 
-import { traerJson, fuenteNativaDisponible } from "./fuenteNativa";
+import { traerJson, fuenteAndroidDisponible, fuenteNativaDisponible } from "./fuenteNativa";
 
 /** Ahora funciona en cualquier plataforma: el servidor lo intenta primero. */
 export function tmoDisponible(): boolean {
@@ -39,8 +39,23 @@ interface Respuesta<T> {
   data: T;
 }
 
-/** Pide una ruta de su API: servidor primero, dispositivo después. */
+/** Pide una ruta: Android directo; web/Windows conservan servidor primero. */
 async function pedir<T>(ruta: string, fresco = false): Promise<T> {
+  let errorAndroid: unknown = null;
+
+  // En Android la conexión del teléfono es el camino corto (igual que
+  // Mihon). Antes se esperaba primero a Vercel y, con 4G débil, el usuario
+  // podía pasar muchos segundos mirando una grilla vacía.
+  if (fuenteAndroidDisponible()) {
+    try {
+      const cuerpo = await traerJson<Respuesta<T>>(`${TMO_API}${ruta}`);
+      return cuerpo.data;
+    } catch (err) {
+      errorAndroid = err;
+      // El servidor queda como respaldo si justo falla la ruta directa.
+    }
+  }
+
   try {
     const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
     const res = await fetch(`/api/externo/tmo?${qs}`, {
@@ -59,6 +74,8 @@ async function pedir<T>(ruta: string, fresco = false): Promise<T> {
       "ZonaTMO no está respondiendo en este momento. Probá de nuevo en un rato, o desde la app de Android o Windows."
     );
   }
+
+  if (errorAndroid) throw errorAndroid;
 
   const cuerpo = await traerJson<Respuesta<T>>(`${TMO_API}${ruta}`);
   return cuerpo.data;

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 
 interface Entrada {
   source: string;
@@ -36,8 +37,16 @@ export function SeccionHistorial() {
 
   const cargar = useCallback(async () => {
     try {
-      const r = await fetch("/api/externo/historial");
-      setEntradas(r.ok ? await r.json() : []);
+      const data = await cargarConCacheAndroid<Entrada[]>(
+        "biblioteca:historial",
+        async (signal) => {
+          const r = await fetch("/api/externo/historial", { signal });
+          if (!r.ok) throw new Error("historial");
+          return r.json();
+        },
+        { privateData: true, onCached: setEntradas }
+      );
+      setEntradas(data);
     } catch {
       setEntradas([]);
     }
@@ -50,7 +59,13 @@ export function SeccionHistorial() {
   async function quitar(e: Entrada) {
     // se saca de la lista enseguida: esperar al servidor se siente lento
     setEntradas((previas) =>
-      (previas ?? []).filter((x) => !(x.source === e.source && x.external_id === e.external_id))
+      {
+        const siguientes = (previas ?? []).filter(
+          (x) => !(x.source === e.source && x.external_id === e.external_id)
+        );
+        void guardarCacheAndroid("biblioteca:historial", siguientes, { privateData: true });
+        return siguientes;
+      }
     );
     await fetch(
       `/api/externo/historial?source=${e.source}&id=${encodeURIComponent(e.external_id)}`,

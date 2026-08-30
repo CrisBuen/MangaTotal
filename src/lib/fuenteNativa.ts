@@ -124,6 +124,11 @@ export function fuenteNativaDisponible(): boolean {
   return puente() !== null;
 }
 
+/** True solo para el puente de Android; Windows conserva su recorrido actual. */
+export function fuenteAndroidDisponible(): boolean {
+  return pluginFuentes() !== null;
+}
+
 /** Pide una página y la devuelve lista para consultar con selectores. */
 export async function traerDocumento(url: string): Promise<Document> {
   const nativo = puente();

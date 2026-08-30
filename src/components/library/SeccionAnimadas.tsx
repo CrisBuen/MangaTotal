@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 interface Entrada {
   anilist_id: number;
@@ -40,8 +41,16 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
 
   const cargar = useCallback(async () => {
     try {
-      const r = await fetch("/api/anime/lista");
-      setEntradas(r.ok ? await r.json() : []);
+      const data = await cargarConCacheAndroid<Entrada[]>(
+        "biblioteca:animelist",
+        async (signal) => {
+          const r = await fetch("/api/anime/lista", { signal });
+          if (!r.ok) throw new Error("animelist");
+          return r.json();
+        },
+        { privateData: true, onCached: setEntradas }
+      );
+      setEntradas(data);
     } catch {
       setEntradas([]);
     }

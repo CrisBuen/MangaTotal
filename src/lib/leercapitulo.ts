@@ -13,7 +13,11 @@
 export const LC_WEB = "https://www.leercapitulo.co";
 export const LC_NOMBRE = "LeerCapítulo";
 
-import { traerJson, fuenteNativaDisponible } from "./fuenteNativa";
+import {
+  traerDocumento,
+  fuenteAndroidDisponible,
+  fuenteNativaDisponible,
+} from "./fuenteNativa";
 
 /**
  * INTERRUPTOR DE LEERCAPÍTULO — poner en true para volver a mostrarla.
@@ -33,15 +37,28 @@ export function lcDisponible(): boolean {
   return LC_HABILITADA;
 }
 
-/** Pide una página de su sitio y la devuelve lista para consultar. */
+/** Pide una página: Android directo; web/Windows conservan servidor primero. */
 async function pedir(ruta: string, fresco = false): Promise<Document> {
   if (!LC_HABILITADA) {
     throw new Error("LeerCapítulo está fuera de servicio por ahora.");
   }
 
   let html: string | null = null;
+  let errorAndroid: unknown = null;
+
+  // En Android se consulta primero desde el teléfono. El recorrido anterior
+  // esperaba a que fallara el servidor antes de usar el puente y era muy
+  // costoso con señal móvil débil.
+  if (fuenteAndroidDisponible()) {
+    try {
+      return await traerDocumento(`${LC_WEB}${ruta}`);
+    } catch (err) {
+      errorAndroid = err;
+    }
+  }
 
   try {
+    if (html !== null) return new DOMParser().parseFromString(html, "text/html");
     const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
     const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
       cache: fresco ? "no-store" : "default",
@@ -60,8 +77,8 @@ async function pedir(ruta: string, fresco = false): Promise<Document> {
         "LeerCapítulo no está respondiendo en este momento. Probá de nuevo en un rato, o desde la app de Android o Windows."
       );
     }
-    const cuerpo = await traerJson<{ html: string }>(`${LC_WEB}${ruta}`);
-    html = typeof cuerpo === "string" ? cuerpo : cuerpo.html;
+    if (errorAndroid) throw errorAndroid;
+    return traerDocumento(`${LC_WEB}${ruta}`);
   }
 
   return new DOMParser().parseFromString(html, "text/html");

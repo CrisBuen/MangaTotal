@@ -12,6 +12,13 @@ import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
 import { SeccionAnimeExterno } from "@/components/library/SeccionAnimeExterno";
 import { SeccionHistorial } from "@/components/library/SeccionHistorial";
 import { isAndroidApp } from "@/lib/appVersion";
+import {
+  borrarCachePrivadaAndroid,
+  cargarConCacheAndroid,
+  fetchConLimiteAndroid,
+  guardarCacheAndroid,
+  leerCacheAndroid,
+} from "@/lib/androidCache";
 
 interface ContinueItem {
   series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
@@ -72,31 +79,78 @@ export default function BibliotecaPage() {
   // vista de cualquiera, que no es donde corresponde.
   useEffect(() => {
     const qs = `?tipo=${filter === "adult" ? "adult" : "normal"}`;
-    fetch(`/api/tags${qs}`)
-      .then((r) => r.json())
+    cargarConCacheAndroid<TagChip[]>(
+      `biblioteca:tags:${qs}`,
+      async (signal) => {
+        const r = await fetch(`/api/tags${qs}`, { signal });
+        if (!r.ok) throw new Error("tags");
+        return r.json();
+      },
+      {
+        privateData: true,
+        freshForMs: 12 * 60 * 60 * 1000,
+        onCached: setTags,
+      }
+    )
       .then((d) => Array.isArray(d) && setTags(d))
       .catch(() => {});
   }, [filter]);
 
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const actual = d ?? {};
+    const aplicarMe = (actual: Me) => {
         setMe(actual);
         const permitido = !isAndroidApp() || Boolean(actual.anime_enabled);
         setAnimeAnimadoHabilitado(permitido);
         if (!permitido) {
           setSeccion((valor) => (valor === "anime-animado" ? "lectura" : valor));
         }
-      })
-      .catch(() => setMe({}));
-    fetch("/api/progress/continue")
-      .then((r) => r.json())
+    };
+
+    void (async () => {
+      const guardada = await leerCacheAndroid<Me>("sesion:me", {
+        privateData: true,
+        maxAgeMs: 30 * 24 * 60 * 60 * 1000,
+      });
+      if (guardada) aplicarMe(guardada.value);
+
+      try {
+        const r = await fetchConLimiteAndroid("/api/auth/me", {}, 8_000);
+        if (r.status === 401) {
+          await borrarCachePrivadaAndroid();
+          aplicarMe({});
+          return;
+        }
+        if (!r.ok) throw new Error("sesion");
+        const actual = (await r.json()) as Me;
+        aplicarMe(actual);
+        await guardarCacheAndroid("sesion:me", actual, { privateData: true });
+      } catch {
+        // Un corte de señal no cierra la sesión. Si había copia local se
+        // conserva; si no, se espera a poder comprobarla de verdad.
+      }
+    })();
+
+    cargarConCacheAndroid<ContinueItem[]>(
+      "biblioteca:continuar",
+      async (signal) => {
+        const r = await fetch("/api/progress/continue", { signal });
+        if (!r.ok) throw new Error("continuar");
+        return r.json();
+      },
+      { privateData: true, onCached: setContinues }
+    )
       .then((d) => Array.isArray(d) && setContinues(d))
       .catch(() => {});
-    fetch("/api/externo/biblioteca")
-      .then((r) => (r.ok ? r.json() : []))
+
+    cargarConCacheAndroid<SerieGuardada[]>(
+      "biblioteca:externas",
+      async (signal) => {
+        const r = await fetch("/api/externo/biblioteca", { signal });
+        if (!r.ok) throw new Error("externas");
+        return r.json();
+      },
+      { privateData: true, onCached: setGuardadas }
+    )
       .then((d) => Array.isArray(d) && setGuardadas(d))
       .catch(() => {});
     // restaurar el estado desde la URL: pestaña activa, tag y búsqueda
@@ -141,9 +195,25 @@ export default function BibliotecaPage() {
     if (selectedTag) params.set("tag", selectedTag);
     setSeriesError(false);
     try {
-      const res = await fetch(`/api/series?${params}`);
-      if (!res.ok) throw new Error("catalog");
-      setSeries(await res.json());
+      const data = await cargarConCacheAndroid<SeriesSummary[]>(
+        `biblioteca:series:${params.toString()}`,
+        async (signal) => {
+          const res = await fetch(`/api/series?${params}`, { signal });
+          if (!res.ok) throw new Error("catalog");
+          return res.json();
+        },
+        {
+          privateData: true,
+          // Favoritos y progreso pueden cambiar recién antes de entrar:
+          // se muestra la copia ya, pero siempre se confirma en segundo plano.
+          freshForMs: 0,
+          onCached: (guardada) => {
+            setSeries(guardada);
+            setSeriesError(false);
+          },
+        }
+      );
+      setSeries(data);
     } catch {
       setSeries([]);
       setSeriesError(true);
@@ -394,7 +464,7 @@ export default function BibliotecaPage() {
         </section>
       )}
 
-        {!loggedIn && (
+        {me !== null && !loggedIn && (
           <Surface className="grid gap-5 border-accent p-6 shadow-[var(--glow)] sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
             <p className="text-sm text-subtle">
               <Link href="/registro" className="font-bold text-ink underline underline-offset-4">

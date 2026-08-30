@@ -6,6 +6,12 @@ import { JkanimeCatalog } from "@/components/anime/JkanimeCatalog";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { isAndroidApp } from "@/lib/appVersion";
 import {
+  cargarConCacheAndroid,
+  fetchConLimiteAndroid,
+  guardarCacheAndroid,
+  leerCacheAndroid,
+} from "@/lib/androidCache";
+import {
   IKIGAI_GENEROS,
   IKIGAI_ORDENES,
   IKIGAI_TIPOS,
@@ -204,12 +210,24 @@ export default function ExplorarPage() {
     setError(false);
     const fresco = pedirFresco.current;
     try {
-      const r = await catalogoCw({
-        busqueda: search.trim() || undefined,
-        pagina: cwPage,
-        orden: cwOrden,
-        fresco,
-      });
+      const r = await cargarConCacheAndroid(
+        `explorar:catharsis:${cwPage}:${cwOrden}:${search.trim()}`,
+        () =>
+          catalogoCw({
+            busqueda: search.trim() || undefined,
+            pagina: cwPage,
+            orden: cwOrden,
+            fresco,
+          }),
+        {
+          force: fresco,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            setCw(guardado.series);
+            setCwPaginas(guardado.paginas);
+          },
+        }
+      );
       setCw(r.series);
       setCwPaginas(r.paginas);
     } catch (err) {
@@ -239,15 +257,28 @@ export default function ExplorarPage() {
     setError(false);
     const fresco = pedirFresco.current;
     try {
-      const r = await catalogoLc(
-        lcPage,
+      const r = await cargarConCacheAndroid(
+        `explorar:leercapitulo:${lcPage}:${lcGenero ?? ""}:${lcInicial ?? ""}:${lcLista}:${search.trim()}`,
+        () =>
+          catalogoLc(
+            lcPage,
+            {
+              q: search.trim() || undefined,
+              genero: lcGenero ?? undefined,
+              inicial: lcInicial ?? undefined,
+              lista: lcLista || undefined,
+            },
+            fresco
+          ),
         {
-          q: search.trim() || undefined,
-          genero: lcGenero ?? undefined,
-          inicial: lcInicial ?? undefined,
-          lista: lcLista || undefined,
+          force: fresco,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            setLc(guardado.series);
+            setLcMas(guardado.hayMas);
+            setLcPaginable(guardado.paginable);
+          },
         },
-        fresco
       );
       setLc(r.series);
       setLcMas(r.hayMas);
@@ -291,17 +322,27 @@ export default function ExplorarPage() {
       setAnimeHabilitado(true);
       return;
     }
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((me) => {
-        const habilitado = Boolean(me?.anime_enabled);
-        setAnimeHabilitado(habilitado);
-        if (!habilitado) setSeccion("lectura");
-      })
-      .catch(() => {
-        setAnimeHabilitado(false);
-        setSeccion("lectura");
+    const aplicar = (me: { anime_enabled?: boolean } | null) => {
+      const habilitado = Boolean(me?.anime_enabled);
+      setAnimeHabilitado(habilitado);
+      if (!habilitado) setSeccion("lectura");
+    };
+    void (async () => {
+      const guardada = await leerCacheAndroid<{ anime_enabled?: boolean }>("sesion:me", {
+        privateData: true,
+        maxAgeMs: 30 * 24 * 60 * 60 * 1000,
       });
+      if (guardada) aplicar(guardada.value);
+      try {
+        const res = await fetchConLimiteAndroid("/api/auth/me", {}, 8_000);
+        if (!res.ok) return;
+        const me = (await res.json()) as { anime_enabled?: boolean };
+        aplicar(me);
+        await guardarCacheAndroid("sesion:me", me, { privateData: true });
+      } catch {
+        // Con mala señal se conserva la preferencia comprobada anteriormente.
+      }
+    })();
   }, []);
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
@@ -312,7 +353,11 @@ export default function ExplorarPage() {
   // lo más leído de la semana, tal como lo publica ZonaTMO
   useEffect(() => {
     if (fuente !== "tmo" || tmoPopulares.length > 0) return;
-    popularesTmo("week")
+    cargarConCacheAndroid(
+      "explorar:tmo:populares:week",
+      () => popularesTmo("week"),
+      { freshForMs: 6 * 60 * 60 * 1000, onCached: setTmoPopulares }
+    )
       .then(setTmoPopulares)
       .catch(() => setTmoPopulares([]));
   }, [fuente, tmoPopulares.length]);
@@ -321,17 +366,30 @@ export default function ExplorarPage() {
     setError(false);
     const fresco = pedirFresco.current;
     try {
-      const r = await catalogoTmo(
-        tmoPage,
+      const r = await cargarConCacheAndroid(
+        `explorar:tmo:${tmoPage}:${tmoTipo ?? ""}:${tmoDemo ?? ""}:${tmoEstado ?? ""}:${tmoGenero ?? ""}:${tmoOrden ?? ""}:${search.trim()}`,
+        () =>
+          catalogoTmo(
+            tmoPage,
+            {
+              q: search.trim() || undefined,
+              tipo: tmoTipo ?? undefined,
+              demografia: tmoDemo ?? undefined,
+              estado: tmoEstado ?? undefined,
+              genero: tmoGenero ?? undefined,
+              orden: tmoOrden ?? undefined,
+            },
+            fresco
+          ),
         {
-          q: search.trim() || undefined,
-          tipo: tmoTipo ?? undefined,
-          demografia: tmoDemo ?? undefined,
-          estado: tmoEstado ?? undefined,
-          genero: tmoGenero ?? undefined,
-          orden: tmoOrden ?? undefined,
+          force: fresco,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            setTmo(guardado.series);
+            setTmoMas(guardado.hayMas);
+            setTmoPaginas(guardado.totalPaginas);
+          },
         },
-        fresco
       );
       setTmo(r.series);
       setTmoMas(r.hayMas);
@@ -364,12 +422,24 @@ export default function ExplorarPage() {
   const cargarIki = useCallback(async () => {
     setError(false);
     try {
-      const r = await catalogoIkigai(ikiPage, {
-        q: search.trim() || undefined,
-        tipo: ikiTipo ?? undefined,
-        genero: ikiGenero ?? undefined,
-        orden: ikiOrden,
-      });
+      const r = await cargarConCacheAndroid(
+        `explorar:ikigai:${ikiPage}:${ikiTipo ?? ""}:${ikiGenero ?? ""}:${ikiOrden}:${search.trim()}`,
+        () =>
+          catalogoIkigai(ikiPage, {
+            q: search.trim() || undefined,
+            tipo: ikiTipo ?? undefined,
+            genero: ikiGenero ?? undefined,
+            orden: ikiOrden,
+          }),
+        {
+          force: pedirFresco.current,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            setIki(guardado.series);
+            setIkiMas(guardado.hayMas);
+          },
+        }
+      );
       setIki(r.series);
       setIkiMas(r.hayMas);
     } catch (err) {
@@ -402,15 +472,29 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     if (fuente !== "olympus" || olyOpciones) return;
-    fetch("/api/externo/olympus/filtros")
-      .then((r) => r.json())
+    cargarConCacheAndroid(
+      "explorar:olympus:filtros",
+      async (signal) => {
+        const r = await fetch("/api/externo/olympus/filtros", { signal });
+        if (!r.ok) throw new Error("filtros");
+        return r.json();
+      },
+      { freshForMs: 7 * 24 * 60 * 60 * 1000, onCached: setOlyOpciones }
+    )
       .then(setOlyOpciones)
       .catch(() => {});
   }, [fuente, olyOpciones]);
 
   useEffect(() => {
-    fetch("/api/externo/generos")
-      .then((r) => r.json())
+    cargarConCacheAndroid<Genre[]>(
+      "explorar:mangadex:generos",
+      async (signal) => {
+        const r = await fetch("/api/externo/generos", { signal });
+        if (!r.ok) throw new Error("generos");
+        return r.json();
+      },
+      { freshForMs: 7 * 24 * 60 * 60 * 1000, onCached: setGenres }
+    )
       .then((d) => Array.isArray(d) && setGenres(d))
       .catch(() => {});
   }, []);
@@ -529,11 +613,26 @@ export default function ExplorarPage() {
     if (search.trim()) params.set("q", search.trim());
     const fresco = pedirFresco.current;
     try {
-      const res = await fetch(`/api/externo/series?${params}`, {
-        cache: fresco ? "no-store" : "default",
-      });
-      if (!res.ok) throw new Error("fallo");
-      const data = await res.json();
+      const url = `/api/externo/series?${params}`;
+      const data = await cargarConCacheAndroid<{ series: ExternalSeries[]; total: number }>(
+        `explorar:mangadex:${params.toString()}`,
+        async (signal) => {
+          const res = await fetch(url, {
+            cache: fresco ? "no-store" : "default",
+            signal,
+          });
+          if (!res.ok) throw new Error("fallo");
+          return res.json();
+        },
+        {
+          force: fresco,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            setSeries(guardado.series);
+            setTotal(guardado.total);
+          },
+        }
+      );
       setSeries(data.series);
       setTotal(data.total);
     } catch {
@@ -561,11 +660,29 @@ export default function ExplorarPage() {
     if (olyTipo) params.set("tipo", olyTipo);
     const fresco = pedirFresco.current;
     try {
-      const res = await fetch(`/api/externo/olympus/series?${params}`, {
-        cache: fresco ? "no-store" : "default",
-      });
-      if (!res.ok) throw new Error("fallo");
-      const data = await res.json();
+      const url = `/api/externo/olympus/series?${params}`;
+      const data = await cargarConCacheAndroid<{
+        series: SerieOlympus[];
+        last_page: number;
+      }>(
+        `explorar:olympus:${params.toString()}`,
+        async (signal) => {
+          const res = await fetch(url, {
+            cache: fresco ? "no-store" : "default",
+            signal,
+          });
+          if (!res.ok) throw new Error("fallo");
+          return res.json();
+        },
+        {
+          force: fresco,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            setOlympus(guardado.series);
+            setOlympusLastPage(guardado.last_page);
+          },
+        }
+      );
       setOlympus(data.series);
       setOlympusLastPage(data.last_page);
     } catch {

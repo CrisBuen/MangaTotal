@@ -45,6 +45,10 @@ public class MainActivity extends BridgeActivity {
     private long descargaId = -1;
     private BroadcastReceiver receptorDescarga;
 
+    private WebView webViewPrincipal() {
+        return this.bridge != null ? this.bridge.getWebView() : null;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // el puente de fuentes tiene que existir antes de que arranque la web
@@ -52,7 +56,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PantallaPlugin.class);
         super.onCreate(savedInstanceState);
 
-        WebView webView = this.bridge != null ? this.bridge.getWebView() : null;
+        WebView webView = webViewPrincipal();
         if (webView == null) {
             return;
         }
@@ -247,18 +251,48 @@ public class MainActivity extends BridgeActivity {
         runOnUiThread(() -> Toast.makeText(this, mensaje, Toast.LENGTH_LONG).show());
     }
 
+    /**
+     * Capacitor deja el WebView vivo al mandar la app al fondo. Sin esta
+     * pausa seguían corriendo JavaScript, analíticas y hasta video durante
+     * un rato, gastando batería y calentando el teléfono sin estar usándolo.
+     */
+    @Override
+    public void onStop() {
+        WebView webView = webViewPrincipal();
+        if (webView != null) {
+            webView.onPause();
+            webView.pauseTimers();
+        }
+        super.onStop();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        WebView webView = webViewPrincipal();
+        if (webView != null) {
+            webView.resumeTimers();
+            webView.onResume();
+        }
+    }
+
     @Override
     public void onDestroy() {
         if (receptorDescarga != null) {
             unregisterReceiver(receptorDescarga);
             receptorDescarga = null;
         }
+        WebView webView = webViewPrincipal();
+        if (webView != null) {
+            webView.stopLoading();
+            webView.onPause();
+        }
         super.onDestroy();
     }
 
     @Override
     public void onBackPressed() {
-        WebView webView = this.bridge != null ? this.bridge.getWebView() : null;
+        WebView webView = webViewPrincipal();
 
         if (webView != null && webView.canGoBack()) {
             webView.goBack();

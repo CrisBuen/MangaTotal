@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { buttonStyles } from "./Button";
+import { borrarCachePrivadaAndroid } from "@/lib/androidCache";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -9,6 +10,7 @@ export function LogoutButton() {
     <button
       onClick={async () => {
         await fetch("/api/auth/logout", { method: "POST" });
+        await borrarCachePrivadaAndroid();
         router.push("/login");
         router.refresh();
       }}

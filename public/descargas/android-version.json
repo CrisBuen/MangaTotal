@@ -1,14 +1,15 @@
 {
-  "versionCode": 13,
-  "versionName": "1.9.0",
-  "date": "2026-08-29",
+  "versionCode": 14,
+  "versionName": "1.9.1",
+  "date": "2026-08-30",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "09318A168123C2953E860ABE1E846FF3A921AE9492641C23F0490C27CA6FBD21",
-  "sizeMb": 4.7,
+  "sha256": "F44247FE3E7DD5567FAD031AE231F4E2DF91D04965DE60DD7274F1DE7940D9BB",
+  "sizeMb": 4.5,
   "changes": [
-    "La app ahora usa el dominio oficial www.mangatotal.com",
-    "Las actualizaciones se verifican antes de abrir el instalador",
-    "Mayor protección del inicio de sesión y de las fuentes externas"
+    "Biblioteca y Explorar abren desde la copia local con señal débil",
+    "Una falla de red ya no se confunde con un cierre de sesión",
+    "ZonaTMO y LeerCapítulo usan primero la conexión directa del teléfono",
+    "La app pausa red, JavaScript y video al quedar en segundo plano"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
