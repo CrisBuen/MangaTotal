@@ -78,7 +78,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
 
   const guardarProgreso = useCallback((position: number, total: number) => {
     const info = dataRef.current;
-    if (!info || info.playback.kind !== "hls") return;
+    if (!info) return;
     const pos = Math.max(0, Math.round(position));
     const dur = Math.max(0, Math.round(total));
     lastSavedRef.current = pos;
@@ -120,6 +120,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         if (!res.ok) throw new Error(next?.error ?? "No se pudo cargar el episodio");
 
         let inicio = Math.max(0, positionOverride ?? 0);
+        let registrarApertura = false;
         if (positionOverride === undefined) {
           const progressParams = new URLSearchParams({
             source: "jkanime",
@@ -132,7 +133,11 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
           );
           if (progressRes.ok) {
             const progress = await progressRes.json();
+            const posicionGuardada = Math.max(0, Number(progress.position_seconds) || 0);
+            const duracionGuardada = Math.max(0, Number(progress.duration_seconds) || 0);
             inicio = progress.completed ? 0 : Math.max(0, Number(progress.position_seconds) || 0);
+            registrarApertura =
+              !progress.completed && posicionGuardada === 0 && duracionGuardada === 0;
           }
         }
 
@@ -142,6 +147,9 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         setStartPosition(inicio);
         setCurrentTime(inicio);
         setData(next as Reproduccion);
+        // Crea el historial apenas se abre el episodio. Así también queda
+        // registrado si la persona sale antes del primer guardado periódico.
+        if (registrarApertura) guardarProgreso(0, 0);
         if (next.playback.kind === "embed") setMediaReady(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "No se pudo cargar el episodio");
@@ -149,7 +157,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         setLoading(false);
       }
     },
-    [episode, slug]
+    [episode, guardarProgreso, slug]
   );
 
   useEffect(() => {

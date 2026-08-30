@@ -21,6 +21,7 @@ import {
 } from "./fuenteNativa";
 
 export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
+const IKIGAI_IMAGENES = "https://image2.ikigaimangas.cloud";
 export const IKIGAI_NOMBRE = "Ikigai Mangas";
 
 export function ikigaiDisponible(): boolean {
@@ -262,7 +263,11 @@ async function buscarIkigai(
   const pagina = resultados.slice(inicio, inicio + porPagina);
   const series: SerieIkigai[] = pagina.map((serie) => {
     const slug = String(serie.slug);
-    const portada = serie.cover ? new URL(serie.cover, IKIGAI_WEB).toString() : null;
+    // El índice global entrega rutas del proxy de imágenes, no rutas del
+    // catálogo. Resolverlas contra IKIGAI_WEB producía carátulas 404.
+    const portada = serie.cover
+      ? new URL(serie.cover, IKIGAI_IMAGENES).toString()
+      : null;
     return {
       slug,
       title: String(serie.name || "Sin título"),

@@ -791,6 +791,14 @@ export default function ExplorarPage() {
   const page = Math.floor(offset / 24) + 1;
   const lastPage = Math.max(1, Math.ceil(Math.min(total, 9500) / 24));
 
+  const cambiarFuente = (siguiente: string) => {
+    if (siguiente === fuente) return;
+    // Una consulta pertenece únicamente a la fuente donde se escribió. Si se
+    // conserva al cambiar, la fuente nueva parece vacía o rota.
+    setSearch("");
+    setFuente(siguiente);
+  };
+
   if (seccion === "animada" && animeHabilitado) {
     return (
       <div className="space-y-10">
@@ -851,7 +859,7 @@ export default function ExplorarPage() {
         ].map((f) => (
           <button
             key={f.key}
-            onClick={() => setFuente(f.key)}
+            onClick={() => cambiarFuente(f.key)}
             className={`rounded-xl border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
               fuente === f.key
                 ? "border-accent bg-[var(--accent-soft)] text-accent"

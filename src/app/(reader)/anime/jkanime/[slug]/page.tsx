@@ -7,15 +7,30 @@ import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { Surface } from "@/components/ui/Surface";
 import type { FichaJkanime } from "@/lib/jkanime";
 
+interface ProgresoEpisodio {
+  episode_id: string;
+  episode_number: string;
+  position_seconds: number;
+  duration_seconds: number;
+  completed: boolean;
+}
+
+function minuto(segundos: number): string {
+  const total = Math.max(0, Math.floor(segundos));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export default function FichaJkanimePage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = use(props.params);
   const [ficha, setFicha] = useState<FichaJkanime | null>(null);
+  const [progresos, setProgresos] = useState<ProgresoEpisodio[]>([]);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     setFicha(null);
+    setProgresos([]);
     try {
       const res = await fetch(`/api/anime/jkanime/${encodeURIComponent(slug)}?page=${page}`, {
         cache: "no-store",
@@ -23,6 +38,18 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "No se pudo cargar el anime");
       setFicha(data);
+
+      const params = new URLSearchParams({
+        source: "jkanime",
+        id: String(data.id),
+      });
+      const progresoRes = await fetch(`/api/anime/externo/progreso?${params}`, {
+        cache: "no-store",
+      });
+      if (progresoRes.ok) {
+        const progreso = await progresoRes.json();
+        setProgresos(Array.isArray(progreso?.episodes) ? progreso.episodes : []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar el anime");
     }
@@ -170,32 +197,53 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
           </Surface>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {ficha.episodes.map((episode) => (
-              <EpisodeWatchLink
-                key={episode.id || episode.number}
-                href={`/explorar/jkanime/${ficha.slug}/${episode.number}`}
-                className="group overflow-hidden rounded-2xl border border-line bg-panel transition hover:-translate-y-0.5 hover:border-accent"
-              >
-                <div className="aspect-video bg-[var(--surface-raised)]">
-                  {episode.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={episode.image_url}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                </div>
-                <div className="p-3">
-                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-accent">
-                    Episodio {episode.number}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-sm font-semibold text-ink">{episode.title}</p>
-                </div>
-              </EpisodeWatchLink>
-            ))}
+            {ficha.episodes.map((episode) => {
+              const progreso = progresos.find(
+                (item) =>
+                  item.episode_id === String(episode.id) ||
+                  item.episode_number === episode.number
+              );
+              return (
+                <EpisodeWatchLink
+                  key={episode.id || episode.number}
+                  href={`/explorar/jkanime/${ficha.slug}/${episode.number}`}
+                  className="group overflow-hidden rounded-2xl border border-line bg-panel transition hover:-translate-y-0.5 hover:border-accent"
+                >
+                  <div className="relative aspect-video bg-[var(--surface-raised)]">
+                    {episode.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={episode.image_url}
+                        alt=""
+                        className={`h-full w-full object-cover transition ${
+                          progreso?.completed ? "grayscale opacity-35" : ""
+                        }`}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    {progreso?.completed && (
+                      <div className="absolute inset-0 bg-black/20" aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-accent">
+                      Episodio {episode.number}
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-sm font-semibold text-ink">{episode.title}</p>
+                    {progreso?.completed ? (
+                      <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-subtle">
+                        Ya visto
+                      </p>
+                    ) : progreso && progreso.position_seconds > 0 ? (
+                      <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-accent">
+                        {minuto(progreso.position_seconds)}
+                      </p>
+                    ) : null}
+                  </div>
+                </EpisodeWatchLink>
+              );
+            })}
           </div>
         )}
 

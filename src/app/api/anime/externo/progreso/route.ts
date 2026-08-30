@@ -24,7 +24,7 @@ function segundos(value: unknown): number {
   return Number.isFinite(numero) ? Math.min(Math.max(numero, 0), MAX_SECONDS) : 0;
 }
 
-/** Devuelve el minuto guardado para un episodio concreto. */
+/** Devuelve el progreso de un episodio o la lista completa de una serie. */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   const rechazo = await acceso(user);
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const source = req.nextUrl.searchParams.get("source") as FuenteAnimeExterna;
   const externalId = cadena(req.nextUrl.searchParams.get("id"), 160);
   const episodeId = cadena(req.nextUrl.searchParams.get("episode_id"), 160);
-  if (!esFuenteAnimeExterna(source) || !externalId || !episodeId) {
+  if (!esFuenteAnimeExterna(source) || !externalId) {
     return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
 
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
     select: { id: true, isAdult: true },
   });
   if (!anime) {
+    if (!episodeId) return NextResponse.json({ episodes: [] });
     return NextResponse.json({
       position_seconds: 0,
       duration_seconds: 0,
@@ -51,6 +52,31 @@ export async function GET(req: NextRequest) {
   }
   if (anime.isAdult && !(user.showAdultContent || user.isAdmin)) {
     return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
+  }
+
+  if (!episodeId) {
+    const episodios = await db.externalAnimeEpisodeProgress.findMany({
+      where: { externalAnimeId: anime.id },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        episodeId: true,
+        episodeNumber: true,
+        positionSeconds: true,
+        durationSeconds: true,
+        completed: true,
+        updatedAt: true,
+      },
+    });
+    return NextResponse.json({
+      episodes: episodios.map((item) => ({
+        episode_id: item.episodeId,
+        episode_number: item.episodeNumber,
+        position_seconds: item.positionSeconds,
+        duration_seconds: item.durationSeconds,
+        completed: item.completed,
+        updated_at: item.updatedAt,
+      })),
+    });
   }
 
   const progreso = await db.externalAnimeEpisodeProgress.findUnique({
