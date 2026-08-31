@@ -4,6 +4,7 @@ import { buttonStyles } from "./Button";
 import { HeaderNavLink } from "./HeaderNavLink";
 import { LogoutButton } from "./LogoutButton";
 import { RandomSeriesButton } from "./RandomSeriesButton";
+import { UserAvatar } from "./UserAvatar";
 
 interface HeaderUser {
   nickname: string;
@@ -120,20 +121,12 @@ export function AppHeader({
                   aria-label={`Abrir perfil de ${user.nickname}`}
                 >
                   <span className="hidden max-w-28 truncate xl:block">{user.nickname}</span>
-                  <span className="h-8 w-8 overflow-hidden rounded-full border border-line-strong bg-raised">
-                    {user.avatarPath ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/api/images/${user.avatarPath}`}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center font-display text-lg font-semibold text-ink">
-                        {user.nickname.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </span>
+                  <UserAvatar
+                    nickname={user.nickname}
+                    avatarPath={user.avatarPath}
+                    className="h-8 w-8 rounded-full border border-line-strong bg-raised"
+                    fallbackClassName="font-display text-lg font-semibold text-ink"
+                  />
                 </Link>
               )}
               {mode !== "admin" && user.isAdmin && (

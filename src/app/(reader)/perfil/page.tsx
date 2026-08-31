@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { UpdateChecker } from "@/components/pwa/UpdateChecker";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { Chip } from "@/components/ui/Chip";
+import { announceAvatarUpdate, UserAvatar } from "@/components/ui/UserAvatar";
 
 interface Me {
   nickname: string;
@@ -23,6 +25,7 @@ interface Me {
 const inputClass = fieldControlClass;
 
 export default function PerfilPage() {
+  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [saved, setSaved] = useState(false);
   const [accountEmail, setAccountEmail] = useState("");
@@ -84,12 +87,14 @@ export default function PerfilPage() {
       const form = new FormData();
       form.set("file", file);
       const res = await fetch("/api/auth/avatar", { method: "POST", body: form });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setAvatarError(data.error ?? "No se pudo subir la imagen");
         return;
       }
       setMe((m) => (m ? { ...m, avatar_path: data.avatar_path } : m));
+      announceAvatarUpdate(data.avatar_path);
+      router.refresh();
       flashSaved();
     } catch {
       setAvatarError("No se pudo conectar con el servidor");
@@ -100,11 +105,21 @@ export default function PerfilPage() {
   }
 
   async function removeAvatar() {
+    setAvatarError(null);
     setAvatarBusy(true);
     try {
-      await fetch("/api/auth/avatar", { method: "DELETE" });
+      const res = await fetch("/api/auth/avatar", { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAvatarError(data.error ?? "No se pudo quitar la imagen");
+        return;
+      }
       setMe((m) => (m ? { ...m, avatar_path: null } : m));
+      announceAvatarUpdate(null);
+      router.refresh();
       flashSaved();
+    } catch {
+      setAvatarError("No se pudo conectar con el servidor");
     } finally {
       setAvatarBusy(false);
     }
@@ -190,20 +205,13 @@ export default function PerfilPage() {
       {/* cabecera con avatar estilo red social */}
       <section className="grid gap-6 border-b border-line pb-8 sm:grid-cols-[auto_1fr] sm:items-center" data-od-id="profile-identity">
         <div className="relative">
-          <div className="h-28 w-28 overflow-hidden rounded-full border border-line-strong bg-panel">
-            {me.avatar_path ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`/api/images/${me.avatar_path}`}
-                alt={me.nickname}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center font-display text-5xl font-bold text-ink">
-                {me.nickname.charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
+          <UserAvatar
+            nickname={me.nickname}
+            avatarPath={me.avatar_path}
+            alt={me.nickname}
+            className="h-28 w-28 rounded-full border border-line-strong bg-panel"
+            fallbackClassName="font-display text-5xl font-bold text-ink"
+          />
           <button
             onClick={() => fileRef.current?.click()}
             disabled={avatarBusy}
