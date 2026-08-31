@@ -8,6 +8,7 @@
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "postinstall": "prisma generate",
+    "branding:generate": "node scripts/generar-logo.mjs",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "migrate:cloud": "node scripts/migrate-to-cloud.mjs"

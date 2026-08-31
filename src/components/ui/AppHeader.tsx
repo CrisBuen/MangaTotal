@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { buttonStyles } from "./Button";
 import { HeaderNavLink } from "./HeaderNavLink";
@@ -50,10 +51,14 @@ export function AppHeader({
           data-od-id="brand-link"
           aria-label={mode === "admin" ? "MangaTotal, administración" : "MangaTotal, biblioteca"}
         >
-          <span className="relative grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-accent bg-[var(--accent-soft)] font-display text-xl font-black text-accent shadow-[var(--glow)]">
-            MT
-            <span className="absolute inset-x-2 bottom-1 h-px bg-accent" aria-hidden="true" />
-          </span>
+          <Image
+            src="/branding/mangatotal-logo.png"
+            alt=""
+            width={40}
+            height={40}
+            priority
+            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-[var(--glow)]"
+          />
           <span className="leading-none">
             <span className="block font-display text-[1.35rem] font-black uppercase tracking-[-0.045em] text-ink">
               MangaTotal
