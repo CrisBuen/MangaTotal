@@ -1,9 +1,31 @@
 import type { Metadata, Viewport } from "next";
+import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
 import { AndroidUpdateBanner } from "@/components/pwa/AndroidUpdateBanner";
 import { DesktopUpdater } from "@/components/pwa/DesktopUpdater";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import "./globals.css";
+
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-archivo",
+  display: "swap",
+});
+
+const plexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-sans",
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.mangatotal.com"),
@@ -43,14 +65,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0f",
+  themeColor: "#060608",
   // el lector usa toda la pantalla en el celular
   viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es-ES">
+    <html lang="es-ES" className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}>
       <body>
         {children}
         <AnalyticsTracker />

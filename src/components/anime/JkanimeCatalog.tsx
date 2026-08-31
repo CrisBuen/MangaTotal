@@ -161,7 +161,7 @@ export function JkanimeCatalog() {
           value={sort}
           onChange={(event) => setSort(event.target.value)}
           disabled={Boolean(search.trim())}
-          className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent disabled:opacity-40"
+          className="rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-ink outline-none focus:border-accent disabled:opacity-40"
           aria-label="Ordenar catálogo de JKAnime"
         >
           {SORTS.map((option) => (
@@ -170,9 +170,9 @@ export function JkanimeCatalog() {
         </select>
         <button
           onClick={() => setShowFilters((value) => !value)}
-          className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+          className={`rounded-md border px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] transition ${
             activeFilters
-              ? "border-accent bg-[var(--accent-soft)] text-accent"
+              ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
               : "border-line text-subtle hover:text-ink"
           }`}
         >
@@ -185,7 +185,7 @@ export function JkanimeCatalog() {
             setReload((value) => value + 1);
           }}
           disabled={refreshing}
-          className="rounded-xl border border-line px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+          className="rounded-md border border-line px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-40"
         >
           ↻ {refreshing ? "Actualizando" : "Actualizar"}
         </button>
@@ -193,7 +193,7 @@ export function JkanimeCatalog() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar anime..."
-          className="ml-auto w-full max-w-sm rounded-xl border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
+          className="ml-auto w-full max-w-sm rounded-md border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
         />
       </div>
 
@@ -201,7 +201,7 @@ export function JkanimeCatalog() {
         <Surface className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
           {filterGroups.map((group) => (
             <label key={group.key} className="space-y-2">
-              <span className="block font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-subtle">
+              <span className="block font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
                 {group.label}
               </span>
               <select
@@ -210,7 +210,7 @@ export function JkanimeCatalog() {
                   setFilters((current) => ({ ...current, [group.key]: event.target.value }))
                 }
                 disabled={Boolean(search.trim())}
-                className="w-full rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent disabled:opacity-40"
+                className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent disabled:opacity-40"
               >
                 <option value="">Todos</option>
                 {group.options.map(([value, label]) => (
@@ -222,7 +222,7 @@ export function JkanimeCatalog() {
           {activeFilters > 0 && (
             <button
               onClick={() => setFilters(EMPTY_FILTERS)}
-              className="self-end justify-self-start font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+              className="self-end justify-self-start font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
             >
               × Limpiar filtros
             </button>
@@ -233,14 +233,14 @@ export function JkanimeCatalog() {
       {error && (
         <Surface className="p-6 text-center">
           <p className="text-sm text-red-400">{error}</p>
-          <button onClick={load} className="mt-3 font-mono text-[10px] uppercase text-accent">
+          <button onClick={load} className="mt-3 font-mono text-[11px] text-accent-ink">
             Reintentar
           </button>
         </Surface>
       )}
 
       {series === null ? (
-        <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+        <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
           Cargando catálogo de JKAnime...
         </p>
       ) : series.length === 0 && !error ? (
@@ -249,32 +249,32 @@ export function JkanimeCatalog() {
           <p className="mt-1 text-sm text-subtle">Probá con otro término o cambiá los filtros.</p>
         </Surface>
       ) : (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {series.map((anime) => (
             <Link
               key={anime.slug}
               href={`/explorar/jkanime/${anime.slug}`}
-              className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+              <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                 {anime.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={anime.cover_url}
                     alt={anime.title}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                    className="h-full w-full object-cover transition duration-500"
                     loading="lazy"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="grid h-full place-items-center text-xs text-subtle">Sin portada</div>
+                  <div className="grid h-full place-items-center text-[13px] text-subtle">Sin portada</div>
                 )}
               </div>
               <div className="px-1 pt-4">
-                <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                   {anime.title}
                 </h3>
-                <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                <p className="mt-1 font-mono text-[13px] text-faint">
                   {[anime.type, anime.status].filter(Boolean).join(" · ")}
                 </p>
               </div>
@@ -288,24 +288,24 @@ export function JkanimeCatalog() {
           <button
             disabled={page <= 1}
             onClick={() => setPage((value) => value - 1)}
-            className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle disabled:opacity-40"
+            className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
           >
             ← Anterior
           </button>
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+          <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
             Página {page} de {lastPage}{total !== null ? ` · ${total} títulos` : ""}
           </span>
           <button
             disabled={page >= lastPage}
             onClick={() => setPage((value) => value + 1)}
-            className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle disabled:opacity-40"
+            className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
           >
             Siguiente →
           </button>
         </div>
       )}
 
-      <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+      <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         Catálogo, fichas y episodios provistos por JKAnime con su permiso
       </p>
     </div>

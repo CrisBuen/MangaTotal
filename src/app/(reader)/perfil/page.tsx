@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { Chip } from "@/components/ui/Chip";
 
 interface Me {
   nickname: string;
@@ -187,9 +188,9 @@ export default function PerfilPage() {
         description="Administrá tu identidad, preferencias de contenido y forma de lectura."
       />
       {/* cabecera con avatar estilo red social */}
-      <section className="grid gap-6 border-b-2 border-line pb-8 sm:grid-cols-[auto_1fr] sm:items-center" data-od-id="profile-identity">
+      <section className="grid gap-6 border-b border-line pb-8 sm:grid-cols-[auto_1fr] sm:items-center" data-od-id="profile-identity">
         <div className="relative">
-          <div className="h-28 w-28 overflow-hidden rounded-2xl border border-accent bg-panel shadow-[var(--glow)]">
+          <div className="h-28 w-28 overflow-hidden rounded-full border border-line-strong bg-panel">
             {me.avatar_path ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -207,7 +208,7 @@ export default function PerfilPage() {
             onClick={() => fileRef.current?.click()}
             disabled={avatarBusy}
             title="Cambiar foto de perfil"
-            className="absolute bottom-2 right-2 min-h-11 rounded-xl border border-line bg-panel px-3 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)] disabled:opacity-50"
+            className="absolute bottom-2 right-2 min-h-11 rounded-md border border-line bg-panel px-3 text-[11px] font-bold tracking-[0.08em] text-ink transition hover:border-line-strong hover:bg-[var(--surface-raised)] disabled:opacity-50"
             data-od-id="avatar-upload-trigger"
           >
             Cambiar
@@ -224,7 +225,7 @@ export default function PerfilPage() {
           />
         </div>
         <div className="min-w-0">
-          <h2 className="truncate text-5xl leading-none text-ink">{me.nickname}</h2>
+          <h2 className="truncate font-display text-[clamp(2rem,5vw,3rem)] font-bold leading-none tracking-[-0.04em] text-ink">{me.nickname}</h2>
           <p className="mt-2 text-sm text-subtle">
             {me.is_admin && "administrador · "}
             {me.birthdate && new Date(me.birthdate).toLocaleDateString("es-AR")}
@@ -247,33 +248,29 @@ export default function PerfilPage() {
       {/* preferencias */}
       <Surface className="space-y-6 p-6" data-od-id="profile-preferences">
         <h2 className="text-3xl text-ink">Preferencias</h2>
-        <div className="flex flex-col justify-between gap-4 border-t-2 border-line pt-5 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-4 border-t border-line pt-5 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-bold text-ink">Modo de lectura preferido</p>
-            <p className="mt-1 text-xs text-subtle">Con el que se abre cada capítulo.</p>
+            <p className="mt-1 text-[13px] text-subtle">Con el que se abre cada capítulo.</p>
           </div>
-          <div className="flex rounded-xl border border-line bg-panel p-1">
+          <div className="flex gap-2">
             {(["cascade", "rtl"] as const).map((m) => (
-              <button
+              <Chip
                 key={m}
                 onClick={() => update({ preferred_reading_mode: m })}
-                className={`min-h-11 px-3 text-xs font-bold uppercase tracking-[0.08em] transition ${
-                  me.preferred_reading_mode === m
-                    ? "rounded-lg bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]"
-                    : "rounded-lg text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
-                }`}
+                selected={me.preferred_reading_mode === m}
               >
                 {m === "cascade" ? "Cascada" : "RTL"}
-              </button>
+              </Chip>
             ))}
           </div>
         </div>
 
         {saved && <Badge tone="success">Guardado</Badge>}
 
-        <p className="border-t-2 border-line pt-5 text-xs leading-5 text-subtle">
+        <p className="border-t border-line pt-5 text-[13px] leading-5 text-subtle">
           El contenido +18 y las opciones avanzadas se mudaron a{" "}
-          <Link href="/ajustes" className="text-accent hover:underline">
+          <Link href="/ajustes" className="text-accent-ink hover:underline">
             Ajustes
           </Link>
           .
@@ -282,18 +279,18 @@ export default function PerfilPage() {
 
       <form
         onSubmit={saveAccount}
-        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
+        className="space-y-5 rounded-[10px] border border-line bg-panel p-6"
         data-od-id="account-recovery-form"
       >
         <div>
           <h2 className="text-3xl text-ink">Datos de recuperación</h2>
-          <p className="mt-2 text-xs leading-5 text-subtle">
+          <p className="mt-2 text-[13px] leading-5 text-subtle">
             El correo es opcional, pero debe verificarse para recuperar una contraseña perdida.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
               Correo electrónico
             </label>
             <input
@@ -305,13 +302,13 @@ export default function PerfilPage() {
               placeholder="Opcional"
             />
             {me.email && (
-              <p className={`mt-2 text-xs ${me.email_verified ? "text-success" : "text-subtle"}`}>
+              <p className={`mt-2 text-[13px] ${me.email_verified ? "text-success" : "text-subtle"}`}>
                 {me.email_verified ? "Correo verificado" : "Correo pendiente de verificación"}
               </p>
             )}
           </div>
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
               Fecha de nacimiento
             </label>
             <input
@@ -339,12 +336,12 @@ export default function PerfilPage() {
       {/* cambio de contraseña */}
       <form
         onSubmit={changePassword}
-        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
+        className="space-y-5 rounded-[10px] border border-line bg-panel p-6"
         data-od-id="password-form"
       >
         <h2 className="text-3xl text-ink">Cambiar contraseña</h2>
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Contraseña actual</label>
+          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Contraseña actual</label>
           <input
             className={inputClass}
             type="password"
@@ -356,7 +353,7 @@ export default function PerfilPage() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
               Contraseña nueva
             </label>
             <input
@@ -369,7 +366,7 @@ export default function PerfilPage() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Repetir nueva</label>
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Repetir nueva</label>
             <input
               className={inputClass}
               type="password"

@@ -79,7 +79,7 @@ export function AvisoFuente({
         <button
           onClick={verificar}
           disabled={ocupado}
-          className="mt-6 inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+          className="mt-6 inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
         >
           {ocupado ? "Esperando…" : "Verificar ahora"}
         </button>
@@ -87,11 +87,11 @@ export function AvisoFuente({
         {fallo && (
           <p className="mt-5 text-sm text-subtle">
             No quedó verificado.{" "}
-            <button onClick={verificar} className="text-accent hover:underline">
+            <button onClick={verificar} className="text-accent-ink hover:underline">
               Probá de nuevo
             </button>{" "}
             o{" "}
-            <button onClick={reiniciarVerificacion} className="text-accent hover:underline">
+            <button onClick={reiniciarVerificacion} className="text-accent-ink hover:underline">
               empezá de cero
             </button>
             .
@@ -99,7 +99,7 @@ export function AvisoFuente({
         )}
 
         <div className="mt-6">
-          <Link href={volverA} className="text-sm text-accent hover:underline">
+          <Link href={volverA} className="text-sm text-accent-ink hover:underline">
             {volverTexto}
           </Link>
         </div>
@@ -117,7 +117,7 @@ export function AvisoFuente({
           Android o la de Windows. El resto de las fuentes funciona acá con normalidad.
         </p>
         <div className="mt-6">
-          <Link href={volverA} className="text-sm text-accent hover:underline">
+          <Link href={volverA} className="text-sm text-accent-ink hover:underline">
             {volverTexto}
           </Link>
         </div>
@@ -132,12 +132,12 @@ export function AvisoFuente({
         {onReintentar && (
           <button
             onClick={onReintentar}
-            className="inline-flex min-h-11 items-center rounded-xl border border-line px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+            className="inline-flex min-h-11 items-center rounded-md border border-line px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             Reintentar
           </button>
         )}
-        <Link href={volverA} className="text-sm text-accent hover:underline">
+        <Link href={volverA} className="text-sm text-accent-ink hover:underline">
           {volverTexto}
         </Link>
       </div>

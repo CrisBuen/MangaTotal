@@ -156,7 +156,7 @@ export function ExternalReader({
       className="min-h-screen bg-canvas text-ink"
     >
       <header
-        className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] backdrop-blur transition-opacity ${
+        className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_92%,transparent)]  transition-opacity ${
           showBar ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
@@ -166,7 +166,7 @@ export function ExternalReader({
         >
           <BotonVolver
             href={backHref}
-            className="shrink-0 rounded-lg px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-ink"
+            className="shrink-0 rounded-lg px-2 py-1 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-ink"
           />
           <div className="min-w-0 flex-1 text-center">
             <p className="truncate text-sm font-medium text-ink">
@@ -174,7 +174,7 @@ export function ExternalReader({
               {chapter.title ? `: ${chapter.title}` : ""}
             </p>
             {chapter.group && (
-              <p className="truncate font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+              <p className="truncate font-mono text-[11px] tracking-[0.06em] text-subtle">
                 {chapter.group} · MangaDex
               </p>
             )}
@@ -182,7 +182,7 @@ export function ExternalReader({
 
           <div className="flex shrink-0 items-center gap-2">
             {mode === "rtl" && (
-              <span className="hidden font-mono text-[10px] text-subtle sm:inline">
+              <span className="hidden font-mono text-[11px] text-subtle sm:inline">
                 {currentPage} / {pages.length}
               </span>
             )}
@@ -231,21 +231,21 @@ export function ExternalReader({
         {prevChapter && (
           <EnlaceCapitulo
             href={`/leer-externo/${prevChapter.id}`}
-            className="rounded-xl border border-line bg-panel px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-ink transition hover:border-accent"
+            className="rounded-md border border-line bg-panel px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.1em] text-ink transition hover:border-line-strong"
           >
             ← Capítulo {prevChapter.number ?? "anterior"}
           </EnlaceCapitulo>
         )}
         <Link
           href={backHref}
-          className="rounded-xl border border-line px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-subtle transition hover:border-accent hover:text-ink"
+          className="rounded-md border border-line px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.1em] text-subtle transition hover:border-line-strong hover:text-ink"
         >
           Ver capítulos
         </Link>
         {nextChapter && (
           <EnlaceCapitulo
             href={`/leer-externo/${nextChapter.id}`}
-            className="rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bg)] transition hover:opacity-90"
+            className="rounded-md border border-accent bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.1em] text-[var(--on-accent)] transition hover:opacity-90"
           >
             Capítulo {nextChapter.number ?? "siguiente"} →
           </EnlaceCapitulo>

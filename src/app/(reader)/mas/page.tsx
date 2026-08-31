@@ -85,7 +85,7 @@ export default function MasPage() {
 
       {SECCIONES.map((seccion) => (
         <section key={seccion.titulo}>
-          <h2 className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-subtle">
+          <h2 className="mb-4 font-mono text-[11px] font-bold tracking-[0.16em] text-subtle">
             {seccion.titulo}
           </h2>
           <Surface className="divide-y divide-line p-0">
@@ -99,14 +99,14 @@ export default function MasPage() {
               >
                 <svg
                   viewBox="0 0 24 24"
-                  className="h-5 w-5 shrink-0 fill-current text-accent"
+                  className="h-5 w-5 shrink-0 fill-current text-accent-ink"
                   aria-hidden="true"
                 >
                   <path d={e.icono} />
                 </svg>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-bold text-ink">{e.label}</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-subtle">{e.descripcion}</span>
+                  <span className="mt-0.5 block text-[13px] leading-5 text-subtle">{e.descripcion}</span>
                 </span>
                 <span className="shrink-0 text-subtle" aria-hidden="true">
                   ›

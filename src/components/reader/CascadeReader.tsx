@@ -220,19 +220,19 @@ export function CascadeReader({
       ))}
 
       <div className="flex w-full flex-col items-center gap-4 border-t border-line py-12">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Fin del capítulo</p>
+        <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">Fin del capítulo</p>
         {nextChapter ? (
           <EnlaceCapitulo
             href={`/leer/${nextChapter.id}`}
             data-next-chapter
-            className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 text-xs font-bold uppercase tracking-[0.08em] text-canvas shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
+            className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 text-[13px] font-bold tracking-[0.08em] text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)]"
           >
             Siguiente capítulo ({nextChapter.number}) →
           </EnlaceCapitulo>
         ) : (
           <Link
             href={seriesHref ?? `/serie/${seriesSlug}`}
-            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-5 text-xs font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)]"
+            className="inline-flex min-h-11 items-center rounded-md border border-line bg-panel px-5 text-[13px] font-bold tracking-[0.08em] text-ink transition hover:border-line-strong hover:bg-[var(--surface-raised)]"
           >
             Volver a la serie
           </Link>

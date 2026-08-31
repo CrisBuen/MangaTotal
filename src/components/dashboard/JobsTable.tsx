@@ -44,15 +44,15 @@ export function JobsTable() {
   if (jobs === null) return <p className="py-6 text-center text-sm text-subtle">Cargando…</p>;
   if (jobs.length === 0)
     return (
-      <p className="rounded-2xl border border-dashed border-line py-8 text-center text-sm text-subtle">
+      <p className="rounded-[10px] border border-dashed border-line py-8 text-center text-sm text-subtle">
         Todavía no subiste ningún .zip.
       </p>
     );
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
+    <div className="overflow-x-auto rounded-[10px] border border-line bg-panel">
       <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="border-b border-line bg-[var(--surface-raised)] text-[10px] uppercase tracking-[0.1em] text-subtle">
+        <thead className="border-b border-line bg-[var(--surface-raised)] text-[11px] tracking-[0.1em] text-subtle">
           <tr>
             <th className="px-4 py-2.5">Archivo</th>
             <th className="px-4 py-2.5">Serie</th>
@@ -65,7 +65,7 @@ export function JobsTable() {
         <tbody className="divide-y-2 divide-line">
           {jobs.map((j) => (
             <tr key={j.id} className="bg-panel hover:bg-[var(--surface-raised)]">
-              <td className="max-w-[220px] truncate px-4 py-2.5 font-mono text-xs">
+              <td className="max-w-[220px] truncate px-4 py-2.5 font-mono text-[13px]">
                 {j.original_filename}
               </td>
               <td className="max-w-[220px] truncate px-4 py-2.5">{j.series?.title ?? "—"}</td>
@@ -79,10 +79,10 @@ export function JobsTable() {
                   {STATUS_LABEL[j.status] ?? j.status}
                 </span>
               </td>
-              <td className="max-w-[260px] truncate px-4 py-2.5 text-xs text-danger">
+              <td className="max-w-[260px] truncate px-4 py-2.5 text-[13px] text-danger">
                 {j.error_message ?? ""}
               </td>
-              <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[10px] text-subtle">
+              <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[11px] text-subtle">
                 {new Date(j.started_at).toLocaleString("es-AR")}
               </td>
             </tr>

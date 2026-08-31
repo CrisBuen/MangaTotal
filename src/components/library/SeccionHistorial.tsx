@@ -79,28 +79,28 @@ export function SeccionHistorial() {
   return (
     <section id="historial" className="scroll-mt-28" data-od-id="library-history">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+        <h2 className="min-w-0 font-display text-3xl font-bold leading-none text-ink sm:text-4xl">
           Historial
         </h2>
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+        <span className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
           Leído y sin guardar
         </span>
       </div>
 
-      <div className="flex min-w-0 gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5">
+      <div className="flex min-w-0 gap-5 overflow-x-auto rounded-[10px] border border-line bg-panel p-5">
         {entradas.map((e) => (
           <div key={`${e.source}:${e.external_id}`} className="group relative w-36 shrink-0">
             <button
               onClick={() => quitar(e)}
               title="Sacar del historial"
               aria-label={`Sacar ${e.title} del historial`}
-              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--bg)_80%,transparent)] text-sm text-subtle opacity-0 backdrop-blur-md transition hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
+              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--bg)_80%,transparent)] text-sm text-subtle opacity-0  transition hover:text-accent-ink focus-visible:opacity-100 group-hover:opacity-100"
             >
               ×
             </button>
 
             <Link href={e.href_continuar} className="block">
-              <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 hover:-translate-y-1 hover:ring-accent hover:shadow-[var(--glow)]">
+              <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors hover:border-line-strong">
                 {e.cover_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -112,12 +112,12 @@ export function SeccionHistorial() {
                   />
                 )}
               </div>
-              <h3 className="mt-3 line-clamp-2 text-sm font-bold leading-[1.15] text-ink transition hover:text-accent">
+              <h3 className="mt-3 line-clamp-2 text-sm font-bold leading-[1.15] text-ink transition hover:text-accent-ink">
                 {e.title}
               </h3>
             </Link>
 
-            <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+            <p className="mt-1 font-mono text-[11px] tracking-[0.06em] text-subtle">
               {NOMBRE_FUENTE[e.source] ?? e.source}
               {e.last_chapter_name && ` · cap. ${e.last_chapter_name}`}
             </p>

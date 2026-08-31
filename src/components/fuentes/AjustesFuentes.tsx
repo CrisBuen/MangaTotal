@@ -56,15 +56,15 @@ export function AjustesFuentes() {
     <Surface className="space-y-6 p-6" data-od-id="fuentes-settings">
       <div>
         <h2 className="text-3xl text-ink">Fuentes externas</h2>
-        <p className="mt-2 text-xs text-subtle">
+        <p className="mt-2 text-[13px] text-subtle">
           Estas páginas se leen desde tu conexión, no desde el servidor. Casi nunca hay que tocar
           nada de acá.
         </p>
       </div>
 
-      <div className="border-t-2 border-line pt-5">
+      <div className="border-t border-line pt-5">
         <p className="text-sm font-bold text-ink">Navegador que decimos ser</p>
-        <p className="mt-1 text-xs text-subtle">
+        <p className="mt-1 text-[13px] text-subtle">
           Si una fuente deja de responder, pegar acá el de tu navegador suele arreglarlo. Vacío usa
           el de siempre.
         </p>
@@ -80,7 +80,7 @@ export function AjustesFuentes() {
           {ua.trim() !== "" && (
             <button
               onClick={() => guardar("")}
-              className="text-xs text-accent hover:underline"
+              className="text-[13px] text-accent-ink hover:underline"
             >
               Volver al de siempre
             </button>
@@ -90,10 +90,10 @@ export function AjustesFuentes() {
       </div>
 
       {puedeResolverDesafio() && (
-        <div className="flex flex-col justify-between gap-4 border-t-2 border-line pt-5 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-4 border-t border-line pt-5 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-bold text-ink">Verificación de los sitios</p>
-            <p className="mt-1 text-xs text-subtle">
+            <p className="mt-1 text-[13px] text-subtle">
               Borra lo que quedó guardado del &ldquo;no soy un robot&rdquo;. Usalo si una fuente se
               trabó pidiéndolo una y otra vez.
             </p>
@@ -103,7 +103,7 @@ export function AjustesFuentes() {
             <button
               onClick={limpiar}
               disabled={limpiando}
-              className="inline-flex min-h-11 items-center rounded-xl border border-line px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60"
+              className="inline-flex min-h-11 items-center rounded-md border border-line px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-60"
             >
               {limpiando ? "Borrando…" : "Empezar de cero"}
             </button>

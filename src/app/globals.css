@@ -4,24 +4,35 @@
 
 :root {
   color-scheme: dark;
-  --bg: oklch(10.5% 0.015 285);
-  --surface: oklch(16.5% 0.025 285);
-  --fg: oklch(96.5% 0.012 290);
-  --muted: oklch(72% 0.025 285);
-  --border: oklch(42% 0.11 300 / 0.36);
-  --accent: oklch(72% 0.22 302);
-  --success: oklch(76% 0.16 158);
-  --warning: oklch(79% 0.16 82);
-  --danger: oklch(68% 0.21 24);
-  --font-display: "Bahnschrift", "Avenir Next", "Trebuchet MS", sans-serif;
-  --font-body: "Aptos", "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-  --focus-ring: color-mix(in oklch, var(--accent) 76%, var(--surface));
-  --surface-raised: oklch(22% 0.035 292);
-  --surface-soft: oklch(14% 0.02 286);
-  --accent-hover: oklch(78% 0.2 302);
-  --accent-soft: color-mix(in oklch, var(--accent) 16%, transparent);
-  --glow: 0 0 34px color-mix(in oklch, var(--accent) 24%, transparent);
+  /* La interfaz toma temperatura y contraste directamente del logo. */
+  --bg: #060608;
+  --surface: #0f0f12;
+  --surface-raised: #19191c;
+  --surface-2: var(--surface-raised);
+  --surface-soft: #0b0b0d;
+  --fg: #f2eae1;
+  --muted: #a8a29b;
+  --fg-muted: var(--muted);
+  --fg-faint: #78746e;
+  --border: #28282c;
+  --border-strong: #68686d;
+  --accent: #6b34a1;
+  --accent-hover: #7b46b4;
+  --accent-press: #591f8d;
+  --accent-fg: #b383ef;
+  --accent-soft: color-mix(in oklch, var(--accent) 18%, transparent);
+  --accent-quiet: var(--accent-soft);
+  --on-accent: #ffffff;
+  --success: #44b782;
+  --warning: #e7bd57;
+  --danger: #e9504d;
+  --danger-fg: #fd736d;
+  --font-display: var(--font-archivo), "Trebuchet MS", sans-serif;
+  --font-body: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --focus-ring: var(--accent-fg);
+  /* Compatibilidad temporal: los usos antiguos dejan de dibujar halos. */
+  --glow: none;
 }
 
 html {
@@ -33,12 +44,11 @@ html {
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at 78% -12%, color-mix(in oklch, var(--accent) 12%, transparent), transparent 34rem),
-    var(--bg);
+  background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  line-height: 1.55;
+  font-size: 0.9375rem;
+  line-height: 1.6;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -59,7 +69,7 @@ h3,
 h4 {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.025em;
   text-wrap: balance;
 }
 
@@ -83,18 +93,13 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus-ring);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 ::selection {
   background: var(--accent-soft);
   color: var(--fg);
-}
-
-@keyframes neon-pulse {
-  0%, 100% { opacity: 0.72; }
-  50% { opacity: 1; }
 }
 
 /* entrada suave de la portada al rotar el destacado del inicio */

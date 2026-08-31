@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { buttonStyles } from "./Button";
 import { fieldControlClass } from "./Field";
 import { Surface } from "./Surface";
@@ -8,12 +9,21 @@ export function AuthCard({ title, children }: { title: string; children: React.R
       className="flex min-h-screen items-center justify-center bg-canvas p-4 sm:p-6"
       data-od-id="auth-layout"
     >
-      <Surface className="w-full max-w-md border-accent p-7 shadow-[var(--glow)] sm:p-10" data-od-id="auth-card">
+      <Surface className="w-full max-w-md p-7 sm:p-10" data-od-id="auth-card">
         <div className="mb-8 border-b border-line pb-6">
-          <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
+          <Image
+            src="/icons/mangatotal-logo-transparent.png"
+            alt=""
+            width={48}
+            height={48}
+            priority
+            unoptimized
+            className="mb-5 h-12 w-12 object-contain"
+          />
+          <p className="mb-3 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
             Acceso privado
           </p>
-          <h1 className="font-display text-5xl font-black uppercase leading-[0.88] tracking-[-0.06em] text-ink sm:text-6xl">
+          <h1 className="font-display text-[clamp(2.25rem,8vw,3rem)] font-bold leading-none tracking-[-0.035em] text-ink">
             MangaTotal
           </h1>
           <p className="mt-4 text-sm text-subtle">{title}</p>

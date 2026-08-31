@@ -60,23 +60,23 @@ export default function NoticiasPage() {
       {/* las propias primero: son los avisos del servicio */}
       {propias !== null && propias.length > 0 && (
         <section>
-          <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+          <h2 className="mb-5 font-display text-3xl font-bold leading-none text-ink">
             De MangaTotal
           </h2>
           <div className="space-y-4">
             {propias.map((n) => (
               <article
                 key={n.id}
-                className="rounded-2xl border border-accent bg-panel p-6 sm:p-8"
+                className="rounded-[10px] border border-accent bg-panel p-6 sm:p-8"
                 data-od-id={`news-${n.id}`}
               >
                 <time
-                  className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent"
+                  className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink"
                   dateTime={n.created_at}
                 >
                   {fecha(n.created_at)}
                 </time>
-                <h3 className="mt-3 text-2xl font-black leading-tight text-ink">{n.title}</h3>
+                <h3 className="mt-3 text-2xl font-bold leading-tight text-ink">{n.title}</h3>
                 <p className="mt-4 whitespace-pre-line text-sm leading-7 text-subtle">{n.body}</p>
               </article>
             ))}
@@ -86,14 +86,14 @@ export default function NoticiasPage() {
 
       <section>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <h2 className="font-display text-3xl font-black uppercase leading-none text-ink">
+          <h2 className="font-display text-3xl font-bold leading-none text-ink">
             Anime y manga
           </h2>
           <a
             href={KUDASAI}
             target="_blank"
             rel="noreferrer noopener"
-            className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent hover:underline"
+            className="font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink hover:underline"
           >
             Por Somos Kudasai ↗
           </a>
@@ -119,7 +119,7 @@ export default function NoticiasPage() {
                   href={n.enlace}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-panel transition hover:-translate-y-1 hover:border-accent hover:shadow-[var(--glow)]"
+                  className="group flex flex-col overflow-hidden rounded-[10px] border border-line bg-panel transition-colors hover:border-line-strong"
                 >
                   {n.imagen && (
                     <div className="aspect-video overflow-hidden bg-[var(--surface-raised)]">
@@ -127,24 +127,24 @@ export default function NoticiasPage() {
                       <img
                         src={n.imagen}
                         alt=""
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        className="h-full w-full object-cover transition duration-500"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />
                     </div>
                   )}
                   <div className="flex flex-1 flex-col p-5">
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-accent">
+                    <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">
                       {n.categoria ?? "Noticias"}
                       {n.fecha && ` · ${fecha(n.fecha)}`}
                     </p>
-                    <h3 className="mt-3 line-clamp-3 text-lg font-bold leading-[1.2] text-ink transition group-hover:text-accent">
+                    <h3 className="mt-3 line-clamp-3 text-lg font-bold leading-[1.2] text-ink transition-colors group-hover:text-accent-ink">
                       {n.titulo}
                     </h3>
-                    <p className="mt-3 line-clamp-3 flex-1 text-xs leading-6 text-subtle">
+                    <p className="mt-3 line-clamp-3 flex-1 text-[13px] leading-6 text-subtle">
                       {n.resumen}
                     </p>
-                    <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                    <p className="mt-4 font-mono text-[11px] tracking-[0.06em] text-subtle">
                       {n.autor ? `${n.autor} · ` : ""}Leer en su sitio ↗
                     </p>
                   </div>
@@ -152,13 +152,13 @@ export default function NoticiasPage() {
               ))}
             </div>
 
-            <p className="mt-6 text-xs leading-6 text-subtle">
+            <p className="mt-6 text-[13px] leading-6 text-subtle">
               Las noticias son de{" "}
               <a
                 href={KUDASAI}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="text-accent hover:underline"
+                className="text-accent-ink hover:underline"
               >
                 Somos Kudasai
               </a>

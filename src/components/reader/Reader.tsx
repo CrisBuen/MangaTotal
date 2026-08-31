@@ -174,7 +174,7 @@ export function Reader({
     >
       {/* barra superior del lector */}
       <header
-        className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] backdrop-blur-xl transition-opacity ${
+        className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)]  transition-opacity ${
           showBar ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
@@ -184,7 +184,7 @@ export function Reader({
         >
           <BotonVolver
             href={`/serie/${series.slug}`}
-            className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold uppercase tracking-[0.08em] text-subtle transition hover:bg-[var(--surface-raised)] hover:text-ink"
+            className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-[13px] font-bold tracking-[0.08em] text-subtle transition hover:bg-[var(--surface-raised)] hover:text-ink"
           />
           <div className="min-w-0 flex-1 text-center">
             <p className="truncate font-display text-lg font-bold leading-tight text-ink">
@@ -195,7 +195,7 @@ export function Reader({
 
           <div className="flex shrink-0 items-center gap-2" data-od-id="reader-controls">
             {mode === "rtl" && (
-              <span className="hidden font-mono text-[10px] uppercase tracking-[0.08em] text-subtle sm:inline">
+              <span className="hidden font-mono text-[11px] tracking-[0.08em] text-subtle sm:inline">
                 página {currentPage} / {chapter.pageCount}
               </span>
             )}
@@ -255,7 +255,7 @@ export function Reader({
       {isFullscreen && controlsVisible && !inmersivaNativa && (
         <button
           onClick={toggleFullscreen}
-          className="fixed right-4 z-50 min-h-11 rounded-xl border border-line bg-panel px-4 text-xs font-bold uppercase tracking-[0.08em] text-ink shadow-xl transition hover:border-accent hover:bg-[var(--surface-raised)]"
+          className="fixed right-4 z-50 min-h-11 rounded-md border border-line bg-panel px-4 text-[13px] font-bold tracking-[0.08em] text-ink shadow-xl transition hover:border-line-strong hover:bg-[var(--surface-raised)]"
           style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
           data-od-id="exit-fullscreen-button"
         >

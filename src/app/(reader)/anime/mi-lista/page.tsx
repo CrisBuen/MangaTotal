@@ -80,7 +80,7 @@ export default function MiListaPage() {
         action={
           <Link
             href="/anime"
-            className="inline-flex min-h-11 items-center rounded-xl border border-line px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+            className="inline-flex min-h-11 items-center rounded-md border border-line px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             Explorar anime
           </Link>
@@ -91,7 +91,7 @@ export default function MiListaPage() {
         <Surface className="p-12 text-center">
           <p className="text-lg font-bold text-ink">Necesitás una cuenta</p>
           <p className="mt-1 text-sm text-subtle">
-            <Link href="/login" className="font-bold text-accent hover:underline">
+            <Link href="/login" className="font-bold text-accent-ink hover:underline">
               Iniciá sesión
             </Link>{" "}
             para llevar tu seguimiento de anime.
@@ -99,13 +99,13 @@ export default function MiListaPage() {
         </Surface>
       ) : (
         <>
-          <div className="flex flex-wrap gap-1 rounded-xl border border-line bg-[var(--surface-raised)] p-1">
+          <div className="flex flex-wrap gap-1 rounded-md border border-line bg-[var(--surface-raised)] p-1">
             {counts.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`rounded-lg px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
-                  tab === t.key ? "bg-accent text-[var(--bg)]" : "text-subtle hover:text-ink"
+                className={`rounded-lg px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] transition ${
+                  tab === t.key ? "bg-accent text-[var(--on-accent)]" : "text-subtle hover:text-ink"
                 }`}
               >
                 {t.label} <span className="opacity-70">{t.count}</span>
@@ -114,7 +114,7 @@ export default function MiListaPage() {
           </div>
 
           {entries === null ? (
-            <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+            <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
               Cargando lista...
             </p>
           ) : visible.length === 0 ? (
@@ -133,10 +133,10 @@ export default function MiListaPage() {
                 return (
                   <div
                     key={e.anilist_id}
-                    className="flex gap-4 rounded-2xl border border-line bg-panel p-4"
+                    className="flex gap-4 rounded-[10px] border border-line bg-panel p-4"
                   >
                     <Link href={`/anime/${e.anilist_id}`} className="w-16 shrink-0 sm:w-20">
-                      <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)]">
+                      <div className="aspect-[2/3] overflow-hidden rounded-md bg-[var(--surface-raised)]">
                         {e.cover_url && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -152,13 +152,13 @@ export default function MiListaPage() {
 
                     <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
                       <Link href={`/anime/${e.anilist_id}`}>
-                        <p className="line-clamp-1 font-display text-lg font-bold text-ink hover:text-accent">
+                        <p className="line-clamp-1 font-display text-lg font-bold text-ink hover:text-accent-ink">
                           {e.title}
                         </p>
                       </Link>
 
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                        <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
                           {e.episodes_watched}
                           {e.total_episodes ? ` / ${e.total_episodes}` : ""} eps
                           {e.score ? ` · nota ${e.score}` : ""}
@@ -178,7 +178,7 @@ export default function MiListaPage() {
                           Boolean(e.total_episodes && e.episodes_watched >= e.total_episodes)
                         }
                         onClick={() => addEpisode(e)}
-                        className="shrink-0 self-center rounded-xl border border-accent bg-[var(--accent-soft)] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:opacity-90 disabled:opacity-40"
+                        className="shrink-0 self-center rounded-md border border-accent bg-[var(--accent-soft)] px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:opacity-90 disabled:opacity-40"
                       >
                         +1 ep
                       </button>

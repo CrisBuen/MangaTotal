@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DownloadSection } from "@/components/pwa/DownloadSection";
 import { TopSemanal } from "@/components/home/TopSemanal";
+import { ContinueReading } from "@/components/home/ContinueReading";
 import { buttonStyles } from "@/components/ui/Button";
 import { Badge, Skeleton } from "@/components/ui/Feedback";
 
@@ -60,49 +61,33 @@ export function HomeExperience() {
   const noticia = noticias?.[actual] ?? null;
 
   return (
-    <div className="space-y-20 sm:space-y-24" data-od-id="home-page">
+    <div className="flex flex-col gap-16" data-od-id="home-page">
+      <div className="order-1">
+        <ContinueReading />
+      </div>
       <section
-        className="relative isolate min-h-[26rem] overflow-hidden rounded-[2rem] border border-line bg-panel shadow-2xl sm:min-h-[32rem]"
+        className="order-4 grid overflow-hidden rounded-[10px] border border-line bg-panel md:grid-cols-[minmax(0,1fr)_minmax(280px,40%)]"
         data-od-id="home-hero"
         onMouseEnter={() => setDetenido(true)}
         onMouseLeave={() => setDetenido(false)}
       >
         {noticia?.imagen && (
-          <div className="absolute inset-x-0 top-0 h-56 sm:inset-y-0 sm:left-auto sm:right-0 sm:h-auto sm:w-[58%]">
+          <div className="relative h-48 overflow-hidden border-b border-line md:col-start-2 md:row-start-1 md:h-full md:min-h-80 md:border-b-0 md:border-l">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={noticia.enlace}
               src={noticia.imagen}
               alt=""
-              className="h-full w-full animate-[fadeIn_600ms_ease-out] object-cover object-center opacity-70"
+              className="h-full w-full animate-[fadeIn_600ms_ease-out] object-cover object-center opacity-80"
               referrerPolicy="no-referrer"
             />
           </div>
         )}
 
-        <div
-          className="absolute inset-0 sm:hidden"
-          style={{
-            background:
-              "linear-gradient(0deg, var(--bg) 32%, color-mix(in oklch, var(--bg) 55%, transparent) 72%, transparent 100%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 hidden sm:block"
-          style={{
-            background:
-              "linear-gradient(90deg, var(--bg) 0%, color-mix(in oklch, var(--bg) 94%, transparent) 42%, color-mix(in oklch, var(--bg) 28%, transparent) 100%), linear-gradient(0deg, var(--bg) 0%, transparent 55%)",
-          }}
-        />
-        <div
-          className="absolute -left-20 top-28 h-56 w-56 rounded-full bg-[var(--accent-soft)] blur-3xl"
-          aria-hidden="true"
-        />
-
-        <div className="relative z-10 flex min-h-[26rem] max-w-3xl flex-col justify-end px-5 py-8 sm:min-h-[32rem] sm:px-10 sm:py-12 lg:px-14 lg:py-14">
-          <div className="mb-auto flex flex-wrap items-center gap-3">
+        <div className="relative z-10 flex min-w-0 flex-col justify-center px-5 py-7 md:col-start-1 md:row-start-1 sm:px-8 sm:py-9">
+          <div className="mb-6 flex flex-wrap items-center gap-3">
             <Badge tone="accent">Noticias</Badge>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-subtle">
+            <span className="font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
               {noticia?.categoria || "Somos Kudasai"}
             </span>
           </div>
@@ -114,9 +99,9 @@ export function HomeExperience() {
             </div>
           ) : noticia ? (
             <>
-              <h1 className="line-clamp-3 max-w-2xl font-display text-2xl font-black uppercase leading-[1.02] tracking-[-0.03em] text-ink sm:text-4xl sm:leading-[0.95] lg:text-[2.75rem]">
+              <h2 className="line-clamp-3 max-w-2xl font-display text-[clamp(1.5rem,3vw,2rem)] font-bold leading-[1.12] tracking-[-0.02em] text-ink">
                 {noticia.titulo}
-              </h1>
+              </h2>
 
               <p className="mt-4 line-clamp-4 max-w-2xl text-sm leading-6 text-subtle sm:mt-5">
                 {noticia.resumen}
@@ -137,7 +122,7 @@ export function HomeExperience() {
                 </Link>
               </div>
 
-              <p className="mt-5 font-mono text-[9px] uppercase tracking-[0.14em] text-subtle">
+              <p className="mt-5 text-[13px] text-faint">
                 Publicado por Somos Kudasai
                 {noticia.autor && ` · ${noticia.autor}`}
               </p>
@@ -152,7 +137,7 @@ export function HomeExperience() {
                       aria-current={i === actual}
                       className={`h-1.5 rounded-full transition-all ${
                         i === actual
-                          ? "w-8 bg-accent shadow-[var(--glow)]"
+                          ? "w-8 bg-accent "
                           : "w-3 bg-[var(--surface-raised)] hover:bg-subtle"
                       }`}
                     />
@@ -162,9 +147,9 @@ export function HomeExperience() {
             </>
           ) : (
             <>
-              <h1 className="max-w-3xl font-display text-3xl font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink sm:text-6xl sm:leading-[0.88] lg:text-7xl">
+              <h2 className="max-w-3xl font-display text-[clamp(1.5rem,3vw,2rem)] font-bold leading-[1.12] tracking-[-0.02em] text-ink">
                 Todas tus historias. Una experiencia total.
-              </h1>
+              </h2>
               <p className="mt-5 max-w-xl text-sm leading-6 text-subtle sm:text-base">
                 Las noticias no están disponibles en este momento. El catálogo y las
                 fuentes funcionan con normalidad.
@@ -180,9 +165,11 @@ export function HomeExperience() {
         </div>
       </section>
 
-      <TopSemanal />
+      <div className="order-2">
+        <TopSemanal />
+      </div>
 
-      <section className="grid gap-5 md:grid-cols-2" data-od-id="home-library-access">
+      <section className="order-3 grid gap-4 md:grid-cols-2" data-od-id="home-library-access">
         <LibraryAccessCard
           eyebrow="Biblioteca principal"
           title="Contenido Normal"
@@ -210,7 +197,9 @@ export function HomeExperience() {
         )}
       </section>
 
-      <DownloadSection />
+      <div className="order-5">
+        <DownloadSection />
+      </div>
     </div>
   );
 }
@@ -229,17 +218,13 @@ function LibraryAccessCard({
   return (
     <Link
       href={href}
-      className="group relative min-h-64 overflow-hidden rounded-[2rem] border border-line bg-panel p-7 transition hover:border-accent hover:shadow-[var(--glow)] sm:p-9"
+      className="group min-h-48 rounded-[10px] border border-line bg-panel p-6 transition-colors hover:border-line-strong sm:p-7"
     >
-      <div
-        className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[var(--accent-soft)] blur-3xl transition group-hover:scale-125"
-        aria-hidden="true"
-      />
-      <div className="relative flex h-full flex-col">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
+      <div className="flex h-full flex-col">
+        <p className="font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
           {eyebrow}
         </p>
-        <h3 className="mt-auto max-w-md font-display text-3xl font-black uppercase leading-none text-ink">
+        <h3 className="mt-auto max-w-md font-display text-2xl font-semibold leading-tight tracking-[-0.02em] text-ink">
           {title}
         </h3>
         <p className="mt-4 max-w-md text-sm leading-6 text-subtle">{description}</p>

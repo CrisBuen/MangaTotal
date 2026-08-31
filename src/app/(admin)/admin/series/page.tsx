@@ -109,7 +109,7 @@ export default function AdminSeriesPage() {
 
       <form
         onSubmit={onSubmit}
-        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
+        className="space-y-5 rounded-[10px] border border-line bg-panel p-6"
         data-od-id="series-form"
       >
         <h2 className="text-3xl text-ink">
@@ -117,7 +117,7 @@ export default function AdminSeriesPage() {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Título</label>
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Título</label>
             <input
               className={inputClass}
               value={form.title}
@@ -125,7 +125,7 @@ export default function AdminSeriesPage() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
               Título original (opcional)
             </label>
             <input
@@ -135,7 +135,7 @@ export default function AdminSeriesPage() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Sección</label>
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Sección</label>
             <select
               className={inputClass}
               value={form.type}
@@ -146,7 +146,7 @@ export default function AdminSeriesPage() {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Estado</label>
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Estado</label>
             <select
               className={inputClass}
               value={form.status}
@@ -159,7 +159,7 @@ export default function AdminSeriesPage() {
           </div>
         </div>
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
             Tags (separados por coma, sin límite)
           </label>
           <input
@@ -170,7 +170,7 @@ export default function AdminSeriesPage() {
           />
         </div>
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
             Descripción (opcional)
           </label>
           <textarea
@@ -209,9 +209,9 @@ export default function AdminSeriesPage() {
         ) : series.length === 0 ? (
           <EmptyState title="No hay series todavía" description="Creá la primera serie con el formulario superior." />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
+          <div className="overflow-x-auto rounded-[10px] border border-line bg-panel">
             <table className="w-full min-w-[560px] text-left text-sm">
-              <thead className="border-b border-line bg-[var(--surface-raised)] text-[10px] uppercase tracking-[0.1em] text-subtle">
+              <thead className="border-b border-line bg-[var(--surface-raised)] text-[11px] tracking-[0.1em] text-subtle">
                 <tr>
                   <th className="px-4 py-2.5">Título</th>
                   <th className="px-4 py-2.5">Sección</th>
@@ -230,7 +230,7 @@ export default function AdminSeriesPage() {
                           {s.tags.map((t) => (
                             <span
                               key={t.id}
-                              className="border border-line px-1.5 py-0.5 text-[10px] text-subtle"
+                              className="border border-line px-1.5 py-0.5 text-[11px] text-subtle"
                             >
                               {t.name}
                             </span>
@@ -252,13 +252,13 @@ export default function AdminSeriesPage() {
                     <td className="px-4 py-2.5 text-right">
                       <button
                         onClick={() => startEdit(s)}
-                        className="mr-3 min-h-11 text-xs font-bold uppercase tracking-[0.08em] text-ink underline underline-offset-4"
+                        className="mr-3 min-h-11 text-[13px] font-bold tracking-[0.08em] text-ink underline underline-offset-4"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => onDelete(s)}
-                        className="min-h-11 text-xs font-bold uppercase tracking-[0.08em] text-danger underline underline-offset-4"
+                        className="min-h-11 text-[13px] font-bold tracking-[0.08em] text-danger underline underline-offset-4"
                       >
                         Borrar
                       </button>

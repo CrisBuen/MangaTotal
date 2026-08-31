@@ -38,14 +38,14 @@ export default function AcercaDePage() {
           web, seguís donde ibas.
         </p>
         {version && (
-          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+          <p className="font-mono text-[11px] tracking-[0.06em] text-subtle">
             Versión instalada · {version}
           </p>
         )}
       </Surface>
 
       <section>
-        <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+        <h2 className="mb-5 font-display text-3xl font-bold leading-none text-ink">
           Las fuentes
         </h2>
         <p className="mb-5 text-sm leading-7 text-subtle">
@@ -63,7 +63,7 @@ export default function AcercaDePage() {
               className="flex items-center justify-between gap-4 px-6 py-4 transition hover:bg-[var(--surface-raised)]"
             >
               <span className="text-sm font-bold text-ink">{f.nombre}</span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent">
+              <span className="font-mono text-[11px] tracking-[0.06em] text-accent-ink">
                 Visitar ↗
               </span>
             </a>
@@ -72,7 +72,7 @@ export default function AcercaDePage() {
       </section>
 
       <section>
-        <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+        <h2 className="mb-5 font-display text-3xl font-bold leading-none text-ink">
           Tu cuenta
         </h2>
         <Surface className="space-y-4 p-6 sm:p-8">
@@ -80,7 +80,7 @@ export default function AcercaDePage() {
             Se guarda tu correo, tu apodo, tu biblioteca y por dónde vas leyendo. Nada más, y nada
             se comparte con nadie.
           </p>
-          <Link href="/perfil" className="inline-block text-sm text-accent hover:underline">
+          <Link href="/perfil" className="inline-block text-sm text-accent-ink hover:underline">
             Ver tu perfil →
           </Link>
         </Surface>

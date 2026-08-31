@@ -38,7 +38,7 @@ export default function SerieLcPage(props: {
 
   if (!ficha) {
     return (
-      <p className="py-20 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+      <p className="py-20 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
         Cargando...
       </p>
     );
@@ -60,14 +60,14 @@ export default function SerieLcPage(props: {
     <div className="space-y-8">
       <Link
         href="/explorar?fuente=leercapitulo"
-        className="inline-block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+        className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar
       </Link>
 
       <div className="flex flex-col gap-6 sm:flex-row">
         <div className="w-full shrink-0 sm:w-48">
-          <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-line bg-[var(--surface-raised)]">
+          <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)]">
             {ficha.cover_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -82,16 +82,16 @@ export default function SerieLcPage(props: {
 
         <div className="min-w-0 flex-1 space-y-4">
           <div>
-            <h1 className="font-display text-3xl font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink sm:text-4xl">
+            <h1 className="font-display text-3xl font-bold leading-[0.95] tracking-[-0.04em] text-ink sm:text-4xl">
               {ficha.title}
             </h1>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+            <p className="mt-1 font-mono text-[13px] text-faint">
               {[ficha.tipo, ficha.estado, `${ficha.capitulos.length} capítulos`]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
             {ficha.titulosAlternativos && (
-              <p className="mt-1 text-xs italic text-subtle">{ficha.titulosAlternativos}</p>
+              <p className="mt-1 text-[13px] italic text-subtle">{ficha.titulosAlternativos}</p>
             )}
           </div>
 
@@ -101,7 +101,7 @@ export default function SerieLcPage(props: {
               href={ficha.url_original}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-[var(--accent-soft)] px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:opacity-90"
+              className="inline-flex min-h-11 items-center rounded-md border border-accent bg-[var(--accent-soft)] px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:opacity-90"
             >
               Ver en {LC_NOMBRE} ↗
             </a>
@@ -112,7 +112,7 @@ export default function SerieLcPage(props: {
               {ficha.generos.map((g) => (
                 <span
                   key={g}
-                  className="rounded-full border border-line bg-[var(--surface-raised)] px-3 py-1 text-xs text-subtle"
+                  className="rounded-full border border-line bg-[var(--surface-raised)] px-3 py-1 text-[13px] text-subtle"
                 >
                   {g}
                 </span>
@@ -130,18 +130,18 @@ export default function SerieLcPage(props: {
 
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
+          <h2 className="font-display text-2xl font-bold tracking-[-0.03em] text-ink">
             Capítulos
           </h2>
           <button
             onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
-            className="rounded-xl border border-line px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+            className="rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             {orden === "asc" ? "Del 1 al último ↑" : "Del último al 1 ↓"}
           </button>
         </div>
 
-        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
+        <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line">
           {capitulos.map((c) => (
             <li key={c.id}>
               <Link
@@ -161,12 +161,12 @@ export default function SerieLcPage(props: {
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
                   {c.titulo ?? `Capítulo ${c.numero}`}
                   {c.numero === progreso.ultimoId && (
-                    <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                    <span className="ml-2 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
                       vas por acá
                     </span>
                   )}
                 </p>
-                <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                <span className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
                   Leer →
                 </span>
               </Link>
@@ -175,13 +175,13 @@ export default function SerieLcPage(props: {
         </ul>
       </section>
 
-      <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+      <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         Serie y capítulos de{" "}
         <a
           href={ficha.url_original}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent hover:underline"
+          className="text-accent-ink hover:underline"
         >
           {LC_NOMBRE}
         </a>

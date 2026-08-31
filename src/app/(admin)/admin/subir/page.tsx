@@ -186,19 +186,19 @@ export default function SubirPage() {
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border border-line bg-panel p-6" data-od-id="zip-upload-form">
+      <form onSubmit={onSubmit} className="space-y-5 rounded-[10px] border border-line bg-panel p-6" data-od-id="zip-upload-form">
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Archivo .zip</label>
+          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Archivo .zip</label>
           <input
             type="file"
             accept=".zip"
             onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-            className="w-full rounded-xl border border-line bg-panel p-2 text-sm text-subtle file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-accent file:bg-[var(--accent-soft)] file:px-3 file:text-xs file:font-bold file:uppercase file:text-accent hover:file:bg-[var(--accent)] hover:file:text-canvas"
+            className="w-full rounded-md border border-line-strong bg-panel p-2 text-sm text-subtle file:mr-3 file:min-h-11 file:rounded-md file:border file:border-line-strong file:bg-transparent file:px-3 file:text-[13px] file:font-semibold file:text-ink hover:file:border-ink"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Serie existente</label>
+          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Serie existente</label>
           <select
             value={seriesId}
             onChange={(e) => setSeriesId(e.target.value)}
@@ -216,7 +216,7 @@ export default function SubirPage() {
         {!seriesId && (
           <>
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+              <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
                 Título de la serie nueva
               </label>
               <input
@@ -227,15 +227,15 @@ export default function SubirPage() {
               />
             </div>
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Sección</label>
-              <div className="flex rounded-xl border border-line bg-panel p-1">
+              <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Sección</label>
+              <div className="flex rounded-md border border-line bg-panel p-1">
                 {(["normal", "adult"] as const).map((t) => (
                   <button
                     type="button"
                     key={t}
                     onClick={() => setType(t)}
-                    className={`min-h-11 flex-1 px-3 text-xs font-bold uppercase tracking-[0.08em] transition ${
-                      type === t ? "rounded-lg bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]" : "rounded-lg text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
+                    className={`min-h-11 flex-1 px-3 text-[13px] font-bold tracking-[0.08em] transition ${
+                      type === t ? "rounded-lg bg-[var(--accent-soft)] text-accent-ink " : "rounded-lg text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                     }`}
                   >
                     {t === "normal" ? "Normal" : "+18"}
@@ -248,7 +248,7 @@ export default function SubirPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
               Número de capítulo
             </label>
             <input
@@ -260,7 +260,7 @@ export default function SubirPage() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+            <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">
               Título del capítulo (opcional)
             </label>
             <input
@@ -292,7 +292,7 @@ export default function SubirPage() {
 
       {job && (
         <div
-          className={`rounded-xl border p-4 text-sm ${
+          className={`rounded-md border p-4 text-sm ${
             job.status === "success"
               ? "border-success text-success"
               : job.status === "error"

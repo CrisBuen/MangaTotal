@@ -137,12 +137,12 @@ export function TopSemanal() {
 
   return (
     <section data-od-id="home-top-semanal">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-5">
         <div>
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
             De todas las fuentes
           </p>
-          <h2 className="mt-2 min-w-0 font-display text-3xl font-black uppercase tracking-[-0.04em] text-ink sm:text-4xl">
+          <h2 className="mt-2 min-w-0 font-display text-[clamp(1.75rem,4vw,2.5rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
             Top semanal
           </h2>
         </div>
@@ -155,12 +155,12 @@ export function TopSemanal() {
 
       <div
         ref={carril}
-        className="-mx-1 flex min-w-0 snap-x snap-mandatory gap-5 overflow-x-auto px-1 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="-mx-1 flex min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {series === null
           ? fallo
             ? (
-              <div className="flex min-h-64 w-full flex-col items-center justify-center gap-4 rounded-2xl border border-line bg-panel px-6 text-center">
+              <div className="flex min-h-64 w-full flex-col items-center justify-center gap-4 rounded-[10px] border border-line bg-panel px-6 text-center">
                 <p className="text-sm text-subtle">No se pudo cargar el Top semanal.</p>
                 <button
                   type="button"
@@ -168,7 +168,7 @@ export function TopSemanal() {
                     setFallo(false);
                     setIntento((actual) => actual + 1);
                   }}
-                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink transition hover:border-accent hover:text-accent"
+                  className="min-h-11 rounded-md border border-line-strong px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink"
                 >
                   Reintentar
                 </button>
@@ -176,35 +176,35 @@ export function TopSemanal() {
             )
             : Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="w-40 shrink-0 sm:w-44">
-                <Skeleton className="aspect-[2/3] w-full rounded-2xl" />
+                <Skeleton className="aspect-[2/3] w-full rounded-[10px]" />
               </div>
             ))
           : series.map((s, i) => (
               <Link
                 key={s.fuente + s.href}
                 href={s.href}
-                className="group w-40 shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-44"
+                className="group w-40 shrink-0 snap-start rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink sm:w-44"
               >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {s.portada && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={s.portada}
                       alt={s.titulo}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                      className="h-full w-full object-cover"
                       loading={i < 4 ? "eager" : "lazy"}
                       referrerPolicy="no-referrer"
                     />
                   )}
-                  <span className="absolute left-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_82%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+                  <span className="absolute left-2 top-2 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_90%,transparent)] px-2 py-1 font-mono text-[11px] font-medium text-ink">
                     {i + 1}
                   </span>
                 </div>
 
-                <h3 className="mt-3 line-clamp-2 px-1 text-sm font-bold leading-[1.2] text-ink transition group-hover:text-accent">
+                <h3 className="mt-3 line-clamp-2 px-1 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                   {s.titulo}
                 </h3>
-                <p className="mt-1 px-1 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                <p className="mt-1 px-1 font-mono text-[13px] text-faint">
                   {s.fuenteNombre}
                   {s.nota && ` · ${s.nota}`}
                 </p>
@@ -230,7 +230,7 @@ function Flecha({
       onClick={onClick}
       disabled={!activa}
       aria-label={hacia === "izquierda" ? "Ver anteriores" : "Ver siguientes"}
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-subtle transition hover:border-accent hover:text-accent disabled:opacity-30 disabled:hover:border-line disabled:hover:text-subtle"
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-line-strong text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-30 disabled:hover:border-line-strong disabled:hover:text-subtle"
     >
       <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
         {hacia === "izquierda" ? (

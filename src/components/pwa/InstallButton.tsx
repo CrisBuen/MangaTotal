@@ -39,7 +39,7 @@ export function InstallButton() {
         await prompt.userChoice;
         setPrompt(null);
       }}
-      className="hidden min-h-9 items-center rounded-xl border border-accent bg-[var(--accent-soft)] px-3 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:opacity-90 sm:inline-flex"
+      className="hidden min-h-9 items-center rounded-md border border-accent bg-[var(--accent-soft)] px-3 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:opacity-90 sm:inline-flex"
       data-od-id="install-app"
     >
       Instalar app

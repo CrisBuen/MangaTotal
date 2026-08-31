@@ -58,7 +58,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
 
   if (!ficha) {
     return (
-      <p className="py-20 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+      <p className="py-20 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
         Cargando...
       </p>
     );
@@ -86,7 +86,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
     <div className="space-y-10">
       <Link
         href="/explorar?fuente=catharsis"
-        className="inline-block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+        className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar
       </Link>
@@ -94,7 +94,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
       {/* cabecera: portada grande y lo poco que la fuente publica de la serie */}
       <header className="flex flex-col gap-8 sm:flex-row">
         <div className="mx-auto w-44 shrink-0 sm:mx-0 sm:w-56">
-          <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line">
+          <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)]">
             {ficha.portada && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -109,13 +109,13 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
 
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-6">
           <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
+            <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">
               {CW_NOMBRE}
             </p>
-            <h1 className="mt-3 font-display text-4xl font-black uppercase leading-[0.95] text-ink sm:text-5xl">
+            <h1 className="mt-3 font-display text-4xl font-bold leading-[0.95] text-ink sm:text-5xl">
               {ficha.nombre}
             </h1>
-            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+            <p className="mt-4 font-mono text-[11px] tracking-[0.06em] text-subtle">
               {ficha.capitulos.length} {ficha.capitulos.length === 1 ? "capítulo" : "capítulos"}
               {progreso.ultimoNumero !== null && ` · vas por el ${progreso.ultimoNumero}`}
             </p>
@@ -132,7 +132,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
                   })
                 }
                 href={hrefCapitulo(arranque.id, arranque.id === progreso.ultimoId)}
-                className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
+                className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]  transition hover:bg-[var(--accent-hover)]"
               >
                 {continuar ? `Seguir en el ${continuar.etiqueta}` : "Empezar a leer"}
               </Link>
@@ -144,7 +144,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
               onClick={actualizar}
               disabled={actualizando}
               title="Busca capítulos recién subidos"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-60"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -162,12 +162,12 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
       {/* capítulos: rejilla de números, que es como se recorre una serie larga */}
       <section>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="font-display text-3xl font-black uppercase leading-none text-ink">
+          <h2 className="font-display text-3xl font-bold leading-none text-ink">
             Capítulos
           </h2>
           <button
             onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
-            className="inline-flex min-h-11 items-center rounded-xl border border-line px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+            className="inline-flex min-h-11 items-center rounded-md border border-line px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             {orden === "asc" ? "Del 1 al último" : "Del último al 1"}
           </button>
@@ -196,7 +196,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
                   }
                   href={hrefCapitulo(c.id, esActual)}
                   title={`Capítulo ${c.etiqueta}`}
-                  className={`flex min-h-11 items-center justify-center rounded-xl border border-line bg-panel px-2 text-sm font-bold tabular-nums text-ink transition hover:-translate-y-0.5 hover:border-accent hover:text-accent ${estiloCapitulo(
+                  className={`flex min-h-11 items-center justify-center rounded-md border border-line bg-panel px-2 text-sm font-bold tabular-nums text-ink transition hover:border-line-strong hover:text-accent-ink ${estiloCapitulo(
                     esActual,
                     esLeido
                   )}`}
@@ -209,13 +209,13 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
         )}
       </section>
 
-      <p className="border-t border-line pt-6 text-xs text-subtle">
+      <p className="border-t border-line pt-6 text-[13px] text-subtle">
         Publicado por{" "}
         <a
           href={CW_WEB}
           target="_blank"
           rel="noreferrer noopener"
-          className="text-accent hover:underline"
+          className="text-accent-ink hover:underline"
         >
           {CW_NOMBRE}
         </a>

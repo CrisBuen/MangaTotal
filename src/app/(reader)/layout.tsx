@@ -30,7 +30,7 @@ export default async function ReaderLayout({ children }: { children: React.React
         hermano de main, no hijo.
       */}
       <main
-        className="mx-auto max-w-app overflow-x-hidden px-4 pb-28 pt-8 sm:px-6 sm:pt-12 lg:px-10 lg:pb-20"
+        className="mx-auto max-w-app overflow-x-hidden px-4 pb-28 pt-8 sm:px-6 md:pb-20 md:pt-10 lg:px-10"
         data-od-id="page-content"
       >
         {children}

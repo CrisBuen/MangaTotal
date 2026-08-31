@@ -496,7 +496,7 @@ export function ReproductorAnimeExterno({
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-black/55">
           <div className="text-center">
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-accent" />
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/70">
+            <p className="mt-4 font-mono text-[11px] font-bold tracking-[0.16em] text-white/70">
               Preparando episodio
             </p>
           </div>
@@ -510,7 +510,7 @@ export function ReproductorAnimeExterno({
             event.stopPropagation();
             alternarPlay();
           }}
-          className="absolute left-1/2 top-1/2 z-30 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/55 text-3xl shadow-2xl backdrop-blur-md transition hover:scale-105 hover:bg-accent hover:text-black"
+          className="absolute left-1/2 top-1/2 z-30 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/70 text-3xl shadow-2xl transition-colors hover:bg-accent hover:text-black"
           aria-label={playing ? "Pausar" : "Reproducir"}
         >
           {playing ? "Ⅱ" : "▶"}
@@ -518,7 +518,7 @@ export function ReproductorAnimeExterno({
       )}
 
       <div
-        className={`absolute inset-x-0 top-0 z-40 bg-gradient-to-b from-black/90 via-black/45 to-transparent px-3 pb-16 transition-opacity sm:px-6 ${
+        className={`absolute inset-x-0 top-0 z-40 bg-black/90 px-3 pb-4 transition-opacity sm:px-6 ${
           controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
@@ -527,23 +527,23 @@ export function ReproductorAnimeExterno({
           <button
             type="button"
             onClick={volver}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-black/45 text-xl backdrop-blur-md hover:border-accent"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-black/45 text-xl  hover:border-line-strong"
             aria-label="Volver a episodios"
           >
             ←
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-base font-black uppercase sm:text-xl">
+            <p className="truncate font-display text-base font-bold sm:text-xl">
               {data?.series_title ?? sourceName}
             </p>
-            <p className="truncate font-mono text-[9px] uppercase tracking-[0.12em] text-white/65">
+            <p className="truncate font-mono text-[11px] tracking-[0.06em] text-white/65">
               {data ? `Episodio ${data.episode_number} · ${data.sources.find((s) => s.id === data.selected_source)?.label ?? "Fuente"}` : "Cargando"}
             </p>
           </div>
           <button
             type="button"
             onClick={alternarFullscreen}
-            className="min-h-11 rounded-xl border border-white/20 bg-black/45 px-3 font-mono text-[9px] font-bold uppercase tracking-[0.1em] backdrop-blur-md hover:border-accent"
+            className="min-h-11 rounded-md border border-white/20 bg-black/45 px-3 font-mono text-[11px] font-bold tracking-[0.1em]  hover:border-line-strong"
           >
             {isFullscreen ? "Salir" : "Pantalla completa"}
           </button>
@@ -551,7 +551,7 @@ export function ReproductorAnimeExterno({
       </div>
 
       <div
-        className={`absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black via-black/90 to-transparent transition-opacity ${
+        className={`absolute inset-x-0 bottom-0 z-40 bg-black/90 transition-opacity ${
           androidPlayer ? "px-4 pt-10" : "px-3 pt-16 sm:px-6"
         } ${
           controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"
@@ -560,12 +560,12 @@ export function ReproductorAnimeExterno({
         onClick={(event) => event.stopPropagation()}
       >
         {error && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red-400/35 bg-red-950/75 px-4 py-3 text-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-400/35 bg-red-950/75 px-4 py-3 text-sm">
             <span>{error}</span>
             <button
               type="button"
               onClick={() => void cargar(data?.selected_source, currentRef.current)}
-              className="font-mono text-[10px] font-bold uppercase text-white underline"
+              className="font-mono text-[11px] font-bold text-white underline"
             >
               Reintentar
             </button>
@@ -590,7 +590,7 @@ export function ReproductorAnimeExterno({
                   <button
                     type="button"
                     onClick={alternarPlay}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-lg hover:border-accent"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-lg hover:border-line-strong"
                     aria-label={playing ? "Pausar" : "Reproducir"}
                   >
                     {playing ? "Ⅱ" : "▶"}
@@ -598,7 +598,7 @@ export function ReproductorAnimeExterno({
                   <button
                     type="button"
                     onClick={alternarMute}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-base hover:border-accent"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-base hover:border-line-strong"
                     aria-label={muted ? "Activar sonido" : "Silenciar"}
                   >
                     {muted ? "×" : "♪"}
@@ -615,7 +615,7 @@ export function ReproductorAnimeExterno({
                   />
                 </>
               )}
-              <span className={`font-mono text-[10px] tabular-nums text-white/75 ${androidPlayer ? "ml-auto" : ""}`}>
+              <span className={`font-mono text-[11px] tabular-nums text-white/75 ${androidPlayer ? "ml-auto" : ""}`}>
                 {reloj(currentTime)} / {reloj(duration)}
               </span>
             </div>
@@ -624,7 +624,7 @@ export function ReproductorAnimeExterno({
 
         {!androidPlayer && <div className="mt-3 border-t border-white/15 pt-3">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/45">
+            <span className="shrink-0 font-mono text-[11px] font-bold tracking-[0.06em] text-white/45">
               Fuentes
             </span>
             {data?.sources.map((source) => (
@@ -632,17 +632,17 @@ export function ReproductorAnimeExterno({
                 key={source.id}
                 type="button"
                 onClick={() => void cambiarFuente(source)}
-                className={`min-h-10 shrink-0 rounded-xl border px-4 font-mono text-[10px] font-bold uppercase tracking-[0.08em] transition ${
+                className={`min-h-10 shrink-0 rounded-md border px-4 font-mono text-[11px] font-bold tracking-[0.08em] transition ${
                   source.id === data.selected_source
                     ? "border-accent bg-accent text-black"
-                    : "border-white/20 bg-white/5 text-white hover:border-accent"
+                    : "border-white/20 bg-white/5 text-white hover:border-line-strong"
                 }`}
               >
                 {source.label}
               </button>
             ))}
           </div>
-          <p className="mt-2 font-mono text-[8px] uppercase tracking-[0.1em] text-white/40">
+          <p className="mt-2 font-mono text-[11px] tracking-[0.1em] text-white/40">
             Reproducción provista por {sourceName} · MangaTotal no aloja el video
           </p>
         </div>}
@@ -650,13 +650,13 @@ export function ReproductorAnimeExterno({
 
       {androidPlayer && sourcesVisible && (
         <div
-          className="absolute inset-x-0 bottom-0 z-50 bg-gradient-to-t from-black via-black/95 to-black/70 px-4 pt-5"
+          className="absolute inset-x-0 bottom-0 z-50 border-t border-white/20 bg-black/95 px-4 pt-5"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           onClick={(event) => event.stopPropagation()}
           data-od-id={`${source}-android-sources`}
         >
           <div className="flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <span className="shrink-0 pr-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/55">
+            <span className="shrink-0 pr-1 font-mono text-[11px] font-bold tracking-[0.06em] text-white/55">
               Fuentes
             </span>
             {data?.sources.map((source) => (
@@ -664,7 +664,7 @@ export function ReproductorAnimeExterno({
                 key={source.id}
                 type="button"
                 onClick={() => void cambiarFuente(source)}
-                className={`min-h-11 shrink-0 rounded-xl border px-4 font-mono text-[10px] font-bold uppercase tracking-[0.08em] transition ${
+                className={`min-h-11 shrink-0 rounded-md border px-4 font-mono text-[11px] font-bold tracking-[0.08em] transition ${
                   source.id === data.selected_source
                     ? "border-accent bg-accent text-black"
                     : "border-white/25 bg-white/5 text-white"
@@ -674,7 +674,7 @@ export function ReproductorAnimeExterno({
               </button>
             ))}
           </div>
-          <p className="font-mono text-[8px] uppercase tracking-[0.1em] text-white/40">
+          <p className="font-mono text-[11px] tracking-[0.1em] text-white/40">
             Reproducción provista por {sourceName} · MangaTotal no aloja el video
           </p>
         </div>
@@ -684,7 +684,7 @@ export function ReproductorAnimeExterno({
         <button
           type="button"
           onClick={androidPlayer ? mostrarFuentesAndroid : mostrarControles}
-          className="absolute bottom-4 right-3 z-50 min-h-11 rounded-full border border-white/20 bg-black/35 px-4 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-white/60 backdrop-blur-md hover:border-accent hover:text-white"
+          className="absolute bottom-4 right-3 z-50 min-h-11 rounded-full border border-white/20 bg-black/35 px-4 font-mono text-[11px] font-bold tracking-[0.1em] text-white/60  hover:border-line-strong hover:text-white"
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
           Fuentes

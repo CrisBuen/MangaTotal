@@ -1,26 +1,27 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-export type ButtonSize = "sm" | "md" | "icon";
+export type ButtonSize = "sm" | "md" | "lg" | "icon";
 
 const baseClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border text-[11px] font-bold uppercase tracking-[0.1em] transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-md border text-sm font-medium normal-case tracking-normal transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-45";
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border-accent bg-accent text-[var(--bg)] shadow-[var(--glow)] hover:border-[var(--accent-hover)] hover:bg-[var(--accent-hover)] active:translate-y-px",
+    "border-accent bg-accent text-[var(--on-accent)] hover:border-line-strong-ink hover:bg-[var(--accent-press)] active:bg-[var(--accent-press)]",
   secondary:
-    "border-line bg-panel text-ink hover:border-accent hover:bg-[var(--accent-soft)] active:translate-y-px",
+    "border-line-strong bg-panel text-ink hover:border-ink hover:bg-raised active:bg-raised",
   ghost:
-    "border-transparent bg-transparent text-ink hover:border-line hover:bg-[var(--surface-raised)] active:translate-y-px",
+    "border-transparent bg-transparent text-subtle hover:bg-raised hover:text-ink active:bg-raised",
   danger:
-    "border-danger bg-transparent text-danger hover:bg-danger hover:text-panel active:translate-y-px",
+    "border-danger bg-transparent text-[var(--danger-fg)] hover:bg-danger hover:text-white active:bg-danger",
 };
 
 const sizeClass: Record<ButtonSize, string> = {
-  sm: "px-3.5",
-  md: "px-5",
-  icon: "w-11 p-0",
+  sm: "min-h-9 px-3",
+  md: "min-h-11 px-4",
+  lg: "min-h-[3.25rem] px-6",
+  icon: "h-11 w-11 p-0",
 };
 
 export function buttonStyles({
@@ -40,16 +41,33 @@ export function Button({
   size = "md",
   className = "",
   type = "button",
+  loading = false,
+  loadingLabel,
+  disabled,
+  children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  loading?: boolean;
+  loadingLabel?: string;
+  children?: ReactNode;
 }) {
   return (
     <button
       type={type}
       className={buttonStyles({ variant, size, className })}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
-    />
+    >
+      {loading && (
+        <span
+          className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
+          aria-hidden="true"
+        />
+      )}
+      {loading ? loadingLabel ?? children : children}
+    </button>
   );
 }

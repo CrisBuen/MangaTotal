@@ -7,6 +7,7 @@ import { buttonStyles } from "@/components/ui/Button";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { Chip } from "@/components/ui/Chip";
 import { buscarNovedades, type Novedad } from "@/components/library/novedades";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
 import { SeccionAnimeExterno } from "@/components/library/SeccionAnimeExterno";
@@ -283,7 +284,7 @@ export default function BibliotecaPage() {
         description="Explorá tus series, retomá lecturas y encontrá contenido por categoría."
       />
       {/* Lectura, AniList y fuentes animadas se guardan por separado. */}
-      <div className="flex gap-1" role="tablist" aria-label="Tipo de biblioteca">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
           { key: "animelist" as const, label: "AnimeList" },
@@ -291,19 +292,16 @@ export default function BibliotecaPage() {
             ? [{ key: "anime-animado" as const, label: "Anime animado" }]
             : []),
         ] as const).map((t) => (
-          <button
+          <Chip
             key={t.key}
             onClick={() => setSeccion(t.key)}
             role="tab"
             aria-selected={seccion === t.key}
-            className={`min-h-11 rounded-xl px-5 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
-              seccion === t.key
-                ? "bg-accent text-[var(--bg)] shadow-[var(--glow)]"
-                : "border border-line text-subtle hover:text-ink"
-            }`}
+            selected={seccion === t.key}
+            className="px-4"
           >
             {t.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -313,27 +311,24 @@ export default function BibliotecaPage() {
         <SeccionAnimeExterno busqueda={search} />
       ) : (
        <>
-      <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
+      <section className="flex flex-col gap-4 rounded-[10px] border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
         <div
           className="flex min-w-0 gap-1 overflow-x-auto"
           role="tablist"
           aria-label="Secciones de biblioteca"
         >
           {filters.map((f) => (
-            <button
+            <Chip
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`relative min-h-11 shrink-0 rounded-xl px-4 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
-                filter === f.key
-                  ? "bg-[var(--accent-soft)] text-accent shadow-[var(--glow)] ring-1 ring-accent"
-                  : "text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
-              }`}
+              selected={filter === f.key}
+              className="shrink-0"
               role="tab"
               aria-selected={filter === f.key}
               data-od-id={`library-filter-${f.key}`}
             >
               {f.label}
-            </button>
+            </Chip>
           ))}
         </div>
         <input
@@ -353,27 +348,23 @@ export default function BibliotecaPage() {
       {tags.length > 0 && (filter === "normal" || filter === "adult") && (
         <section id="categorias" className="scroll-mt-28" data-od-id="library-tags">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
               Categorías
             </h2>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-faint">
               Explorar
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-panel p-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-panel p-4">
             {tags.map((t) => (
-              <button
+              <Chip
                 key={t.id}
                 onClick={() => toggleTag(t.slug)}
-                className={`min-h-9 border px-3 text-xs transition ${
-                  selectedTag === t.slug
-                    ? "border-accent bg-[var(--accent-soft)] text-accent shadow-[var(--glow)]"
-                    : "border-line bg-transparent text-subtle hover:border-accent hover:text-ink"
-                }`}
+                selected={selectedTag === t.slug}
                 aria-pressed={selectedTag === t.slug}
               >
                 {t.name} <span className="font-mono opacity-70">{t.series_count}</span>
-              </button>
+              </Chip>
             ))}
             {selectedTag && (
               <button
@@ -391,15 +382,15 @@ export default function BibliotecaPage() {
       {loggedIn && hayQueContinuar && (
         <section data-od-id="continue-reading">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
               Continuar leyendo
             </h2>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-faint">
               Tu progreso
             </span>
           </div>
           <div
-            className="flex min-w-0 gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5"
+            className="flex min-w-0 gap-4 overflow-x-auto rounded-[10px] border border-line bg-panel p-4"
             data-od-id="continue-reading-list"
           >
             {continuesVisible.map((c) => (
@@ -408,7 +399,7 @@ export default function BibliotecaPage() {
                 href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
                 className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {c.series.cover_image_path && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -420,8 +411,8 @@ export default function BibliotecaPage() {
                   )}
                 </div>
                 <div className="pt-3">
-                  <p className="truncate font-display text-lg font-semibold text-ink">{c.series.title}</p>
-                  <p className="mt-1 font-mono text-[10px] text-subtle">
+                  <p className="truncate text-base font-semibold text-ink">{c.series.title}</p>
+                  <p className="mt-1 font-mono text-[13px] text-faint">
                     Cap. {c.chapter.number} · pág. {c.lastPageNumber}/{c.chapter.page_count}
                   </p>
                 </div>
@@ -434,7 +425,7 @@ export default function BibliotecaPage() {
                 href={g.href_continuar}
                 className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {g.cover_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -445,13 +436,13 @@ export default function BibliotecaPage() {
                       referrerPolicy="no-referrer"
                     />
                   )}
-                  <span className="absolute left-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_75%,transparent)] px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-ink backdrop-blur">
+                  <span className="absolute left-2 top-2 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] px-2 py-1 font-mono text-[11px] text-ink">
                     {g.source}
                   </span>
                 </div>
                 <div className="pt-3">
-                  <p className="truncate font-display text-lg font-semibold text-ink">{g.title}</p>
-                  <p className="mt-1 font-mono text-[10px] text-subtle">
+                  <p className="truncate text-base font-semibold text-ink">{g.title}</p>
+                  <p className="mt-1 font-mono text-[13px] text-faint">
                     Cap. {g.last_chapter_name}
                     {g.last_page_number && g.last_page_number > 1
                       ? ` · pág. ${g.last_page_number}`
@@ -465,7 +456,7 @@ export default function BibliotecaPage() {
       )}
 
         {me !== null && !loggedIn && (
-          <Surface className="grid gap-5 border-accent p-6 shadow-[var(--glow)] sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
+          <Surface className="grid gap-5 border-accent p-6  sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
             <p className="text-sm text-subtle">
               <Link href="/registro" className="font-bold text-ink underline underline-offset-4">
                 Creá tu cuenta
@@ -485,14 +476,14 @@ export default function BibliotecaPage() {
       {loggedIn && guardadas.length > 0 && filter === "normal" && (
         <section data-od-id="library-external">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
               Guardadas de otras fuentes
             </h2>
             <button
               onClick={actualizarTodo}
               disabled={revisando}
               title="Revisa todas tus series guardadas y adelanta las que tienen capítulos nuevos"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60"
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
               data-od-id="actualizar-todo"
             >
               <svg
@@ -505,14 +496,14 @@ export default function BibliotecaPage() {
               {revisando ? `Revisando ${avance.hechas}/${avance.total}` : "Actualizar todo"}
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {guardadasOrdenadas.map((g) => (
               <Link
                 key={`${g.source}-${g.external_id}`}
                 href={g.href}
-                className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
               >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {g.cover_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -523,20 +514,20 @@ export default function BibliotecaPage() {
                       referrerPolicy="no-referrer"
                     />
                   )}
-                  <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+                  <span className="absolute left-3 top-3 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] px-2 py-1 font-mono text-[11px] text-ink">
                     {g.source}
                   </span>
                   {(novedades[claveDe(g)]?.sinLeer ?? 0) > 0 && (
-                    <span className="absolute right-3 top-3 rounded-full bg-accent px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--bg)]">
+                    <span className="absolute right-3 top-3 rounded-md bg-accent px-2 py-1 font-mono text-[11px] font-medium text-[var(--on-accent)]">
                       +{novedades[claveDe(g)].sinLeer}
                     </span>
                   )}
                 </div>
                 <div className="px-1 pt-4">
-                  <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                  <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                     {g.title}
                   </h3>
-                  <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                  <p className="mt-1 font-mono text-[13px] text-faint">
                     {g.last_chapter_name ? `Vas por el cap. ${g.last_chapter_name}` : "Sin empezar"}
                     {novedades[claveDe(g)]?.ultimo
                       ? ` · último ${novedades[claveDe(g)].ultimo}`
@@ -551,16 +542,16 @@ export default function BibliotecaPage() {
 
       <section data-od-id="library-catalog">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
               Catálogo
             </h2>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-faint">
               MangaTotal
             </span>
           </div>
 
           {series === null ? (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:grid-cols-5" aria-label="Cargando catálogo">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" aria-label="Cargando catálogo">
               {Array.from({ length: 5 }).map((_, index) => (
                 <Skeleton key={index} className="aspect-[2/3]" />
               ))}
@@ -590,7 +581,7 @@ export default function BibliotecaPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:grid-cols-5" data-od-id="series-grid">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" data-od-id="series-grid">
               {series.map((s) => (
                 <SeriesCard key={s.id} series={s} />
               ))}

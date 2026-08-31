@@ -70,13 +70,13 @@ export function DesktopUpdater() {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-[60] w-[26rem] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl border border-accent bg-panel shadow-[var(--glow)] backdrop-blur-xl"
+      className="fixed bottom-5 right-5 z-[60] w-[26rem] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-[10px] border border-accent bg-panel  "
       role="status"
       data-od-id="desktop-updater"
     >
       {/* franja superior con la marca, como el actualizador de Discord */}
       <div className="flex items-center gap-3 border-b border-line bg-[var(--surface-raised)] px-4 py-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent bg-[var(--accent-soft)] text-accent">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-accent bg-[var(--accent-soft)] text-accent-ink">
           <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
             <path d="M12 16 6 10h4V4h4v6h4zM5 18h14v2H5z" />
           </svg>
@@ -89,7 +89,7 @@ export function DesktopUpdater() {
                 ? "Descargando actualización…"
                 : `MangaTotal ${release.versionName} ya está disponible`}
           </p>
-          <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+          <p className="font-mono text-[11px] tracking-[0.06em] text-subtle">
             {estado === "descargando"
               ? `${mb(avance.descargado)} de ${mb(total)} MB`
               : estado === "instalando"
@@ -110,7 +110,7 @@ export function DesktopUpdater() {
                 style={{ width: `${estado === "instalando" ? 100 : pct}%` }}
               />
             </div>
-            <p className="mt-3 text-xs leading-5 text-subtle">
+            <p className="mt-3 text-[13px] leading-5 text-subtle">
               {estado === "instalando"
                 ? "Cuando termine, MangaTotal se abre de nuevo con la versión nueva."
                 : `${pct}% · no hace falta cerrar nada, seguí leyendo mientras tanto.`}
@@ -120,15 +120,15 @@ export function DesktopUpdater() {
           <>
             <ul className="space-y-1.5">
               {release.changes.slice(0, 5).map((cambio) => (
-                <li key={cambio} className="flex gap-2 text-xs leading-5 text-subtle">
-                  <span className="text-accent">·</span>
+                <li key={cambio} className="flex gap-2 text-[13px] leading-5 text-subtle">
+                  <span className="text-accent-ink">·</span>
                   {cambio}
                 </li>
               ))}
             </ul>
 
             {error && (
-              <div className="mt-3 rounded-xl border border-danger px-3 py-2 text-xs leading-5 text-danger">
+              <div className="mt-3 rounded-md border border-danger px-3 py-2 text-[13px] leading-5 text-danger">
                 <p>{error}</p>
                 <a href={release.installerUrl} rel="noopener" className="underline">
                   Descargar el instalador a mano
@@ -140,7 +140,7 @@ export function DesktopUpdater() {
               {seInstalaSola ? (
                 <button
                   onClick={actualizar}
-                  className="flex-1 rounded-xl border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:opacity-90"
+                  className="flex-1 rounded-md border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
                 >
                   {estado === "error" ? "Reintentar" : "Actualizar ahora"}
                 </button>
@@ -149,7 +149,7 @@ export function DesktopUpdater() {
                 <a
                   href={release.installerUrl}
                   rel="noopener"
-                  className="flex-1 rounded-xl border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+                  className="flex-1 rounded-md border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
                 >
                   Descargar
                 </a>
@@ -159,7 +159,7 @@ export function DesktopUpdater() {
                   dismissVersion(release.versionCode);
                   setRelease(null);
                 }}
-                className="rounded-xl border border-line px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+                className="rounded-md border border-line px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
               >
                 Ahora no
               </button>

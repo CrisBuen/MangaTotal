@@ -90,8 +90,8 @@ export function TrackerPanel({
 
   if (!loggedIn) {
     return (
-      <div className="rounded-2xl border border-line bg-panel p-5 text-sm text-subtle">
-        <a href="/login" className="font-bold text-accent hover:underline">
+      <div className="rounded-[10px] border border-line bg-panel p-5 text-sm text-subtle">
+        <a href="/login" className="font-bold text-accent-ink hover:underline">
           Iniciá sesión
         </a>{" "}
         para llevar el seguimiento de este anime.
@@ -101,7 +101,7 @@ export function TrackerPanel({
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-line bg-panel p-5 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+      <div className="rounded-[10px] border border-line bg-panel p-5 font-mono text-[11px] tracking-[0.06em] text-subtle">
         Cargando seguimiento...
       </div>
     );
@@ -111,16 +111,16 @@ export function TrackerPanel({
   const pct = totalEpisodes ? Math.round((watched / totalEpisodes) * 100) : 0;
 
   return (
-    <div className="space-y-4 rounded-2xl border border-line bg-panel p-5" data-od-id="anime-tracker">
+    <div className="space-y-4 rounded-[10px] border border-line bg-panel p-5" data-od-id="anime-tracker">
       <div className="flex flex-wrap gap-1.5">
         {STATUS_OPTIONS.map((s) => (
           <button
             key={s.key}
             disabled={saving}
             onClick={() => save({ status: s.key })}
-            className={`rounded-full border px-3 py-1.5 text-xs transition disabled:opacity-50 ${
+            className={`rounded-full border px-3 py-1.5 text-[13px] transition disabled:opacity-50 ${
               entry?.status === s.key
-                ? "border-accent bg-[var(--accent-soft)] text-accent"
+                ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
                 : "border-line text-subtle hover:text-ink"
             }`}
           >
@@ -133,10 +133,10 @@ export function TrackerPanel({
         <>
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle">
+              <span className="font-mono text-[11px] font-bold tracking-[0.06em] text-subtle">
                 Episodios vistos
               </span>
-              <span className="font-mono text-xs text-ink">
+              <span className="font-mono text-[13px] text-ink">
                 {watched}
                 {totalEpisodes ? ` / ${totalEpisodes}` : ""}
               </span>
@@ -152,7 +152,7 @@ export function TrackerPanel({
               <button
                 disabled={saving || watched <= 0}
                 onClick={() => save({ episodes_watched: watched - 1 })}
-                className="h-9 w-9 rounded-lg border border-line text-ink transition hover:border-accent disabled:opacity-40"
+                className="h-9 w-9 rounded-lg border border-line text-ink transition hover:border-line-strong disabled:opacity-40"
                 aria-label="Un episodio menos"
               >
                 −
@@ -160,7 +160,7 @@ export function TrackerPanel({
               <button
                 disabled={saving || (totalEpisodes ? watched >= totalEpisodes : false)}
                 onClick={() => save({ episodes_watched: watched + 1 })}
-                className="h-9 flex-1 rounded-lg border border-accent bg-[var(--accent-soft)] font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:opacity-90 disabled:opacity-40"
+                className="h-9 flex-1 rounded-lg border border-accent bg-[var(--accent-soft)] font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:opacity-90 disabled:opacity-40"
               >
                 + Episodio visto
               </button>
@@ -168,7 +168,7 @@ export function TrackerPanel({
           </div>
 
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle">
               Tu nota
             </p>
             <div className="flex flex-wrap gap-1">
@@ -177,10 +177,10 @@ export function TrackerPanel({
                   key={n}
                   disabled={saving}
                   onClick={() => save({ score: entry.score === n ? null : n })}
-                  className={`h-8 w-8 rounded-lg border text-xs transition disabled:opacity-50 ${
+                  className={`h-8 w-8 rounded-lg border text-[13px] transition disabled:opacity-50 ${
                     entry.score === n
-                      ? "border-accent bg-accent text-[var(--bg)]"
-                      : "border-line text-subtle hover:border-accent hover:text-ink"
+                      ? "border-accent bg-accent text-[var(--on-accent)]"
+                      : "border-line text-subtle hover:border-line-strong hover:text-ink"
                   }`}
                 >
                   {n}
@@ -192,7 +192,7 @@ export function TrackerPanel({
           <button
             disabled={saving}
             onClick={remove}
-            className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-danger disabled:opacity-50"
+            className="font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-danger disabled:opacity-50"
           >
             Quitar de mi lista
           </button>

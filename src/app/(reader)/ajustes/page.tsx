@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
+import { Button } from "@/components/ui/Button";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { isAndroidApp, isPlayStoreApp } from "@/lib/appVersion";
 
@@ -96,7 +97,7 @@ export default function AjustesPage() {
       />
 
       <section>
-        <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+        <h2 className="mb-5 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
           Seguridad y privacidad
         </h2>
 
@@ -107,49 +108,46 @@ export default function AjustesPage() {
             action={
               <Link
                 href="/login"
-                className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+                className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
               >
                 Iniciar sesión
               </Link>
             }
           />
         ) : (
-          <Surface className="space-y-6 p-6">
+          <Surface className="divide-y divide-line p-0">
             {enPlay ? (
-              <div className="rounded-2xl border border-line bg-[var(--surface-raised)] p-5">
-                <div className="flex items-start gap-4">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent bg-[var(--accent-soft)] font-mono text-[10px] font-black text-accent">
-                    +18
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-ink">Disponible en la versión local</p>
-                    <p className="mt-1 text-xs leading-5 text-subtle">
-                      La edición de Google Play no muestra ni entrega contenido +18. Esa sección
-                      está disponible únicamente en MangaTotal Local, descargada desde el sitio
-                      oficial.
-                    </p>
-                  </div>
-                </div>
+              <div className="p-5">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+                  Edición Google Play
+                </p>
+                <p className="mt-2 text-base font-semibold text-ink">
+                  Disponible en la versión local
+                </p>
+                <p className="mt-1 max-w-2xl text-[13px] leading-5 text-subtle">
+                  Algunas preferencias de contenido solo están disponibles en MangaTotal Local,
+                  que se descarga desde el sitio oficial.
+                </p>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-6">
+              <div className="flex items-center justify-between gap-6 p-5">
                 <div>
                   <p className="text-sm font-bold text-ink">Mostrar contenido +18</p>
-                  <p className="mt-1 text-xs leading-5 text-subtle">
+                  <p className="mt-1 text-[13px] leading-5 text-subtle">
                     Viene apagado. Al encenderlo aparece la sección +18 en Biblioteca y deja de
                     filtrarse ese contenido en el resto de la app.
                   </p>
                 </div>
                 <button
                   onClick={() => cambiarAdulto(!me?.show_adult_content)}
-                  className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
-                    me?.show_adult_content ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
+                  className={`min-h-11 w-16 shrink-0 rounded-full border border-line-strong p-1 transition-colors ${
+                    me?.show_adult_content ? "bg-accent" : "bg-panel"
                   }`}
                   aria-pressed={Boolean(me?.show_adult_content)}
                   aria-label="Mostrar contenido +18"
                 >
                   <span
-                    className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
+                    className={`block h-7 w-7 rounded-full border border-line bg-ink transition-transform ${
                       me?.show_adult_content ? "translate-x-6" : ""
                     }`}
                   />
@@ -157,24 +155,24 @@ export default function AjustesPage() {
               </div>
             )}
             {enAndroid && (
-              <div className="flex items-center justify-between gap-6 border-t border-line pt-6">
+              <div className="flex items-center justify-between gap-6 p-5">
                 <div>
                   <p className="text-sm font-bold text-ink">Activar sección animada</p>
-                  <p className="mt-1 text-xs leading-5 text-subtle">
+                  <p className="mt-1 text-[13px] leading-5 text-subtle">
                     Viene apagada en Android. Al encenderla aparecen JKAnime y TioAnime dentro de Explorar y
                     la biblioteca de anime animado. AniList permanece disponible siempre.
                   </p>
                 </div>
                 <button
                   onClick={() => cambiarAnime(!me?.anime_enabled)}
-                  className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
-                    me?.anime_enabled ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
+                  className={`min-h-11 w-16 shrink-0 rounded-full border border-line-strong p-1 transition-colors ${
+                    me?.anime_enabled ? "bg-accent" : "bg-panel"
                   }`}
                   aria-pressed={Boolean(me?.anime_enabled)}
                   aria-label="Activar sección animada"
                 >
                   <span
-                    className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
+                    className={`block h-7 w-7 rounded-full border border-line bg-ink transition-transform ${
                       me?.anime_enabled ? "translate-x-6" : ""
                     }`}
                   />
@@ -182,11 +180,11 @@ export default function AjustesPage() {
               </div>
             )}
             {error && (
-              <p role="alert" className="text-sm text-red-400">
+              <p role="alert" className="p-5 text-sm text-[var(--danger-fg)]">
                 {error}
               </p>
             )}
-            {guardado && <Badge tone="success">Guardado</Badge>}
+            {guardado && <div className="p-5"><Badge tone="success">Guardado</Badge></div>}
           </Surface>
         )}
       </section>
@@ -202,12 +200,12 @@ export default function AjustesPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="anime-terms-title"
-            className="fixed inset-x-4 bottom-4 z-[81] mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-3xl border border-accent bg-panel p-6 shadow-[var(--glow)] sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
+            className="fixed inset-x-4 bottom-4 z-[81] mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-[10px] border border-line-strong bg-panel p-6 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
           >
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
               Antes de activar
             </p>
-            <h2 id="anime-terms-title" className="mt-2 font-display text-3xl font-black text-ink">
+            <h2 id="anime-terms-title" className="mt-2 font-display text-3xl font-bold text-ink">
               Condiciones de la sección animada
             </h2>
             <div className="mt-4 space-y-3 text-sm leading-6 text-subtle">
@@ -225,29 +223,29 @@ export default function AjustesPage() {
               </p>
             </div>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <button
+              <Button
                 onClick={() => setTerminosAnime(false)}
-                className="min-h-11 rounded-xl border border-line px-5 text-[11px] font-bold uppercase tracking-[0.1em] text-subtle"
+                variant="secondary"
               >
                 Rechazar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => cambiarAnime(true, true)}
-                className="min-h-11 rounded-xl border border-accent bg-accent px-5 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--bg)]"
+                variant="primary"
               >
                 Aceptar y activar
-              </button>
+              </Button>
             </div>
           </section>
         </>
       )}
 
       <section>
-        <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+        <h2 className="mb-5 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
           Avanzado
         </h2>
         <AjustesFuentes />
-        <p className="mt-4 text-xs leading-5 text-subtle">
+        <p className="mt-4 text-[13px] leading-5 text-subtle">
           Estos ajustes solo aparecen dentro de la app de Android o de Windows, que es donde las
           fuentes se leen desde tu propia conexión.
         </p>

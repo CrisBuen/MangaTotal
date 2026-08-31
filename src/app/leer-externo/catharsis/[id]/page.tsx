@@ -63,7 +63,7 @@ export default function LeerCwPage(props: { params: Promise<{ id: string }> }) {
 
   if (!paginas) {
     return (
-      <p className="py-24 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+      <p className="py-24 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
         Cargando capítulo...
       </p>
     );

@@ -97,8 +97,8 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
 
   return (
     <div className="space-y-12" data-od-id="series-detail-page">
-      <section className="grid gap-7 border-b-2 border-line pb-10 md:grid-cols-[minmax(220px,28%)_1fr]" data-od-id="series-hero">
-        <div className="w-full max-w-xs overflow-hidden rounded-2xl border border-accent bg-[var(--surface-raised)] shadow-[var(--glow)]">
+      <section className="grid gap-8 border-b border-line pb-10 md:grid-cols-[minmax(220px,28%)_1fr]" data-od-id="series-hero">
+        <div className="w-full max-w-xs overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)]">
           <div className="aspect-[2/3]">
             {series.coverImagePath ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -108,7 +108,7 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[13px] text-faint">
                 Sin portada
               </div>
             )}
@@ -116,17 +116,17 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
         </div>
 
         <div className="min-w-0 self-end">
-          <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-subtle">
+          <p className="mb-3 font-mono text-[11px] font-medium tracking-[0.06em] text-faint">
             {STATUS_LABEL[series.status] ?? series.status} · {series.chapters.length} capítulo{series.chapters.length === 1 ? "" : "s"}
           </p>
           <div className="mb-3 flex flex-wrap items-center gap-3">
-            <h1 className="max-w-4xl font-display text-5xl font-black uppercase leading-[0.92] tracking-[-0.055em] text-ink sm:text-6xl lg:text-7xl">{series.title}</h1>
+            <h1 className="max-w-4xl font-display text-[clamp(2rem,6vw,3rem)] font-bold leading-[1.02] tracking-[-0.045em] text-ink">{series.title}</h1>
             {series.type === "adult" && (
               <Badge tone="danger">+18</Badge>
             )}
           </div>
           {series.originalTitle && (
-            <p className="mb-5 text-sm text-subtle">{series.originalTitle}</p>
+            <p className="mb-5 text-[13px] text-faint">{series.originalTitle}</p>
           )}
           {series.tags.length > 0 && (
             <div className="mb-5 flex flex-wrap gap-2">
@@ -134,7 +134,7 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
                 <Link
                   key={t.id}
                   href={`/biblioteca?tag=${encodeURIComponent(t.slug)}`}
-                  className="min-h-9 rounded-full border border-line bg-panel px-3 py-2 text-xs text-subtle transition hover:border-accent hover:bg-[var(--accent-soft)] hover:text-accent"
+                  className="relative inline-flex h-9 items-center rounded-md border border-line-strong bg-transparent px-3 text-[13px] text-subtle transition-colors after:absolute after:-inset-1 after:content-[''] hover:border-ink hover:text-ink"
                 >
                   {t.name}
                 </Link>
@@ -142,7 +142,7 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
             </div>
           )}
           {series.description && (
-            <p className="mb-6 max-w-3xl whitespace-pre-line text-sm leading-6 text-subtle">{series.description}</p>
+            <p className="mb-6 max-w-3xl whitespace-pre-line text-[15px] leading-6 text-subtle">{series.description}</p>
           )}
           <div className="flex flex-wrap gap-2">
             {bookmark && (
@@ -179,13 +179,13 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
 
       <section data-od-id="chapter-list">
         <div className="mb-5 flex items-end justify-between gap-4">
-          <h2 className="text-4xl text-ink">Capítulos</h2>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Orden ascendente</span>
+          <h2 className="font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold tracking-[-0.035em] text-ink">Capítulos</h2>
+          <span className="font-mono text-[11px] text-faint">Orden ascendente</span>
         </div>
         {series.chapters.length === 0 ? (
           <EmptyState title="Todavía no hay capítulos" description="Esta serie aún no tiene archivos publicados." />
         ) : (
-          <ul className="border-b-2 border-line bg-panel">
+          <ul className="overflow-hidden rounded-[10px] border border-line bg-panel">
             {series.chapters.map((c) => {
               const prog = c.progress[0];
               const done = prog && prog.lastPageNumber >= c.pageCount;
@@ -193,17 +193,17 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
                 <li key={c.id}>
                   <Link
                     href={`/leer/${c.id}${prog ? `?page=${prog.lastPageNumber}` : ""}`}
-                    className="flex min-h-14 items-center gap-3 border-t-2 border-line px-4 py-3 transition hover:bg-[var(--surface-raised)]"
+                    className="flex min-h-14 items-center gap-3 border-t border-line px-4 py-3 transition-colors first:border-t-0 hover:bg-[var(--surface-raised)]"
                     data-od-id={`chapter-${c.id}`}
                   >
-                    <span className="font-display text-xl font-semibold text-ink">Capítulo {c.number}</span>
+                    <span className="font-display text-base font-semibold text-ink">Capítulo {c.number}</span>
                     {c.title && <span className="truncate text-sm text-subtle">{c.title}</span>}
-                    <span className="ml-auto shrink-0 font-mono text-[10px] text-subtle">
+                    <span className="ml-auto shrink-0 font-mono text-[13px] text-faint">
                       {c.pageCount} págs.
                     </span>
                     {prog && (
                       <span
-                        className={`shrink-0 border px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase ${
+                        className={`shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[11px] font-medium ${
                           done ? "border-success text-success" : "border-line text-subtle"
                         }`}
                       >

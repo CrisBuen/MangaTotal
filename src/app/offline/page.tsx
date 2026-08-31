@@ -6,10 +6,10 @@ export default function OfflinePage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-6 text-center">
       <div className="max-w-md">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent">
+        <p className="font-mono text-[11px] font-bold tracking-[0.18em] text-accent-ink">
           MangaTotal
         </p>
-        <h1 className="mt-3 font-display text-4xl font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink">
+        <h1 className="mt-3 font-display text-4xl font-bold leading-[0.95] tracking-[-0.04em] text-ink">
           Sin conexión
         </h1>
         <p className="mt-4 text-sm leading-6 text-subtle">
@@ -18,7 +18,7 @@ export default function OfflinePage() {
         </p>
         <Link
           href="/biblioteca"
-          className="mt-8 inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-6 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+          className="mt-8 inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-6 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
         >
           Reintentar
         </Link>

@@ -29,7 +29,7 @@ const ITEMS = [
   },
   {
     href: "/anime",
-    label: "AniList",
+    label: "Anime",
     icon: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm5 3v8l7-4z",
   },
   {
@@ -46,7 +46,7 @@ export function MobileNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-panel md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Navegación principal"
       data-od-id="mobile-nav"
@@ -62,18 +62,18 @@ export function MobileNav() {
                 // es lo que hace que la barra de abajo responda al toque
                 prefetch
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-[3.75rem] flex-col items-center justify-center gap-1 transition ${
-                  active ? "text-accent" : "text-subtle"
+                className={`relative flex min-h-[3.75rem] flex-col items-center justify-center gap-1 transition-colors ${
+                  active ? "text-accent-ink" : "text-faint"
                 }`}
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
                   <path d={item.icon} />
                 </svg>
-                <span className="font-mono text-[9px] font-bold uppercase tracking-[0.08em]">
+                <span className="text-[11px] font-medium">
                   {item.label}
                 </span>
                 {active && (
-                  <span className="absolute top-0 h-0.5 w-10 rounded-full bg-accent" aria-hidden="true" />
+                  <span className="absolute top-0 h-0.5 w-10 bg-accent-ink" aria-hidden="true" />
                 )}
               </Link>
             </li>

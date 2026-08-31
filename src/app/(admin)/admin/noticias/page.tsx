@@ -85,13 +85,13 @@ export default function AdminNoticiasPage() {
 
       <form
         onSubmit={onSubmit}
-        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
+        className="space-y-5 rounded-[10px] border border-line bg-panel p-6"
       >
         <h2 className="text-3xl text-ink">
           {editingId ? "Editar noticia" : "Publicar noticia nueva"}
         </h2>
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Título</label>
+          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Título</label>
           <input
             className={inputClass}
             value={title}
@@ -100,7 +100,7 @@ export default function AdminNoticiasPage() {
           />
         </div>
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">Contenido</label>
+          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Contenido</label>
           <textarea
             className={inputClass}
             rows={4}
@@ -134,12 +134,12 @@ export default function AdminNoticiasPage() {
       ) : news.length === 0 ? (
         <EmptyState title="No publicaste noticias" description="La próxima publicación aparecerá aquí y en la biblioteca." />
       ) : (
-        <div className="border-b-2 border-line">
+        <div className="border-b border-line">
           {news.map((n) => (
-            <article key={n.id} className="border-t-2 border-line py-5">
+            <article key={n.id} className="border-t border-line py-5">
               <div className="mb-1 flex items-baseline justify-between gap-3">
                 <h3 className="text-xl text-ink">{n.title}</h3>
-                <span className="shrink-0 font-mono text-[10px] text-subtle">
+                <span className="shrink-0 font-mono text-[11px] text-subtle">
                   {new Date(n.created_at).toLocaleDateString("es-AR")}
                 </span>
               </div>
@@ -147,11 +147,11 @@ export default function AdminNoticiasPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => startEdit(n)}
-                  className="min-h-11 text-xs font-bold uppercase text-ink underline underline-offset-4"
+                  className="min-h-11 text-[13px] font-bold text-ink underline underline-offset-4"
                 >
                   Editar
                 </button>
-                <button onClick={() => remove(n)} className="min-h-11 text-xs font-bold uppercase text-danger underline underline-offset-4">
+                <button onClick={() => remove(n)} className="min-h-11 text-[13px] font-bold text-danger underline underline-offset-4">
                   Borrar
                 </button>
               </div>

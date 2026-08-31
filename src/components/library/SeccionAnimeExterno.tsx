@@ -46,7 +46,7 @@ function TarjetaProgreso({
 }) {
   const contenido = (
     <>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
         {entrada.cover_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -57,16 +57,16 @@ function TarjetaProgreso({
             referrerPolicy="no-referrer"
           />
         )}
-        <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+        <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink ">
           {entrada.source}
         </span>
       </div>
       <div className="px-1 pt-4">
-        <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+        <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
           {entrada.title}
         </h3>
         {entrada.last_episode_number && (
-          <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent">
+          <p className="mt-1 font-mono text-[13px] text-accent-ink">
             {entrada.completed
               ? `Episodio ${entrada.last_episode_number} · Ya visto`
               : entrada.last_position_seconds > 0
@@ -79,7 +79,7 @@ function TarjetaProgreso({
   );
 
   const className =
-    "group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+    "group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
   if (reanudar && entrada.resume_href) {
     return (
       <EpisodeWatchLink href={entrada.resume_href} className={className}>
@@ -105,15 +105,15 @@ function BloqueProgreso({
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 className="font-display text-3xl font-black uppercase leading-none text-ink">
+        <h2 className="font-display text-3xl font-bold leading-none text-ink">
           {titulo}
         </h2>
-        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+        <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
           {detalle}
         </span>
       </div>
-      <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5">
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="rounded-[10px] border border-line bg-panel p-4 sm:p-5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {entradas.map((entrada) => (
             <TarjetaProgreso
               key={`${titulo}:${entrada.source}:${entrada.external_id}`}
@@ -175,7 +175,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
 
   if (entradas === null) {
     return (
-      <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="aspect-[2/3] w-full" />
         ))}
@@ -200,14 +200,14 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
       <section className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-accent">
+            <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">
               Fuentes externas
             </p>
-            <h2 className="mt-1 font-display text-3xl font-black uppercase leading-none text-ink">
+            <h2 className="mt-1 font-display text-3xl font-bold leading-none text-ink">
               Anime animado
             </h2>
           </div>
-          <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+          <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
             {entradas.length} guardado{entradas.length === 1 ? "" : "s"}
           </span>
         </div>
@@ -219,7 +219,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
             action={
               <Link
                 href="/explorar?seccion=animada"
-                className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+                className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
               >
                 Explorar anime
               </Link>
@@ -228,14 +228,14 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
         ) : visibles.length === 0 ? (
           <EmptyState title="Sin resultados" description="Probá con otro nombre." />
         ) : (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {visibles.map((entrada) => (
               <Link
                 key={`${entrada.source}:${entrada.external_id}`}
                 href={entrada.href}
-                className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                   {entrada.cover_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -246,15 +246,15 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
                       referrerPolicy="no-referrer"
                     />
                   )}
-                  <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+                  <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink ">
                     {entrada.source}
                   </span>
                 </div>
                 <div className="px-1 pt-4">
-                  <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                  <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                     {entrada.title}
                   </h3>
-                  <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                  <p className="mt-1 font-mono text-[13px] text-faint">
                     {[entrada.type, entrada.status, entrada.total_episodes ? `${entrada.total_episodes} ep.` : null]
                       .filter(Boolean)
                       .join(" · ")}

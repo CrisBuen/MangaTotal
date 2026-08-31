@@ -7,10 +7,14 @@ const config: Config = {
       colors: {
         canvas: "var(--bg)",
         panel: "var(--surface)",
+        raised: "var(--surface-raised)",
         ink: "var(--fg)",
         subtle: "var(--muted)",
+        faint: "var(--fg-faint)",
         line: "var(--border)",
+        "line-strong": "var(--border-strong)",
         accent: "var(--accent)",
+        "accent-ink": "var(--accent-fg)",
         success: "var(--success)",
         warning: "var(--warning)",
         danger: "var(--danger)",
@@ -21,7 +25,7 @@ const config: Config = {
         mono: ["var(--font-mono)"],
       },
       maxWidth: {
-        app: "80rem",
+        app: "90rem",
       },
     },
   },

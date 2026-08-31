@@ -13,8 +13,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "any",
-    background_color: "#0a0a0f",
-    theme_color: "#0a0a0f",
+    background_color: "#060608",
+    theme_color: "#060608",
     lang: "es-ES",
     categories: ["books", "entertainment"],
     icons: [
@@ -26,7 +26,7 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       { name: "Biblioteca", url: "/biblioteca" },
       { name: "Explorar", url: "/explorar" },
-      { name: "AniList", url: "/anime" },
+      { name: "Anime", url: "/anime" },
     ],
   };
 }

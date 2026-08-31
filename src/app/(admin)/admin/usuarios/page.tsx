@@ -73,9 +73,9 @@ export default function AdminUsuariosPage() {
       ) : users.length === 0 ? (
         <EmptyState title="No hay usuarios" description="Las cuentas registradas aparecerán en esta tabla." />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
+        <div className="overflow-x-auto rounded-[10px] border border-line bg-panel">
           <table className="w-full min-w-[560px] text-left text-sm">
-            <thead className="border-b border-line bg-[var(--surface-raised)] text-[10px] uppercase tracking-[0.1em] text-subtle">
+            <thead className="border-b border-line bg-[var(--surface-raised)] text-[11px] tracking-[0.1em] text-subtle">
               <tr>
                 <th className="px-4 py-2.5">Apodo</th>
                 <th className="px-4 py-2.5">Rol</th>
@@ -90,11 +90,11 @@ export default function AdminUsuariosPage() {
                 <tr key={u.id} className="bg-panel hover:bg-[var(--surface-raised)]">
                   <td className="px-4 py-2.5 font-medium">
                     {u.nickname}
-                    {me?.id === u.id && <span className="ml-1 text-xs text-subtle">(vos)</span>}
+                    {me?.id === u.id && <span className="ml-1 text-[13px] text-subtle">(vos)</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     {u.is_admin ? (
-                      <span className="rounded-full border border-accent bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-accent">
+                      <span className="rounded-full border border-accent bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-accent-ink">
                         Admin
                       </span>
                     ) : (
@@ -105,7 +105,7 @@ export default function AdminUsuariosPage() {
                     {u.email ? (
                       <span>
                         {u.email}
-                        <span className="ml-2 text-[10px] uppercase">
+                        <span className="ml-2 text-[11px]">
                           {u.email_verified ? "verificado" : "pendiente"}
                         </span>
                       </span>
@@ -116,7 +116,7 @@ export default function AdminUsuariosPage() {
                   <td className="px-4 py-2.5 text-subtle">
                     {u.show_adult_content ? "Sí" : "No"}
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-[10px] text-subtle">
+                  <td className="px-4 py-2.5 font-mono text-[11px] text-subtle">
                     {new Date(u.created_at).toLocaleDateString("es-AR")}
                   </td>
                   <td className="px-4 py-2.5 text-right">
@@ -124,13 +124,13 @@ export default function AdminUsuariosPage() {
                       <>
                         <button
                           onClick={() => toggleAdmin(u)}
-                          className="mr-3 min-h-11 text-xs font-bold uppercase text-ink underline underline-offset-4"
+                          className="mr-3 min-h-11 text-[13px] font-bold text-ink underline underline-offset-4"
                         >
                           {u.is_admin ? "Quitar admin" : "Hacer admin"}
                         </button>
                         <button
                           onClick={() => remove(u)}
-                          className="min-h-11 text-xs font-bold uppercase text-danger underline underline-offset-4"
+                          className="min-h-11 text-[13px] font-bold text-danger underline underline-offset-4"
                         >
                           Borrar
                         </button>

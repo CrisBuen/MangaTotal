@@ -63,7 +63,7 @@ export function SaveExternalButton({ serie }: { serie: SerieExternaGuardable }) 
     return (
       <a
         href="/login"
-        className="inline-flex min-h-11 items-center rounded-xl border border-line px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+        className="inline-flex min-h-11 items-center rounded-md border border-line px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
       >
         Iniciá sesión para guardarla
       </a>
@@ -74,10 +74,10 @@ export function SaveExternalButton({ serie }: { serie: SerieExternaGuardable }) 
     <button
       onClick={alternar}
       disabled={ocupado || guardada === null}
-      className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50 ${
+      className={`inline-flex min-h-11 items-center gap-2 rounded-md border px-4 font-mono text-[11px] font-bold tracking-[0.06em] transition disabled:opacity-50 ${
         guardada
-          ? "border-accent bg-[var(--accent-soft)] text-accent"
-          : "border-line text-subtle hover:border-accent hover:text-ink"
+          ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+          : "border-line text-subtle hover:border-line-strong hover:text-ink"
       }`}
       data-od-id="save-external-series"
     >

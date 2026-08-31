@@ -42,7 +42,7 @@ export default async function AdminDashboard() {
         {stats.map((s) => (
           <Surface key={s.label} className="p-5">
             <p className="font-display text-5xl leading-none text-ink">{s.value}</p>
-            <p className="mt-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">{s.label}</p>
+            <p className="mt-2 font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">{s.label}</p>
           </Surface>
         ))}
       </div>

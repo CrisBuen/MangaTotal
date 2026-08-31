@@ -190,12 +190,12 @@ export function AnalyticsDashboard() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-accent">
+              <p className="font-mono text-[11px] font-bold tracking-[0.15em] text-accent-ink">
                 {data.period.range === "week" ? "Corte semanal" : "Corte mensual"}
               </p>
               <p className="mt-1 text-sm text-subtle">{data.period.label}</p>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+            <p className="font-mono text-[11px] tracking-[0.06em] text-subtle">
               Actualizado {hora(data.generatedAt)} · refresco cada 15 s
             </p>
           </div>
@@ -228,7 +228,7 @@ export function AnalyticsDashboard() {
             <Surface className="min-w-0 p-5 sm:p-6">
               <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black uppercase text-ink">Actividad</h2>
+                  <h2 className="text-2xl font-bold text-ink">Actividad</h2>
                   <p className="mt-1 text-sm text-subtle">
                     Aperturas reales por día · {data.period.timeZone}
                   </p>
@@ -254,7 +254,7 @@ export function AnalyticsDashboard() {
             </Surface>
 
             <Surface className="p-5 sm:p-6">
-              <h2 className="text-2xl font-black uppercase text-ink">En vivo</h2>
+              <h2 className="text-2xl font-bold text-ink">En vivo</h2>
               <p className="mt-1 text-sm text-subtle">
                 Distribución de los {numero.format(data.kpis.activeNow)} usuarios activos.
               </p>
@@ -279,7 +279,7 @@ export function AnalyticsDashboard() {
 
           <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
             <Surface className="p-5 sm:p-6">
-              <h2 className="text-2xl font-black uppercase text-ink">Fuentes más usadas</h2>
+              <h2 className="text-2xl font-bold text-ink">Fuentes más usadas</h2>
               <p className="mt-1 text-sm text-subtle">
                 Ranking por aperturas; cada fila también muestra visitantes únicos.
               </p>
@@ -287,7 +287,7 @@ export function AnalyticsDashboard() {
             </Surface>
 
             <Surface className="p-5 sm:p-6">
-              <h2 className="text-2xl font-black uppercase text-ink">Plataformas</h2>
+              <h2 className="text-2xl font-bold text-ink">Plataformas</h2>
               <p className="mt-1 text-sm text-subtle">Aperturas del período por aplicación.</p>
               <PlatformBreakdown rows={data.platforms} total={data.kpis.contentOpens} />
             </Surface>
@@ -295,10 +295,10 @@ export function AnalyticsDashboard() {
 
           <Surface className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
+              <p className="font-mono text-[11px] font-bold tracking-[0.16em] text-accent-ink">
                 Dataset Power BI
               </p>
-              <h2 className="mt-2 text-2xl font-black uppercase text-ink">
+              <h2 className="mt-2 text-2xl font-bold text-ink">
                 Exportación tabular lista para importar
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-subtle">
@@ -315,7 +315,7 @@ export function AnalyticsDashboard() {
             </a>
           </Surface>
 
-          <p className="text-center font-mono text-[9px] uppercase tracking-[0.13em] text-subtle">
+          <p className="text-center font-mono text-[11px] tracking-[0.13em] text-subtle">
             Privacidad: conteo anónimo por instalación · sin IP, correo, apodo ni título leído
           </p>
         </>
@@ -339,14 +339,14 @@ function Kpi({
     <Surface className="p-5">
       <div className="flex items-center gap-2">
         {live && <span className="h-2 w-2 animate-pulse rounded-full bg-success" />}
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+        <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
           {label}
         </p>
       </div>
-      <p className="mt-3 font-display text-5xl font-black leading-none tabular-nums text-ink">
+      <p className="mt-3 font-display text-5xl font-bold leading-none tabular-nums text-ink">
         {numero.format(value)}
       </p>
-      <p className="mt-3 text-xs leading-5 text-subtle">{detail}</p>
+      <p className="mt-3 text-[13px] leading-5 text-subtle">{detail}</p>
     </Surface>
   );
 }
@@ -441,11 +441,11 @@ function SourceRanking({ rows }: { rows: DashboardData["sources"] }) {
           <div className="mb-2 flex items-end justify-between gap-4">
             <div>
               <p className="text-sm font-bold text-ink">{SOURCE_LABELS[row.source] ?? row.source}</p>
-              <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-subtle">
+              <p className="mt-0.5 font-mono text-[11px] tracking-[0.1em] text-subtle">
                 {numero.format(row.visitors)} visitantes
               </p>
             </div>
-            <p className="font-mono text-xs tabular-nums text-accent">
+            <p className="font-mono text-[13px] tabular-nums text-accent-ink">
               {numero.format(row.opens)} · {Math.round(row.share * 100)}%
             </p>
           </div>
@@ -477,7 +477,7 @@ function PlatformBreakdown({
             <span className="text-sm font-bold text-ink">
               {PLATFORM_LABELS[row.platform] ?? row.platform}
             </span>
-            <span className="font-mono text-sm tabular-nums text-accent">
+            <span className="font-mono text-sm tabular-nums text-accent-ink">
               {numero.format(row.opens)}
             </span>
           </div>
@@ -487,7 +487,7 @@ function PlatformBreakdown({
               style={{ width: `${total ? (row.opens / total) * 100 : 0}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-subtle">{numero.format(row.visitors)} visitantes únicos</p>
+          <p className="mt-2 text-[13px] text-subtle">{numero.format(row.visitors)} visitantes únicos</p>
         </div>
       ))}
     </div>
@@ -509,7 +509,7 @@ function RealtimeList({
 }) {
   return (
     <div className="mt-6">
-      <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+      <h3 className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
         {title}
       </h3>
       {rows.length === 0 ? (
@@ -518,9 +518,9 @@ function RealtimeList({
         <div className="mt-3 space-y-3">
           {rows.slice(0, 7).map((row) => (
             <div key={row.key}>
-              <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+              <div className="mb-1 flex items-center justify-between gap-3 text-[13px]">
                 <span className="text-ink">{labels[row.key] ?? row.key}</span>
-                <span className="font-mono tabular-nums text-accent">{row.users}</span>
+                <span className="font-mono tabular-nums text-accent-ink">{row.users}</span>
               </div>
               <div className="h-1 overflow-hidden rounded-full bg-[var(--surface-raised)]">
                 <div
@@ -538,7 +538,7 @@ function RealtimeList({
 
 function EmptyChart({ text }: { text: string }) {
   return (
-    <div className="mt-6 grid min-h-48 place-items-center rounded-xl border border-dashed border-line p-6 text-center text-sm text-subtle">
+    <div className="mt-6 grid min-h-48 place-items-center rounded-md border border-dashed border-line p-6 text-center text-sm text-subtle">
       {text}
     </div>
   );

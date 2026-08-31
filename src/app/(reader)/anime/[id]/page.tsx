@@ -60,13 +60,13 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
     <div className="space-y-10">
       <Link
         href="/anime"
-        className="inline-block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+        className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Anime
       </Link>
 
       {anime.banner_url && (
-        <div className="relative -mt-4 h-48 overflow-hidden rounded-2xl border border-line sm:h-64">
+        <div className="relative -mt-4 h-48 overflow-hidden rounded-[10px] border border-line sm:h-64">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={anime.banner_url}
@@ -86,7 +86,7 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="w-full shrink-0 space-y-5 sm:w-56">
-          <div className="overflow-hidden rounded-2xl border border-line bg-[var(--surface-raised)]">
+          <div className="overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)]">
             <div className="aspect-[2/3]">
               {anime.cover_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -113,13 +113,13 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
 
         <div className="min-w-0 flex-1 space-y-6">
           <div>
-            <h1 className="font-display text-4xl font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink sm:text-5xl">
+            <h1 className="font-display text-4xl font-bold leading-[0.95] tracking-[-0.04em] text-ink sm:text-5xl">
               {anime.title}
             </h1>
             {anime.native_title && anime.native_title !== anime.title && (
               <p className="mt-2 text-sm text-subtle">{anime.native_title}</p>
             )}
-            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+            <p className="mt-3 font-mono text-[11px] tracking-[0.06em] text-subtle">
               {[
                 anime.format,
                 anime.status,
@@ -134,8 +134,8 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
           </div>
 
           {anime.next_episode && (
-            <div className="rounded-2xl border border-accent bg-[var(--accent-soft)] px-5 py-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
+            <div className="rounded-[10px] border border-accent bg-[var(--accent-soft)] px-5 py-3">
+              <p className="font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink">
                 Próximo episodio {anime.next_episode.episode} ·{" "}
                 {new Date(anime.next_episode.airing_at * 1000).toLocaleString("es-AR", {
                   day: "numeric",
@@ -152,7 +152,7 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
               {anime.all_genres.map((g) => (
                 <span
                   key={g}
-                  className="rounded-full border border-line bg-[var(--surface-raised)] px-3 py-1 text-xs text-subtle"
+                  className="rounded-full border border-line bg-[var(--surface-raised)] px-3 py-1 text-[13px] text-subtle"
                 >
                   {g}
                 </span>
@@ -167,13 +167,13 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
           )}
 
           {anime.studios.length > 0 && (
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+            <p className="font-mono text-[11px] tracking-[0.06em] text-subtle">
               Estudio: <span className="text-ink">{anime.studios.join(", ")}</span>
             </p>
           )}
 
           <section>
-            <h2 className="mb-3 font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
+            <h2 className="mb-3 font-display text-2xl font-bold tracking-[-0.03em] text-ink">
               Dónde verlo
             </h2>
             {anime.streaming.length > 0 ? (
@@ -185,18 +185,18 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-xl border border-line bg-panel px-4 py-2.5 text-sm text-ink transition hover:border-accent hover:text-accent"
+                      className="rounded-md border border-line bg-panel px-4 py-2.5 text-sm text-ink transition hover:border-line-strong hover:text-accent-ink"
                     >
                       {s.site} ↗
                     </a>
                   ))}
                 </div>
-                <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                <p className="mt-3 font-mono text-[11px] tracking-[0.06em] text-subtle">
                   Plataformas oficiales · la disponibilidad puede variar según el país
                 </p>
               </>
             ) : (
-              <p className="rounded-2xl border border-dashed border-line p-5 text-sm text-subtle">
+              <p className="rounded-[10px] border border-dashed border-line p-5 text-sm text-subtle">
                 Todavía no hay plataformas oficiales registradas para este título.
               </p>
             )}
@@ -205,7 +205,7 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
                 href={anime.trailer}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 inline-block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent hover:underline"
+                className="mt-3 inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink hover:underline"
               >
                 Ver tráiler ↗
               </a>
@@ -214,13 +214,13 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
 
           {anime.relations.length > 0 && (
             <section>
-              <h2 className="mb-3 font-display text-2xl font-black uppercase tracking-[-0.03em] text-ink">
+              <h2 className="mb-3 font-display text-2xl font-bold tracking-[-0.03em] text-ink">
                 Relacionados
               </h2>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {anime.relations.slice(0, 8).map((r) => (
                   <Link key={r.id} href={`/anime/${r.id}`} className="group block">
-                    <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[var(--surface-raised)] ring-1 ring-line transition group-hover:ring-accent">
+                    <div className="aspect-[2/3] overflow-hidden rounded-md border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                       {r.cover_url && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -232,10 +232,10 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
                         />
                       )}
                     </div>
-                    <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+                    <p className="mt-2 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
                       {RELATION_ES[r.relation] ?? r.relation}
                     </p>
-                    <p className="line-clamp-2 text-sm font-semibold text-ink group-hover:text-accent">
+                    <p className="line-clamp-2 text-sm font-semibold text-ink group-hover:text-accent-ink">
                       {r.title}
                     </p>
                   </Link>
@@ -246,7 +246,7 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
         </div>
       </div>
 
-      <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+      <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         Información de AniList · MangaTotal no aloja ni reproduce video
       </p>
     </div>

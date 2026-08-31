@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { JkanimeCatalog } from "@/components/anime/JkanimeCatalog";
 import { TioanimeCatalog } from "@/components/anime/TioanimeCatalog";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { Chip } from "@/components/ui/Chip";
+import { fieldControlClass } from "@/components/ui/Field";
 import { isAndroidApp } from "@/lib/appVersion";
 import {
   cargarConCacheAndroid,
@@ -112,23 +114,23 @@ function SelectorSecciones({
   onChange: (seccion: SeccionExplorar) => void;
 }) {
   const tarjeta = (activa: boolean) =>
-    `group rounded-2xl border p-5 text-left transition ${
+    `group rounded-[10px] border p-5 text-left transition-colors ${
       activa
-        ? "border-accent bg-[var(--accent-soft)] shadow-[var(--glow)]"
-        : "border-line bg-panel hover:-translate-y-0.5 hover:border-accent hover:shadow-[var(--glow)]"
+        ? "border-accent bg-[var(--accent-soft)]"
+        : "border-line bg-panel hover:border-line-strong"
     }`;
 
   return (
     <div className={`grid gap-3 ${animeHabilitado ? "sm:grid-cols-2" : ""}`}>
       <button className={tarjeta(seccion === "lectura")} onClick={() => onChange("lectura")}>
         <p
-          className={`font-mono text-[9px] font-bold uppercase tracking-[0.14em] ${
-            seccion === "lectura" ? "text-accent" : "text-subtle group-hover:text-accent"
+          className={`font-mono text-[11px] font-medium tracking-[0.08em] ${
+            seccion === "lectura" ? "text-accent-ink" : "text-subtle group-hover:text-accent-ink"
           }`}
         >
           {seccion === "lectura" ? "Sección activa" : "Lectura"}
         </p>
-        <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
+        <h2 className="mt-2 font-display text-2xl font-semibold text-ink">
           Sección de lectura
         </h2>
         <p className="mt-2 text-sm leading-6 text-subtle">
@@ -139,13 +141,13 @@ function SelectorSecciones({
       {animeHabilitado && (
         <button className={tarjeta(seccion === "animada")} onClick={() => onChange("animada")}>
           <p
-            className={`font-mono text-[9px] font-bold uppercase tracking-[0.14em] ${
-              seccion === "animada" ? "text-accent" : "text-subtle group-hover:text-accent"
+            className={`font-mono text-[11px] font-medium tracking-[0.08em] ${
+              seccion === "animada" ? "text-accent-ink" : "text-subtle group-hover:text-accent-ink"
             }`}
           >
             {seccion === "animada" ? "Sección activa" : "JKAnime · TioAnime"}
           </p>
-          <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
+          <h2 className="mt-2 font-display text-2xl font-semibold text-ink">
             Sección animada
           </h2>
           <p className="mt-2 text-sm leading-6 text-subtle">
@@ -820,22 +822,18 @@ export default function ExplorarPage() {
         />
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+          <span className="mr-1 font-mono text-[11px] font-medium text-faint">
             Fuente
           </span>
           {(["jkanime", "tioanime"] as const).map((source) => (
-            <button
+            <Chip
               type="button"
               key={source}
               onClick={() => setAnimeFuente(source)}
-              className={`rounded-xl border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
-                animeFuente === source
-                  ? "border-accent bg-[var(--accent-soft)] text-accent"
-                  : "border-line text-subtle hover:border-accent hover:text-ink"
-              }`}
+              selected={animeFuente === source}
             >
               {source === "jkanime" ? "JKAnime" : "TioAnime"}
-            </button>
+            </Chip>
           ))}
         </div>
 
@@ -860,7 +858,7 @@ export default function ExplorarPage() {
 
       {/* fuente: cada grupo publica su propio catálogo */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+        <span className="mr-1 font-mono text-[11px] font-medium text-faint">
           Fuente
         </span>
         {[
@@ -873,29 +871,25 @@ export default function ExplorarPage() {
           // Ikigai sí necesita el puente nativo: bloquea a los centros de datos
           ...(ikigaiHay ? [{ key: "ikigai", label: "Ikigai" }] : []),
         ].map((f) => (
-          <button
+          <Chip
             key={f.key}
             onClick={() => cambiarFuente(f.key)}
-            className={`rounded-xl border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
-              fuente === f.key
-                ? "border-accent bg-[var(--accent-soft)] text-accent"
-                : "border-line text-subtle hover:text-ink"
-            }`}
+            selected={fuente === f.key}
           >
             {f.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {fuente === "mangadex" && (
-        <div className="flex gap-1 rounded-xl border border-line bg-[var(--surface-raised)] p-1">
+        <div className="flex gap-1 rounded-md border border-line bg-panel p-1">
           {LANGS.map((l) => (
             <button
               key={l.key}
               onClick={() => setLang(l.key)}
-              className={`rounded-lg px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
-                lang === l.key ? "bg-accent text-[var(--bg)]" : "text-subtle hover:text-ink"
+              className={`min-h-9 rounded-sm px-4 text-sm font-medium transition-colors ${
+                lang === l.key ? "bg-accent text-[var(--on-accent)]" : "text-subtle hover:text-ink"
               }`}
             >
               {l.label}
@@ -908,7 +902,7 @@ export default function ExplorarPage() {
           value={order}
           onChange={(e) => setOrder(e.target.value)}
           disabled={Boolean(search.trim())}
-          className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent disabled:opacity-40"
+          className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink disabled:opacity-40"
           title={search.trim() ? "Al buscar, el orden es por relevancia" : "Ordenar por"}
         >
           {ORDERS.map((o) => (
@@ -921,10 +915,10 @@ export default function ExplorarPage() {
         {fuente === "mangadex" && (
         <button
           onClick={() => setShowFilters((v) => !v)}
-          className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+          className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
             activeFilters > 0
-              ? "border-accent bg-[var(--accent-soft)] text-accent"
-              : "border-line text-subtle hover:text-ink"
+              ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+              : "border-line-strong text-subtle hover:border-ink hover:text-ink"
           }`}
         >
           Filtros {activeFilters > 0 ? `(${activeFilters})` : ""}
@@ -936,7 +930,7 @@ export default function ExplorarPage() {
             <select
               value={olyOrden}
               onChange={(e) => setOlyOrden(e.target.value)}
-              className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+              className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
             >
               {olyOpciones.ordenes.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -946,10 +940,10 @@ export default function ExplorarPage() {
             </select>
             <button
               onClick={() => setShowFilters((v) => !v)}
-              className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+              className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
                 olyGenero || olyEstado || olyTipo
-                  ? "border-accent bg-[var(--accent-soft)] text-accent"
-                  : "border-line text-subtle hover:text-ink"
+                  ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                  : "border-line-strong text-subtle hover:border-ink hover:text-ink"
               }`}
             >
               Filtros{" "}
@@ -964,7 +958,7 @@ export default function ExplorarPage() {
           <select
             value={ikiOrden}
             onChange={(e) => setIkiOrden(e.target.value)}
-            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+            className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             {IKIGAI_ORDENES.map((o) => (
               <option key={o.id} value={o.id}>
@@ -978,7 +972,7 @@ export default function ExplorarPage() {
           <select
             value={lcLista}
             onChange={(e) => setLcLista(e.target.value)}
-            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+            className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             {LC_LISTAS.map((o) => (
               <option key={o.id} value={o.id}>
@@ -992,7 +986,7 @@ export default function ExplorarPage() {
           <select
             value={cwOrden}
             onChange={(e) => setCwOrden(e.target.value as OrdenCw)}
-            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+            className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             <option value="novedades">Novedades</option>
             <option value="nombre">A–Z</option>
@@ -1004,7 +998,7 @@ export default function ExplorarPage() {
           <select
             value={tmoOrden ?? ""}
             onChange={(e) => setTmoOrden(e.target.value || null)}
-            className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent"
+            className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             {TMO_ORDENES.map((o) => (
               <option key={o.id} value={o.id}>
@@ -1017,14 +1011,14 @@ export default function ExplorarPage() {
         {(fuente === "tmo" || fuente === "ikigai" || fuente === "leercapitulo") && (
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+            className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
               (fuente === "tmo"
                 ? tmoTipo || tmoDemo || tmoEstado || tmoGenero
                 : fuente === "leercapitulo"
                   ? lcGenero || lcInicial
                   : ikiTipo || ikiGenero)
-                ? "border-accent bg-[var(--accent-soft)] text-accent"
-                : "border-line text-subtle hover:text-ink"
+                ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                : "border-line-strong text-subtle hover:border-ink hover:text-ink"
             }`}
           >
             Filtros
@@ -1035,7 +1029,7 @@ export default function ExplorarPage() {
           onClick={refrescar}
           disabled={refrescando}
           title="Volver a pedir esta lista, sin usar lo guardado"
-          className="inline-flex items-center gap-2 rounded-xl border border-line px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60"
+          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line-strong px-4 text-sm font-medium text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
           data-od-id="boton-actualizar"
         >
           <svg
@@ -1052,14 +1046,14 @@ export default function ExplorarPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar serie..."
-          className="ml-auto w-full max-w-sm rounded-xl border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
+          className={`ml-auto max-w-sm ${fieldControlClass}`}
         />
       </div>
 
       {showFilters && fuente === "mangadex" && (
         <Surface className="space-y-5 p-5">
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
               Tipo
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -1067,10 +1061,10 @@ export default function ExplorarPage() {
                 <button
                   key={o.key}
                   onClick={() => toggleIn(origin, o.key, setOrigin)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     origin.includes(o.key)
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
-                      : "border-line text-subtle hover:text-ink"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                      : "border-line-strong text-subtle hover:border-ink hover:text-ink"
                   }`}
                 >
                   {o.label}
@@ -1080,7 +1074,7 @@ export default function ExplorarPage() {
           </div>
 
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
               Estado
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -1088,10 +1082,10 @@ export default function ExplorarPage() {
                 <button
                   key={s.key}
                   onClick={() => toggleIn(status, s.key, setStatus)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     status.includes(s.key)
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
-                      : "border-line text-subtle hover:text-ink"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                      : "border-line-strong text-subtle hover:border-ink hover:text-ink"
                   }`}
                 >
                   {s.label}
@@ -1102,7 +1096,7 @@ export default function ExplorarPage() {
 
           {genres.length > 0 && (
             <div>
-              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
                 Géneros
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -1110,10 +1104,10 @@ export default function ExplorarPage() {
                   <button
                     key={g.id}
                     onClick={() => toggleIn(selectedGenres, g.id, setSelectedGenres)}
-                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                    className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                       selectedGenres.includes(g.id)
-                        ? "border-accent bg-[var(--accent-soft)] text-accent"
-                        : "border-line text-subtle hover:text-ink"
+                        ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                        : "border-line-strong text-subtle hover:border-ink hover:text-ink"
                     }`}
                   >
                     {g.name}
@@ -1130,7 +1124,7 @@ export default function ExplorarPage() {
                 setSelectedGenres([]);
                 setOrigin([]);
               }}
-              className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+              className="text-sm font-medium text-subtle transition-colors hover:text-accent-ink"
             >
               ✕ Limpiar filtros
             </button>
@@ -1145,7 +1139,7 @@ export default function ExplorarPage() {
       )}
 
       {fuente === "mangadex" && (series === null ? (
-        <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+        <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
           Cargando catálogo...
         </p>
       ) : series.length === 0 && !error ? (
@@ -1154,39 +1148,39 @@ export default function ExplorarPage() {
           <p className="mt-1 text-sm text-subtle">Probá con otro término o cambiá el idioma.</p>
         </Surface>
       ) : (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {series.map((s) => (
             <Link
               key={s.id}
               href={`/externo/${s.id}`}
-              className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+              <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                 {s.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={s.cover_url}
                     alt={s.title}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                    className="h-full w-full object-cover transition duration-500"
                     loading="lazy"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+                  <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
                     Sin portada
                   </div>
                 )}
                 {s.is_adult && (
-                  <span className="absolute left-3 top-3 rounded-full border border-danger bg-[color-mix(in_oklch,var(--bg)_82%,transparent)] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-danger backdrop-blur-md">
+                  <span className="absolute left-3 top-3 rounded-md border border-danger bg-[color-mix(in_oklch,var(--bg)_82%,transparent)] px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-danger ">
                     +18
                   </span>
                 )}
               </div>
-              <div className="px-1 pt-4">
-                <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+              <div className="px-1 pt-3">
+                <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                   {s.title}
                 </h3>
-                <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                <p className="mt-1 font-mono text-[13px] text-faint">
                   {[
                     s.chapter_count !== null
                       ? `${s.chapter_count} cap${s.chapter_count === 1 ? "" : "s"}.`
@@ -1208,17 +1202,17 @@ export default function ExplorarPage() {
           <button
             disabled={offset === 0}
             onClick={() => setOffset(Math.max(0, offset - 24))}
-            className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             ← Anterior
           </button>
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+          <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
             Página {page} de {lastPage}
           </span>
           <button
             disabled={page >= lastPage}
             onClick={() => setOffset(offset + 24)}
-            className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             Siguiente →
           </button>
@@ -1228,7 +1222,7 @@ export default function ExplorarPage() {
       {showFilters && fuente === "olympus" && olyOpciones && (
         <Surface className="space-y-5 p-5">
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
               Tipo
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -1236,10 +1230,10 @@ export default function ExplorarPage() {
                 <button
                   key={t.id}
                   onClick={() => setOlyTipo(olyTipo === t.id ? null : t.id)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     olyTipo === t.id
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
-                      : "border-line text-subtle hover:text-ink"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                      : "border-line-strong text-subtle hover:border-ink hover:text-ink"
                   }`}
                 >
                   {t.name}
@@ -1249,7 +1243,7 @@ export default function ExplorarPage() {
           </div>
 
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
               Estado
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -1257,10 +1251,10 @@ export default function ExplorarPage() {
                 <button
                   key={e.id}
                   onClick={() => setOlyEstado(olyEstado === e.id ? null : e.id)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     olyEstado === e.id
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
-                      : "border-line text-subtle hover:text-ink"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                      : "border-line-strong text-subtle hover:border-ink hover:text-ink"
                   }`}
                 >
                   {e.name}
@@ -1270,7 +1264,7 @@ export default function ExplorarPage() {
           </div>
 
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
               Género <span className="normal-case opacity-70">(uno por vez)</span>
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -1278,10 +1272,10 @@ export default function ExplorarPage() {
                 <button
                   key={g.id}
                   onClick={() => setOlyGenero(olyGenero === g.id ? null : g.id)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     olyGenero === g.id
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
-                      : "border-line text-subtle hover:text-ink"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                      : "border-line-strong text-subtle hover:border-ink hover:text-ink"
                   }`}
                 >
                   {g.name}
@@ -1297,7 +1291,7 @@ export default function ExplorarPage() {
                 setOlyEstado(null);
                 setOlyTipo(null);
               }}
-              className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+              className="text-sm font-medium text-subtle transition-colors hover:text-accent-ink"
             >
               ✕ Limpiar filtros
             </button>
@@ -1307,7 +1301,7 @@ export default function ExplorarPage() {
 
       {fuente === "olympus" && (
         olympus === null ? (
-          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+          <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
             Cargando catálogo de Olympus...
           </p>
         ) : olympus.length === 0 && !error ? (
@@ -1317,30 +1311,30 @@ export default function ExplorarPage() {
           </Surface>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {olympus.map((s) => (
                 <Link
                   key={s.id}
                   href={`/externo/olympus/${s.slug}`}
-                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                     {s.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={s.cover_url}
                         alt={s.title}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        className="h-full w-full object-cover transition duration-500"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />
                     )}
                   </div>
-                  <div className="px-1 pt-4">
-                    <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                  <div className="px-1 pt-3">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                       {s.title}
                     </h3>
-                    <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                    <p className="mt-1 font-mono text-[13px] text-faint">
                       {[
                         s.ultimos?.length
                           ? `Cap. ${s.ultimos[0].name}`
@@ -1362,17 +1356,17 @@ export default function ExplorarPage() {
                 <button
                   disabled={olympusPage <= 1}
                   onClick={() => setOlympusPage(olympusPage - 1)}
-                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   ← Anterior
                 </button>
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
                   Página {olympusPage} de {olympusLastPage}
                 </span>
                 <button
                   disabled={olympusPage >= olympusLastPage}
                   onClick={() => setOlympusPage(olympusPage + 1)}
-                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   Siguiente →
                 </button>
@@ -1402,7 +1396,7 @@ export default function ExplorarPage() {
               ]
           ).map((grupo) => (
             <div key={grupo.titulo}>
-              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+              <p className="mb-2 font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
                 {grupo.titulo}
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -1410,10 +1404,10 @@ export default function ExplorarPage() {
                   <button
                     key={o.id}
                     onClick={() => grupo.set(grupo.valor === o.id ? null : o.id)}
-                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                    className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                       grupo.valor === o.id
-                        ? "border-accent bg-[var(--accent-soft)] text-accent"
-                        : "border-line text-subtle hover:text-ink"
+                        ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                        : "border-line-strong text-subtle hover:border-ink hover:text-ink"
                     }`}
                   >
                     {o.name}
@@ -1434,7 +1428,7 @@ export default function ExplorarPage() {
               setLcGenero(null);
               setLcInicial(null);
             }}
-            className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+            className="text-sm font-medium text-subtle transition-colors hover:text-accent-ink"
           >
             ✕ Limpiar filtros
           </button>
@@ -1450,7 +1444,7 @@ export default function ExplorarPage() {
         !tmoDemo &&
         !tmoEstado && (
           <section>
-            <h2 className="mb-4 font-display text-xl font-black uppercase tracking-[-0.03em] text-ink">
+            <h2 className="mb-4 font-display text-xl font-bold tracking-[-0.03em] text-ink">
               Lo más leído esta semana
             </h2>
             <div className="-mx-1 flex min-w-0 gap-4 overflow-x-auto px-1 pb-2">
@@ -1458,9 +1452,9 @@ export default function ExplorarPage() {
                 <Link
                   key={t.id}
                   href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
-                  className="group w-32 shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-36"
+                  className="group w-32 shrink-0 rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-36"
                 >
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                     {t.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1472,7 +1466,7 @@ export default function ExplorarPage() {
                       />
                     )}
                   </div>
-                  <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-tight text-ink transition group-hover:text-accent">
+                  <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-tight text-ink transition-colors group-hover:text-accent-ink">
                     {t.title}
                   </h3>
                 </Link>
@@ -1483,7 +1477,7 @@ export default function ExplorarPage() {
 
       {fuente === "catharsis" && (
         cw === null ? (
-          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+          <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
             Cargando catálogo de Catharsis World...
           </p>
         ) : cw.length === 0 ? (
@@ -1493,29 +1487,29 @@ export default function ExplorarPage() {
           </Surface>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {cw.map((s) => (
                 <Link
                   key={s.id}
                   href={`/externo/catharsis/${s.id}`}
-                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                     {s.portada && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={imagenCw(s.portada, 320)}
                         alt={s.nombre}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        className="h-full w-full object-cover transition duration-500"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />
                     )}
-                    <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+                    <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink ">
                       {s.capitulos} cap.
                     </span>
                   </div>
-                  <h3 className="mt-3 line-clamp-2 px-1 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                  <h3 className="mt-3 line-clamp-2 px-1 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                     {s.nombre}
                   </h3>
                 </Link>
@@ -1527,17 +1521,17 @@ export default function ExplorarPage() {
                 <button
                   disabled={cwPage <= 1}
                   onClick={() => setCwPage(cwPage - 1)}
-                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   ← Anterior
                 </button>
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
                   Página {cwPage} de {cwPaginas}
                 </span>
                 <button
                   disabled={cwPage >= cwPaginas}
                   onClick={() => setCwPage(cwPage + 1)}
-                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   Siguiente →
                 </button>
@@ -1549,7 +1543,7 @@ export default function ExplorarPage() {
 
       {fuente === "leercapitulo" && (
         lc === null ? (
-          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+          <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
             Cargando catálogo de LeerCapítulo...
           </p>
         ) : lc.length === 0 ? (
@@ -1560,30 +1554,30 @@ export default function ExplorarPage() {
         ) : (
           <>
             {!lcPaginable && !search && (
-              <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+              <p className="mb-4 font-mono text-[11px] tracking-[0.06em] text-subtle">
                 Últimas actualizaciones · elegí un género o una inicial para recorrer todo
               </p>
             )}
-            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {lc.map((t) => (
                 <Link
                   key={t.id}
                   href={`/externo/leercapitulo/${t.id}/${t.slug}`}
-                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                     {t.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={t.cover_url}
                         alt={t.title}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        className="h-full w-full object-cover transition duration-500"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />
                     )}
                   </div>
-                  <h3 className="mt-3 line-clamp-2 px-1 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                  <h3 className="mt-3 line-clamp-2 px-1 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                     {t.title}
                   </h3>
                 </Link>
@@ -1595,17 +1589,17 @@ export default function ExplorarPage() {
                 <button
                   disabled={lcPage <= 1}
                   onClick={() => setLcPage(lcPage - 1)}
-                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   ← Anterior
                 </button>
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
                   Página {lcPage}
                 </span>
                 <button
                   disabled={!lcMas}
                   onClick={() => setLcPage(lcPage + 1)}
-                  className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   Siguiente →
                 </button>
@@ -1617,7 +1611,7 @@ export default function ExplorarPage() {
 
       {fuente === "tmo" && (
         tmo === null ? (
-          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+          <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
             Cargando catálogo de ZonaTMO...
           </p>
         ) : tmo.length === 0 ? (
@@ -1627,30 +1621,30 @@ export default function ExplorarPage() {
           </Surface>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {tmo.map((t) => (
                 <Link
                   key={t.id}
                   href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
-                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                     {t.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={t.cover_url}
                         alt={t.title}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        className="h-full w-full object-cover transition duration-500"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />
                     )}
                   </div>
-                  <div className="px-1 pt-4">
-                    <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                  <div className="px-1 pt-3">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                       {t.title}
                     </h3>
-                    <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+                    <p className="mt-1 font-mono text-[13px] text-faint">
                       {t.tipo}
                     </p>
                   </div>
@@ -1662,17 +1656,17 @@ export default function ExplorarPage() {
               <button
                 disabled={tmoPage <= 1}
                 onClick={() => setTmoPage(tmoPage - 1)}
-                className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 ← Anterior
               </button>
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+              <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
                 Página {tmoPage} de {tmoPaginas}
               </span>
               <button
                 disabled={!tmoMas}
                 onClick={() => setTmoPage(tmoPage + 1)}
-                className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Siguiente →
               </button>
@@ -1683,7 +1677,7 @@ export default function ExplorarPage() {
 
       {fuente === "ikigai" && (
         iki === null ? (
-          <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+          <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
             Cargando catálogo de Ikigai...
           </p>
         ) : iki.length === 0 ? (
@@ -1693,27 +1687,27 @@ export default function ExplorarPage() {
           </Surface>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {iki.map((s) => (
                 <Link
                   key={s.slug}
                   href={`/externo/ikigai/${s.slug}`}
-                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                     {s.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={s.cover_url}
                         alt={s.title}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                        className="h-full w-full object-cover transition duration-500"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />
                     )}
                   </div>
-                  <div className="px-1 pt-4">
-                    <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+                  <div className="px-1 pt-3">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
                       {s.title}
                     </h3>
                   </div>
@@ -1725,17 +1719,17 @@ export default function ExplorarPage() {
               <button
                 disabled={ikiPage <= 1}
                 onClick={() => setIkiPage(ikiPage - 1)}
-                className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 ← Anterior
               </button>
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+              <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
                 Página {ikiPage}
               </span>
               <button
                 disabled={!ikiMas}
                 onClick={() => setIkiPage(ikiPage + 1)}
-                className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Siguiente →
               </button>
@@ -1744,7 +1738,7 @@ export default function ExplorarPage() {
         )
       )}
 
-      <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+      <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         Catálogo y capítulos provistos por MangaDex y sus grupos de scanlation
       </p>
     </div>

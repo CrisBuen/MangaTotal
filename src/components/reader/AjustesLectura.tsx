@@ -54,7 +54,7 @@ export function AjustesLectura({
         <div className="mx-auto w-full max-w-md px-6 pt-3">
           <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-[var(--surface-raised)]" />
 
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+          <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
             Modo de lectura
           </p>
 
@@ -69,27 +69,27 @@ export function AjustesLectura({
                 key={o.id}
                 onClick={() => onModo(o.id)}
                 aria-pressed={modo === o.id}
-                className={`flex-1 rounded-2xl border p-4 text-left transition ${
+                className={`flex-1 rounded-[10px] border p-4 text-left transition ${
                   modo === o.id
                     ? "border-accent bg-[var(--accent-soft)]"
-                    : "border-line hover:border-accent"
+                    : "border-line hover:border-line-strong"
                 }`}
               >
                 <span
                   className={`block text-sm font-bold ${
-                    modo === o.id ? "text-accent" : "text-ink"
+                    modo === o.id ? "text-accent-ink" : "text-ink"
                   }`}
                 >
                   {o.nombre}
                 </span>
-                <span className="mt-1 block text-xs leading-5 text-subtle">{o.detalle}</span>
+                <span className="mt-1 block text-[13px] leading-5 text-subtle">{o.detalle}</span>
               </button>
             ))}
           </div>
 
           <button
             onClick={onCerrar}
-            className="mt-6 min-h-11 w-full rounded-xl border border-line font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink"
+            className="mt-6 min-h-11 w-full rounded-md border border-line font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             Cerrar
           </button>
@@ -105,7 +105,7 @@ export function BotonAjustes({ onClick, visible }: { onClick: () => void; visibl
     <button
       onClick={onClick}
       aria-label="Ajustes de lectura"
-      className={`fixed bottom-5 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] text-subtle backdrop-blur-lg transition-all duration-200 ease-out hover:border-accent hover:text-accent ${
+      className={`fixed bottom-5 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] text-subtle transition-colors hover:border-line-strong hover:text-accent-ink ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"
       }`}
       style={{ bottom: "max(1.25rem, env(safe-area-inset-bottom))" }}

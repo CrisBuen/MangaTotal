@@ -58,7 +58,7 @@ export default function EstadisticasPage() {
           action={
             <Link
               href="/login"
-              className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+              className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
             >
               Iniciar sesión
             </Link>
@@ -93,7 +93,7 @@ export default function EstadisticasPage() {
 
           {datos.porFuente.length > 0 && (
             <section>
-              <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+              <h2 className="mb-5 font-display text-3xl font-bold leading-none text-ink">
                 De dónde las guardás
               </h2>
               <Surface className="divide-y divide-line p-0">
@@ -102,7 +102,7 @@ export default function EstadisticasPage() {
                     <span className="text-sm font-bold text-ink">
                       {NOMBRE_FUENTE[f.fuente] ?? f.fuente}
                     </span>
-                    <span className="font-mono text-sm tabular-nums text-accent">{f.cuantas}</span>
+                    <span className="font-mono text-sm tabular-nums text-accent-ink">{f.cuantas}</span>
                   </div>
                 ))}
               </Surface>
@@ -111,7 +111,7 @@ export default function EstadisticasPage() {
 
           {(datos.animeSeguidos > 0 || datos.episodiosVistos > 0) && (
             <section>
-              <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">
+              <h2 className="mb-5 font-display text-3xl font-bold leading-none text-ink">
                 Series animadas
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -129,8 +129,8 @@ export default function EstadisticasPage() {
 function Dato({ numero, etiqueta }: { numero: number; etiqueta: string }) {
   return (
     <Surface className="p-6 text-center">
-      <p className="font-display text-4xl font-black tabular-nums text-accent">{numero}</p>
-      <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">{etiqueta}</p>
+      <p className="font-display text-4xl font-bold tabular-nums text-accent-ink">{numero}</p>
+      <p className="mt-1 font-mono text-[13px] text-faint">{etiqueta}</p>
     </Surface>
   );
 }

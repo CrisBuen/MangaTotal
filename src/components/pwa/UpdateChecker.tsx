@@ -97,13 +97,13 @@ export function UpdateChecker() {
 
   return (
     <section
-      className="rounded-2xl border border-line bg-panel p-5"
+      className="rounded-[10px] border border-line bg-panel p-5"
       data-od-id="update-checker"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-bold text-ink">Aplicación</h2>
-          <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+          <p className="mt-1 font-mono text-[11px] tracking-[0.06em] text-subtle">
             Versión instalada {installed}
             {release ? ` · última ${release.versionName}` : ""}
           </p>
@@ -111,7 +111,7 @@ export function UpdateChecker() {
         <button
           onClick={check}
           disabled={checking}
-          className="shrink-0 rounded-xl border border-line px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-50"
+          className="shrink-0 rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-50"
         >
           {checking ? "Buscando…" : "Buscar"}
         </button>
@@ -121,14 +121,14 @@ export function UpdateChecker() {
         <>
           <ul className="mb-4 space-y-1">
             {release.changes.map((change) => (
-              <li key={change} className="flex gap-2 text-xs leading-5 text-subtle">
-                <span className="text-accent">·</span>
+              <li key={change} className="flex gap-2 text-[13px] leading-5 text-subtle">
+                <span className="text-accent-ink">·</span>
                 {change}
               </li>
             ))}
           </ul>
           {errorActualizar && (
-            <p className="mb-3 rounded-xl border border-danger px-3 py-2 text-xs leading-5 text-danger">
+            <p className="mb-3 rounded-md border border-danger px-3 py-2 text-[13px] leading-5 text-danger">
               {errorActualizar}
             </p>
           )}
@@ -137,7 +137,7 @@ export function UpdateChecker() {
             <button
               onClick={actualizarAqui}
               disabled={bajando !== null}
-              className="inline-block rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] disabled:opacity-70"
+              className="inline-block rounded-md border border-accent bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] disabled:opacity-70"
             >
               {bajando === null
                 ? `Actualizar a v${release.versionName}`
@@ -149,14 +149,14 @@ export function UpdateChecker() {
             <a
               href={release.descargaUrl}
               rel="noopener"
-              className="inline-block rounded-xl border border-accent bg-accent px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+              className="inline-block rounded-md border border-accent bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
             >
               Actualizar a v{release.versionName}
             </a>
           )}
         </>
       ) : checked ? (
-        <p className="text-xs text-subtle">La app está al día.</p>
+        <p className="text-[13px] text-subtle">La app está al día.</p>
       ) : null}
     </section>
   );

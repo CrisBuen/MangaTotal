@@ -96,7 +96,7 @@ export default function AnimePage() {
         action={
           <Link
             href="/anime/mi-lista"
-            className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:opacity-90"
+            className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
           >
             Mi lista
           </Link>
@@ -108,7 +108,7 @@ export default function AnimePage() {
           value={sort}
           onChange={(e) => setSort(e.target.value)}
           disabled={Boolean(search.trim())}
-          className="rounded-xl border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink outline-none focus:border-accent disabled:opacity-40"
+          className="rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-ink outline-none focus:border-accent disabled:opacity-40"
         >
           {SORTS.map((s) => (
             <option key={s.key} value={s.key}>
@@ -119,9 +119,9 @@ export default function AnimePage() {
 
         <button
           onClick={() => setSeason((v) => !v)}
-          className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+          className={`rounded-md border px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] transition ${
             season
-              ? "border-accent bg-[var(--accent-soft)] text-accent"
+              ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
               : "border-line text-subtle hover:text-ink"
           }`}
         >
@@ -130,9 +130,9 @@ export default function AnimePage() {
 
         <button
           onClick={() => setShowFilters((v) => !v)}
-          className={`rounded-xl border px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+          className={`rounded-md border px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] transition ${
             activeFilters > 0
-              ? "border-accent bg-[var(--accent-soft)] text-accent"
+              ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
               : "border-line text-subtle hover:text-ink"
           }`}
         >
@@ -143,14 +143,14 @@ export default function AnimePage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar anime…"
-          className="ml-auto w-full max-w-sm rounded-xl border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
+          className="ml-auto w-full max-w-sm rounded-md border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
         />
       </div>
 
       {showFilters && (
         <Surface className="space-y-5 p-5">
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
               Formato
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -158,9 +158,9 @@ export default function AnimePage() {
                 <button
                   key={f.key}
                   onClick={() => setFormat(format === f.key ? null : f.key)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`rounded-full border px-3 py-1 text-[13px] transition ${
                     format === f.key
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
                       : "border-line text-subtle hover:text-ink"
                   }`}
                 >
@@ -171,7 +171,7 @@ export default function AnimePage() {
           </div>
 
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
               Estado
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -179,9 +179,9 @@ export default function AnimePage() {
                 <button
                   key={s.key}
                   onClick={() => setStatus(status === s.key ? null : s.key)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`rounded-full border px-3 py-1 text-[13px] transition ${
                     status === s.key
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
                       : "border-line text-subtle hover:text-ink"
                   }`}
                 >
@@ -192,7 +192,7 @@ export default function AnimePage() {
           </div>
 
           <div>
-            <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <p className="mb-2 font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
               Géneros
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -202,9 +202,9 @@ export default function AnimePage() {
                   onClick={() =>
                     setGenres(genres.includes(g) ? genres.filter((x) => x !== g) : [...genres, g])
                   }
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`rounded-full border px-3 py-1 text-[13px] transition ${
                     genres.includes(g)
-                      ? "border-accent bg-[var(--accent-soft)] text-accent"
+                      ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
                       : "border-line text-subtle hover:text-ink"
                   }`}
                 >
@@ -222,7 +222,7 @@ export default function AnimePage() {
                 setGenres([]);
                 setSeason(false);
               }}
-              className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+              className="font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
             >
               ✕ Limpiar filtros
             </button>
@@ -237,7 +237,7 @@ export default function AnimePage() {
       )}
 
       {anime === null ? (
-        <p className="py-16 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+        <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
           Cargando catálogo...
         </p>
       ) : anime.length === 0 && !error ? (
@@ -246,7 +246,7 @@ export default function AnimePage() {
           <p className="mt-1 text-sm text-subtle">Probá con otro término o cambiá los filtros.</p>
         </Surface>
       ) : (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {anime.map((a) => (
             <AnimeGridCard key={a.id} anime={a} />
           ))}
@@ -258,24 +258,24 @@ export default function AnimePage() {
           <button
             disabled={page <= 1}
             onClick={() => setPage(page - 1)}
-            className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+            className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             ← Anterior
           </button>
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+          <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
             Página {page} de {lastPage}
           </span>
           <button
             disabled={page >= lastPage}
             onClick={() => setPage(page + 1)}
-            className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-40"
+            className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             Siguiente →
           </button>
         </div>
       )}
 
-      <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+      <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         Datos de anime provistos por AniList · MangaTotal no aloja ni reproduce video
       </p>
     </div>

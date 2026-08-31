@@ -38,7 +38,7 @@ export default function VerificarCorreoPage() {
       {estado !== "loading" && (
         <Link
           href="/perfil"
-          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-accent bg-accent px-5 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--bg)]"
+          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-accent bg-accent px-5 text-[11px] font-bold tracking-[0.1em] text-[var(--on-accent)]"
         >
           Volver a MangaTotal
         </Link>

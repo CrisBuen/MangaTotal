@@ -4,10 +4,19 @@ import sharp from "sharp";
 
 const raiz = process.cwd();
 const origen = path.join(raiz, "assets", "branding", "mangatotal-logo.png");
+const origenTransparente = path.join(
+  raiz,
+  "assets",
+  "branding",
+  "mangatotal-logo-transparent.png",
+);
 const fondo = { r: 7, g: 8, b: 8, alpha: 1 };
 
 if (!fs.existsSync(origen)) {
   throw new Error("No existe el logo maestro: " + origen);
+}
+if (!fs.existsSync(origenTransparente)) {
+  throw new Error("No existe el logo transparente para cabeceras: " + origenTransparente);
 }
 
 async function pngCuadrado(destino, tamano) {
@@ -29,6 +38,14 @@ async function pngMaskable(destino, tamano) {
     create: { width: tamano, height: tamano, channels: 4, background: fondo },
   })
     .composite([{ input: logo, gravity: "center" }])
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toFile(destino);
+}
+
+async function pngCabecera(destino, tamano) {
+  fs.mkdirSync(path.dirname(destino), { recursive: true });
+  await sharp(origenTransparente)
+    .resize(tamano, tamano, { fit: "contain" })
     .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toFile(destino);
 }
@@ -90,7 +107,7 @@ async function recursosAndroid() {
 
 await Promise.all([
   pngCuadrado(path.join(raiz, "public", "branding", "mangatotal-logo.png"), 512),
-  pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-logo-v2.png"), 512),
+  pngCabecera(path.join(raiz, "public", "icons", "mangatotal-logo-transparent.png"), 512),
   pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-v2-192.png"), 192),
   pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-v2-512.png"), 512),
   pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-v2-apple.png"), 180),

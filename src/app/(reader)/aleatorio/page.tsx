@@ -88,7 +88,7 @@ export default function AleatorioPage() {
           <p className="mt-2 text-sm text-subtle">Puede ser cosa del momento. Probá de nuevo.</p>
           <button
             onClick={girar}
-            className="mt-6 inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:bg-[var(--accent-hover)]"
+            className="mt-6 inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
           >
             Reintentar
           </button>
@@ -97,8 +97,8 @@ export default function AleatorioPage() {
         <div className="flex flex-col items-center gap-8">
           <div className="w-full max-w-xs">
             <div
-              className={`aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 ${
-                girando ? "animate-pulse" : "shadow-[var(--glow)]"
+              className={`aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] ${
+                girando ? "animate-pulse" : ""
               }`}
             >
               {serie?.portada && !girando && (
@@ -113,14 +113,14 @@ export default function AleatorioPage() {
             </div>
 
             <div className="mt-5 text-center">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
+              <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">
                 {girando ? "Girando…" : serie?.fuenteNombre}
               </p>
-              <h2 className="mt-2 text-2xl font-black leading-[1.1] text-ink">
+              <h2 className="mt-2 text-2xl font-bold leading-[1.1] text-ink">
                 {girando ? " " : serie?.titulo}
               </h2>
               {!girando && serie?.nota && (
-                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+                <p className="mt-1 font-mono text-[13px] text-faint">
                   {serie.nota}
                 </p>
               )}
@@ -131,7 +131,7 @@ export default function AleatorioPage() {
             {serie && !girando && (
               <Link
                 href={serie.href}
-                className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-6 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
+                className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-6 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]  transition hover:bg-[var(--accent-hover)]"
               >
                 Ver esta
               </Link>
@@ -139,7 +139,7 @@ export default function AleatorioPage() {
             <button
               onClick={girar}
               disabled={girando}
-              className="inline-flex min-h-11 items-center rounded-xl border border-line px-6 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60"
+              className="inline-flex min-h-11 items-center rounded-md border border-line px-6 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-60"
             >
               {girando ? "Buscando…" : "Otra ↻"}
             </button>

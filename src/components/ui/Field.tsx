@@ -1,7 +1,7 @@
 import { cloneElement, isValidElement, type ReactElement } from "react";
 
 export const fieldControlClass =
-  "min-h-11 w-full rounded-xl border border-line bg-[color-mix(in_oklch,var(--surface)_88%,transparent)] px-3.5 py-2.5 text-sm text-ink placeholder:text-subtle transition hover:border-accent focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50";
+  "min-h-11 w-full rounded-md border border-line-strong bg-panel px-3.5 py-2.5 text-sm text-ink placeholder:text-faint transition-colors hover:border-subtle focus:border-accent-ink focus:outline-none focus:ring-1 focus:ring-accent-ink disabled:cursor-not-allowed disabled:opacity-50";
 
 export function Field({
   id,
@@ -31,14 +31,14 @@ export function Field({
 
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+      <label htmlFor={id} className="block text-sm font-medium text-ink">
         {label}
       </label>
       {control}
       {(error || hint) && (
         <p
           id={descriptionId}
-          className={`text-xs ${error ? "text-danger" : "text-subtle"}`}
+          className={`text-[13px] ${error ? "text-[var(--danger-fg)]" : "text-subtle"}`}
           aria-live={error ? "polite" : undefined}
         >
           {error ?? hint}

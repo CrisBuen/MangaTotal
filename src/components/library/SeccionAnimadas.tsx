@@ -73,7 +73,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
 
   if (entradas === null) {
     return (
-      <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="aspect-[2/3] w-full" />
         ))}
@@ -89,7 +89,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
         action={
           <Link
             href="/anime"
-            className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)]"
+            className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
           >
             Ir a AniList
           </Link>
@@ -111,13 +111,13 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
 
   return (
     <div className="space-y-12">
-      <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-3 sm:flex-row sm:items-center">
+      <section className="flex flex-col gap-4 rounded-[10px] border border-line bg-panel p-3 sm:flex-row sm:items-center">
         <div className="flex min-w-0 gap-1 overflow-x-auto">
           <button
             onClick={() => setEstado(null)}
-            className={`min-h-11 shrink-0 rounded-xl px-4 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
+            className={`min-h-11 shrink-0 rounded-md px-4 text-[11px] font-bold tracking-[0.06em] transition ${
               estado === null
-                ? "bg-[var(--accent-soft)] text-accent ring-1 ring-accent"
+                ? "bg-[var(--accent-soft)] text-accent-ink ring-1 ring-accent"
                 : "text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
             }`}
           >
@@ -127,9 +127,9 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
             <button
               key={s.key}
               onClick={() => setEstado(estado === s.key ? null : s.key)}
-              className={`min-h-11 shrink-0 rounded-xl px-4 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
+              className={`min-h-11 shrink-0 rounded-md px-4 text-[11px] font-bold tracking-[0.06em] transition ${
                 estado === s.key
-                  ? "bg-[var(--accent-soft)] text-accent ring-1 ring-accent"
+                  ? "bg-[var(--accent-soft)] text-accent-ink ring-1 ring-accent"
                   : "text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
               }`}
             >
@@ -141,7 +141,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
           onClick={actualizarTodo}
           disabled={revisando}
           title="Revisa si salieron episodios nuevos de lo que seguís"
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:border-accent hover:text-ink disabled:opacity-60 sm:ml-auto"
+          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-line px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-60 sm:ml-auto"
         >
           <svg
             viewBox="0 0 24 24"
@@ -157,14 +157,14 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
       {continuando.length > 0 && (
         <section>
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+            <h2 className="min-w-0 font-display text-3xl font-bold leading-none text-ink sm:text-4xl">
               Continuar viendo
             </h2>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+            <span className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
               Tu progreso
             </span>
           </div>
-          <div className="flex min-w-0 gap-5 overflow-x-auto rounded-2xl border border-line bg-panel p-5">
+          <div className="flex min-w-0 gap-5 overflow-x-auto rounded-[10px] border border-line bg-panel p-5">
             {continuando.map((e) => (
               <Tarjeta key={e.anilist_id} entrada={e} novedad={novedades[e.anilist_id]} ancho />
             ))}
@@ -174,17 +174,17 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
 
       <section>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="min-w-0 font-display text-3xl font-black uppercase leading-none text-ink sm:text-4xl">
+          <h2 className="min-w-0 font-display text-3xl font-bold leading-none text-ink sm:text-4xl">
             AnimeList
           </h2>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
+          <span className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
             AniList
           </span>
         </div>
         {visibles.length === 0 ? (
           <EmptyState title="Sin resultados" description="Probá con otro nombre o cambiá el estado." />
         ) : (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {visibles.map((e) => (
               <Tarjeta key={e.anilist_id} entrada={e} novedad={novedades[e.anilist_id]} />
             ))}
@@ -210,11 +210,11 @@ function Tarjeta({
   return (
     <Link
       href={`/anime/${entrada.anilist_id}`}
-      className={`group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         ancho ? "w-40 shrink-0" : ""
       }`}
     >
-      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-[var(--surface-raised)] ring-1 ring-line transition duration-300 group-hover:-translate-y-1 group-hover:ring-accent group-hover:shadow-[var(--glow)]">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
         {entrada.cover_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -226,21 +226,21 @@ function Tarjeta({
           />
         )}
         {sinVer > 0 && (
-          <span className="absolute right-3 top-3 rounded-full bg-accent px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--bg)]">
+          <span className="absolute right-3 top-3 rounded-full bg-accent px-2 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-[var(--on-accent)]">
             +{sinVer}
           </span>
         )}
         {novedad?.enEmision && (
-          <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent backdrop-blur-md">
+          <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink ">
             En emisión
           </span>
         )}
       </div>
       <div className="px-1 pt-4">
-        <h3 className="line-clamp-2 text-lg font-bold leading-[1.12] text-ink transition group-hover:text-accent">
+        <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
           {entrada.title}
         </h3>
-        <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+        <p className="mt-1 font-mono text-[13px] text-faint">
           Ep. {entrada.episodes_watched}
           {total ? ` de ${total}` : ""}
         </p>

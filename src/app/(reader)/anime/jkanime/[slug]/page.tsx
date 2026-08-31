@@ -62,9 +62,9 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
   if (error) {
     return (
       <Surface className="mx-auto max-w-2xl p-8 text-center">
-        <h1 className="font-display text-2xl font-black uppercase text-ink">No se pudo abrir</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">No se pudo abrir</h1>
         <p className="mt-2 text-sm text-red-400">{error}</p>
-        <button onClick={load} className="mt-5 font-mono text-[10px] uppercase text-accent">
+        <button onClick={load} className="mt-5 font-mono text-[11px] text-accent-ink">
           Reintentar
         </button>
       </Surface>
@@ -73,7 +73,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
 
   if (!ficha) {
     return (
-      <p className="py-20 text-center font-mono text-xs uppercase tracking-[0.14em] text-subtle">
+      <p className="py-20 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
         Cargando ficha y episodios...
       </p>
     );
@@ -83,14 +83,14 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
     <div className="space-y-9">
       <Link
         href="/explorar?seccion=animada"
-        className="inline-block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-subtle transition hover:text-accent"
+        className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar anime
       </Link>
 
       <div className="flex flex-col gap-7 sm:flex-row">
         <div className="w-full shrink-0 sm:w-52">
-          <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-line bg-[var(--surface-raised)]">
+          <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)]">
             {ficha.cover_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -105,16 +105,16 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
 
         <div className="min-w-0 flex-1 space-y-5">
           <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
+            <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">
               JKAnime
             </p>
-            <h1 className="mt-2 font-display text-4xl font-black uppercase leading-[0.95] tracking-[-0.04em] text-ink sm:text-5xl">
+            <h1 className="mt-2 font-display text-4xl font-bold leading-[0.95] tracking-[-0.04em] text-ink sm:text-5xl">
               {ficha.title}
             </h1>
             {ficha.alternative_title && ficha.alternative_title !== ficha.title && (
               <p className="mt-2 text-sm text-subtle">{ficha.alternative_title}</p>
             )}
-            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+            <p className="mt-3 font-mono text-[11px] tracking-[0.06em] text-subtle">
               {[
                 ficha.type,
                 ficha.status,
@@ -131,7 +131,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
               {ficha.genres.map((genre) => (
                 <span
                   key={genre}
-                  className="rounded-full border border-line bg-[var(--surface-raised)] px-3 py-1 text-xs text-subtle"
+                  className="rounded-full border border-line bg-[var(--surface-raised)] px-3 py-1 text-[13px] text-subtle"
                 >
                   {genre}
                 </span>
@@ -143,7 +143,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
             <p className="max-w-3xl text-sm leading-6 text-subtle">{ficha.description}</p>
           )}
 
-          <div className="space-y-1 font-mono text-[10px] uppercase tracking-[0.1em] text-subtle">
+          <div className="space-y-1 font-mono text-[11px] tracking-[0.1em] text-subtle">
             {ficha.studios.length > 0 && <p>Estudio: <span className="text-ink">{ficha.studios.join(", ")}</span></p>}
             {ficha.languages && <p>Idioma: <span className="text-ink">{ficha.languages}</span></p>}
             {ficha.aired_at && <p>Emitido: <span className="text-ink">{ficha.aired_at}</span></p>}
@@ -166,7 +166,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
               href={ficha.url_original}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-4 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent transition hover:border-accent"
+              className="inline-flex min-h-11 items-center rounded-md border border-line bg-panel px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:border-line-strong"
             >
               Ver ficha en JKAnime ↗
             </a>
@@ -177,15 +177,15 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
       <section>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-accent">
+            <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">
               Reproducción oficial de la fuente
             </p>
-            <h2 className="mt-1 font-display text-3xl font-black uppercase leading-none text-ink">
+            <h2 className="mt-1 font-display text-3xl font-bold leading-none text-ink">
               Episodios
             </h2>
           </div>
           {ficha.last_page > 1 && (
-            <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-subtle">
+            <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
               Página {ficha.page} de {ficha.last_page}
             </span>
           )}
@@ -207,7 +207,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
                 <EpisodeWatchLink
                   key={episode.id || episode.number}
                   href={`/explorar/jkanime/${ficha.slug}/${episode.number}`}
-                  className="group overflow-hidden rounded-2xl border border-line bg-panel transition hover:-translate-y-0.5 hover:border-accent"
+                  className="group overflow-hidden rounded-[10px] border border-line bg-panel transition hover:border-line-strong"
                 >
                   <div className="relative aspect-video bg-[var(--surface-raised)]">
                     {episode.image_url && (
@@ -227,16 +227,16 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
                     )}
                   </div>
                   <div className="p-3">
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-accent">
+                    <p className="font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink">
                       Episodio {episode.number}
                     </p>
                     <p className="mt-1 line-clamp-2 text-sm font-semibold text-ink">{episode.title}</p>
                     {progreso?.completed ? (
-                      <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-subtle">
+                      <p className="mt-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle">
                         Ya visto
                       </p>
                     ) : progreso && progreso.position_seconds > 0 ? (
-                      <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-accent">
+                      <p className="mt-2 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink">
                         {minuto(progreso.position_seconds)}
                       </p>
                     ) : null}
@@ -252,14 +252,14 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
             <button
               disabled={page <= 1}
               onClick={() => setPage((value) => value - 1)}
-              className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase text-subtle disabled:opacity-40"
+              className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-40"
             >
               ← Anterior
             </button>
             <button
               disabled={page >= ficha.last_page}
               onClick={() => setPage((value) => value + 1)}
-              className="rounded-xl border border-line px-4 py-2 font-mono text-[10px] font-bold uppercase text-subtle disabled:opacity-40"
+              className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-40"
             >
               Siguiente →
             </button>
@@ -267,7 +267,7 @@ export default function FichaJkanimePage(props: { params: Promise<{ slug: string
         )}
       </section>
 
-      <p className="border-t border-line pt-6 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">
+      <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         Ficha y episodios provistos por JKAnime con su permiso
       </p>
     </div>

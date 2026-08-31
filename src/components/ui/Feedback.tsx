@@ -9,7 +9,7 @@ export function Badge({
 }) {
   const tones = {
     neutral: "border-line bg-[var(--surface-soft)] text-subtle",
-    accent: "border-accent bg-[var(--accent-soft)] text-accent",
+    accent: "border-accent bg-[var(--accent-soft)] text-accent-ink",
     success: "border-success bg-[color-mix(in_oklch,var(--success)_12%,transparent)] text-success",
     warning: "border-warning bg-[color-mix(in_oklch,var(--warning)_12%,transparent)] text-warning",
     danger: "border-danger bg-[color-mix(in_oklch,var(--danger)_12%,transparent)] text-danger",
@@ -17,7 +17,7 @@ export function Badge({
 
   return (
     <span
-      className={`inline-flex min-h-6 items-center rounded-full border px-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] ${tones[tone]}`}
+      className={`inline-flex min-h-6 items-center rounded-full border px-2.5 font-mono text-[11px] font-medium tracking-[0.06em] ${tones[tone]}`}
     >
       {children}
     </span>
@@ -27,7 +27,7 @@ export function Badge({
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`block animate-pulse rounded-xl border border-line bg-[var(--surface-raised)] motion-reduce:animate-none ${className}`}
+      className={`block animate-pulse rounded-md bg-raised motion-reduce:animate-none ${className}`}
       aria-hidden="true"
     />
   );
@@ -43,15 +43,15 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-panel px-6 py-12 text-center">
+    <div className="flex min-h-64 flex-col items-center justify-center rounded-[10px] border border-line bg-panel px-6 py-12 text-center">
       <span
-        className="mb-6 grid h-14 w-14 place-items-center rounded-2xl border border-accent bg-[var(--accent-soft)] shadow-[var(--glow)]"
+        className="mb-5 grid h-10 w-10 place-items-center rounded-md border border-line-strong text-subtle"
         aria-hidden="true"
       >
-        <span className="h-2 w-2 rounded-full bg-accent" />
+        <span className="h-3 w-3 rounded-sm border border-current" />
       </span>
-      <h2 className="font-display text-2xl font-bold text-ink">{title}</h2>
-      <p className="mt-2 max-w-md text-sm text-subtle">{description}</p>
+      <h2 className="font-display text-xl font-semibold text-ink">{title}</h2>
+      <p className="mt-2 max-w-md text-sm leading-6 text-subtle">{description}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>
   );

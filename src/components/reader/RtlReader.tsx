@@ -92,20 +92,20 @@ export function RtlReader({
       />
 
       {atEnd && (
-        <div className="absolute bottom-16 z-10 flex flex-col items-center gap-3 rounded-2xl border border-line bg-[color-mix(in_oklch,var(--bg)_90%,transparent)] px-6 py-5 shadow-2xl backdrop-blur-xl">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">Fin del capítulo</p>
+        <div className="absolute bottom-16 z-10 flex flex-col items-center gap-3 rounded-[10px] border border-line bg-[color-mix(in_oklch,var(--bg)_90%,transparent)] px-6 py-5 shadow-2xl ">
+          <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">Fin del capítulo</p>
           <div className="flex gap-2">
             {nextChapter && (
               <EnlaceCapitulo
                 href={`/leer/${nextChapter.id}`}
-                className="inline-flex min-h-11 items-center rounded-xl border border-accent bg-accent px-4 text-xs font-bold uppercase tracking-[0.08em] text-canvas shadow-[var(--glow)] transition hover:bg-[var(--accent-hover)]"
+                className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-4 text-[13px] font-bold tracking-[0.08em] text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)]"
               >
                 ← Capítulo {nextChapter.number}
               </EnlaceCapitulo>
             )}
             <Link
               href={seriesHref ?? `/serie/${seriesSlug}`}
-              className="inline-flex min-h-11 items-center rounded-xl border border-line bg-panel px-4 text-xs font-bold uppercase tracking-[0.08em] text-ink transition hover:border-accent hover:bg-[var(--surface-raised)]"
+              className="inline-flex min-h-11 items-center rounded-md border border-line bg-panel px-4 text-[13px] font-bold tracking-[0.08em] text-ink transition hover:border-line-strong hover:bg-[var(--surface-raised)]"
             >
               Volver a la serie
             </Link>
@@ -117,7 +117,7 @@ export function RtlReader({
         <div className="absolute left-3 top-3 z-10">
           <EnlaceCapitulo
             href={`/leer/${prevChapter.id}`}
-            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] px-3 text-xs font-bold text-ink backdrop-blur-lg transition hover:border-accent hover:bg-panel"
+            className="inline-flex min-h-11 items-center rounded-md border border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] px-3 text-[13px] font-bold text-ink transition-colors hover:border-line-strong hover:bg-panel"
           >
             Capítulo anterior ({prevChapter.number}) →
           </EnlaceCapitulo>

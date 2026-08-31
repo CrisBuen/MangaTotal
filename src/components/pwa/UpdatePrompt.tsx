@@ -75,23 +75,23 @@ export function UpdatePrompt() {
 
   return (
     <div
-      className="fixed bottom-5 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-accent bg-panel p-4 shadow-[var(--glow)] backdrop-blur-xl"
+      className="fixed bottom-5 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-[10px] border border-accent bg-panel p-4  "
       role="status"
       data-od-id="update-prompt"
     >
       <div className="flex items-center gap-4">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent bg-[var(--accent-soft)] text-accent">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-accent bg-[var(--accent-soft)] text-accent-ink">
           <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
             <path d="M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" />
           </svg>
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-ink">Nueva versión disponible</p>
-          <p className="mt-0.5 text-xs text-subtle">Actualizá para tener las últimas mejoras.</p>
+          <p className="mt-0.5 text-[13px] text-subtle">Actualizá para tener las últimas mejoras.</p>
         </div>
         <button
           onClick={update}
-          className="shrink-0 rounded-xl border border-accent bg-accent px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--bg)] transition hover:opacity-90"
+          className="shrink-0 rounded-md border border-accent bg-accent px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
         >
           Actualizar
         </button>

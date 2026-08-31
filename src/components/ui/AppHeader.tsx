@@ -34,38 +34,38 @@ export function AppHeader({
           { href: "/", label: "Inicio", exact: true },
           { href: "/biblioteca", label: "Biblioteca", exact: true },
           { href: "/explorar", label: "Explorar" },
-          { href: "/anime", label: "AniList" },
+          { href: "/anime", label: "Anime" },
           { href: "/noticias", label: "Noticias" },
         ];
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-line bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] shadow-[0_14px_45px_color-mix(in_oklch,var(--bg)_72%,transparent)] backdrop-blur-xl"
+      className="sticky top-0 z-40 border-b border-line bg-panel"
       data-od-id={mode === "admin" ? "admin-header" : "site-header"}
     >
-      <div className="mx-auto flex min-h-[72px] max-w-app flex-wrap items-center gap-x-6 px-4 sm:px-6 lg:px-10"
+      <div className="mx-auto flex min-h-16 max-w-app items-center gap-x-3 px-4 sm:px-6 lg:gap-x-5 lg:px-10"
         style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <Link
           href={mode === "admin" ? "/admin" : "/"}
-          className="group flex min-h-11 shrink-0 items-center gap-3 pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="group flex min-h-11 shrink-0 items-center gap-2 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
           data-od-id="brand-link"
           aria-label={mode === "admin" ? "MangaTotal, administración" : "MangaTotal, biblioteca"}
         >
           <Image
-            src="/icons/mangatotal-logo-v2.png"
+            src="/icons/mangatotal-logo-transparent.png"
             alt=""
-            width={40}
-            height={40}
+            width={34}
+            height={34}
             priority
             unoptimized
-            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-[var(--glow)]"
+            className="h-[34px] w-[34px] shrink-0 object-contain"
           />
           <span className="leading-none">
-            <span className="block font-display text-[1.35rem] font-black uppercase tracking-[-0.045em] text-ink">
+            <span className="block font-display text-lg font-bold tracking-[-0.025em] text-ink lg:text-xl">
               MangaTotal
             </span>
             {mode === "admin" && (
-              <span className="mt-1 hidden font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-accent sm:block">
+              <span className="mt-0.5 hidden font-mono text-[11px] font-medium tracking-[0.08em] text-faint sm:block">
                 Administración
               </span>
             )}
@@ -73,12 +73,17 @@ export function AppHeader({
         </Link>
 
         <nav
-          className={`order-3 w-full items-center gap-3 overflow-x-auto whitespace-nowrap border-t border-line lg:order-none lg:flex lg:w-auto lg:border-0 ${mode === "admin" ? "flex" : "hidden"}`}
+          className={`min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap ${mode === "admin" ? "flex" : "hidden md:flex"}`}
           data-od-id={mode === "admin" ? "admin-navigation" : "primary-navigation"}
           aria-label={mode === "admin" ? "Navegación de administración" : "Navegación principal"}
         >
           {links.map((link) => (
-            <HeaderNavLink key={link.href} href={link.href} exact={link.exact}>
+            <HeaderNavLink
+              key={link.href}
+              href={link.href}
+              exact={link.exact}
+              className={mode !== "admin" && link.href === "/noticias" ? "hidden xl:inline-flex" : ""}
+            >
               {link.label}
             </HeaderNavLink>
           ))}
@@ -92,7 +97,7 @@ export function AppHeader({
               className={buttonStyles({
                 variant: "secondary",
                 size: "sm",
-                className: "hidden lg:inline-flex",
+                className: "hidden xl:inline-flex",
               })}
               data-od-id="more-link"
             >
@@ -111,11 +116,11 @@ export function AppHeader({
               {mode !== "admin" && (
                 <Link
                   href="/perfil"
-                  className="flex min-h-11 items-center gap-2 px-1.5 text-sm text-subtle transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="flex min-h-11 items-center gap-2 rounded-md px-1 text-sm text-subtle transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
                   aria-label={`Abrir perfil de ${user.nickname}`}
                 >
-                  <span className="hidden max-w-32 truncate sm:block">{user.nickname}</span>
-                  <span className="h-9 w-9 overflow-hidden border border-line bg-panel">
+                  <span className="hidden max-w-28 truncate xl:block">{user.nickname}</span>
+                  <span className="h-8 w-8 overflow-hidden rounded-full border border-line-strong bg-raised">
                     {user.avatarPath ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
