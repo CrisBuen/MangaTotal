@@ -6,6 +6,7 @@ import {
   publicAnimeDetail,
   type AniMedia,
 } from "@/lib/anilist";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 const QUERY = `
   query ($id: Int) {
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const data = await aniFetch<{ Media: AniMedia }>(QUERY, { id }, 600);
     if (!data.Media) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-    if (data.Media.isAdult && !(user.showAdultContent || user.isAdmin)) {
+    if (data.Media.isAdult && !(await contenidoAdultoPermitido(user))) {
       return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
     }
 

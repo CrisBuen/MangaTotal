@@ -7,6 +7,7 @@ import {
   publicManga,
   type MdManga,
 } from "@/lib/mangadex";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /**
  * GET /api/externo/series?lang=es&q=&tag=&offset=0
@@ -15,7 +16,7 @@ import {
  */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
-  const seeAdult = Boolean(user?.showAdultContent || user?.isAdmin);
+  const seeAdult = await contenidoAdultoPermitido(user);
 
   const params = req.nextUrl.searchParams;
   const lang = params.get("lang") ?? "es";

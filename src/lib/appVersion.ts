@@ -6,6 +6,12 @@
  * lo traen, así que se las considera versión 1 y también reciben el aviso.
  */
 
+import {
+  androidVariantFromUserAgent,
+  isPlayStoreUserAgent,
+  type AndroidVariant,
+} from "./androidVariant";
+
 export interface AndroidRelease {
   versionCode: number;
   versionName: string;
@@ -20,14 +26,25 @@ export interface AndroidRelease {
 }
 
 /** True si la página corre dentro de la app Android (WebView), no en Chrome. */
-export function isAndroidApp(userAgent = navigator.userAgent): boolean {
-  if (/MangaTotalApp\//.test(userAgent)) return true;
-  // el WebView de Android se identifica con "; wv)" y Chrome no
-  return /Android/.test(userAgent) && /\bwv\b/.test(userAgent);
+function currentUserAgent(): string {
+  return typeof navigator === "undefined" ? "" : navigator.userAgent;
+}
+
+export function androidAppVariant(userAgent = currentUserAgent()): AndroidVariant {
+  return androidVariantFromUserAgent(userAgent);
+}
+
+export function isAndroidApp(userAgent = currentUserAgent()): boolean {
+  return androidAppVariant(userAgent) !== null;
+}
+
+/** True únicamente dentro del AAB instalado desde Google Play. */
+export function isPlayStoreApp(userAgent = currentUserAgent()): boolean {
+  return isPlayStoreUserAgent(userAgent);
 }
 
 /** Versión de la app instalada, o 1 si es anterior al marcador. */
-export function installedVersionCode(userAgent = navigator.userAgent): number {
+export function installedVersionCode(userAgent = currentUserAgent()): number {
   const match = /MangaTotalApp\/(\d+)/.exec(userAgent);
   return match ? parseInt(match[1], 10) : 1;
 }

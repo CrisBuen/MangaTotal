@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
-import { isAndroidApp } from "@/lib/appVersion";
+import { isAndroidApp, isPlayStoreApp } from "@/lib/appVersion";
 
 interface Me {
   nickname?: string;
   show_adult_content?: boolean;
   anime_enabled?: boolean;
+  play_store_app?: boolean;
 }
 
 /**
@@ -23,14 +24,20 @@ interface Me {
 export default function AjustesPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [enAndroid, setEnAndroid] = useState(false);
+  const [enPlay, setEnPlay] = useState(false);
+  const [terminosAnime, setTerminosAnime] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setEnAndroid(isAndroidApp());
+    setEnPlay(isPlayStoreApp());
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setMe(d ?? {}))
+      .then((d) => {
+        setMe(d ?? {});
+        if (d?.play_store_app) setEnPlay(true);
+      })
       .catch(() => setMe({}));
   }, []);
 
@@ -52,12 +59,19 @@ export default function AjustesPage() {
     setTimeout(() => setGuardado(false), 1500);
   }
 
-  async function cambiarAnime(valor: boolean) {
+  async function cambiarAnime(valor: boolean, aceptoTerminos = false) {
+    if (enPlay && valor && !aceptoTerminos) {
+      setTerminosAnime(true);
+      return;
+    }
     setError(null);
     const res = await fetch("/api/auth/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anime_enabled: valor }),
+      body: JSON.stringify({
+        anime_enabled: valor,
+        accept_anime_terms: aceptoTerminos || undefined,
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
@@ -67,6 +81,7 @@ export default function AjustesPage() {
     const data = await res.json();
     setMe((m) => (m ? { ...m, anime_enabled: data.user.anime_enabled } : m));
     setGuardado(true);
+    setTerminosAnime(false);
     setTimeout(() => setGuardado(false), 1500);
   }
 
@@ -100,29 +115,47 @@ export default function AjustesPage() {
           />
         ) : (
           <Surface className="space-y-6 p-6">
-            <div className="flex items-center justify-between gap-6">
-              <div>
-                <p className="text-sm font-bold text-ink">Mostrar contenido +18</p>
-                <p className="mt-1 text-xs leading-5 text-subtle">
-                  Viene apagado. Al encenderlo aparece la sección +18 en Biblioteca y deja de
-                  filtrarse ese contenido en el resto de la app.
-                </p>
+            {enPlay ? (
+              <div className="rounded-2xl border border-line bg-[var(--surface-raised)] p-5">
+                <div className="flex items-start gap-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent bg-[var(--accent-soft)] font-mono text-[10px] font-black text-accent">
+                    +18
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-ink">Disponible en la versión local</p>
+                    <p className="mt-1 text-xs leading-5 text-subtle">
+                      La edición de Google Play no muestra ni entrega contenido +18. Esa sección
+                      está disponible únicamente en MangaTotal Local, descargada desde el sitio
+                      oficial.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={() => cambiarAdulto(!me?.show_adult_content)}
-                className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
-                  me?.show_adult_content ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
-                }`}
-                aria-pressed={Boolean(me?.show_adult_content)}
-                aria-label="Mostrar contenido +18"
-              >
-                <span
-                  className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
-                    me?.show_adult_content ? "translate-x-6" : ""
+            ) : (
+              <div className="flex items-center justify-between gap-6">
+                <div>
+                  <p className="text-sm font-bold text-ink">Mostrar contenido +18</p>
+                  <p className="mt-1 text-xs leading-5 text-subtle">
+                    Viene apagado. Al encenderlo aparece la sección +18 en Biblioteca y deja de
+                    filtrarse ese contenido en el resto de la app.
+                  </p>
+                </div>
+                <button
+                  onClick={() => cambiarAdulto(!me?.show_adult_content)}
+                  className={`min-h-11 w-16 shrink-0 rounded-full border border-line p-1 transition ${
+                    me?.show_adult_content ? "bg-accent shadow-[var(--glow)]" : "bg-panel"
                   }`}
-                />
-              </button>
-            </div>
+                  aria-pressed={Boolean(me?.show_adult_content)}
+                  aria-label="Mostrar contenido +18"
+                >
+                  <span
+                    className={`block h-7 w-7 rounded-full border border-line bg-ink transition ${
+                      me?.show_adult_content ? "translate-x-6" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
             {enAndroid && (
               <div className="flex items-center justify-between gap-6 border-t border-line pt-6">
                 <div>
@@ -157,6 +190,57 @@ export default function AjustesPage() {
           </Surface>
         )}
       </section>
+
+      {terminosAnime && (
+        <>
+          <button
+            className="fixed inset-0 z-[80] bg-black/70"
+            onClick={() => setTerminosAnime(false)}
+            aria-label="Cerrar condiciones"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="anime-terms-title"
+            className="fixed inset-x-4 bottom-4 z-[81] mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-3xl border border-accent bg-panel p-6 shadow-[var(--glow)] sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
+          >
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
+              Antes de activar
+            </p>
+            <h2 id="anime-terms-title" className="mt-2 font-display text-3xl font-black text-ink">
+              Condiciones de la sección animada
+            </h2>
+            <div className="mt-4 space-y-3 text-sm leading-6 text-subtle">
+              <p>
+                La sección animada muestra catálogos y reproductores proporcionados por fuentes
+                externas autorizadas. MangaTotal no aloja los videos.
+              </p>
+              <p>
+                Al continuar confirmás que usarás la sección respetando las normas aplicables,
+                las condiciones de cada fuente y los derechos de sus titulares.
+              </p>
+              <p>
+                Podés desactivarla en cualquier momento. La edición de Google Play mantiene
+                bloqueado todo contenido +18 aunque aceptes estas condiciones.
+              </p>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => setTerminosAnime(false)}
+                className="min-h-11 rounded-xl border border-line px-5 text-[11px] font-bold uppercase tracking-[0.1em] text-subtle"
+              >
+                Rechazar
+              </button>
+              <button
+                onClick={() => cambiarAnime(true, true)}
+                className="min-h-11 rounded-xl border border-accent bg-accent px-5 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--bg)]"
+              >
+                Aceptar y activar
+              </button>
+            </div>
+          </section>
+        </>
+      )}
 
       <section>
         <h2 className="mb-5 font-display text-3xl font-black uppercase leading-none text-ink">

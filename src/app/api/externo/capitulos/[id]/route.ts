@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 import { mdFetch, publicChapter, type MdChapter } from "@/lib/mangadex";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,6 +43,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     }
 
     const mangaRel = chapterRes.data.relationships.find((r) => r.type === "manga");
+    const contentRating = mangaRel?.attributes?.contentRating;
+    if (
+      !(await contenidoAdultoPermitido(user)) &&
+      (contentRating === "erotica" || contentRating === "pornographic")
+    ) {
+      return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
+    }
     const pages = atHome.chapter.data.map((file, i) => ({
       pageNumber: i + 1,
       url: `${atHome.baseUrl}/data/${atHome.chapter.hash}/${file}`,

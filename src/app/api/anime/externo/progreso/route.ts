@@ -3,6 +3,7 @@ import { esFuenteAnimeExterna, type FuenteAnimeExterna } from "@/lib/animeExtern
 import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 import { ErrorJkanime, esAdultoJkanime } from "@/lib/jkanime";
 import { ErrorTioanime, esAdultoTioanime } from "@/lib/tioanime";
 
@@ -10,7 +11,7 @@ const MAX_SECONDS = 12 * 60 * 60;
 
 async function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
     return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
   return null;
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
       completed: false,
     });
   }
-  if (anime.isAdult && !(user.showAdultContent || user.isAdmin)) {
+  if (anime.isAdult && !(await contenidoAdultoPermitido(user))) {
     return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
   }
 
@@ -155,7 +156,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: message }, { status });
     }
   }
-  if (isAdult && !(user.showAdultContent || user.isAdmin)) {
+  if (isAdult && !(await contenidoAdultoPermitido(user))) {
     return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
   }
 

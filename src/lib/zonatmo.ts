@@ -22,6 +22,7 @@ export const TMO_SUBIDAS = `${TMO_WEB}/wp-content/uploads`;
 export const TMO_NOMBRE = "ZonaTMO";
 
 import { traerJson, fuenteAndroidDisponible, fuenteNativaDisponible } from "./fuenteNativa";
+import { isPlayStoreApp } from "./appVersion";
 
 /** Ahora funciona en cualquier plataforma: el servidor lo intenta primero. */
 export function tmoDisponible(): boolean {
@@ -264,6 +265,11 @@ function aSerie(item: ItemApi): SerieTmo {
   };
 }
 
+/** Google Play no puede mostrar ni entregar obras marcadas como eróticas. */
+function permitidaEnEstaEdicion(item: Pick<ItemApi, "is_erotic">): boolean {
+  return !isPlayStoreApp() || item.is_erotic !== 1;
+}
+
 // ── catálogo ─────────────────────────────────────────────────────────────
 
 const POR_PAGINA = 24;
@@ -290,7 +296,7 @@ export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}, fresco
     pagination: { total: number; total_pages: number; current_page: number };
   }>(`/listing/manga?${qs.toString()}`, fresco);
 
-  const series = (data.items ?? []).map(aSerie);
+  const series = (data.items ?? []).filter(permitidaEnEstaEdicion).map(aSerie);
   const totalPaginas = data.pagination?.total_pages ?? page;
   return {
     series,
@@ -304,7 +310,7 @@ export async function catalogoTmo(page: number, filtros: FiltrosTmo = {}, fresco
 /** Lo más leído de la semana o del mes, tal como lo publican ellos. */
 export async function popularesTmo(rango: "week" | "month" = "week") {
   const data = await pedir<ItemApi[]>(`/tops/views/${rango}`);
-  return (Array.isArray(data) ? data : []).map(aSerie);
+  return (Array.isArray(data) ? data : []).filter(permitidaEnEstaEdicion).map(aSerie);
 }
 
 // ── ficha de la serie ────────────────────────────────────────────────────
@@ -344,6 +350,10 @@ export async function serieTmo(tipo: string, id: string, slug: string) {
     pedir<ItemApi>(`/single/manga/${slug}`),
     todosLosCapitulos(slug),
   ]);
+
+  if (!permitidaEnEstaEdicion(ficha)) {
+    throw new Error("Este contenido no está disponible en la edición de Google Play");
+  }
 
   const generos = (ficha.genres ?? [])
     .map((g) => MAPA_GENEROS.get(String(g)))
@@ -434,6 +444,9 @@ interface CapituloDetalleApi {
  */
 export async function capituloTmo(slugSerie: string, slugCapitulo: string) {
   const data = await pedir<CapituloDetalleApi>(`/single/manga/${slugSerie}/${slugCapitulo}`);
+  if (!permitidaEnEstaEdicion(data.manga)) {
+    throw new Error("Este contenido no está disponible en la edición de Google Play");
+  }
   const c = data.chapter;
 
   const paginas = (c.images ?? [])

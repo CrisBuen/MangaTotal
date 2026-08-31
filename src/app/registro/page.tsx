@@ -10,6 +10,7 @@ export default function RegistroPage() {
   const router = useRouter();
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +33,7 @@ export default function RegistroPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: nickname.trim(), password, birthdate }),
+        body: JSON.stringify({ nickname: nickname.trim(), password, birthdate, email }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -72,6 +73,21 @@ export default function RegistroPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             required
+          />
+        </Field>
+        <Field
+          id="register-email"
+          label="Correo electrónico (opcional)"
+          hint="Sirve para verificar tu cuenta y recuperar la contraseña."
+        >
+          <input
+            id="register-email"
+            className={inputClass}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            inputMode="email"
           />
         </Field>
         <Field id="register-birthdate" label="Fecha de nacimiento" hint="Solo se usa para precargar tus preferencias.">

@@ -7,6 +7,7 @@ import {
   publicAnimeCard,
   type AniPage,
 } from "@/lib/anilist";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 const SORTS: Record<string, string> = {
   popular: "POPULARITY_DESC",
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
   const params = req.nextUrl.searchParams;
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   const search = params.get("q")?.trim() || undefined;
   const sortKey = params.get("sort") ?? "popular";
@@ -77,7 +79,7 @@ export async function GET(req: NextRequest) {
     season: season && SEASONS.has(season) ? season : undefined,
     seasonYear: Number.isFinite(year) ? year : undefined,
     // el contenido adulto solo si el perfil lo permite
-    isAdult: user.showAdultContent || user.isAdmin ? undefined : false,
+    isAdult: verAdulto ? undefined : false,
   };
 
   try {

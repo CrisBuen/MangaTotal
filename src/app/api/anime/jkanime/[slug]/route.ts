@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { ErrorJkanime, fichaJkanime } from "@/lib/jkanime";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
     return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
     const ficha = await fichaJkanime(slug, Number(req.nextUrl.searchParams.get("page")) || 1);
     if (
       ficha.genres.some((genre) => genre.toLowerCase() === "hentai") &&
-      !(user.showAdultContent || user.isAdmin)
+      !(await contenidoAdultoPermitido(user))
     ) {
       return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
     }

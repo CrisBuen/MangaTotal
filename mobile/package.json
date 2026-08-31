@@ -4,13 +4,15 @@
   "private": true,
   "description": "Aplicación Android de MangaTotal (Capacitor)",
   "scripts": {
-    "add:android": "cap add android && npm run patch",
+    "add:android": "cap add android && npm run patch:local",
     "sync": "cap sync android",
     "open": "cap open android",
-    "build:apk": "npm run patch && cd android && gradlew.bat assembleDebug",
-    "build:playstore": "npm run patch && cd android && gradlew.bat bundleRelease",
+    "build:apk": "npm run patch:local && cd android && gradlew.bat assembleDebug",
+    "build:playstore": "npm run patch:play && cd android && gradlew.bat bundleRelease",
     "publicar:apk": "npm run build:apk && node scripts/publicar-apk.mjs",
-    "patch": "node scripts/patch.mjs"
+    "patch": "npm run patch:local",
+    "patch:local": "node scripts/patch.mjs --variant local",
+    "patch:play": "node scripts/patch.mjs --variant play"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0"

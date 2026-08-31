@@ -8,6 +8,7 @@ import {
   publicAnimeDetail,
   type AniMedia,
 } from "@/lib/anilist";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
   try {
     const data = await aniFetch<{ Media: AniMedia }>(QUERY, { id }, 600);
     if (!data.Media) notFound();
-    if (data.Media.isAdult && !(user?.showAdultContent || user?.isAdmin)) notFound();
+    if (data.Media.isAdult && !(await contenidoAdultoPermitido(user))) notFound();
     anime = publicAnimeDetail(data.Media);
   } catch {
     notFound();

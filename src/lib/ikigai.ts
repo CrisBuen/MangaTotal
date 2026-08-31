@@ -19,6 +19,7 @@ import {
   traerDocumento,
   traerTexto,
 } from "./fuenteNativa";
+import { isPlayStoreApp } from "./appVersion";
 
 export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
 const IKIGAI_IMAGENES = "https://image2.ikigaimangas.cloud";
@@ -47,6 +48,19 @@ export const IKIGAI_GENEROS = [
   { id: "906409527934582787", name: "Adulto" },
   { id: "906409351272792067", name: "+18" },
 ];
+
+const IKIGAI_GENEROS_ADULTOS = new Set([
+  "906409527934582787",
+  "906409351272792067",
+]);
+
+function textoMarcaContenidoAdulto(texto: string): boolean {
+  return /(?:^|\s)(?:adulto|adult|\+18)(?:\s|$)/iu.test(texto.replace(/\s+/g, " "));
+}
+
+function contenidoNoDisponible(): never {
+  throw new Error("Este contenido no está disponible en la edición de Google Play");
+}
 
 // Ordenamientos que acepta su biblioteca
 export const IKIGAI_ORDENES = [
@@ -237,6 +251,7 @@ async function buscarIkigai(
   const todas = await indiceIkigai();
   const resultados = todas
     .filter((serie) => {
+      if (isPlayStoreApp() && serie.is_mature === true) return false;
       const nombres = [
         serie.name ?? "",
         ...(Array.isArray(serie.other_names)
@@ -281,6 +296,9 @@ async function buscarIkigai(
 
 /** Catálogo paginado (20 obras por página en su biblioteca). */
 export async function catalogoIkigai(page: number, filtros: FiltrosIkigai = {}) {
+  if (isPlayStoreApp() && filtros.genero && IKIGAI_GENEROS_ADULTOS.has(filtros.genero)) {
+    return { series: [] as SerieIkigai[], page, hayMas: false };
+  }
   if (filtros.q?.trim()) {
     return buscarIkigai(filtros.q.trim(), page, filtros);
   }
@@ -315,6 +333,7 @@ export async function catalogoIkigai(page: number, filtros: FiltrosIkigai = {}) 
     const href = a.getAttribute("href") ?? "";
     const slug = href.split("/series/")[1]?.replace(/\/$/, "");
     if (!slug || vistos.has(slug)) continue;
+    if (isPlayStoreApp() && textoMarcaContenidoAdulto(a.textContent ?? "")) continue;
     vistos.add(slug);
 
     // el texto de la tarjeta viene como "TipoTítuloGénero1Género2"
@@ -386,6 +405,14 @@ export async function serieIkigai(slug: string) {
 
   const doc = primera!;
   const titulo = doc.querySelector("h1")?.textContent?.trim() ?? "Sin título";
+  const generos = Array.from(doc.querySelectorAll('a[href*="generos"]'))
+    .map((g) => g.textContent?.trim() ?? "")
+    .filter(Boolean)
+    .slice(0, 10);
+
+  if (isPlayStoreApp() && generos.some(textoMarcaContenidoAdulto)) {
+    contenidoNoDisponible();
+  }
 
   // la portada es la imagen cuyo texto alternativo es el título de la serie
   const portada =
@@ -402,10 +429,7 @@ export async function serieIkigai(slug: string) {
     title: titulo,
     cover_url: portada,
     description: parrafos[0] && parrafos[0].length > 60 ? parrafos[0] : null,
-    generos: Array.from(doc.querySelectorAll('a[href*="generos"]'))
-      .map((g) => g.textContent?.trim() ?? "")
-      .filter(Boolean)
-      .slice(0, 10),
+    generos,
     // vienen del más nuevo al más viejo: se invierte para leer en orden
     capitulos: capitulos.reverse(),
     url_original: `${IKIGAI_WEB}/series/${slug}/`,
@@ -426,6 +450,19 @@ function fechaDelTexto(texto: string): string | null {
 export async function capituloIkigai(chapterId: string) {
   // /capitulo/<id> redirige al visor, en otro dominio
   const doc = await traerDocumento(`${IKIGAI_WEB}/capitulo/${chapterId}/`);
+
+  // Es una segunda barrera para enlaces profundos. La ficha sigue siendo la
+  // fuente principal de la clasificación, pero Qwik suele serializarla también
+  // dentro del documento del visor.
+  if (isPlayStoreApp()) {
+    const html = doc.documentElement?.innerHTML ?? "";
+    if (
+      /["']is_mature["']\s*:\s*true/i.test(html) ||
+      Array.from(IKIGAI_GENEROS_ADULTOS).some((id) => html.includes(id))
+    ) {
+      contenidoNoDisponible();
+    }
+  }
 
   const paginas: string[] = [];
   for (const el of Array.from(doc.querySelectorAll("*"))) {

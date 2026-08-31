@@ -1,6 +1,7 @@
 import { unsealData } from "iron-session";
 import { NextRequest, NextResponse } from "next/server";
 import { origenPermitido } from "@/lib/requestSecurity";
+import { isPlayStoreUserAgent } from "@/lib/androidVariant";
 
 const COOKIE_NAME = "lector_total_session";
 const TTL = 60 * 60 * 24 * 30;
@@ -20,8 +21,14 @@ const PUBLIC_EXACT = new Set([
   "/acerca-de",
   "/login",
   "/registro",
+  "/recuperar",
+  "/restablecer",
+  "/verificar-correo",
   "/api/auth/login",
   "/api/auth/register",
+  "/api/auth/recovery/request",
+  "/api/auth/recovery/reset",
+  "/api/auth/email/verify",
   "/api/analytics",
   "/api/series",
   "/api/announcements",
@@ -54,6 +61,19 @@ interface SessionData {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const desdePlay = isPlayStoreUserAgent(req.headers.get("user-agent") ?? "");
+
+  // La edición de Play es de lectura: la administración queda fuera de ese
+  // binario incluso si inicia sesión una cuenta administradora.
+  if (desdePlay && (pathname.startsWith("/admin") || pathname.startsWith("/api/admin"))) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "No disponible en la edición de Google Play" }, { status: 404 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/biblioteca";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
 
   if (pathname.startsWith("/api/") && !origenPermitido(req)) {
     return NextResponse.json({ error: "Origen de solicitud no permitido" }, { status: 403 });

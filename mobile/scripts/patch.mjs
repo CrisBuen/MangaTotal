@@ -1,15 +1,27 @@
 import fs from "fs";
 
+const argumentoVariante = process.argv.indexOf("--variant");
+const variante = argumentoVariante >= 0 ? process.argv[argumentoVariante + 1] : "local";
+if (variante !== "local" && variante !== "play") {
+  throw new Error('Variante inválida. Usá "local" o "play".');
+}
+
 /**
  * La carpeta android/ la regenera Capacitor y no se versiona, así que los
  * ajustes nativos viven en patches/ y se vuelven a copiar acá.
  */
 const copias = [
-  ["patches/MainActivity.java", "android/app/src/main/java/app/mangatotal/android/MainActivity.java"],
+  [
+    variante === "play" ? "patches/play/MainActivity.java" : "patches/MainActivity.java",
+    "android/app/src/main/java/app/mangatotal/android/MainActivity.java",
+  ],
   ["patches/FuentesPlugin.java", "android/app/src/main/java/app/mangatotal/android/FuentesPlugin.java"],
   ["patches/DesafioActivity.java", "android/app/src/main/java/app/mangatotal/android/DesafioActivity.java"],
   ["patches/PantallaPlugin.java", "android/app/src/main/java/app/mangatotal/android/PantallaPlugin.java"],
-  ["patches/AndroidManifest.xml", "android/app/src/main/AndroidManifest.xml"],
+  [
+    variante === "play" ? "patches/play/AndroidManifest.xml" : "patches/AndroidManifest.xml",
+    "android/app/src/main/AndroidManifest.xml",
+  ],
   ["patches/file_paths.xml", "android/app/src/main/res/xml/file_paths.xml"],
 ];
 
@@ -28,7 +40,11 @@ for (const [origen, destino] of copias) {
  *
  * Vive acá porque android/ no se versiona y Capacitor la regenera.
  */
-const version = JSON.parse(fs.readFileSync("version.json", "utf8"));
+const versiones = JSON.parse(fs.readFileSync("version.json", "utf8"));
+const version = variante === "play" ? versiones.playStore : versiones;
+if (!version?.versionCode || !version?.versionName) {
+  throw new Error("Falta la versión de la variante " + variante + " en version.json");
+}
 
 const gradle = "android/app/build.gradle";
 fs.writeFileSync(
@@ -38,11 +54,18 @@ fs.writeFileSync(
     .replace(/versionCode\s+\d+/, `versionCode ${version.versionCode}`)
     .replace(/versionName\s+"[^"]*"/, `versionName "${version.versionName}"`)
 );
-console.log("versión:", version.versionName, "(código " + version.versionCode + ")");
+console.log(
+  "variante:",
+  variante,
+  "· versión:",
+  version.versionName,
+  "(código " + version.versionCode + ")",
+);
 
 const configPath = "capacitor.config.json";
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-config.android.appendUserAgent = `MangaTotalApp/${version.versionCode}`;
+config.android.appendUserAgent =
+  `MangaTotalApp/${version.versionCode} MangaTotalChannel/${variante}`;
 const configTexto = JSON.stringify(config, null, 2) + "\n";
 fs.writeFileSync(configPath, configTexto);
 

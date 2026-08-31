@@ -1,8 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 import { ExternalReader } from "@/components/reader/ExternalReader";
 import {
   LANG_GROUPS,
+  allowedRatings,
   groupChaptersByNumber,
   mdFetch,
   publicChapter,
@@ -33,6 +35,7 @@ export default async function LeerExternoPage(props: {
   let chapter;
   let atHome: AtHome;
   let seriesId: string | null = null;
+  let contentRating: unknown = null;
 
   try {
     const [chapterRes, atHomeRes] = await Promise.all([
@@ -44,8 +47,15 @@ export default async function LeerExternoPage(props: {
     ]);
     chapter = publicChapter(chapterRes.data);
     atHome = atHomeRes;
-    seriesId = chapterRes.data.relationships.find((r) => r.type === "manga")?.id ?? null;
+    const manga = chapterRes.data.relationships.find((r) => r.type === "manga");
+    seriesId = manga?.id ?? null;
+    contentRating = manga?.attributes?.contentRating;
   } catch {
+    notFound();
+  }
+
+  const verAdulto = await contenidoAdultoPermitido(user);
+  if (!verAdulto && (contentRating === "erotica" || contentRating === "pornographic")) {
     notFound();
   }
 
@@ -79,7 +89,7 @@ export default async function LeerExternoPage(props: {
         qs.set("order[chapter]", "asc");
         qs.append("includes[]", "scanlation_group");
         for (const l of langs) qs.append("translatedLanguage[]", l);
-        for (const r of ["safe", "suggestive", "erotica", "pornographic"]) {
+        for (const r of allowedRatings(verAdulto)) {
           qs.append("contentRating[]", r);
         }
         const page = await mdFetch<{ data: MdChapter[]; total: number }>(

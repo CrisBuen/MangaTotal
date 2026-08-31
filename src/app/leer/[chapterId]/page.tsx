@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Reader } from "@/components/reader/Reader";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 export default async function LeerPage(props: {
   params: Promise<{ chapterId: string }>;
@@ -24,7 +25,7 @@ export default async function LeerPage(props: {
     },
   });
   if (!chapter) notFound();
-  if (chapter.series.type === "adult" && !user.showAdultContent && !user.isAdmin) notFound();
+  if (chapter.series.type === "adult" && !(await contenidoAdultoPermitido(user))) notFound();
 
   const [prev, next] = await Promise.all([
     db.chapter.findFirst({

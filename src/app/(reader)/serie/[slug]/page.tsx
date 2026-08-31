@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { FavoriteButton } from "@/components/library/FavoriteButton";
 import { buttonStyles } from "@/components/ui/Button";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 const STATUS_LABEL: Record<string, string> = {
   ongoing: "En curso",
@@ -90,7 +91,7 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
   });
 
   if (!series) notFound();
-  if (series.type === "adult" && !user?.showAdultContent && !user?.isAdmin) notFound();
+  if (series.type === "adult" && !(await contenidoAdultoPermitido(user))) notFound();
 
   const bookmark = series.progress[0] ?? null;
 

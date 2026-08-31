@@ -10,6 +10,7 @@ import {
   installedVersionCode,
   isAndroidApp,
   isDesktopApp,
+  isPlayStoreApp,
   puedeActualizarseSola,
 } from "@/lib/appVersion";
 
@@ -66,7 +67,7 @@ export function UpdateChecker() {
 
   useEffect(() => {
     (async () => {
-      const enApp = isAndroidApp() || isDesktopApp();
+      const enApp = (isAndroidApp() && !isPlayStoreApp()) || isDesktopApp();
       setInApp(enApp);
       setInstalled(isDesktopApp() ? await installedDesktopVersion() : installedVersionCode());
       if (enApp) check();

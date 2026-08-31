@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /**
  * GET /api/tags?tipo=normal|adult — tags en uso, con cuántas series
@@ -12,7 +13,7 @@ import { db } from "@/lib/db";
  */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
-  const verAdulto = Boolean(user?.showAdultContent || user?.isAdmin);
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   const tipo = req.nextUrl.searchParams.get("tipo");
   const soloDeEsteTipo = tipo === "normal" || tipo === "adult";

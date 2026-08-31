@@ -8,6 +8,7 @@ import {
   installedVersionCode,
   isAndroidApp,
   isDismissed,
+  isPlayStoreApp,
 } from "@/lib/appVersion";
 
 interface Novedad {
@@ -29,7 +30,7 @@ export function AndroidUpdateBanner() {
   const [release, setRelease] = useState<Novedad | null>(null);
 
   useEffect(() => {
-    if (!isAndroidApp()) return;
+    if (!isAndroidApp() || isPlayStoreApp()) return;
     (async () => {
       const ultima = await fetchLatestRelease();
       if (!ultima) return;

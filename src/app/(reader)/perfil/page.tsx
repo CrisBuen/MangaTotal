@@ -15,6 +15,8 @@ interface Me {
   preferred_reading_mode: string;
   avatar_path: string | null;
   birthdate: string | null;
+  email: string | null;
+  email_verified: boolean;
 }
 
 const inputClass = fieldControlClass;
@@ -22,6 +24,10 @@ const inputClass = fieldControlClass;
 export default function PerfilPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [saved, setSaved] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountBirthdate, setAccountBirthdate] = useState("");
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -36,7 +42,11 @@ export default function PerfilPage() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then(setMe)
+      .then((data) => {
+        setMe(data);
+        setAccountEmail(data.email ?? "");
+        setAccountBirthdate(data.birthdate ? String(data.birthdate).slice(0, 10) : "");
+      })
       .catch(() => {});
   }, []);
 
@@ -127,6 +137,44 @@ export default function PerfilPage() {
     } finally {
       setPwBusy(false);
     }
+  }
+
+  async function saveAccount(event: React.FormEvent) {
+    event.preventDefault();
+    setAccountBusy(true);
+    setAccountMessage(null);
+    const res = await fetch("/api/auth/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: accountEmail, birthdate: accountBirthdate }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setAccountBusy(false);
+    if (!res.ok) {
+      setAccountMessage(data.error ?? "No se pudo guardar");
+      return;
+    }
+    setMe((current) => current ? { ...current, ...data.user } : current);
+    setAccountMessage(
+      data.user.email
+        ? data.email_verification_sent
+          ? "Guardado. Enviamos un enlace de verificación a tu correo."
+          : data.user.email_verified
+            ? "Datos guardados."
+            : "Guardado. Falta configurar o reenviar la verificación del correo."
+        : "Datos guardados.",
+    );
+  }
+
+  async function resendVerification() {
+    setAccountBusy(true);
+    setAccountMessage(null);
+    const res = await fetch("/api/auth/email/send-verification", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setAccountBusy(false);
+    setAccountMessage(
+      res.ok ? "Enviamos un nuevo enlace de verificación." : data.error ?? "No se pudo enviar.",
+    );
   }
 
   if (!me) return <p className="py-12 text-center text-subtle">Cargando…</p>;
@@ -231,6 +279,62 @@ export default function PerfilPage() {
           .
         </p>
       </Surface>
+
+      <form
+        onSubmit={saveAccount}
+        className="space-y-5 rounded-2xl border border-line bg-panel p-6"
+        data-od-id="account-recovery-form"
+      >
+        <div>
+          <h2 className="text-3xl text-ink">Datos de recuperación</h2>
+          <p className="mt-2 text-xs leading-5 text-subtle">
+            El correo es opcional, pero debe verificarse para recuperar una contraseña perdida.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+              Correo electrónico
+            </label>
+            <input
+              className={inputClass}
+              type="email"
+              value={accountEmail}
+              onChange={(event) => setAccountEmail(event.target.value)}
+              autoComplete="email"
+              placeholder="Opcional"
+            />
+            {me.email && (
+              <p className={`mt-2 text-xs ${me.email_verified ? "text-success" : "text-subtle"}`}>
+                {me.email_verified ? "Correo verificado" : "Correo pendiente de verificación"}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-ink">
+              Fecha de nacimiento
+            </label>
+            <input
+              className={inputClass}
+              type="date"
+              value={accountBirthdate}
+              onChange={(event) => setAccountBirthdate(event.target.value)}
+              required
+            />
+          </div>
+        </div>
+        {accountMessage && <p className="text-sm leading-6 text-subtle">{accountMessage}</p>}
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit" variant="primary" disabled={accountBusy}>
+            {accountBusy ? "Guardando…" : "Guardar datos"}
+          </Button>
+          {me.email && !me.email_verified && (
+            <Button onClick={resendVerification} disabled={accountBusy}>
+              Reenviar verificación
+            </Button>
+          )}
+        </div>
+      </form>
 
       {/* cambio de contraseña */}
       <form

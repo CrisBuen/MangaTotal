@@ -5,10 +5,11 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ErrorJkanime, esAdultoJkanime } from "@/lib/jkanime";
 import { ErrorTioanime, esAdultoTioanime } from "@/lib/tioanime";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 async function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
     return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
   return null;
@@ -20,12 +21,13 @@ export async function GET() {
   const rechazo = await acceso(user);
   if (rechazo) return rechazo;
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   const entradas = await db.externalAnime.findMany({
     where: {
       userId: user.id,
       saved: true,
-      ...(user.showAdultContent || user.isAdmin ? {} : { isAdult: false }),
+      ...(verAdulto ? {} : { isAdult: false }),
     },
     orderBy: { updatedAt: "desc" },
     include: {
@@ -44,6 +46,7 @@ export async function PUT(req: NextRequest) {
   const rechazo = await acceso(user);
   if (rechazo) return rechazo;
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   let body: {
     source?: string;
@@ -81,7 +84,7 @@ export async function PUT(req: NextRequest) {
     const message = error instanceof Error ? error.message : "No se pudo verificar el anime";
     return NextResponse.json({ error: message }, { status });
   }
-  if (isAdult && !(user.showAdultContent || user.isAdmin)) {
+  if (isAdult && !verAdulto) {
     return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
   }
 

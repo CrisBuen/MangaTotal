@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import {
   LANG_GROUPS,
+  allowedRatings,
   groupChaptersByNumber,
   mdFetch,
   publicChapter,
@@ -9,6 +10,7 @@ import {
   type MdChapter,
   type MdManga,
 } from "@/lib/mangadex";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -18,7 +20,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();
-  const seeAdult = Boolean(user?.showAdultContent || user?.isAdmin);
+  const seeAdult = await contenidoAdultoPermitido(user);
 
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) {
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       qs.set("order[chapter]", "asc");
       qs.append("includes[]", "scanlation_group");
       for (const l of langs) qs.append("translatedLanguage[]", l);
-      for (const r of ["safe", "suggestive", "erotica", "pornographic"]) {
+      for (const r of allowedRatings(seeAdult)) {
         qs.append("contentRating[]", r);
       }
 

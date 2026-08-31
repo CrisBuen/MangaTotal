@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /** GET /api/series/:slug/chapters — capítulos con progreso del usuario actual. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
   const { slug } = await ctx.params;
   const series = await db.series.findUnique({ where: { slug } });
   if (!series) return NextResponse.json({ error: "Serie no encontrada" }, { status: 404 });
-  if (series.type === "adult" && !user?.showAdultContent && !user?.isAdmin) {
+  if (series.type === "adult" && !(await contenidoAdultoPermitido(user))) {
     return NextResponse.json({ error: "Serie no encontrada" }, { status: 404 });
   }
 

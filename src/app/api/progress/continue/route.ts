@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /** GET /api/progress/continue — sección "Continuar leyendo". */
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   const rows = await db.readingProgress.findMany({
     where: {
       userId: user.id,
-      ...(user.showAdultContent ? {} : { series: { type: "normal" } }),
+      ...(verAdulto ? {} : { series: { type: "normal" } }),
     },
     orderBy: { updatedAt: "desc" },
     take: 12,

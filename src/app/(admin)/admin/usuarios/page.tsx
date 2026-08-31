@@ -9,6 +9,8 @@ interface AdminUser {
   nickname: string;
   is_admin: boolean;
   show_adult_content: boolean;
+  email: string | null;
+  email_verified: boolean;
   created_at: string;
 }
 
@@ -77,6 +79,7 @@ export default function AdminUsuariosPage() {
               <tr>
                 <th className="px-4 py-2.5">Apodo</th>
                 <th className="px-4 py-2.5">Rol</th>
+                <th className="px-4 py-2.5">Correo</th>
                 <th className="px-4 py-2.5">+18</th>
                 <th className="px-4 py-2.5">Creado</th>
                 <th className="px-4 py-2.5"></th>
@@ -96,6 +99,18 @@ export default function AdminUsuariosPage() {
                       </span>
                     ) : (
                       <span className="text-subtle">Lector</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-subtle">
+                    {u.email ? (
+                      <span>
+                        {u.email}
+                        <span className="ml-2 text-[10px] uppercase">
+                          {u.email_verified ? "verificado" : "pendiente"}
+                        </span>
+                      </span>
+                    ) : (
+                      "—"
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-subtle">

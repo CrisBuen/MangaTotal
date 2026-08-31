@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 import { catalogoCwServidor } from "@/lib/catharsisServidor";
 import { db } from "@/lib/db";
 import { allowedRatings, coverUrl, mdFetch, pickText, type MdManga } from "@/lib/mangadex";
@@ -252,7 +253,7 @@ async function deIkigai(): Promise<SerieAlAzar | null> {
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
-  const verAdulto = Boolean(user?.showAdultContent);
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   // la que acaba de salir, para no repetirla dos veces seguidas
   const evitar = req.nextUrl.searchParams.get("evitar") ?? "";

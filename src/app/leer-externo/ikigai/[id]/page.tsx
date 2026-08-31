@@ -5,6 +5,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
 import { IKIGAI_NOMBRE, capituloIkigai, ikigaiDisponible, serieIkigai } from "@/lib/ikigai";
+import { isPlayStoreApp } from "@/lib/appVersion";
 
 interface Vecino {
   id: number;
@@ -27,12 +28,18 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
 
   const cargar = useCallback(async () => {
     try {
+      // En Play la ficha se valida antes de pedir una sola página. Así un
+      // enlace profundo tampoco puede saltarse la clasificación de la obra.
+      if (isPlayStoreApp() && !slug) {
+        throw new Error("Abrí este capítulo desde la ficha de la serie");
+      }
+      const fichaValidada = isPlayStoreApp() && slug ? await serieIkigai(slug) : null;
       const cap = await capituloIkigai(chapterId);
       if (cap.paginas.length === 0) throw new Error("Este capítulo no tiene páginas");
       setPaginas(cap.paginas);
 
       if (slug) {
-        const ficha = await serieIkigai(slug).catch(() => null);
+        const ficha = fichaValidada ?? await serieIkigai(slug).catch(() => null);
         const lista = ficha?.capitulos ?? [];
         const i = lista.findIndex((c) => c.id === chapterId);
         if (i >= 0) {

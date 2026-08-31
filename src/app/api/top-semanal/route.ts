@@ -4,6 +4,7 @@ import { catalogoCwServidor } from "@/lib/catharsisServidor";
 import { db } from "@/lib/db";
 import { allowedRatings, coverUrl, mdFetch, pickText, type MdManga } from "@/lib/mangadex";
 import { TMO_TIPOS, textoTmo } from "@/lib/zonatmo";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /**
  * El top de la semana: series destacadas de todas las fuentes.
@@ -189,7 +190,7 @@ async function deZonatmo(): Promise<SerieDelTop[]> {
 
 export async function GET() {
   const user = await getSessionUser();
-  const verAdulto = Boolean(user?.showAdultContent);
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   // si una fuente está caída, el top sale igual con las demás
   const porFuente = await Promise.all(

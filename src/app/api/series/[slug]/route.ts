@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getObjectStorage } from "@/lib/object-storage";
 import { normalizeTagNames, publicTag, setSeriesTags } from "@/lib/tags";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /**
  * GET /api/series/:slug — serie + capítulos (con progreso del usuario).
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
   });
 
   if (!series) return NextResponse.json({ error: "Serie no encontrada" }, { status: 404 });
-  if (series.type === "adult" && !user?.showAdultContent && !user?.isAdmin) {
+  if (series.type === "adult" && !(await contenidoAdultoPermitido(user))) {
     return NextResponse.json({ error: "Serie no encontrada" }, { status: 404 });
   }
 

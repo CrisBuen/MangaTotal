@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { normalizeTagNames, publicTag, setSeriesTags } from "@/lib/tags";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /**
  * GET /api/series?type=normal|adult&search=&favorites=true&all=true&tag=slug
@@ -10,19 +11,20 @@ import { normalizeTagNames, publicTag, setSeriesTags } from "@/lib/tags";
  */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
+  const verAdulto = await contenidoAdultoPermitido(user);
 
   const params = req.nextUrl.searchParams;
   const type = params.get("type");
   const search = params.get("search")?.trim();
   const favorites = params.get("favorites") === "true";
   // all=true: vista de gestión (solo admin) — ignora el filtro show_adult_content
-  const all = params.get("all") === "true" && user?.isAdmin;
+  const all = params.get("all") === "true" && user?.isAdmin && verAdulto;
 
   const where: Record<string, unknown> = {};
 
   if (!all) {
     // respeta la preferencia del usuario; visitante = sin +18
-    if (!user?.showAdultContent) {
+    if (!verAdulto) {
       where.type = "normal";
     } else if (type === "normal" || type === "adult") {
       where.type = type;

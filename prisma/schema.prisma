@@ -10,12 +10,15 @@ datasource db {
 model User {
   id                   Int               @id @default(autoincrement())
   nickname             String            @unique
+  email                String?           @unique
+  emailVerifiedAt      DateTime?         @map("email_verified_at")
   passwordHash         String            @map("password_hash")
   sessionVersion       Int               @default(1) @map("session_version")
   birthdate            DateTime?
   isAdmin              Boolean           @default(false) @map("is_admin")
   showAdultContent     Boolean           @default(false) @map("show_adult_content")
   animeEnabled         Boolean           @default(false) @map("anime_enabled")
+  animeTermsAcceptedAt DateTime?         @map("anime_terms_accepted_at")
   preferredReadingMode String            @default("cascade") @map("preferred_reading_mode")
   avatarPath           String?           @map("avatar_path")
   createdAt            DateTime          @default(now()) @map("created_at")
@@ -24,8 +27,26 @@ model User {
   animeEntries         AnimeEntry[]
   externalAnime        ExternalAnime[]
   externalSeries       ExternalSeries[]
+  accountTokens        AccountToken[]
 
   @@map("users")
+}
+
+/// Tokens de un solo uso para verificar correo y recuperar contraseña.
+/// Nunca se guarda el valor enviado por correo: solamente su hash SHA-256.
+model AccountToken {
+  id        String    @id @default(cuid())
+  userId    Int       @map("user_id")
+  kind      String
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+  @@index([expiresAt])
+  @@map("account_tokens")
 }
 
 /// Contadores de abuso de autenticación. La clave es un HMAC: no guarda en

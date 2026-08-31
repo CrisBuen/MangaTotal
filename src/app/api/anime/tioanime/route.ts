@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesion" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
     return NextResponse.json({ error: "La seccion animada esta desactivada en Android" }, { status: 403 });
   }
 

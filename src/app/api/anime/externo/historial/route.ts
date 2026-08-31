@@ -3,6 +3,7 @@ import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { animeExternoPublico } from "@/lib/animeExternos";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 /**
  * Separa el historial no guardado de los animes guardados que tienen avance.
@@ -11,14 +12,14 @@ import { db } from "@/lib/db";
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled))) {
+  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
     return NextResponse.json(
       { error: "La sección animada está desactivada en Android" },
       { status: 403 }
     );
   }
 
-  const contenidoPermitido = user.showAdultContent || user.isAdmin
+  const contenidoPermitido = await contenidoAdultoPermitido(user)
     ? {}
     : { isAdult: false };
 

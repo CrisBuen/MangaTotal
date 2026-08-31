@@ -1,4 +1,4 @@
-# MangaTotal para Android (APK)
+# MangaTotal para Android
 
 App Android que muestra MangaTotal a pantalla completa, con su ícono y
 splash propios. Igual que la de Windows, carga el sitio publicado, así que
@@ -8,6 +8,20 @@ que se cambie el contenedor (nombre, ícono, permisos).
 Diseñada para pantallas altas tipo Samsung S26 Ultra: la navegación
 principal está en una barra inferior al alcance del pulgar y la interfaz
 respeta la cámara y la barra de gestos (`safe-area`).
+
+## Dos variantes, una sola base
+
+- **Local**: APK descargable desde mangatotal.com. Conserva todas las
+  secciones y el actualizador directo compatible con las instalaciones
+  existentes.
+- **Google Play**: AAB actualizado exclusivamente por Play. No contiene el
+  permiso para instalar APK, no muestra administración y el servidor nunca
+  le entrega contenido +18. Anime se habilita después de aceptar sus
+  condiciones.
+
+Las dos se siguen llamando **MangaTotal**. La diferencia técnica viaja en el
+user agent como `MangaTotalChannel/local` o `MangaTotalChannel/play`.
+Las versiones de ambas viven solamente en `version.json`.
 
 ## Qué hay que instalar una sola vez
 
@@ -59,6 +73,24 @@ Ese archivo se puede instalar directo en el teléfono (hay que permitir
 Se necesita una clave de firma propia y una cuenta de desarrollador
 (pago único de 25 USD). Para uso personal el APK firmado en modo debug
 alcanza.
+
+El paquete de Play se genera con:
+
+```powershell
+$env:JAVA_HOME = "C:\Users\CrisPC\.jdks\jdk-21.0.12.1+1"
+npm run build:playstore
+```
+
+Resultado:
+
+```
+mobile\android\app\build\outputs\bundle\release\app-release.aab
+```
+
+Después de compilar Play, `npm run patch:local` devuelve el proyecto nativo
+a la variante local por defecto. La URL pública de la ficha se configura en
+Vercel con `NEXT_PUBLIC_GOOGLE_PLAY_URL`; hasta entonces la web muestra
+«Próximamente».
 
 ## Notas
 
@@ -126,10 +158,11 @@ Copy-Item patches\MainActivity.java android\app\src\main\java\app\mangatotal\and
 El aviso de actualización dentro de la app se basa en dos números que
 tienen que coincidir:
 
-1. `mobile/capacitor.config.json` → `android.appendUserAgent`
-   (`MangaTotalApp/<versionCode>`): así la web sabe qué versión está
+1. `mobile/version.json`: raíz para Local y `playStore` para Google Play.
+2. `mobile/capacitor.config.json` → `android.appendUserAgent`
+   (`MangaTotalApp/<versionCode> MangaTotalChannel/<variante>`): así la web sabe qué versión está
    instalada.
-2. `mobile/android/app/build.gradle` → `versionCode` y `versionName`.
+3. `mobile/android/app/build.gradle` → `versionCode` y `versionName`.
 
 Pasos:
 

@@ -20,6 +20,9 @@ export const REGLAS_AUTH = {
   loginCuenta: { maxIntentos: 8, ventanaMs: 15 * 60_000, bloqueoMs: 15 * 60_000 },
   registroIp: { maxIntentos: 10, ventanaMs: 60 * 60_000, bloqueoMs: 60 * 60_000 },
   passwordUsuario: { maxIntentos: 8, ventanaMs: 15 * 60_000, bloqueoMs: 15 * 60_000 },
+  emailUsuario: { maxIntentos: 5, ventanaMs: 60 * 60_000, bloqueoMs: 60 * 60_000 },
+  recoveryIp: { maxIntentos: 10, ventanaMs: 60 * 60_000, bloqueoMs: 60 * 60_000 },
+  tokenIp: { maxIntentos: 30, ventanaMs: 15 * 60_000, bloqueoMs: 15 * 60_000 },
 } satisfies Record<string, ReglaLimite>;
 
 /** Vercel reemplaza esta cabecera en producción para que no pueda falsificarse. */

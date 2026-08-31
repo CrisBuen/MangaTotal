@@ -69,6 +69,8 @@ export async function getSessionAdmin() {
 export function publicUser(user: {
   id: number;
   nickname: string;
+  email: string | null;
+  emailVerifiedAt: Date | null;
   birthdate: Date | null;
   isAdmin: boolean;
   showAdultContent: boolean;
@@ -80,6 +82,8 @@ export function publicUser(user: {
   return {
     id: user.id,
     nickname: user.nickname,
+    email: user.email,
+    email_verified: Boolean(user.emailVerifiedAt),
     birthdate: user.birthdate,
     is_admin: user.isAdmin,
     show_adult_content: user.showAdultContent,
