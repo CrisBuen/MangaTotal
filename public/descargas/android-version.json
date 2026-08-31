@@ -1,15 +1,15 @@
 {
-  "versionCode": 16,
-  "versionName": "1.9.3",
-  "date": "2026-08-30",
+  "versionCode": 17,
+  "versionName": "1.9.4",
+  "date": "2026-08-31",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "263430A116193F14C6992E0C62E8E840C13DBBE29EA86839BAAEE1217B1A96FB",
-  "sizeMb": 4.5,
+  "sha256": "75820083426D0615EA34E2E1776C68850E9E27C0DBAA60B5E2D645660ED3F096",
+  "sizeMb": 6.3,
   "changes": [
-    "La búsqueda ya no es reemplazada por resultados antiguos cuando la conexión está lenta",
-    "LeerCapítulo vuelve a buscar en todo su catálogo con su endpoint actual",
-    "Ikigai busca en su índice global oficial sin recorrer cientos de páginas",
-    "El Top semanal conserva el último resultado válido y ofrece reintento si la red falla"
+    "Nueva identidad visual de MangaTotal en el icono y la pantalla de inicio",
+    "Separa la edición local de la futura edición para Google Play",
+    "Añade correo opcional, recuperación de contraseña y verificación de correo",
+    "Mantiene la sección +18 disponible exclusivamente en MangaTotal Local"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

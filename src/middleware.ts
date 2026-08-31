@@ -131,6 +131,6 @@ export const config = {
   // middleware: si pasan por acá, Next corta el body en 10MB y la subida falla.
   // Ambos handlers validan sesión/admin por su cuenta.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt|sitemap.xml|sw.js|manifest.webmanifest|offline|icons/|descargas/|api/admin/upload|api/auth/avatar).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|icon.svg|robots.txt|sitemap.xml|sw.js|manifest.webmanifest|offline|icons/|branding/|descargas/|api/admin/upload|api/auth/avatar).*)",
   ],
 };

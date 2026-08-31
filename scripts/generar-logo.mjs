@@ -90,6 +90,12 @@ async function recursosAndroid() {
 
 await Promise.all([
   pngCuadrado(path.join(raiz, "public", "branding", "mangatotal-logo.png"), 512),
+  pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-logo-v2.png"), 512),
+  pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-v2-192.png"), 192),
+  pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-v2-512.png"), 512),
+  pngCuadrado(path.join(raiz, "public", "icons", "mangatotal-v2-apple.png"), 180),
+  pngMaskable(path.join(raiz, "public", "icons", "mangatotal-v2-maskable-192.png"), 192),
+  pngMaskable(path.join(raiz, "public", "icons", "mangatotal-v2-maskable-512.png"), 512),
   pngCuadrado(path.join(raiz, "src", "app", "icon.png"), 512),
   pngCuadrado(path.join(raiz, "src", "app", "apple-icon.png"), 180),
   pngCuadrado(path.join(raiz, "public", "icons", "icon-192.png"), 192),

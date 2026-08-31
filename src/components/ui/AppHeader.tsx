@@ -52,11 +52,12 @@ export function AppHeader({
           aria-label={mode === "admin" ? "MangaTotal, administración" : "MangaTotal, biblioteca"}
         >
           <Image
-            src="/branding/mangatotal-logo.png"
+            src="/icons/mangatotal-logo-v2.png"
             alt=""
             width={40}
             height={40}
             priority
+            unoptimized
             className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-[var(--glow)]"
           />
           <span className="leading-none">

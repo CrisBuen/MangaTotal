@@ -1,14 +1,13 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
-  "date": "2026-08-30",
+  "versionCode": 7,
+  "versionName": "1.6",
+  "date": "2026-08-31",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "71469521A480C72D7BB15159873804D904996E41FF77A3B48861BA5E968F004D",
-  "sizeMb": 2.7,
+  "sha256": "A289AA5DCD39502A3703A5228767A2536CC735888D4C3BC1D00D440A7EA7E14B",
+  "sizeMb": 2.6,
   "changes": [
-    "La búsqueda ya no es reemplazada por resultados antiguos cuando la conexión está lenta",
-    "LeerCapítulo vuelve a buscar en todo su catálogo con su endpoint actual",
-    "Ikigai incorpora búsqueda global mediante el puente nativo restringido",
-    "Una fuente externa lenta o caída ya no bloquea el Top semanal"
+    "Nueva identidad visual de MangaTotal en la ventana, barra de tareas e instalador",
+    "Añade correo opcional y recuperación de contraseña",
+    "Actualiza la configuración de contenido y seguridad de la cuenta"
   ]
 }
