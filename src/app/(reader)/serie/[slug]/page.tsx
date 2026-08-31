@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FavoriteButton } from "@/components/library/FavoriteButton";
@@ -11,6 +13,62 @@ const STATUS_LABEL: Record<string, string> = {
   completed: "Completada",
   dropped: "Abandonada",
 };
+
+const obtenerSerieSeo = unstable_cache(
+  async (slug: string) =>
+    db.series.findFirst({
+      where: { slug, type: "normal" },
+      select: {
+        title: true,
+        slug: true,
+        description: true,
+        coverImagePath: true,
+      },
+    }),
+  ["serie-seo"],
+  { revalidate: 3600 }
+);
+
+function descripcionSeo(titulo: string, descripcion: string | null): string {
+  const texto = (descripcion ?? "Lee " + titulo + " online en MangaTotal.")
+    .replace(/\s+/g, " ")
+    .trim();
+  return texto.length > 160 ? texto.slice(0, 157).trimEnd() + "…" : texto;
+}
+
+export async function generateMetadata(props: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await props.params;
+  const serie = await obtenerSerieSeo(slug);
+
+  if (!serie) {
+    return {
+      title: "Serie no disponible",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const description = descripcionSeo(serie.title, serie.description);
+  const canonical = "/serie/" + serie.slug;
+
+  return {
+    title: serie.title + " — Leer online",
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "article",
+      locale: "es_CL",
+      siteName: "MangaTotal",
+      title: serie.title + " | MangaTotal",
+      description,
+      url: canonical,
+      images: serie.coverImagePath
+        ? [{ url: "/api/images/" + serie.coverImagePath, alt: serie.title }]
+        : undefined,
+    },
+  };
+}
 
 export default async function SeriePage(props: { params: Promise<{ slug: string }> }) {
   // visible también como visitante: sin progreso ni favoritos

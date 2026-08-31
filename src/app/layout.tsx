@@ -6,12 +6,26 @@ import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.mangatotal.com"),
   title: {
-    default: "MangaTotal",
-    template: "%s · MangaTotal",
+    default: "MangaTotal — Leer manga y ver anime online",
+    template: "%s | MangaTotal",
   },
-  description: "Biblioteca privada de manga, manhwa, manhua y doujinshi",
+  description:
+    "Explora manga, manhwa, manhua y anime en MangaTotal. Descubre series, capítulos y episodios de las fuentes integradas.",
   applicationName: "MangaTotal",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_CL",
+    siteName: "MangaTotal",
+    title: "MangaTotal — Leer manga y ver anime online",
+    description:
+      "Explora manga, manhwa, manhua y anime. Descubre series, capítulos y episodios de las fuentes integradas.",
+  },
   // instalable en iOS desde "Compartir → Agregar a inicio"
   appleWebApp: {
     capable: true,
