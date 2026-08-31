@@ -3,6 +3,7 @@
 import Hls from "hls.js";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { FuenteAnimeExterna } from "@/lib/animeExternos";
 import {
   activarReproductorHorizontalAndroid,
   activarPantallaCompleta,
@@ -15,7 +16,7 @@ import {
 interface Fuente {
   id: string;
   label: string;
-  kind: "hls" | "embed";
+  kind: "hls" | "mp4" | "embed";
 }
 
 interface Reproduccion {
@@ -32,6 +33,7 @@ interface Reproduccion {
   selected_source: string;
   playback:
     | { kind: "hls"; url: string }
+    | { kind: "mp4"; url: string }
     | { kind: "embed"; url: string };
 }
 
@@ -49,7 +51,19 @@ function reloj(segundos: number): string {
     : `${minutos}:${String(resto).padStart(2, "0")}`;
 }
 
-export function JkanimePlayer({ slug, episode }: { slug: string; episode: string }) {
+interface ReproductorAnimeExternoProps {
+  slug: string;
+  episode: string;
+  source: FuenteAnimeExterna;
+  sourceName: string;
+}
+
+export function ReproductorAnimeExterno({
+  slug,
+  episode,
+  source,
+  sourceName,
+}: ReproductorAnimeExternoProps) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -86,7 +100,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        source: "jkanime",
+        source,
         external_id: info.external_id,
         slug: info.slug,
         title: info.series_title,
@@ -100,7 +114,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       }),
       keepalive: true,
     }).catch(() => {});
-  }, []);
+  }, [source]);
 
   const cargar = useCallback(
     async (sourceId?: string, positionOverride?: number) => {
@@ -113,7 +127,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         if (sourceId) params.set("source", sourceId);
         const suffix = params.size ? `?${params}` : "";
         const res = await fetch(
-          `/api/anime/jkanime/${encodeURIComponent(slug)}/${encodeURIComponent(episode)}${suffix}`,
+          `/api/anime/${source}/${encodeURIComponent(slug)}/${encodeURIComponent(episode)}${suffix}`,
           { cache: "no-store" }
         );
         const next = await res.json();
@@ -123,7 +137,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         let registrarApertura = false;
         if (positionOverride === undefined) {
           const progressParams = new URLSearchParams({
-            source: "jkanime",
+            source,
             id: next.external_id,
             episode_id: next.episode_id,
           });
@@ -157,7 +171,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         setLoading(false);
       }
     },
-    [episode, guardarProgreso, slug]
+    [episode, guardarProgreso, slug, source]
   );
 
   useEffect(() => {
@@ -166,7 +180,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !data || data.playback.kind !== "hls") return;
+    if (!video || !data || data.playback.kind === "embed") return;
 
     hlsRef.current?.destroy();
     hlsRef.current = null;
@@ -177,7 +191,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
     setPlaying(false);
     let espera: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       setError(
-        "El reproductor no pudo abrir el manifiesto en 20 segundos. Código: hls-timeout."
+        "El reproductor no pudo abrir el video en 20 segundos. Código: media-timeout."
       );
       setControlsVisible(true);
     }, 20_000);
@@ -200,11 +214,16 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
     };
     const errorNativo = () => {
       terminarEspera();
-      setError("El dispositivo rechazó el video HLS. Código: media-error.");
+      setError("El dispositivo rechazó el video. Código: media-error.");
       setControlsVisible(true);
     };
 
-    if (Hls.isSupported()) {
+    if (data.playback.kind === "mp4") {
+      video.src = data.playback.url;
+      video.addEventListener("loadedmetadata", iniciar, { once: true });
+      video.addEventListener("error", errorNativo, { once: true });
+      video.load();
+    } else if (Hls.isSupported()) {
       const hls = new Hls({
         // Se mantiene sin worker para que Tauri y Capacitor usen el mismo
         // contexto autenticado al pedir el manifiesto a MangaTotal.
@@ -380,10 +399,10 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
     guardarProgreso(currentRef.current, durationRef.current);
     if (androidPlayer) await salirReproductorHorizontalAndroid();
     else await salirPantallaCompleta();
-    router.push(`/explorar/jkanime/${slug}`);
+    router.push(`/explorar/${source}/${slug}`);
   };
 
-  const esHls = data?.playback.kind === "hls";
+  const esNativo = data?.playback.kind === "hls" || data?.playback.kind === "mp4";
 
   return (
     <div
@@ -395,7 +414,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         // En Android eso mantenía todas las capas abiertas y hacía render de más.
         if (!androidPlayer || event.pointerType === "mouse") mostrarControles();
       }}
-      data-od-id="jkanime-native-player"
+      data-od-id={`${source}-native-player`}
     >
       {data?.poster_url && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -408,7 +427,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
       )}
 
       <div className="absolute inset-0 flex items-center justify-center bg-black">
-        {data?.playback.kind === "hls" && (
+        {esNativo && (
           <video
             ref={videoRef}
             className="h-full w-full object-contain"
@@ -484,7 +503,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         </div>
       )}
 
-      {esHls && controlsVisible && mediaReady && (
+      {esNativo && controlsVisible && mediaReady && (
         <button
           type="button"
           onClick={(event) => {
@@ -515,7 +534,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
           </button>
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-base font-black uppercase sm:text-xl">
-              {data?.series_title ?? "JKAnime"}
+              {data?.series_title ?? sourceName}
             </p>
             <p className="truncate font-mono text-[9px] uppercase tracking-[0.12em] text-white/65">
               {data ? `Episodio ${data.episode_number} · ${data.sources.find((s) => s.id === data.selected_source)?.label ?? "Fuente"}` : "Cargando"}
@@ -553,7 +572,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
           </div>
         )}
 
-        {esHls && (
+        {esNativo && (
           <>
             <input
               type="range"
@@ -624,7 +643,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
             ))}
           </div>
           <p className="mt-2 font-mono text-[8px] uppercase tracking-[0.1em] text-white/40">
-            Reproducción provista por JKAnime · MangaTotal no aloja el video
+            Reproducción provista por {sourceName} · MangaTotal no aloja el video
           </p>
         </div>}
       </div>
@@ -634,7 +653,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
           className="absolute inset-x-0 bottom-0 z-50 bg-gradient-to-t from-black via-black/95 to-black/70 px-4 pt-5"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           onClick={(event) => event.stopPropagation()}
-          data-od-id="jkanime-android-sources"
+          data-od-id={`${source}-android-sources`}
         >
           <div className="flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <span className="shrink-0 pr-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/55">
@@ -656,7 +675,7 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
             ))}
           </div>
           <p className="font-mono text-[8px] uppercase tracking-[0.1em] text-white/40">
-            Reproducción provista por JKAnime · MangaTotal no aloja el video
+            Reproducción provista por {sourceName} · MangaTotal no aloja el video
           </p>
         </div>
       )}
@@ -672,5 +691,16 @@ export function JkanimePlayer({ slug, episode }: { slug: string; episode: string
         </button>
       )}
     </div>
+  );
+}
+
+export function JkanimePlayer({ slug, episode }: { slug: string; episode: string }) {
+  return (
+    <ReproductorAnimeExterno
+      slug={slug}
+      episode={episode}
+      source="jkanime"
+      sourceName="JKAnime"
+    />
   );
 }

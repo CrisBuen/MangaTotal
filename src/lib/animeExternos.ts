@@ -6,7 +6,7 @@
  * su ruta acá, sin tocar la biblioteca de manga ni las filas de AniList.
  */
 
-export const FUENTES_ANIME_EXTERNAS = ["jkanime"] as const;
+export const FUENTES_ANIME_EXTERNAS = ["jkanime", "tioanime"] as const;
 
 export type FuenteAnimeExterna = (typeof FUENTES_ANIME_EXTERNAS)[number];
 
@@ -16,6 +16,7 @@ export function esFuenteAnimeExterna(valor: unknown): valor is FuenteAnimeExtern
 
 export function fichaAnimeHref(source: FuenteAnimeExterna, externalId: string, slug: string | null) {
   if (source === "jkanime") return `/explorar/jkanime/${slug ?? externalId}`;
+  if (source === "tioanime") return `/explorar/tioanime/${slug ?? externalId}`;
   return "/explorar?seccion=animada";
 }
 

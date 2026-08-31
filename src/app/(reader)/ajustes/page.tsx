@@ -128,7 +128,7 @@ export default function AjustesPage() {
                 <div>
                   <p className="text-sm font-bold text-ink">Activar sección animada</p>
                   <p className="mt-1 text-xs leading-5 text-subtle">
-                    Viene apagada en Android. Al encenderla aparece JKAnime dentro de Explorar y
+                    Viene apagada en Android. Al encenderla aparecen JKAnime y TioAnime dentro de Explorar y
                     la biblioteca de anime animado. AniList permanece disponible siempre.
                   </p>
                 </div>

@@ -65,17 +65,15 @@ function contexto(pathname: string): Contexto | null {
     };
   }
 
-  if (
-    pathname.startsWith("/anime/jkanime/") ||
-    pathname.startsWith("/explorar/jkanime/")
-  ) {
+  if (/^\/(?:anime|explorar)\/(?:jkanime|tioanime)\//.test(pathname)) {
     const partes = pathname.split("/").filter(Boolean);
+    const fuente = partes[1] === "tioanime" ? "tioanime" : "jkanime";
     const esEpisodio =
       (partes[0] === "anime" && partes.length >= 4) ||
       (partes[0] === "explorar" && partes.length >= 4);
     return {
       section: "anime",
-      source: esEpisodio ? "jkanime" : null,
+      source: esEpisodio ? fuente : null,
       contentKey: esEpisodio ? pathname : null,
     };
   }

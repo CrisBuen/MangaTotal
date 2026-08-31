@@ -29,6 +29,7 @@ const FUENTES = new Set([
   "catharsis",
   "ikigai",
   "jkanime",
+  "tioanime",
 ]);
 const PLATAFORMAS = new Set(["web", "android", "windows"]);
 

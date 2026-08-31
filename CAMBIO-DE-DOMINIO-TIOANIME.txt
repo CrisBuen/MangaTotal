@@ -1,0 +1,41 @@
+TIOANIME — CONTRATO DE INTEGRACIÓN
+=================================
+
+Estado: habilitada con permiso de los responsables de TioAnime.
+Sitio oficial: https://tioanime.com
+
+QUÉ USA MANGATOTAL
+------------------
+
+- Directorio: /directorio, con búsqueda, paginación, tipos, géneros, años,
+  estado y orden publicados por TioAnime.
+- Ficha: /anime/{slug}. De su HTML se leen anime_info, episodes,
+  episodes_details, portada, sinopsis y metadatos.
+- Episodio: /ver/{slug}-{episodio}. De la variable videos solo se aceptan
+  YourUpload, Mega y VOE.
+- Prioridad: YourUpload, Mega, VOE. Las tres fuentes quedan en iframe aislado.
+  YourUpload debe conservar su iframe: su servidor de video exige el referente
+  de YourUpload y rechaza la reproducción directa desde MangaTotal/Android.
+
+SEGURIDAD Y DATOS
+-----------------
+
+- Nunca se ejecuta JavaScript remoto para interpretar catálogos o fichas.
+- Slugs, episodios, protocolos, hosts y rutas se validan con listas cerradas.
+- Las direcciones de video se obtienen de nuevo al abrir cada episodio y no
+  se guardan en la base de datos, historial, caché de Android ni analíticas.
+- MangaTotal guarda solo ficha, episodio, minuto, duración y estado visto.
+- MangaTotal no retransmite ni aloja los videos de TioAnime.
+
+SI CAMBIA EL DOMINIO O EL HTML
+------------------------------
+
+1. Actualizar TIOANIME_WEB y las listas de hosts en src/lib/tioanime.ts.
+2. Comprobar /directorio, una búsqueda y una combinación de filtros.
+3. Abrir una ficha con varios episodios.
+4. Abrir un episodio y verificar, en este orden, YourUpload, Mega y VOE.
+5. Confirmar que Biblioteca/Historial no contienen ninguna URL de reproducción.
+
+No ampliar las listas de hosts por coincidencias parciales ni aceptar URLs
+HTTP. Si el formato cambia, fallar de forma visible antes de aceptar datos
+ambiguos.

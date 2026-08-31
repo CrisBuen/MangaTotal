@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { JkanimeCatalog } from "@/components/anime/JkanimeCatalog";
+import { TioanimeCatalog } from "@/components/anime/TioanimeCatalog";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { isAndroidApp } from "@/lib/appVersion";
 import {
@@ -99,6 +100,7 @@ interface Genre {
 }
 
 type SeccionExplorar = "lectura" | "animada";
+type FuenteAnime = "jkanime" | "tioanime";
 
 function SelectorSecciones({
   seccion,
@@ -141,13 +143,13 @@ function SelectorSecciones({
               seccion === "animada" ? "text-accent" : "text-subtle group-hover:text-accent"
             }`}
           >
-            {seccion === "animada" ? "Sección activa" : "JKAnime"}
+            {seccion === "animada" ? "Sección activa" : "JKAnime · TioAnime"}
           </p>
           <h2 className="mt-2 font-display text-2xl font-black uppercase text-ink">
             Sección animada
           </h2>
           <p className="mt-2 text-sm leading-6 text-subtle">
-            Catálogo, episodios y reproductor oficial de la fuente.
+            Catálogos, episodios y reproductores oficiales de las fuentes.
           </p>
         </button>
       )}
@@ -171,6 +173,7 @@ export default function ExplorarPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [fuente, setFuente] = useState("mangadex");
   const [seccion, setSeccion] = useState<SeccionExplorar>("lectura");
+  const [animeFuente, setAnimeFuente] = useState<FuenteAnime>("jkanime");
   const [animeHabilitado, setAnimeHabilitado] = useState(false);
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
@@ -563,6 +566,7 @@ export default function ExplorarPage() {
     const leer = (k: string) => p.get(k) || null;
 
     if (leer("seccion") === "animada") setSeccion("animada");
+    if (leer("anime_fuente") === "tioanime") setAnimeFuente("tioanime");
     const f = leer("fuente");
     if (f) setFuente(f);
     const q = leer("q");
@@ -612,6 +616,7 @@ export default function ExplorarPage() {
     };
 
     poner("seccion", seccion === "animada" ? "animada" : null);
+    poner("anime_fuente", seccion === "animada" && animeFuente === "tioanime" ? "tioanime" : null);
     poner("fuente", fuente === "mangadex" ? null : fuente);
     poner("q", search.trim() || null);
 
@@ -650,7 +655,7 @@ export default function ExplorarPage() {
 
     window.history.replaceState(null, "", url.toString());
   }, [
-    restaurado, seccion, fuente, search, offset, order, lang,
+    restaurado, seccion, animeFuente, fuente, search, offset, order, lang,
     olympusPage, olyOrden, olyGenero, olyEstado, olyTipo,
     tmoPage, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden,
     ikiPage, ikiTipo, ikiGenero, ikiOrden,
@@ -805,7 +810,7 @@ export default function ExplorarPage() {
         <SectionHeading
           eyebrow="Catálogo animado"
           title="Anime"
-          description="Elegí una serie, revisá sus episodios y mirala con el reproductor oficial de JKAnime."
+          description="Elegí una fuente, revisá sus episodios y mirala con su reproductor oficial."
         />
 
         <SelectorSecciones
@@ -818,12 +823,23 @@ export default function ExplorarPage() {
           <span className="mr-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-subtle">
             Fuente
           </span>
-          <span className="rounded-xl border border-accent bg-[var(--accent-soft)] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
-            JKAnime
-          </span>
+          {(["jkanime", "tioanime"] as const).map((source) => (
+            <button
+              type="button"
+              key={source}
+              onClick={() => setAnimeFuente(source)}
+              className={`rounded-xl border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition ${
+                animeFuente === source
+                  ? "border-accent bg-[var(--accent-soft)] text-accent"
+                  : "border-line text-subtle hover:border-accent hover:text-ink"
+              }`}
+            >
+              {source === "jkanime" ? "JKAnime" : "TioAnime"}
+            </button>
+          ))}
         </div>
 
-        <JkanimeCatalog />
+        {animeFuente === "jkanime" ? <JkanimeCatalog /> : <TioanimeCatalog />}
       </div>
     );
   }

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { FuenteAnimeExterna } from "@/lib/animeExternos";
 
 export interface AnimeExternoGuardable {
-  source: "jkanime";
+  source: FuenteAnimeExterna;
   external_id: string;
   slug: string;
   title: string;

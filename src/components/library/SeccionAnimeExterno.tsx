@@ -215,7 +215,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
         {entradas.length === 0 ? (
           <EmptyState
             title="Todavía no guardaste anime animado"
-            description="Elegí una serie de JKAnime y guardala para encontrarla acá."
+            description="Elegí una serie de JKAnime o TioAnime y guardala para encontrarla acá."
             action={
               <Link
                 href="/explorar?seccion=animada"

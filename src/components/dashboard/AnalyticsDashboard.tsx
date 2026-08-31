@@ -49,6 +49,7 @@ const SOURCE_LABELS: Record<string, string> = {
   catharsis: "Catharsis World",
   ikigai: "Ikigai",
   jkanime: "JKAnime",
+  tioanime: "TioAnime",
 };
 
 const SECTION_LABELS: Record<string, string> = {

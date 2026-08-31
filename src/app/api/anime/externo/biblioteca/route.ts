@@ -4,6 +4,7 @@ import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ErrorJkanime, esAdultoJkanime } from "@/lib/jkanime";
+import { ErrorTioanime, esAdultoTioanime } from "@/lib/tioanime";
 
 async function acceso(user: Awaited<ReturnType<typeof getSessionUser>>) {
   if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
@@ -74,8 +75,9 @@ export async function PUT(req: NextRequest) {
   let isAdult = false;
   try {
     if (source === "jkanime") isAdult = await esAdultoJkanime(slug);
+    if (source === "tioanime") isAdult = await esAdultoTioanime(slug);
   } catch (error) {
-    const status = error instanceof ErrorJkanime ? error.status : 502;
+    const status = error instanceof ErrorJkanime || error instanceof ErrorTioanime ? error.status : 502;
     const message = error instanceof Error ? error.message : "No se pudo verificar el anime";
     return NextResponse.json({ error: message }, { status });
   }
