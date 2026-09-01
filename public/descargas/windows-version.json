@@ -1,11 +1,12 @@
 {
-  "versionCode": 8,
-  "versionName": "1.7",
-  "date": "2026-08-31",
+  "versionCode": 9,
+  "versionName": "1.8",
+  "date": "2026-09-01",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "5028C2C5C1AD961070F7D131B7CF250E8705448B7A17033DCEB2F80A2094E0BC",
+  "sha256": "5EE116D02F1BFD081C95B58C9A82FA8165B37251996352A4B05C0C786099DD58",
   "sizeMb": 2.6,
   "changes": [
-    "Restaura la lectura de capítulos de Ikigai después de su cambio de dominio"
+    "Corrige la carga intermitente de capítulos de Ikigai al autorizar sus dos visores rotativos",
+    "Hace que Reintentar limpie el error anterior y muestre la causa real"
   ]
 }

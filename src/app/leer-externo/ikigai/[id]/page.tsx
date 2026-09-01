@@ -28,6 +28,7 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
   const [error, setError] = useState<unknown>(null);
 
   const cargar = useCallback(async () => {
+    setError(null);
     try {
       // En Play la ficha se valida antes de pedir una sola página. Así un
       // enlace profundo tampoco puede saltarse la clasificación de la obra.

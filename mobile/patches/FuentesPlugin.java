@@ -63,6 +63,7 @@ public class FuentesPlugin extends Plugin {
         "cdn.zonatmo.to",
         "visorikigai.gettocaboca.com",
         "viralikigai.milkchoco.online",
+        "visualikigai.treefy.online",
         "image2.ikigaimangas.cloud",
         "image3.ikigaimangas.cloud",
     };

@@ -37,7 +37,12 @@ export function AvisoFuente({
   const [fallo, setFallo] = useState(false);
 
   const desafio = error instanceof DesafioPendiente ? error : null;
-  const mensaje = error instanceof Error ? error.message : "No se pudo cargar esta fuente";
+  const mensaje =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string" && error.trim()
+        ? error
+        : "No se pudo cargar esta fuente";
 
   async function verificar() {
     if (!desafio || ocupado) return;

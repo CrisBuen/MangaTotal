@@ -1,12 +1,13 @@
 {
-  "versionCode": 18,
-  "versionName": "1.9.5",
-  "date": "2026-08-31",
+  "versionCode": 19,
+  "versionName": "1.9.6",
+  "date": "2026-09-01",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "CB9370CF10D567770C1D34291E1D625F069D3A64A3A773A7DD06058050DAA8FE",
+  "sha256": "FA4BDEF8455FAE06B755FE0D4C4628FCBF60F0817CC7BC5D99C5C9AB18C60C27",
   "sizeMb": 6.3,
   "changes": [
-    "Restaura la lectura de capítulos de Ikigai después de su cambio de dominio"
+    "Corrige la carga intermitente de capítulos de Ikigai al autorizar sus dos visores rotativos",
+    "Hace que Reintentar limpie el error anterior y muestre la causa real"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
