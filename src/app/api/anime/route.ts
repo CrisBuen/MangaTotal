@@ -47,7 +47,6 @@ const QUERY = `
  */
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
   const params = req.nextUrl.searchParams;
   const verAdulto = await contenidoAdultoPermitido(user);
 

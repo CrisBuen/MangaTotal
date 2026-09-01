@@ -32,7 +32,7 @@ const NOMBRE_FUENTE: Record<string, string> = {
  *
  * Solo entra lo que abriste para leer. Mirar una serie y volverse no cuenta.
  */
-export function SeccionHistorial() {
+export function SeccionHistorial({ tipo = "normal" }: { tipo?: "normal" | "adult" }) {
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
 
   const cargar = useCallback(async () => {
@@ -40,7 +40,7 @@ export function SeccionHistorial() {
       const data = await cargarConCacheAndroid<Entrada[]>(
         "biblioteca:historial",
         async (signal) => {
-          const r = await fetch("/api/externo/historial", { signal });
+          const r = await fetch(`/api/externo/historial?tipo=${tipo}`, { signal });
           if (!r.ok) throw new Error("historial");
           return r.json();
         },
@@ -50,7 +50,7 @@ export function SeccionHistorial() {
     } catch {
       setEntradas([]);
     }
-  }, []);
+  }, [tipo]);
 
   useEffect(() => {
     cargar();
@@ -117,10 +117,20 @@ export function SeccionHistorial() {
               </h3>
             </Link>
 
-            <p className="mt-1 font-mono text-[11px] tracking-[0.06em] text-subtle">
-              {NOMBRE_FUENTE[e.source] ?? e.source}
-              {e.last_chapter_name && ` · cap. ${e.last_chapter_name}`}
-            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate font-mono text-[11px] tracking-[0.06em] text-subtle">
+                {NOMBRE_FUENTE[e.source] ?? e.source}
+                {e.last_chapter_name && ` · cap. ${e.last_chapter_name}`}
+              </p>
+              <Link
+                href={e.href}
+                title="Ver ficha y capítulos"
+                aria-label={`Ver ficha de ${e.title}`}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
+              >
+                →
+              </Link>
+            </div>
           </div>
         ))}
       </div>

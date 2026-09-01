@@ -70,6 +70,23 @@ const SECCIONES: {
       },
     ],
   },
+  {
+    titulo: "Ayuda y comunidad",
+    entradas: [
+      {
+        href: "/consulta",
+        label: "Consulta y errores",
+        descripcion: "Reportá un problema, pedí ayuda o enviá una consulta",
+        icono: "M4 4h16v13H7l-3 3zm3 4h10V6H7zm0 4h7v-2H7z",
+      },
+      {
+        href: "https://www.patreon.com/cw/Nycks",
+        label: "Apóyanos",
+        descripcion: "Ayudá a que MangaTotal siga creciendo en Patreon",
+        icono: "M4 3h4v18H4zm10 0a7 7 0 1 1 0 14 7 7 0 0 1 0-14z",
+      },
+    ],
+  },
 ];
 
 export default function MasPage() {
@@ -95,6 +112,8 @@ export default function MasPage() {
               <Link
                 key={e.href}
                 href={e.href}
+                target={e.href.startsWith("https://") ? "_blank" : undefined}
+                rel={e.href.startsWith("https://") ? "noopener noreferrer" : undefined}
                 className="flex items-center gap-4 px-5 py-4 transition hover:bg-[var(--surface-raised)]"
               >
                 <svg
@@ -109,7 +128,7 @@ export default function MasPage() {
                   <span className="mt-0.5 block text-[13px] leading-5 text-subtle">{e.descripcion}</span>
                 </span>
                 <span className="shrink-0 text-subtle" aria-hidden="true">
-                  ›
+                  {e.href.startsWith("https://") ? "↗" : "›"}
                 </span>
               </Link>
               ))}

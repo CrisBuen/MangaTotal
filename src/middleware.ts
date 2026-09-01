@@ -16,6 +16,8 @@ const PUBLIC_EXACT = new Set([
   "/aleatorio",
   "/noticias",
   "/mas",
+  "/consulta",
+  "/anime",
   "/ajustes",
   "/estadisticas",
   "/acerca-de",
@@ -33,6 +35,7 @@ const PUBLIC_EXACT = new Set([
   "/api/series",
   "/api/announcements",
   "/api/tags",
+  "/api/anime",
 ]);
 // el catálogo externo se navega como visitante; leer capítulos exige sesión
 const PUBLIC_PREFIXES = [
@@ -81,7 +84,9 @@ export async function middleware(req: NextRequest) {
 
   if (
     PUBLIC_EXACT.has(pathname) ||
-    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
+    /^\/anime\/\d+$/.test(pathname) ||
+    /^\/api\/anime\/\d+$/.test(pathname)
   ) {
     // los handlers de API validan sesión/admin por su cuenta para mutaciones
     return NextResponse.next();
@@ -131,6 +136,6 @@ export const config = {
   // middleware: si pasan por acá, Next corta el body en 10MB y la subida falla.
   // Ambos handlers validan sesión/admin por su cuenta.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|icon.svg|robots.txt|sitemap.xml|sw.js|manifest.webmanifest|offline|icons/|branding/|descargas/|api/admin/upload|api/auth/avatar).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|icon.svg|robots.txt|sitemap.xml|sw.js|manifest.webmanifest|offline|icons/|branding/|descargas/|api/admin/upload|api/auth/avatar|api/soporte/archivos).*)",
   ],
 };

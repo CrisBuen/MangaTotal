@@ -32,7 +32,6 @@ const QUERY = `
 /** GET /api/anime/:id — ficha completa de un anime. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
   const { id: raw } = await ctx.params;
   const id = parseInt(raw, 10);
   if (!Number.isInteger(id) || id <= 0) {

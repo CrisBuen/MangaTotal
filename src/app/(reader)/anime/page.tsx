@@ -91,8 +91,8 @@ export default function AnimePage() {
     <div className="space-y-10">
       <SectionHeading
         eyebrow="Catálogo de AniList"
-        title="Anime"
-        description="Datos de AniList para seguir lo que estás viendo y descubrir dónde verlo oficialmente."
+        title="AniList"
+        description="Información de series animadas y plataformas oficiales. MangaTotal no reproduce anime en esta sección."
         action={
           <Link
             href="/anime/mi-lista"

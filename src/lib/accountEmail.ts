@@ -49,7 +49,18 @@ function publicUrl(): string {
   return (process.env.APP_PUBLIC_URL ?? "https://www.mangatotal.com").replace(/\/$/, "");
 }
 
-async function enviarCorreo(to: string, subject: string, html: string): Promise<boolean> {
+interface AdjuntoCorreo {
+  filename: string;
+  /** Contenido en base64, como lo espera la API de Resend. */
+  content: string;
+}
+
+async function enviarCorreo(
+  to: string,
+  subject: string,
+  html: string,
+  opciones: { replyTo?: string | null; attachments?: AdjuntoCorreo[] } = {},
+): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   if (!apiKey || !from) {
@@ -63,7 +74,14 @@ async function enviarCorreo(to: string, subject: string, html: string): Promise<
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      html,
+      ...(opciones.replyTo ? { reply_to: opciones.replyTo } : {}),
+      ...(opciones.attachments?.length ? { attachments: opciones.attachments } : {}),
+    }),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -71,6 +89,36 @@ async function enviarCorreo(to: string, subject: string, html: string): Promise<
     return false;
   }
   return true;
+}
+
+export async function enviarConsultaSoporte(consulta: {
+  nickname: string;
+  userId: number;
+  replyTo: string | null;
+  categoria: string;
+  asunto: string;
+  mensaje: string;
+  plataforma: string;
+  attachments: AdjuntoCorreo[];
+}): Promise<boolean> {
+  const destino = process.env.SUPPORT_EMAIL ?? "nyckswork@gmail.com";
+  const mensaje = escapeHtml(consulta.mensaje).replace(/\\r?\\n/g, "<br>");
+  const plataforma = escapeHtml(consulta.plataforma || "No informada");
+  const replyTo = consulta.replyTo ? escapeHtml(consulta.replyTo) : "No informado";
+
+  return enviarCorreo(
+    destino,
+    `[MangaTotal] ${consulta.categoria}: ${consulta.asunto}`,
+    `<h2>Consulta desde MangaTotal</h2>
+     <p><strong>Tipo:</strong> ${escapeHtml(consulta.categoria)}</p>
+     <p><strong>Usuario:</strong> ${escapeHtml(consulta.nickname)} (ID ${consulta.userId})</p>
+     <p><strong>Correo para responder:</strong> ${replyTo}</p>
+     <p><strong>Plataforma:</strong> ${plataforma}</p>
+     <p><strong>Asunto:</strong> ${escapeHtml(consulta.asunto)}</p>
+     <hr>
+     <p>${mensaje}</p>`,
+    { replyTo: consulta.replyTo, attachments: consulta.attachments },
+  );
 }
 
 export async function enviarVerificacion(

@@ -19,7 +19,9 @@ export default function VerificarCorreoPage() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? "No se pudo verificar el correo");
         setEstado("ok");
-        setMensaje("Tu correo quedó verificado correctamente.");
+        setMensaje(
+          "Tu correo quedó verificado. Volvé a MangaTotal: la aplicación actualizará la confirmación automáticamente.",
+        );
       })
       .catch((error) => {
         setEstado("error");
@@ -40,7 +42,7 @@ export default function VerificarCorreoPage() {
           href="/perfil"
           className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-accent bg-accent px-5 text-[11px] font-bold tracking-[0.1em] text-[var(--on-accent)]"
         >
-          Volver a MangaTotal
+          Abrir MangaTotal
         </Link>
       )}
     </AuthCard>

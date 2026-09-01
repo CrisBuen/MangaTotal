@@ -30,7 +30,7 @@ const ESTADOS: { key: string; label: string }[] = [
 ];
 
 /**
- * AnimeList conserva el seguimiento informativo que ya existía con AniList.
+ * AniList conserva el seguimiento informativo que ya existía.
  * La reproducción desde fuentes externas vive en Anime animado, aparte.
  */
 export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
@@ -84,7 +84,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
   if (entradas.length === 0) {
     return (
       <EmptyState
-        title="Todavía no tenés entradas en AnimeList"
+        title="Todavía no tenés entradas en AniList"
         description="Desde una ficha de AniList podés agregarla para llevar la cuenta de episodios."
         action={
           <Link
@@ -175,7 +175,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
       <section>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <h2 className="min-w-0 font-display text-3xl font-bold leading-none text-ink sm:text-4xl">
-            AnimeList
+            AniList
           </h2>
           <span className="font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
             AniList

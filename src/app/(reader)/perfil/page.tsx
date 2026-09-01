@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UpdateChecker } from "@/components/pwa/UpdateChecker";
@@ -43,16 +43,33 @@ export default function PerfilPage() {
   const [pwOk, setPwOk] = useState(false);
   const [pwBusy, setPwBusy] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((data) => {
-        setMe(data);
-        setAccountEmail(data.email ?? "");
-        setAccountBirthdate(data.birthdate ? String(data.birthdate).slice(0, 10) : "");
-      })
-      .catch(() => {});
+  const cargarPerfil = useCallback(async (sincronizarFormulario: boolean) => {
+    const res = await fetch("/api/auth/me", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as Me;
+    setMe(data);
+    if (sincronizarFormulario) {
+      setAccountEmail(data.email ?? "");
+      setAccountBirthdate(data.birthdate ? String(data.birthdate).slice(0, 10) : "");
+    }
   }, []);
+
+  useEffect(() => {
+    void cargarPerfil(true);
+
+    // Gmail abre el enlace fuera del WebView. Al volver a MangaTotal se
+    // consulta el servidor otra vez y «Correo verificado» aparece sin cerrar
+    // sesión, recargar la aplicación ni volver a guardar el formulario.
+    const alVolver = () => {
+      if (document.visibilityState === "visible") void cargarPerfil(false);
+    };
+    window.addEventListener("focus", alVolver);
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      window.removeEventListener("focus", alVolver);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
+  }, [cargarPerfil]);
 
   function flashSaved() {
     setSaved(true);

@@ -62,7 +62,7 @@ export default async function AnimeDetailPage(props: { params: Promise<{ id: str
         href="/anime"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
-        ← Anime
+        ← AniList
       </Link>
 
       {anime.banner_url && (

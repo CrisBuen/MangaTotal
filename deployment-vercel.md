@@ -53,6 +53,10 @@ DATABASE_URL="postgresql://..."
 SESSION_SECRET="cadena-larga-aleatoria-de-al-menos-32-caracteres"
 STORAGE_PROVIDER="blob"
 BLOB_READ_WRITE_TOKEN="..."
+RESEND_API_KEY="..."
+EMAIL_FROM="MangaTotal <cuentas@mangatotal.com>"
+APP_PUBLIC_URL="https://www.mangatotal.com"
+SUPPORT_EMAIL="nyckswork@gmail.com"
 ```
 
 ### DATABASE_URL: usar la direccion con pooler

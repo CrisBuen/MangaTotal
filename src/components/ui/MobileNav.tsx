@@ -29,7 +29,7 @@ const ITEMS = [
   },
   {
     href: "/anime",
-    label: "Anime",
+    label: "AniList",
     icon: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm5 3v8l7-4z",
   },
   {

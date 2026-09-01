@@ -16,7 +16,14 @@ export async function GET() {
     },
     orderBy: { updatedAt: "desc" },
     take: 12,
-    include: { series: true, chapter: true },
+    include: {
+      series: {
+        include: {
+          favorites: { where: { userId: user.id }, select: { id: true } },
+        },
+      },
+      chapter: true,
+    },
   });
 
   return NextResponse.json(
@@ -27,6 +34,7 @@ export async function GET() {
         slug: r.series.slug,
         type: r.series.type,
         cover_image_path: r.series.coverImagePath,
+        is_favorite: r.series.favorites.length > 0,
       },
       chapter: {
         id: r.chapter.id,

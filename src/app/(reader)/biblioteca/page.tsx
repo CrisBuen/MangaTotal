@@ -22,7 +22,14 @@ import {
 } from "@/lib/androidCache";
 
 interface ContinueItem {
-  series: { id: number; title: string; slug: string; type: string; cover_image_path: string | null };
+  series: {
+    id: number;
+    title: string;
+    slug: string;
+    type: string;
+    cover_image_path: string | null;
+    is_favorite: boolean;
+  };
   chapter: { id: number; number: number; page_count: number };
   lastPageNumber: number;
 }
@@ -250,9 +257,9 @@ export default function BibliotecaPage() {
 
   // en Normal/+18 se acota a esa sección; en Todo y Favoritos se ve completo
   const continuesVisible =
-    filter === "normal" || filter === "adult"
-      ? continues.filter((c) => c.series.type === filter)
-      : continues;
+    filter === "favoritos"
+      ? continues.filter((c) => c.series.is_favorite)
+      : continues.filter((c) => c.series.type === filter);
 
   // Las series de otras fuentes también son lecturas empezadas: van en la
   // misma fila, después de las propias. En Favoritos y +18 no aplican,
@@ -287,7 +294,7 @@ export default function BibliotecaPage() {
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
-          { key: "animelist" as const, label: "AnimeList" },
+          { key: "animelist" as const, label: "AniList" },
           ...(animeAnimadoHabilitado
             ? [{ key: "anime-animado" as const, label: "Anime animado" }]
             : []),
@@ -342,7 +349,7 @@ export default function BibliotecaPage() {
       </section>
 
       {/* Historial: lo que abriste para leer y no llegaste a guardar */}
-      {loggedIn && <SeccionHistorial />}
+      {loggedIn && filter === "normal" && <SeccionHistorial tipo="normal" />}
 
       {/* Categorías: solo dentro de Normal o +18, nunca en Todo */}
       {tags.length > 0 && (filter === "normal" || filter === "adult") && (
@@ -394,10 +401,10 @@ export default function BibliotecaPage() {
             data-od-id="continue-reading-list"
           >
             {continuesVisible.map((c) => (
+              <div key={c.series.id} className="group w-40 shrink-0">
               <Link
-                key={c.series.id}
                 href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
-                className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {c.series.cover_image_path && (
@@ -410,20 +417,36 @@ export default function BibliotecaPage() {
                     />
                   )}
                 </div>
+              </Link>
                 <div className="pt-3">
-                  <p className="truncate text-base font-semibold text-ink">{c.series.title}</p>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
+                      className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
+                    >
+                      {c.series.title}
+                    </Link>
+                    <Link
+                      href={`/serie/${c.series.slug}`}
+                      title="Ver ficha y capítulos"
+                      aria-label={`Ver ficha de ${c.series.title}`}
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
+                    >
+                      →
+                    </Link>
+                  </div>
                   <p className="mt-1 font-mono text-[13px] text-faint">
                     Cap. {c.chapter.number} · pág. {c.lastPageNumber}/{c.chapter.page_count}
                   </p>
                 </div>
-              </Link>
+              </div>
             ))}
 
             {externasEmpezadas.map((g) => (
+              <div key={`${g.source}-${g.external_id}`} className="group w-40 shrink-0">
               <Link
-                key={`${g.source}-${g.external_id}`}
                 href={g.href_continuar}
-                className="group w-40 shrink-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {g.cover_url && (
@@ -440,8 +463,24 @@ export default function BibliotecaPage() {
                     {g.source}
                   </span>
                 </div>
+              </Link>
                 <div className="pt-3">
-                  <p className="truncate text-base font-semibold text-ink">{g.title}</p>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={g.href_continuar}
+                      className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
+                    >
+                      {g.title}
+                    </Link>
+                    <Link
+                      href={g.href}
+                      title="Ver ficha y capítulos"
+                      aria-label={`Ver ficha de ${g.title}`}
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
+                    >
+                      →
+                    </Link>
+                  </div>
                   <p className="mt-1 font-mono text-[13px] text-faint">
                     Cap. {g.last_chapter_name}
                     {g.last_page_number && g.last_page_number > 1
@@ -449,7 +488,7 @@ export default function BibliotecaPage() {
                       : ""}
                   </p>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </section>

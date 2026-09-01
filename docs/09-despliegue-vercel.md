@@ -33,6 +33,19 @@ Se configuran en Vercel → Settings → Environment Variables.
 | `STORAGE_PROVIDER` | sí en Vercel | `local` \| `blob` \| `r2`. En Vercel **nunca `local`** |
 | `BLOB_READ_WRITE_TOKEN` | si es `blob` | Vercel → Storage → Blob |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | si es `r2` | Cloudflare R2 |
+| `RESEND_API_KEY` | sí para correos | API key secreta de Resend; nunca usar `NEXT_PUBLIC_` |
+| `EMAIL_FROM` | sí para correos | Remitente de un dominio verificado, por ejemplo `MangaTotal <cuentas@mangatotal.com>` |
+| `APP_PUBLIC_URL` | sí para correos | URL HTTPS usada en los enlaces de verificación y recuperación |
+| `SUPPORT_EMAIL` | no | Destino de «Consulta y errores»; por defecto `nyckswork@gmail.com` |
+
+Los adjuntos de soporte usan `BLOB_READ_WRITE_TOKEN` aunque el catálogo esté
+en R2: se suben como blobs privados y temporales, y se borran al terminar el
+envío.
+
+El correo no funciona solo por desplegar el código. En Resend hay que
+verificar el dominio, crear una API key y agregar las variables anteriores a
+Production y Preview. Después se redespliega. Si faltan, Perfil muestra un
+error explícito y no finge que envió una verificación.
 
 `src/lib/env.ts` valida todo esto al arrancar y lanza un error **con nombre y
 lugar** si falta algo. Eso es a propósito: sin esa validación, faltar una

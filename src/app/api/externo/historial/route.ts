@@ -19,12 +19,20 @@ import { esFuenteExterna, publico, type FuenteExterna } from "@/lib/externas";
  */
 
 /** GET /api/externo/historial — lo leído y no guardado, de más nuevo a más viejo. */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json([]);
 
+  const tipo = req.nextUrl.searchParams.get("tipo") === "adult" ? "adult" : "normal";
+
   const historial = await db.externalSeries.findMany({
-    where: { userId: user.id, saved: false },
+    where: {
+      userId: user.id,
+      saved: false,
+      // Las fuentes externas actuales pertenecen al catálogo normal. Se
+      // mantiene el filtro explícito para que jamás se mezcle con +18.
+      ...(tipo === "adult" ? { type: "adult" } : { NOT: { type: "adult" } }),
+    },
     orderBy: { updatedAt: "desc" },
     take: 60,
   });

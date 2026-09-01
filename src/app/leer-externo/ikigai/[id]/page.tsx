@@ -24,6 +24,7 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
     prev: null,
     next: null,
   });
+  const [numeroCapitulo, setNumeroCapitulo] = useState(chapterId);
   const [error, setError] = useState<unknown>(null);
 
   const cargar = useCallback(async () => {
@@ -43,6 +44,7 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
         const lista = ficha?.capitulos ?? [];
         const i = lista.findIndex((c) => c.id === chapterId);
         if (i >= 0) {
+          setNumeroCapitulo(String(lista[i].numero ?? chapterId));
           const anterior = lista[i - 1];
           const siguiente = lista[i + 1];
           setVecinos({
@@ -89,7 +91,9 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
     <OlympusReader
       chapter={{
         id: Number(chapterId),
-        name: "",
+        // Nunca se manda vacío: el progreso usa este valor para decidir si
+        // la serie ya empezó y debe aparecer en «Continuar leyendo».
+        name: numeroCapitulo,
         urlOriginal: "https://visorikigai.gettocaboca.com/capitulo/" + chapterId + "/",
       }}
       serie={{
