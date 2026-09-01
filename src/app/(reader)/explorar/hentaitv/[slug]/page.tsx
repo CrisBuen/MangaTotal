@@ -4,7 +4,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { SaveExternalAnimeButton } from "@/components/anime/SaveExternalAnimeButton";
 import { Surface } from "@/components/ui/Surface";
-import type { FichaHentaitv } from "@/lib/hentaitv";
+import { fichaHentaitvDesdePublica, type FichaHentaitv } from "@/lib/hentaitv";
 
 interface ProgresoEpisodio {
   episode_id: string;
@@ -17,16 +17,37 @@ export default function FichaHentaitvPage(props: { params: Promise<{ slug: strin
   const { slug } = use(props.params);
   const [ficha, setFicha] = useState<FichaHentaitv | null>(null);
   const [progresos, setProgresos] = useState<ProgresoEpisodio[]>([]);
+  const [fichaParcial, setFichaParcial] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     setFicha(null);
     setProgresos([]);
+    setFichaParcial(false);
     try {
       const res = await fetch(`/api/anime/hentaitv/${encodeURIComponent(slug)}`, { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "No se pudo cargar el anime");
+      let data: FichaHentaitv;
+      if (res.status === 502) {
+        const publica = new URL("https://hentaila.tv/wp-json/wp/v2/wp-manga");
+        publica.searchParams.set("slug", slug);
+        publica.searchParams.set("_embed", "1");
+        const directa = await fetch(publica, {
+          cache: "no-store",
+          credentials: "omit",
+          headers: { Accept: "application/json" },
+        });
+        if (!directa.ok) throw new Error(`No se pudo cargar la ficha de HentaiTV (${directa.status})`);
+        const item = ((await directa.json()) as unknown[])[0];
+        const fichaDirecta = fichaHentaitvDesdePublica(item);
+        if (!fichaDirecta) throw new Error("Contenido no disponible");
+        data = fichaDirecta;
+        setFichaParcial(true);
+      } else {
+        const respuesta = await res.json();
+        if (!res.ok) throw new Error(respuesta?.error ?? "No se pudo cargar el anime");
+        data = respuesta as FichaHentaitv;
+      }
       setFicha(data);
 
       const params = new URLSearchParams({ source: "hentaitv", id: data.slug });
@@ -75,7 +96,7 @@ export default function FichaHentaitvPage(props: { params: Promise<{ slug: strin
             <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">HentaiTV · +18</p>
             <h1 className="mt-2 font-display text-4xl font-bold leading-[0.95] tracking-[-0.04em] text-ink sm:text-5xl">{ficha.title}</h1>
             <p className="mt-3 font-mono text-[11px] tracking-[0.06em] text-subtle">
-              {[ficha.year, ficha.author, `${ficha.total_episodes} episodios`].filter(Boolean).join(" · ")}
+              {[ficha.year, ficha.author, fichaParcial ? "Episodios en HentaiTV" : `${ficha.total_episodes} episodios`].filter(Boolean).join(" · ")}
             </p>
           </div>
 
@@ -108,7 +129,14 @@ export default function FichaHentaitvPage(props: { params: Promise<{ slug: strin
           <h2 className="mt-1 font-display text-3xl font-bold leading-none text-ink">Episodios</h2>
         </div>
 
-        {ficha.episodes.length === 0 ? (
+        {fichaParcial ? (
+          <Surface className="space-y-4 p-8 text-center text-sm text-subtle">
+            <p>HentaiTV protege la lista de episodios frente a servidores externos.</p>
+            <a href={ficha.url_original} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]">
+              Ver episodios en HentaiTV ↗
+            </a>
+          </Surface>
+        ) : ficha.episodes.length === 0 ? (
           <Surface className="p-8 text-center text-sm text-subtle">HentaiTV no devolvió episodios para esta serie.</Surface>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

@@ -240,6 +240,21 @@ export function serieHentaitvDesdePublica(item: unknown): SerieHentaitv | null {
   return serieDesdeWp(item as WpManga);
 }
 
+export function fichaHentaitvDesdePublica(item: unknown): FichaHentaitv | null {
+  if (!item || typeof item !== "object") return null;
+  const manga = item as WpManga;
+  const serie = serieDesdeWp(manga);
+  if (!serie) return null;
+  const author = terminos(manga).find((term) => term.taxonomy === "wp-manga-author")?.name ?? null;
+  return {
+    ...serie,
+    description: texto(manga.content?.rendered) || null,
+    author,
+    total_episodes: 0,
+    episodes: [],
+  };
+}
+
 async function pedir(url: URL | string, fresco = false): Promise<Response> {
   const init: RequestInit & { next?: { revalidate: number } } = {
     headers: {
@@ -266,7 +281,7 @@ async function releaseId(year: string): Promise<number | null> {
   url.searchParams.set("per_page", "1");
   url.searchParams.set("_fields", "id");
   const res = await pedir(url);
-  if (!res.ok) throw new ErrorHentaitv("No se pudieron consultar los años de HentaiTV", res.status);
+  if (!res.ok) throw new ErrorHentaitv(`No se pudieron consultar los años de HentaiTV (${res.status})`, 502);
   const items = (await res.json()) as { id?: number }[];
   return Number(items[0]?.id) || null;
 }
@@ -354,13 +369,13 @@ export async function fichaHentaitv(slug: string, fresco = false): Promise<Ficha
   api.searchParams.set("slug", slug);
   api.searchParams.set("_embed", "1");
   const res = await pedir(api, fresco);
-  if (!res.ok) throw new ErrorHentaitv("No se pudo cargar la ficha de HentaiTV", res.status);
+  if (!res.ok) throw new ErrorHentaitv(`No se pudo cargar la ficha de HentaiTV (${res.status})`, 502);
   const item = ((await res.json()) as WpManga[])[0];
   const serie = item ? serieDesdeWp(item) : null;
   if (!item || !serie) throw new ErrorHentaitv("Contenido no disponible", 404);
 
   const pagina = await pedir(serie.url_original, fresco);
-  if (!pagina.ok) throw new ErrorHentaitv("No se pudieron cargar los episodios", pagina.status);
+  if (!pagina.ok) throw new ErrorHentaitv(`No se pudieron cargar los episodios (${pagina.status})`, 502);
   const episodes = episodiosDesdeHtml(await pagina.text(), slug);
   const author = terminos(item).find((term) => term.taxonomy === "wp-manga-author")?.name ?? null;
   return {
