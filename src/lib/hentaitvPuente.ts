@@ -9,7 +9,18 @@ export function origenPuenteHentaitv(requestUrl: string): string {
   const host = url.hostname.toLowerCase();
   const locales = new Set(["localhost", "127.0.0.1", "::1"]);
   const configurados = new Set(["mangatotal.com", "www.mangatotal.com"]);
-  if (process.env.VERCEL_URL) configurados.add(process.env.VERCEL_URL.toLowerCase());
+  for (const value of [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]) {
+    if (!value) continue;
+    try {
+      configurados.add(new URL(value.includes("://") ? value : `https://${value}`).hostname.toLowerCase());
+    } catch {
+      // Vercel administra estas variables; un valor roto simplemente no sirve.
+    }
+  }
   if (process.env.APP_PUBLIC_URL) {
     try {
       configurados.add(new URL(process.env.APP_PUBLIC_URL).hostname.toLowerCase());
