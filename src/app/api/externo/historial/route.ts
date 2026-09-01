@@ -29,9 +29,12 @@ export async function GET(req: NextRequest) {
     where: {
       userId: user.id,
       saved: false,
-      // Las fuentes externas actuales pertenecen al catálogo normal. Se
-      // mantiene el filtro explícito para que jamás se mezcle con +18.
-      ...(tipo === "adult" ? { type: "adult" } : { NOT: { type: "adult" } }),
+      // Las fuentes externas actuales pertenecen al catálogo normal. En
+      // PostgreSQL, NOT(type = 'adult') también excluye NULL; Ikigai no manda
+      // type y esas lecturas quedaban guardadas pero invisibles en el historial.
+      ...(tipo === "adult"
+        ? { type: "adult" }
+        : { OR: [{ type: null }, { type: { not: "adult" } }] }),
     },
     orderBy: { updatedAt: "desc" },
     take: 60,

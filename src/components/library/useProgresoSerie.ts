@@ -38,10 +38,12 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
     if (!externalId) return;
     let cancelado = false;
 
-    (async () => {
+    const cargar = async () => {
       // ?todo=1: también las del historial, para que la ficha muestre por
       // dónde ibas aunque no esté guardada
-      const res = await fetch("/api/externo/biblioteca?todo=1").catch(() => null);
+      const res = await fetch("/api/externo/biblioteca?todo=1", {
+        cache: "no-store",
+      }).catch(() => null);
       if (!res?.ok || cancelado) return;
 
       const guardadas: {
@@ -63,10 +65,21 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
         ultimaPagina: serie.last_page_number,
         guardada: true,
       });
-    })();
+    };
+
+    void cargar();
+    // App Router puede conservar la ficha al abrir el lector y volver. En ese
+    // caso el efecto no se monta de nuevo, así que se refresca al recuperar la
+    // ventana para mostrar «vas por acá» sin obligar a recargar toda la app.
+    window.addEventListener("focus", cargar);
+    window.addEventListener("pageshow", cargar);
+    window.addEventListener("popstate", cargar);
 
     return () => {
       cancelado = true;
+      window.removeEventListener("focus", cargar);
+      window.removeEventListener("pageshow", cargar);
+      window.removeEventListener("popstate", cargar);
     };
   }, [source, externalId]);
 
