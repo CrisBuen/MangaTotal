@@ -50,6 +50,7 @@ const SOURCE_LABELS: Record<string, string> = {
   ikigai: "Ikigai",
   jkanime: "JKAnime",
   tioanime: "TioAnime",
+  hentaitv: "HentaiTV",
 };
 
 const SECTION_LABELS: Record<string, string> = {

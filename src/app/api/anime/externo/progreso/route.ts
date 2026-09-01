@@ -39,6 +39,9 @@ export async function GET(req: NextRequest) {
   if (!esFuenteAnimeExterna(source) || !externalId) {
     return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
+  if (source === "hentaitv" && !(await contenidoAdultoPermitido(user))) {
+    return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
+  }
 
   const anime = await db.externalAnime.findUnique({
     where: { userId_source_externalId: { userId: user.id, source, externalId } },
@@ -145,7 +148,7 @@ export async function PATCH(req: NextRequest) {
     select: { isAdult: true },
   });
 
-  let isAdult = existente?.isAdult ?? false;
+  let isAdult = source === "hentaitv" || Boolean(existente?.isAdult);
   if (!existente) {
     try {
       if (source === "jkanime") isAdult = await esAdultoJkanime(slug);

@@ -30,6 +30,7 @@ const FUENTES = new Set([
   "ikigai",
   "jkanime",
   "tioanime",
+  "hentaitv",
 ]);
 const PLATAFORMAS = new Set(["web", "android", "windows"]);
 

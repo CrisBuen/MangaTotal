@@ -65,9 +65,9 @@ function contexto(pathname: string): Contexto | null {
     };
   }
 
-  if (/^\/(?:anime|explorar)\/(?:jkanime|tioanime)\//.test(pathname)) {
+  if (/^\/(?:anime|explorar)\/(?:jkanime|tioanime|hentaitv)\//.test(pathname)) {
     const partes = pathname.split("/").filter(Boolean);
-    const fuente = partes[1] === "tioanime" ? "tioanime" : "jkanime";
+    const fuente = partes[1] === "hentaitv" ? "hentaitv" : partes[1] === "tioanime" ? "tioanime" : "jkanime";
     const esEpisodio =
       (partes[0] === "anime" && partes.length >= 4) ||
       (partes[0] === "explorar" && partes.length >= 4);

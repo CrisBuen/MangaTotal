@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { JkanimeCatalog } from "@/components/anime/JkanimeCatalog";
+import { HentaitvCatalog } from "@/components/anime/HentaitvCatalog";
 import { TioanimeCatalog } from "@/components/anime/TioanimeCatalog";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { Chip } from "@/components/ui/Chip";
 import { fieldControlClass } from "@/components/ui/Field";
-import { isAndroidApp } from "@/lib/appVersion";
+import { isAndroidApp, isPlayStoreApp } from "@/lib/appVersion";
 import {
   cargarConCacheAndroid,
   fetchConLimiteAndroid,
@@ -102,7 +103,7 @@ interface Genre {
 }
 
 type SeccionExplorar = "lectura" | "animada";
-type FuenteAnime = "jkanime" | "tioanime";
+type FuenteAnime = "jkanime" | "tioanime" | "hentaitv";
 
 function SelectorSecciones({
   seccion,
@@ -177,6 +178,7 @@ export default function ExplorarPage() {
   const [seccion, setSeccion] = useState<SeccionExplorar>("lectura");
   const [animeFuente, setAnimeFuente] = useState<FuenteAnime>("jkanime");
   const [animeHabilitado, setAnimeHabilitado] = useState(false);
+  const [animeAdultoHabilitado, setAnimeAdultoHabilitado] = useState(false);
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
   const [olympusLastPage, setOlympusLastPage] = useState(1);
@@ -357,19 +359,30 @@ export default function ExplorarPage() {
   }, []);
 
   useEffect(() => {
-    // La Play Store exige que esta sección llegue oculta en Android. En web
-    // y Windows no hay ese filtro, así que JKAnime está disponible siempre.
-    if (!isAndroidApp()) {
-      setAnimeHabilitado(true);
-      return;
-    }
-    const aplicar = (me: { anime_enabled?: boolean } | null) => {
-      const habilitado = Boolean(me?.anime_enabled);
-      setAnimeHabilitado(habilitado);
-      if (!habilitado) setSeccion("lectura");
+    // La fuente adulta depende siempre de la preferencia comprobada por el
+    // servidor. En Play tampoco se conserva un permiso de la edición local.
+    const enAndroid = isAndroidApp();
+    if (!enAndroid) setAnimeHabilitado(true);
+    const aplicar = (me: {
+      anime_enabled?: boolean;
+      show_adult_content?: boolean;
+      play_store_app?: boolean;
+    } | null) => {
+      if (enAndroid) {
+        const habilitado = Boolean(me?.anime_enabled);
+        setAnimeHabilitado(habilitado);
+        if (!habilitado) setSeccion("lectura");
+      }
+      setAnimeAdultoHabilitado(
+        Boolean(me?.show_adult_content) && !me?.play_store_app && !isPlayStoreApp()
+      );
     };
     void (async () => {
-      const guardada = await leerCacheAndroid<{ anime_enabled?: boolean }>("sesion:me", {
+      const guardada = await leerCacheAndroid<{
+        anime_enabled?: boolean;
+        show_adult_content?: boolean;
+        play_store_app?: boolean;
+      }>("sesion:me", {
         privateData: true,
         maxAgeMs: 30 * 24 * 60 * 60 * 1000,
       });
@@ -377,7 +390,11 @@ export default function ExplorarPage() {
       try {
         const res = await fetchConLimiteAndroid("/api/auth/me", {}, 8_000);
         if (!res.ok) return;
-        const me = (await res.json()) as { anime_enabled?: boolean };
+        const me = (await res.json()) as {
+          anime_enabled?: boolean;
+          show_adult_content?: boolean;
+          play_store_app?: boolean;
+        };
         aplicar(me);
         await guardarCacheAndroid("sesion:me", me, { privateData: true });
       } catch {
@@ -385,6 +402,12 @@ export default function ExplorarPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (animeFuente === "hentaitv" && !animeAdultoHabilitado) {
+      setAnimeFuente("jkanime");
+    }
+  }, [animeAdultoHabilitado, animeFuente]);
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
   const [tmoMas, setTmoMas] = useState(false);
@@ -568,7 +591,8 @@ export default function ExplorarPage() {
     const leer = (k: string) => p.get(k) || null;
 
     if (leer("seccion") === "animada") setSeccion("animada");
-    if (leer("anime_fuente") === "tioanime") setAnimeFuente("tioanime");
+    const fuenteAnime = leer("anime_fuente");
+    if (fuenteAnime === "tioanime" || fuenteAnime === "hentaitv") setAnimeFuente(fuenteAnime);
     const f = leer("fuente");
     if (f) setFuente(f);
     const q = leer("q");
@@ -618,7 +642,7 @@ export default function ExplorarPage() {
     };
 
     poner("seccion", seccion === "animada" ? "animada" : null);
-    poner("anime_fuente", seccion === "animada" && animeFuente === "tioanime" ? "tioanime" : null);
+    poner("anime_fuente", seccion === "animada" && animeFuente !== "jkanime" ? animeFuente : null);
     poner("fuente", fuente === "mangadex" ? null : fuente);
     poner("q", search.trim() || null);
 
@@ -821,23 +845,45 @@ export default function ExplorarPage() {
           onChange={setSeccion}
         />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 font-mono text-[11px] font-medium text-faint">
-            Fuente
-          </span>
-          {(["jkanime", "tioanime"] as const).map((source) => (
-            <Chip
-              type="button"
-              key={source}
-              onClick={() => setAnimeFuente(source)}
-              selected={animeFuente === source}
-            >
-              {source === "jkanime" ? "JKAnime" : "TioAnime"}
-            </Chip>
-          ))}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 font-mono text-[11px] font-medium text-faint">
+              Fuente
+            </span>
+            {(["jkanime", "tioanime"] as const).map((source) => (
+              <Chip
+                type="button"
+                key={source}
+                onClick={() => setAnimeFuente(source)}
+                selected={animeFuente === source}
+              >
+                {source === "jkanime" ? "JKAnime" : "TioAnime"}
+              </Chip>
+            ))}
+          </div>
+          {animeAdultoHabilitado && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 font-mono text-[11px] font-medium text-faint">
+                Fuente +18
+              </span>
+              <Chip
+                type="button"
+                onClick={() => setAnimeFuente("hentaitv")}
+                selected={animeFuente === "hentaitv"}
+              >
+                HentaiTV
+              </Chip>
+            </div>
+          )}
         </div>
 
-        {animeFuente === "jkanime" ? <JkanimeCatalog /> : <TioanimeCatalog />}
+        {animeFuente === "hentaitv" && animeAdultoHabilitado ? (
+          <HentaitvCatalog />
+        ) : animeFuente === "jkanime" ? (
+          <JkanimeCatalog />
+        ) : (
+          <TioanimeCatalog />
+        )}
       </div>
     );
   }

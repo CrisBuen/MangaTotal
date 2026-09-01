@@ -1,0 +1,61 @@
+HENTAITV — CONTRATO DE INTEGRACION Y CAMBIO DE DOMINIO
+======================================================
+
+Estado: integrado con permiso escrito de HentaiTV.
+Dominio comprobado: https://hentaila.tv
+
+QUE CONSUME MANGATOTAL
+----------------------
+
+- Catalogo y taxonomias desde la API publica de WordPress:
+  /wp-json/wp/v2/wp-manga
+  /wp-json/wp/v2/wp-manga-genre
+  /wp-json/wp/v2/wp-manga-release
+- Ficha y lista de episodios desde /ver/{slug}/.
+- Portadas publicadas por img.hentaihaven.xxx.
+- Miniaturas de episodios publicadas por coverlanyvd.org.
+- Enlace a la pagina oficial de cada episodio.
+
+El permiso y los enlaces a la fuente no se deben quitar. MangaTotal guarda
+solamente la referencia de la serie, el episodio y el progreso local; nunca
+guarda direcciones de video.
+
+REPRODUCTOR
+-----------
+
+El reproductor oficial responde con X-Frame-Options: SAMEORIGIN. Por eso no
+se puede incrustar dentro de mangatotal.com ni de sus aplicaciones. Tampoco
+se debe decodificar, copiar o persistir el token interno del reproductor.
+
+La integracion abre la pagina oficial del episodio. Si HentaiTV ofrece mas
+adelante un endpoint documentado para MangaTotal, recien entonces se conecta
+al reproductor nativo con una lista cerrada de hosts HTTPS.
+
+ACCESO ADULTO Y PLAY STORE
+--------------------------
+
+- La fuente solo aparece cuando show_adult_content esta activo.
+- Todas sus APIs vuelven a comprobar contenidoAdultoPermitido().
+- La edicion Google Play nunca muestra ni sirve catalogo, ficha, biblioteca o
+  progreso de HentaiTV, aunque se intente abrir una URL directa.
+- La consulta de catalogo excluye en origen las taxonomias no admisibles y
+  cada respuesta se valida otra vez antes de devolverla al cliente.
+
+SI CAMBIA EL DOMINIO
+--------------------
+
+1. Confirmar el nuevo dominio directamente con HentaiTV.
+2. Cambiar HENTAITV_WEB y, solo si corresponde, HENTAITV_IMAGENES en
+   src/lib/hentaitv.ts.
+3. Revisar la ruta REST, el selector .hentai__chapter y los tres hosts de
+   imagen permitidos. No ampliar la lista a hosts encontrados en anuncios.
+4. Comprobar catalogo, busqueda, genero, año, ficha y un episodio real.
+5. Comprobar con un User-Agent Play que /api/anime/hentaitv devuelve 404.
+
+NO CAMBIAR
+----------
+
+- No eliminar la atribucion ni los enlaces originales.
+- No debilitar el filtro +18 ni el bloqueo de Play Store.
+- No convertir el reproductor protegido en proxy.
+- No guardar URLs efimeras de reproduccion en Prisma o caches del cliente.
