@@ -50,7 +50,7 @@ const DOMINIOS_FUENTES: [&str; 10] = [
     "zonatmo.net",
     "cdn.zonatmo.to",
     "visorikigai.gettocaboca.com",
-    "viralikigai.radiot.space",
+    "viralikigai.milkchoco.online",
     "image2.ikigaimangas.cloud",
     "image3.ikigaimangas.cloud",
 ];

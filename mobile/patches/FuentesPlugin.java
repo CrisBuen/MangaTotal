@@ -62,7 +62,7 @@ public class FuentesPlugin extends Plugin {
         "zonatmo.net",
         "cdn.zonatmo.to",
         "visorikigai.gettocaboca.com",
-        "viralikigai.radiot.space",
+        "viralikigai.milkchoco.online",
         "image2.ikigaimangas.cloud",
         "image3.ikigaimangas.cloud",
     };

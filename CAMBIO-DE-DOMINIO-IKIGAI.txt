@@ -19,7 +19,7 @@ DOS COSAS PROPIAS DE SU SITIO
 
    Catálogo y fichas:  https://visorikigai.gettocaboca.com
    Visor de capítulos: /capitulo/<id> REDIRIGE a otro dominio
-                       (hoy: viralikigai.radiot.space)
+                       (hoy: viralikigai.milkchoco.online)
 
    La redirección la sigue sola el puente nativo, así que en el código solo
    está escrito el primer dominio.

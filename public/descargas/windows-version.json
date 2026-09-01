@@ -1,13 +1,11 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
+  "versionCode": 8,
+  "versionName": "1.7",
   "date": "2026-08-31",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "A289AA5DCD39502A3703A5228767A2536CC735888D4C3BC1D00D440A7EA7E14B",
+  "sha256": "5028C2C5C1AD961070F7D131B7CF250E8705448B7A17033DCEB2F80A2094E0BC",
   "sizeMb": 2.6,
   "changes": [
-    "Nueva identidad visual de MangaTotal en la ventana, barra de tareas e instalador",
-    "Añade correo opcional y recuperación de contraseña",
-    "Actualiza la configuración de contenido y seguridad de la cuenta"
+    "Restaura la lectura de capítulos de Ikigai después de su cambio de dominio"
   ]
 }
