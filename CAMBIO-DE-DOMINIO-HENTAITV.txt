@@ -14,7 +14,7 @@ QUE CONSUME MANGATOTAL
 - Ficha y lista de episodios desde /ver/{slug}/.
 - Portadas publicadas por img.hentaihaven.xxx.
 - Miniaturas de episodios publicadas por coverlanyvd.org.
-- Enlace a la pagina oficial de cada episodio.
+- Configuracion efimera del reproductor publicada dentro de cada episodio.
 
 La consulta desde produccion envia Origin y Referer de mangatotal.com, tal como
 autoriza el CORS de HentaiTV. Si Cloudflare rechaza la IP del servidor y la
@@ -22,8 +22,9 @@ API interna devuelve 502, el catalogo reintenta desde el navegador. Ese
 respaldo no se activa frente a 401, 403 o 404 de acceso de MangaTotal y vuelve
 a aplicar la exclusion y validacion local de taxonomias.
 El mismo 502 recuperable se usa al consultar años y fichas. Si la ficha HTML
-sigue bloqueada, se muestran sus metadatos REST y el enlace oficial a los
-episodios, sin intentar eludir la proteccion del sitio.
+queda bloqueada en una funcion Node de Vercel, la API autenticada firma durante
+un minuto el slug exacto y hace la lectura desde una ruta Edge. Esa ruta no
+acepta una URL y no queda como proxy publico.
 
 El permiso y los enlaces a la fuente no se deben quitar. MangaTotal guarda
 solamente la referencia de la serie, el episodio y el progreso local; nunca
@@ -32,13 +33,18 @@ guarda direcciones de video.
 REPRODUCTOR
 -----------
 
-El reproductor oficial responde con X-Frame-Options: SAMEORIGIN. Por eso no
-se puede incrustar dentro de mangatotal.com ni de sus aplicaciones. Tampoco
-se debe decodificar, copiar o persistir el token interno del reproductor.
+El reproductor oficial responde con X-Frame-Options: SAMEORIGIN, por lo que no
+se incrusta. Con autorizacion expresa de HentaiTV, MangaTotal replica la misma
+transformacion ROT13/Base64 publicada en player.js para leer x-secure-token
+solo en memoria y pedir api.php con en/iv. Es una configuracion ofuscada, no
+DRM. El token y esos valores se descartan dentro de la misma solicitud.
 
-La integracion abre la pagina oficial del episodio. Si HentaiTV ofrece mas
-adelante un endpoint documentado para MangaTotal, recien entonces se conecta
-al reproductor nativo con una lista cerrada de hosts HTTPS.
+api.php debe entregar una fuente HTTPS de octopusmanifest.org. MangaTotal
+descarga solamente el manifiesto maestro, comprueba que sea HLS y que todas
+sus variantes sigan en ese host, las vuelve absolutas y lo publica mediante
+una respuesta autenticada, privada y sin cache. Las variantes y los segmentos
+viajan directamente desde los CDN de HentaiTV al dispositivo: MangaTotal no
+retransmite, descarga ni guarda el video.
 
 ACCESO ADULTO Y PLAY STORE
 --------------------------
@@ -60,11 +66,16 @@ SI CAMBIA EL DOMINIO
    imagen permitidos. No ampliar la lista a hosts encontrados en anuncios.
 4. Comprobar catalogo, busqueda, genero, año, ficha y un episodio real.
 5. Comprobar con un User-Agent Play que /api/anime/hentaitv devuelve 404.
+6. Verificar que player.php conserve x-secure-token, que api.php siga dentro
+   de player-logic y que el manifiesto maestro venga de octopusmanifest.org.
 
 NO CAMBIAR
 ----------
 
 - No eliminar la atribucion ni los enlaces originales.
 - No debilitar el filtro +18 ni el bloqueo de Play Store.
-- No convertir el reproductor protegido en proxy.
-- No guardar URLs efimeras de reproduccion en Prisma o caches del cliente.
+- No aceptar una URL de reproductor o video enviada por el cliente.
+- No guardar tokens, en/iv, manifiestos ni URLs efimeras en Prisma o caches.
+- No retransmitir variantes o segmentos desde MangaTotal/Vercel.
+- Si aparece cifrado real, DRM o cambia el contrato de player.js/api.php,
+  confirmar el metodo nuevo con HentaiTV en vez de intentar romperlo.

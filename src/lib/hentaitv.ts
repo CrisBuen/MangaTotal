@@ -1,10 +1,10 @@
 /**
  * Adaptador de HentaiTV, integrado con permiso de sus responsables.
  *
- * El catalogo usa la API publica de WordPress y las fichas leen solamente la
- * lista de episodios publicada por la fuente. El reproductor de HentaiTV no
- * permite ser incrustado fuera de su dominio, por eso cada episodio conserva
- * un enlace a su pagina oficial y nunca se extraen ni guardan sus videos.
+ * El catalogo usa la API publica de WordPress y las fichas leen la lista de
+ * episodios publicada por la fuente. Al abrir uno se consulta la configuracion
+ * efimera de su reproductor y se entrega solamente un manifiesto HLS validado.
+ * Ningun token, manifiesto ni direccion de video se guarda en la base de datos.
  */
 
 export const HENTAITV_NOMBRE = "HentaiTV";
@@ -12,6 +12,8 @@ export const HENTAITV_WEB = "https://hentaila.tv";
 
 const HENTAITV_API = `${HENTAITV_WEB}/wp-json/wp/v2`;
 const HENTAITV_IMAGENES = "https://img.hentaihaven.xxx/";
+const HENTAITV_PLAYER_API = "/wp-content/plugins/player-logic/api.php";
+const HENTAITV_MANIFEST_HOST = "octopusmanifest.org";
 const POR_PAGINA = 24;
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 MangaTotal/1.0";
@@ -98,6 +100,9 @@ export interface ReproduccionHentaitv {
   episode_number: string;
   episode_title: string;
   poster_url: string | null;
+  sources: Array<{ id: "hentaitv"; label: "HentaiTV"; kind: "hls" }>;
+  selected_source: "hentaitv";
+  playback: { kind: "hls"; manifest: string };
   url_original: string;
 }
 
@@ -122,6 +127,19 @@ interface WpManga {
   "wp-manga-genre"?: number[];
   "wp-manga-release"?: number[];
   _embedded?: { "wp:term"?: unknown[] };
+}
+
+interface ConfiguracionPlayerHentaitv {
+  en?: unknown;
+  iv?: unknown;
+  uri?: unknown;
+}
+
+interface RespuestaPlayerHentaitv {
+  status?: unknown;
+  data?: {
+    sources?: Array<{ src?: unknown }>;
+  };
 }
 
 export class ErrorHentaitv extends Error {
@@ -387,6 +405,215 @@ export async function fichaHentaitv(slug: string, fresco = false): Promise<Ficha
   };
 }
 
+function rot13(value: string): string {
+  return value.replace(/[a-z]/gi, (char) => {
+    const inicio = char <= "Z" ? 65 : 97;
+    return String.fromCharCode(inicio + ((char.charCodeAt(0) - inicio + 13) % 26));
+  });
+}
+
+function decodificarCapaBase64(value: string): string {
+  const binario = atob(value);
+  const bytes = Uint8Array.from(binario, (char) => char.charCodeAt(0));
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
+/**
+ * Replica la transformacion publicada por player.js. El valor solo vive en
+ * esta llamada: se usa para pedir el manifiesto y se descarta de inmediato.
+ */
+function configuracionPlayer(token: string): ConfiguracionPlayerHentaitv {
+  if (!token.startsWith("sha512-") || token.length > 100_000) {
+    throw new ErrorHentaitv("HentaiTV devolvio una configuracion de reproductor invalida");
+  }
+  let value = token.slice("sha512-".length);
+  try {
+    for (let capa = 0; capa < 3; capa += 1) {
+      value = decodificarCapaBase64(rot13(value));
+      if (value.length > 100_000) throw new Error();
+    }
+    const config = JSON.parse(value) as ConfiguracionPlayerHentaitv;
+    if (!config || typeof config !== "object") throw new Error();
+    return config;
+  } catch {
+    throw new ErrorHentaitv("HentaiTV cambio la configuracion de su reproductor");
+  }
+}
+
+function playerDesdeHtml(html: string, episodioUrl: string): URL {
+  for (const tag of html.match(/<iframe\b[^>]*>/gi) ?? []) {
+    const src = atributo(tag, "src");
+    if (!src) continue;
+    try {
+      const url = new URL(decodificarHtml(src), episodioUrl);
+      if (
+        url.origin === HENTAITV_WEB &&
+        url.pathname === "/wp-content/plugins/player-logic/player.php" &&
+        url.searchParams.has("data")
+      ) {
+        return url;
+      }
+    } catch {
+      // Un iframe publicitario no debe impedir encontrar el oficial.
+    }
+  }
+  throw new ErrorHentaitv("HentaiTV no devolvio su reproductor oficial");
+}
+
+function tokenDesdePlayer(html: string): string {
+  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    if ((atributo(tag, "name") ?? "").toLowerCase() !== "x-secure-token") continue;
+    const content = atributo(tag, "content");
+    if (content) return decodificarHtml(content);
+  }
+  throw new ErrorHentaitv("HentaiTV no devolvio la configuracion del video");
+}
+
+function urlManifestPermitida(
+  value: string,
+  base?: URL,
+  extensiones = [".m3u8"],
+): URL {
+  let url: URL;
+  try {
+    url = new URL(value, base);
+  } catch {
+    throw new ErrorHentaitv("HentaiTV devolvio un manifiesto invalido");
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== HENTAITV_MANIFEST_HOST ||
+    url.port ||
+    url.username ||
+    url.password ||
+    !extensiones.some((extension) => url.pathname.toLowerCase().endsWith(extension))
+  ) {
+    throw new ErrorHentaitv("HentaiTV devolvio un servidor de video no autorizado");
+  }
+  return url;
+}
+
+function absolutizarManifestMaestro(manifest: string, base: URL): string {
+  if (
+    manifest.length > 2_000_000 ||
+    !manifest.trimStart().startsWith("#EXTM3U") ||
+    !manifest.includes("#EXT-X-STREAM-INF") ||
+    manifest.includes("#EXTINF")
+  ) {
+    throw new ErrorHentaitv("HentaiTV devolvio un manifiesto HLS invalido");
+  }
+
+  let variantes = 0;
+  const salida = manifest.split(/\r?\n/).map((linea) => {
+    const limpia = linea.trim();
+    if (!limpia) return linea;
+    if (!limpia.startsWith("#")) {
+      variantes += 1;
+      return urlManifestPermitida(limpia, base).toString();
+    }
+    return linea.replace(/URI=(["'])([^"']+)\1/gi, (_match, comilla: string, uri: string) => {
+      const recurso = urlManifestPermitida(uri, base, [".m3u8", ".vtt"]);
+      return `URI=${comilla}${recurso.toString()}${comilla}`;
+    });
+  });
+  if (variantes === 0 || variantes > 20) {
+    throw new ErrorHentaitv("HentaiTV no devolvio variantes HLS validas");
+  }
+  return salida.join("\n");
+}
+
+async function manifestHentaitv(episodioUrl: string): Promise<string> {
+  const episodio = await pedir(episodioUrl, true);
+  if (episodio.status === 404) throw new ErrorHentaitv("Episodio no encontrado", 404);
+  if (!episodio.ok) throw new ErrorHentaitv(`HentaiTV respondio ${episodio.status}`);
+  const playerUrl = playerDesdeHtml(await episodio.text(), episodioUrl);
+
+  let player: Response;
+  try {
+    player = await fetch(playerUrl, {
+      cache: "no-store",
+      headers: {
+        "User-Agent": UA,
+        Accept: "text/html,application/xhtml+xml",
+        Referer: episodioUrl,
+      },
+    });
+  } catch {
+    throw new ErrorHentaitv("No se pudo abrir el reproductor de HentaiTV");
+  }
+  if (!player.ok) throw new ErrorHentaitv(`El reproductor de HentaiTV respondio ${player.status}`);
+
+  const config = configuracionPlayer(tokenDesdePlayer(await player.text()));
+  const en = typeof config.en === "string" ? config.en : "";
+  const iv = typeof config.iv === "string" ? config.iv : "";
+  const uri = typeof config.uri === "string" ? config.uri : "";
+  if (!en || !iv || !uri || en.length > 20_000 || iv.length > 20_000 || uri.length > 500) {
+    throw new ErrorHentaitv("HentaiTV devolvio datos incompletos del reproductor");
+  }
+
+  let apiUrl: URL;
+  try {
+    const raiz = new URL(uri, playerUrl);
+    apiUrl = new URL("api.php", raiz.href.endsWith("/") ? raiz : `${raiz.href}/`);
+  } catch {
+    throw new ErrorHentaitv("HentaiTV devolvio una API de reproductor invalida");
+  }
+  if (apiUrl.origin !== HENTAITV_WEB || apiUrl.pathname !== HENTAITV_PLAYER_API) {
+    throw new ErrorHentaitv("HentaiTV devolvio una API de reproductor no autorizada");
+  }
+
+  let api: Response;
+  try {
+    api = await fetch(apiUrl, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "User-Agent": UA,
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        Origin: HENTAITV_WEB,
+        Referer: playerUrl.toString(),
+      },
+      body: new URLSearchParams({ action: "zarat_get_data_player_ajax", a: en, b: iv }),
+    });
+  } catch {
+    throw new ErrorHentaitv("No se pudo pedir el video a HentaiTV");
+  }
+  if (!api.ok) throw new ErrorHentaitv(`La API de video de HentaiTV respondio ${api.status}`);
+
+  let respuesta: RespuestaPlayerHentaitv;
+  try {
+    respuesta = (await api.json()) as RespuestaPlayerHentaitv;
+  } catch {
+    throw new ErrorHentaitv("HentaiTV devolvio datos de video invalidos");
+  }
+  const source = respuesta.data?.sources
+    ?.map((item) => (typeof item.src === "string" ? item.src : ""))
+    .find(Boolean);
+  if (!respuesta.status || !source) throw new ErrorHentaitv("HentaiTV no devolvio video para este episodio");
+  const manifestUrl = urlManifestPermitida(source);
+
+  let manifest: Response;
+  try {
+    manifest = await fetch(manifestUrl, {
+      cache: "no-store",
+      headers: {
+        "User-Agent": UA,
+        Accept: "application/vnd.apple.mpegurl,application/x-mpegURL,text/plain,*/*",
+        Referer: playerUrl.toString(),
+      },
+    });
+  } catch {
+    throw new ErrorHentaitv("No se pudo abrir el video HLS de HentaiTV");
+  }
+  if (!manifest.ok) throw new ErrorHentaitv(`El video HLS de HentaiTV respondio ${manifest.status}`);
+  const largo = Number(manifest.headers.get("content-length"));
+  if (Number.isFinite(largo) && largo > 2_000_000) {
+    throw new ErrorHentaitv("HentaiTV devolvio un manifiesto HLS demasiado grande");
+  }
+  return absolutizarManifestMaestro(await manifest.text(), manifestUrl);
+}
+
 export async function reproduccionHentaitv(
   slug: string,
   episode: string
@@ -395,6 +622,7 @@ export async function reproduccionHentaitv(
   const ficha = await fichaHentaitv(slug, true);
   const episodio = ficha.episodes.find((item) => item.number === episode);
   if (!episodio) throw new ErrorHentaitv("Episodio no encontrado", 404);
+  const manifest = await manifestHentaitv(episodio.url_original);
   return {
     external_id: ficha.slug,
     slug: ficha.slug,
@@ -405,6 +633,9 @@ export async function reproduccionHentaitv(
     episode_number: episodio.number,
     episode_title: episodio.title,
     poster_url: episodio.image_url,
+    sources: [{ id: "hentaitv", label: "HentaiTV", kind: "hls" }],
+    selected_source: "hentaitv",
+    playback: { kind: "hls", manifest },
     url_original: episodio.url_original,
   };
 }

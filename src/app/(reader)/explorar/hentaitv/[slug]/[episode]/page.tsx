@@ -1,11 +1,18 @@
 "use client";
 
 import { use } from "react";
-import { HentaitvOfficialEpisode } from "@/components/anime/HentaitvOfficialEpisode";
+import { ReproductorAnimeExterno } from "@/components/anime/JkanimePlayer";
 
 export default function EpisodioHentaitvPage(props: {
   params: Promise<{ slug: string; episode: string }>;
 }) {
   const { slug, episode } = use(props.params);
-  return <HentaitvOfficialEpisode slug={slug} episode={episode} />;
+  return (
+    <ReproductorAnimeExterno
+      slug={slug}
+      episode={episode}
+      source="hentaitv"
+      sourceName="HentaiTV"
+    />
+  );
 }
