@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
-import { GENEROS_HENTAITV, type SerieHentaitv } from "@/lib/hentaitv";
+import {
+  GENEROS_HENTAITV,
+  serieHentaitvDesdePublica,
+  type SerieHentaitv,
+} from "@/lib/hentaitv";
 
 const ORDENES = [
   ["date_desc", "Más recientes"],
@@ -29,6 +33,67 @@ interface CatalogResponse {
   lastPage: number;
   total: number;
   error?: string;
+}
+
+/**
+ * HentaiTV autoriza por CORS a mangatotal.com. Este camino se usa solamente
+ * si Cloudflare rechaza la IP del servidor de produccion; conserva los mismos
+ * filtros y vuelve a validar cada ficha antes de mostrarla.
+ */
+async function catalogoHentaitvDirecto(
+  params: URLSearchParams,
+  signal: AbortSignal
+): Promise<CatalogResponse> {
+  const page = Math.max(1, Number(params.get("page")) || 1);
+  const [orderby, order] = (params.get("sort") ?? "date_desc").split("_");
+  const publica = new URL("https://hentaila.tv/wp-json/wp/v2/wp-manga");
+  publica.searchParams.set("per_page", "24");
+  publica.searchParams.set("page", String(page));
+  publica.searchParams.set("orderby", orderby);
+  publica.searchParams.set("order", order);
+  publica.searchParams.set("wp-manga-genre_exclude", "178,364,69,8,92,262");
+  const q = params.get("q")?.trim();
+  const genre = Number(params.get("genre"));
+  if (q) publica.searchParams.set("search", q.slice(0, 120));
+  if (GENEROS_HENTAITV.some(([id]) => id === genre)) {
+    publica.searchParams.set("wp-manga-genre", String(genre));
+  }
+
+  const year = params.get("year");
+  if (year && /^(?:19|20)\d{2}$/.test(year)) {
+    const releaseUrl = new URL("https://hentaila.tv/wp-json/wp/v2/wp-manga-release");
+    releaseUrl.searchParams.set("slug", year);
+    releaseUrl.searchParams.set("per_page", "1");
+    releaseUrl.searchParams.set("_fields", "id");
+    const releaseRes = await fetch(releaseUrl, {
+      signal,
+      cache: "no-store",
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+    });
+    if (releaseRes.ok) {
+      const releases = (await releaseRes.json()) as { id?: number }[];
+      if (releases[0]?.id) publica.searchParams.set("wp-manga-release", String(releases[0].id));
+    }
+  }
+
+  const res = await fetch(publica, {
+    signal,
+    cache: "no-store",
+    credentials: "omit",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`HentaiTV no devolvió el catálogo (${res.status})`);
+  const items = (await res.json()) as unknown[];
+  const series = items
+    .map(serieHentaitvDesdePublica)
+    .filter((item): item is SerieHentaitv => item !== null);
+  return {
+    series,
+    page,
+    lastPage: Math.max(1, Number(res.headers.get("x-wp-totalpages")) || 1),
+    total: Math.max(0, Number(res.headers.get("x-wp-total")) || series.length),
+  };
 }
 
 export function HentaitvCatalog() {
@@ -63,6 +128,7 @@ export function HentaitvCatalog() {
         `explorar:hentaitv:${cacheKey}`,
         async (signal) => {
           const res = await fetch(`/api/anime/hentaitv?${params}`, { signal, cache: "no-store" });
+          if (res.status === 502) return catalogoHentaitvDirecto(params, signal);
           const respuesta = (await res.json()) as CatalogResponse;
           if (!res.ok) throw new Error(respuesta.error ?? "HentaiTV no respondió");
           return respuesta;

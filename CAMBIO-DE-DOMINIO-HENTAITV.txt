@@ -16,6 +16,12 @@ QUE CONSUME MANGATOTAL
 - Miniaturas de episodios publicadas por coverlanyvd.org.
 - Enlace a la pagina oficial de cada episodio.
 
+La consulta desde produccion envia Origin y Referer de mangatotal.com, tal como
+autoriza el CORS de HentaiTV. Si Cloudflare rechaza la IP del servidor y la
+API interna devuelve 502, el catalogo reintenta desde el navegador. Ese
+respaldo no se activa frente a 401, 403 o 404 de acceso de MangaTotal y vuelve
+a aplicar la exclusion y validacion local de taxonomias.
+
 El permiso y los enlaces a la fuente no se deben quitar. MangaTotal guarda
 solamente la referencia de la serie, el episodio y el progreso local; nunca
 guarda direcciones de video.

@@ -235,12 +235,19 @@ function serieDesdeWp(item: WpManga): SerieHentaitv | null {
   };
 }
 
+export function serieHentaitvDesdePublica(item: unknown): SerieHentaitv | null {
+  if (!item || typeof item !== "object") return null;
+  return serieDesdeWp(item as WpManga);
+}
+
 async function pedir(url: URL | string, fresco = false): Promise<Response> {
   const init: RequestInit & { next?: { revalidate: number } } = {
     headers: {
       "User-Agent": UA,
       Accept: "application/json,text/html,application/xhtml+xml",
       "Accept-Language": "es-ES,es;q=0.9",
+      Origin: "https://www.mangatotal.com",
+      Referer: "https://www.mangatotal.com/",
     },
   };
   if (fresco) init.cache = "no-store";
@@ -288,8 +295,10 @@ export async function catalogoHentaitv(
   const res = await pedir(url, fresco);
   if (!res.ok) {
     throw new ErrorHentaitv(
-      res.status === 400 ? "La pagina solicitada no existe" : "HentaiTV no devolvio el catalogo",
-      res.status
+      res.status === 400
+        ? "La pagina solicitada no existe"
+        : `HentaiTV no devolvio el catalogo (${res.status})`,
+      res.status === 400 ? 400 : 502
     );
   }
   const items = (await res.json()) as WpManga[];
