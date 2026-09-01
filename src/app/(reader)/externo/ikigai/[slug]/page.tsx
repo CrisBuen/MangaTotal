@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { anotarHistorial } from "@/components/library/historial";
@@ -12,6 +13,7 @@ type Ficha = Awaited<ReturnType<typeof serieIkigai>>;
 
 export default function SerieIkigaiPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = use(props.params);
+  const router = useRouter();
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [orden, setOrden] = useState<"asc" | "desc">("asc");
@@ -140,13 +142,28 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
           {capitulos.map((c) => (
             <li key={c.id}>
               <Link
-                onClick={() =>
-                  anotarHistorial({
+                onClick={async (event) => {
+                  const registro = {
                     ...serieGuardable,
                     last_chapter_id: String(c.id),
                     last_chapter_name: String(c.numero ?? c.id),
-                  })
-                }
+                  };
+                  if (
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey ||
+                    event.button !== 0
+                  ) {
+                    void anotarHistorial(registro);
+                    return;
+                  }
+
+                  event.preventDefault();
+                  const destino = event.currentTarget.getAttribute("href")!;
+                  await anotarHistorial(registro);
+                  router.push(destino);
+                }}
                 href={`/leer-externo/ikigai/${c.id}?slug=${slug}${sufijoPagina(progreso, c.id === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.id === progreso.ultimoId,
