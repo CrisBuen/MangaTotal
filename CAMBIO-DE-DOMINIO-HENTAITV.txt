@@ -47,6 +47,9 @@ viajan directamente desde los CDN de HentaiTV al dispositivo: MangaTotal no
 retransmite, descarga ni guarda el video.
 
 Las calidades se leen de los niveles del manifiesto dentro del reproductor.
+Cuando MediaSource declara soporte VP9, MangaTotal pide playlist_vp9.m3u8,
+que agrega 1080p; si el dispositivo no lo admite o el episodio no lo publica,
+mantiene automaticamente el manifiesto H.264 compatible de hasta 720p.
 Las pistas VTT declaradas por HentaiTV se validan contra octopusmanifest.org y
 se entregan directamente al elemento de video, porque tratarlas como listas
 HLS produce levelParsingError. Esas direcciones viven solo durante la sesion

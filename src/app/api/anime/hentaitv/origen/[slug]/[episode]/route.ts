@@ -14,13 +14,14 @@ export async function GET(
   const userId = Number(req.headers.get("x-mangatotal-user"));
   const expires = Number(req.headers.get("x-mangatotal-expires"));
   const signature = req.headers.get("x-mangatotal-signature") ?? "";
-  const recurso = `${slug}/${episode}`;
+  const preferirVp9 = new URL(req.url).searchParams.get("codec") === "vp9";
+  const recurso = `${slug}/${episode}${preferirVp9 ? ":vp9" : ""}`;
   if (!(await verificarPuenteHentaitv(recurso, userId, expires, signature))) {
     return NextResponse.json({ error: "No disponible" }, { status: 404 });
   }
 
   try {
-    const reproduccion = await reproduccionHentaitv(slug, episode);
+    const reproduccion = await reproduccionHentaitv(slug, episode, preferirVp9);
     return NextResponse.json(reproduccion, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });

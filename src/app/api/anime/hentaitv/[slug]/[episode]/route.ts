@@ -17,18 +17,20 @@ async function reproduccionConPuente(
   userId: number,
   slug: string,
   episode: string,
+  preferirVp9: boolean,
 ): Promise<ReproduccionHentaitv> {
   try {
-    return await reproduccionHentaitv(slug, episode);
+    return await reproduccionHentaitv(slug, episode, preferirVp9);
   } catch (error) {
     if (!(error instanceof ErrorHentaitv) || error.status !== 502) throw error;
 
-    const recurso = `${slug}/${episode}`;
+    const recurso = `${slug}/${episode}${preferirVp9 ? ":vp9" : ""}`;
     const puente = await firmarPuenteHentaitv(recurso, userId);
     const origen = new URL(
       `/api/anime/hentaitv/origen/${encodeURIComponent(slug)}/${encodeURIComponent(episode)}`,
       origenPuenteHentaitv(req.url),
     );
+    if (preferirVp9) origen.searchParams.set("codec", "vp9");
     const respuesta = await fetch(origen, {
       cache: "no-store",
       headers: {
@@ -62,8 +64,15 @@ export async function GET(
 
   const { slug, episode } = await ctx.params;
   const pideManifest = req.nextUrl.searchParams.get("format") === "manifest";
+  const preferirVp9 = pideManifest && req.nextUrl.searchParams.get("codec") === "vp9";
   try {
-    const reproduccion = await reproduccionConPuente(req, user.id, slug, episode);
+    const reproduccion = await reproduccionConPuente(
+      req,
+      user.id,
+      slug,
+      episode,
+      preferirVp9,
+    );
     if (pideManifest) {
       return new NextResponse(reproduccion.playback.manifest, {
         headers: {

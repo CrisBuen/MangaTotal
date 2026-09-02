@@ -79,6 +79,22 @@ function pistaSubtituloHentaitvPermitida(url: string): boolean {
   }
 }
 
+function soporteVp9Hentaitv(): boolean {
+  return (
+    typeof MediaSource !== "undefined" &&
+    MediaSource.isTypeSupported(
+      'video/mp4; codecs="vp09.00.41.08.00.01.01.01.00,mp4a.40.2"'
+    )
+  );
+}
+
+function manifestHentaitvParaDispositivo(url: string): string {
+  if (!soporteVp9Hentaitv()) return url;
+  const manifest = new URL(url, window.location.origin);
+  manifest.searchParams.set("codec", "vp9");
+  return `${manifest.pathname}${manifest.search}${manifest.hash}`;
+}
+
 interface ReproductorAnimeExternoProps {
   slug: string;
   episode: string;
@@ -280,7 +296,13 @@ export function ReproductorAnimeExterno({
           : {}),
       });
       hlsRef.current = hls;
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(data.playback.url));
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        const manifest =
+          source === "hentaitv"
+            ? manifestHentaitvParaDispositivo(data.playback.url)
+            : data.playback.url;
+        hls.loadSource(manifest);
+      });
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, manifestData) => {
         if (source === "hentaitv") {
           setCalidadesHentaitv(

@@ -522,7 +522,10 @@ function absolutizarManifestMaestro(manifest: string, base: URL): string {
   return salida.join("\n");
 }
 
-async function manifestHentaitv(episodioUrl: string): Promise<string> {
+async function manifestHentaitv(
+  episodioUrl: string,
+  preferirVp9 = false,
+): Promise<string> {
   const episodio = await pedir(episodioUrl, true);
   if (episodio.status === 404) throw new ErrorHentaitv("Episodio no encontrado", 404);
   if (!episodio.ok) throw new ErrorHentaitv(`HentaiTV respondio ${episodio.status}`);
@@ -591,7 +594,31 @@ async function manifestHentaitv(episodioUrl: string): Promise<string> {
     ?.map((item) => (typeof item.src === "string" ? item.src : ""))
     .find(Boolean);
   if (!respuesta.status || !source) throw new ErrorHentaitv("HentaiTV no devolvio video para este episodio");
-  const manifestUrl = urlManifestPermitida(source);
+  const manifestBase = urlManifestPermitida(source);
+
+  if (preferirVp9 && /\/playlist\.m3u8$/i.test(manifestBase.pathname)) {
+    const manifestVp9 = new URL(manifestBase);
+    manifestVp9.pathname = manifestVp9.pathname.replace(/playlist\.m3u8$/i, "playlist_vp9.m3u8");
+    try {
+      const respuestaVp9 = await fetch(manifestVp9, {
+        cache: "no-store",
+        headers: {
+          "User-Agent": UA,
+          Accept: "application/vnd.apple.mpegurl,application/x-mpegURL,text/plain,*/*",
+          Referer: playerUrl.toString(),
+        },
+      });
+      const largoVp9 = Number(respuestaVp9.headers.get("content-length"));
+      if (respuestaVp9.ok && (!Number.isFinite(largoVp9) || largoVp9 <= 2_000_000)) {
+        return absolutizarManifestMaestro(await respuestaVp9.text(), manifestVp9);
+      }
+    } catch {
+      // Algunos dispositivos anuncian VP9 aunque un episodio antiguo no lo
+      // tenga. En ese caso se conserva el manifiesto H.264 como respaldo.
+    }
+  }
+
+  const manifestUrl = manifestBase;
 
   let manifest: Response;
   try {
@@ -616,13 +643,14 @@ async function manifestHentaitv(episodioUrl: string): Promise<string> {
 
 export async function reproduccionHentaitv(
   slug: string,
-  episode: string
+  episode: string,
+  preferirVp9 = false,
 ): Promise<ReproduccionHentaitv> {
   if (!episodioValido(episode)) throw new ErrorHentaitv("Episodio invalido", 400);
   const ficha = await fichaHentaitv(slug, true);
   const episodio = ficha.episodes.find((item) => item.number === episode);
   if (!episodio) throw new ErrorHentaitv("Episodio no encontrado", 404);
-  const manifest = await manifestHentaitv(episodio.url_original);
+  const manifest = await manifestHentaitv(episodio.url_original, preferirVp9);
   return {
     external_id: ficha.slug,
     slug: ficha.slug,
