@@ -19,6 +19,18 @@ interface Fuente {
   kind: "hls" | "mp4" | "embed";
 }
 
+interface CalidadHentaitv {
+  id: number;
+  label: string;
+}
+
+interface SubtituloHentaitv {
+  id: string;
+  label: string;
+  lang: string;
+  url: string;
+}
+
 interface Reproduccion {
   external_id: string;
   slug: string;
@@ -49,6 +61,22 @@ function reloj(segundos: number): string {
   return horas > 0
     ? `${horas}:${String(minutos).padStart(2, "0")}:${String(resto).padStart(2, "0")}`
     : `${minutos}:${String(resto).padStart(2, "0")}`;
+}
+
+function pistaSubtituloHentaitvPermitida(url: string): boolean {
+  try {
+    const pista = new URL(url);
+    return (
+      pista.protocol === "https:" &&
+      pista.hostname === "octopusmanifest.org" &&
+      !pista.port &&
+      !pista.username &&
+      !pista.password &&
+      pista.pathname.toLowerCase().endsWith(".vtt")
+    );
+  } catch {
+    return false;
+  }
 }
 
 interface ReproductorAnimeExternoProps {
@@ -86,6 +114,10 @@ export function ReproductorAnimeExterno({
   const [volume, setVolume] = useState(1);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [sourcesVisible, setSourcesVisible] = useState(false);
+  const [calidadesHentaitv, setCalidadesHentaitv] = useState<CalidadHentaitv[]>([]);
+  const [calidadHentaitv, setCalidadHentaitv] = useState(-1);
+  const [subtitulosHentaitv, setSubtitulosHentaitv] = useState<SubtituloHentaitv[]>([]);
+  const [subtituloHentaitv, setSubtituloHentaitv] = useState("off");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [androidPlayer, setAndroidPlayer] = useState(false);
@@ -122,6 +154,10 @@ export function ReproductorAnimeExterno({
       setLoading(true);
       setMediaReady(false);
       setError(null);
+      setCalidadesHentaitv([]);
+      setCalidadHentaitv(-1);
+      setSubtitulosHentaitv([]);
+      setSubtituloHentaitv("off");
       try {
         const params = new URLSearchParams();
         if (sourceId) params.set("source", sourceId);
@@ -233,7 +269,7 @@ export function ReproductorAnimeExterno({
         manifestLoadingMaxRetry: 1,
         // HentaiTV publica muchas pistas VTT en el maestro, pero su reproductor
         // oficial las deja fuera del parser de hls.js. Hacer lo mismo evita que
-        // una pista opcional invalida detenga un episodio que ya cargo bien.
+        // una pista opcional inválida detenga un episodio que ya cargó bien.
         ...(source === "hentaitv"
           ? {
               enableWebVTT: false,
@@ -245,7 +281,30 @@ export function ReproductorAnimeExterno({
       });
       hlsRef.current = hls;
       hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(data.playback.url));
-      hls.on(Hls.Events.MANIFEST_PARSED, iniciar);
+      hls.on(Hls.Events.MANIFEST_PARSED, (_event, manifestData) => {
+        if (source === "hentaitv") {
+          setCalidadesHentaitv(
+            manifestData.levels.map((level, index) => ({
+              id: index,
+              label:
+                level.height > 0
+                  ? `${level.height}p`
+                  : level.name || `${Math.round(level.bitrate / 1000)} kbps`,
+            }))
+          );
+          setSubtitulosHentaitv(
+            manifestData.subtitleTracks
+              .filter((track) => pistaSubtituloHentaitvPermitida(track.url))
+              .map((track, index) => ({
+                id: String(index),
+                label: track.name || track.lang || `Subtítulo ${index + 1}`,
+                lang: track.lang || "und",
+                url: track.url,
+              }))
+          );
+        }
+        iniciar();
+      });
       hls.on(Hls.Events.ERROR, (_event, details) => {
         const esSubtituloOpcionalHentaitv =
           source === "hentaitv" &&
@@ -286,6 +345,18 @@ export function ReproductorAnimeExterno({
       video.load();
     };
   }, [data, source, startPosition]);
+
+  useEffect(() => {
+    if (source !== "hentaitv") return;
+    const video = videoRef.current;
+    if (!video) return;
+    video
+      .querySelectorAll<HTMLTrackElement>("track[data-hentaitv-subtitle-id]")
+      .forEach((track) => {
+        track.track.mode =
+          track.dataset.hentaitvSubtitleId === subtituloHentaitv ? "showing" : "disabled";
+      });
+  }, [source, subtituloHentaitv, subtitulosHentaitv]);
 
   useEffect(() => {
     const nativa = pantallaCompletaEsTotal();
@@ -395,6 +466,20 @@ export function ReproductorAnimeExterno({
     setMuted(value === 0);
   };
 
+  const cambiarCalidadHentaitv = (value: number) => {
+    const hls = hlsRef.current;
+    if (!hls || source !== "hentaitv") return;
+    hls.currentLevel = value;
+    setCalidadHentaitv(value);
+    mostrarControles();
+  };
+
+  const cambiarSubtituloHentaitv = (value: string) => {
+    if (source !== "hentaitv") return;
+    setSubtituloHentaitv(value);
+    mostrarControles();
+  };
+
   const alternarMute = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -450,6 +535,7 @@ export function ReproductorAnimeExterno({
             ref={videoRef}
             className="h-full w-full object-contain"
             poster={data.poster_url ?? undefined}
+            crossOrigin={source === "hentaitv" ? "anonymous" : undefined}
             playsInline
             preload="auto"
             onClick={alternarControles}
@@ -491,7 +577,19 @@ export function ReproductorAnimeExterno({
               guardarProgreso(durationRef.current, durationRef.current);
               setControlsVisible(true);
             }}
-          />
+          >
+            {source === "hentaitv" &&
+              subtitulosHentaitv.map((subtitulo) => (
+                <track
+                  key={subtitulo.id}
+                  data-hentaitv-subtitle-id={subtitulo.id}
+                  kind="subtitles"
+                  src={subtitulo.url}
+                  srcLang={subtitulo.lang}
+                  label={subtitulo.label}
+                />
+              ))}
+          </video>
         )}
 
         {data?.playback.kind === "embed" && (
@@ -637,6 +735,50 @@ export function ReproductorAnimeExterno({
               </span>
             </div>
           </>
+        )}
+
+        {source === "hentaitv" && esNativo && (
+          <div
+            className="mt-3 flex flex-wrap items-end gap-3 border-t border-white/15 pt-3"
+            data-od-id="hentaitv-playback-options"
+          >
+            <label className="min-w-40 flex-1 sm:max-w-64">
+              <span className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/50">
+                Subtítulos
+              </span>
+              <select
+                value={subtituloHentaitv}
+                onChange={(event) => cambiarSubtituloHentaitv(event.target.value)}
+                className="min-h-10 w-full rounded-md border border-white/20 bg-black px-3 font-mono text-[11px] font-bold text-white outline-none focus:border-accent"
+                aria-label="Subtítulos de HentaiTV"
+              >
+                <option value="off">Desactivados</option>
+                {subtitulosHentaitv.map((subtitulo) => (
+                  <option key={subtitulo.id} value={subtitulo.id}>
+                    {subtitulo.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="min-w-36 flex-1 sm:max-w-52">
+              <span className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/50">
+                Calidad
+              </span>
+              <select
+                value={calidadHentaitv}
+                onChange={(event) => cambiarCalidadHentaitv(Number(event.target.value))}
+                className="min-h-10 w-full rounded-md border border-white/20 bg-black px-3 font-mono text-[11px] font-bold text-white outline-none focus:border-accent"
+                aria-label="Calidad de HentaiTV"
+              >
+                <option value={-1}>Automática</option>
+                {calidadesHentaitv.map((calidad) => (
+                  <option key={calidad.id} value={calidad.id}>
+                    {calidad.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         )}
 
         {!androidPlayer && <div className="mt-3 border-t border-white/15 pt-3">

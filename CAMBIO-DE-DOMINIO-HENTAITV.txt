@@ -46,6 +46,12 @@ una respuesta autenticada, privada y sin cache. Las variantes y los segmentos
 viajan directamente desde los CDN de HentaiTV al dispositivo: MangaTotal no
 retransmite, descarga ni guarda el video.
 
+Las calidades se leen de los niveles del manifiesto dentro del reproductor.
+Las pistas VTT declaradas por HentaiTV se validan contra octopusmanifest.org y
+se entregan directamente al elemento de video, porque tratarlas como listas
+HLS produce levelParsingError. Esas direcciones viven solo durante la sesion
+del reproductor y tampoco se guardan ni se retransmiten desde MangaTotal.
+
 ACCESO ADULTO Y PLAY STORE
 --------------------------
 
