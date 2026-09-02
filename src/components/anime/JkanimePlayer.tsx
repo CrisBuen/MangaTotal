@@ -37,7 +37,7 @@ interface Reproduccion {
     | { kind: "embed"; url: string };
 }
 
-const OCULTAR_CONTROLES_MS = 3500;
+const OCULTAR_CONTROLES_MS = 5000;
 const GUARDAR_CADA_SEGUNDOS = 10;
 
 function reloj(segundos: number): string {
@@ -231,11 +231,29 @@ export function ReproductorAnimeExterno({
         lowLatencyMode: false,
         manifestLoadingTimeOut: 15_000,
         manifestLoadingMaxRetry: 1,
+        // HentaiTV publica muchas pistas VTT en el maestro, pero su reproductor
+        // oficial las deja fuera del parser de hls.js. Hacer lo mismo evita que
+        // una pista opcional invalida detenga un episodio que ya cargo bien.
+        ...(source === "hentaitv"
+          ? {
+              enableWebVTT: false,
+              enableIMSC1: false,
+              enableCEA708Captions: false,
+              renderTextTracksNatively: false,
+            }
+          : {}),
       });
       hlsRef.current = hls;
       hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(data.playback.url));
       hls.on(Hls.Events.MANIFEST_PARSED, iniciar);
       hls.on(Hls.Events.ERROR, (_event, details) => {
+        const esSubtituloOpcionalHentaitv =
+          source === "hentaitv" &&
+          details.details === "levelParsingError" &&
+          (details.parent === "subtitle" ||
+            Boolean(details.url && /\.(?:vtt|srt|ass)(?:[?#]|$)/i.test(details.url)));
+        if (esSubtituloOpcionalHentaitv) return;
+
         if (details.fatal) {
           terminarEspera();
           setError(
@@ -267,7 +285,7 @@ export function ReproductorAnimeExterno({
       video.removeAttribute("src");
       video.load();
     };
-  }, [data, startPosition]);
+  }, [data, source, startPosition]);
 
   useEffect(() => {
     const nativa = pantallaCompletaEsTotal();
@@ -410,9 +428,9 @@ export function ReproductorAnimeExterno({
         androidPlayer ? "android-anime-horizontal" : ""
       }`}
       onPointerMove={(event) => {
-        // Un dedo apoyado genera muchos pointermove aunque casi no se mueva.
-        // En Android eso mantenía todas las capas abiertas y hacía render de más.
-        if (!androidPlayer || event.pointerType === "mouse") mostrarControles();
+        // Mover el mouse nunca abre las capas. Si el usuario ya las abrió con
+        // un clic, el movimiento solo renueva sus cinco segundos de actividad.
+        if (controlsVisible && event.pointerType === "mouse") mostrarControles();
       }}
       data-od-id={`${source}-native-player`}
     >
@@ -443,8 +461,7 @@ export function ReproductorAnimeExterno({
             onPause={() => {
               setPlaying(false);
               guardarProgreso(currentRef.current, durationRef.current);
-              if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-              setControlsVisible(true);
+              mostrarControles();
             }}
             onCanPlay={() => setMediaReady(true)}
             onLoadedMetadata={(event) => {
