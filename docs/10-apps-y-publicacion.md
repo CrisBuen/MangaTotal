@@ -79,6 +79,53 @@ cd android && ./gradlew.bat assembleDebug
 # y actualizar public/descargas/android-version.json
 ```
 
+### Los niveles de SDK también salen de `patch.mjs`
+
+Por el mismo motivo que la versión: `mobile/android/variables.gradle` lo
+regenera Capacitor con sus valores por defecto, así que **editarlo a mano no
+sirve** — el cambio se pierde en la próxima regeneración y nadie se entera
+hasta que Play Console rechaza el paquete.
+
+`patch.mjs` los escribe según la variante:
+
+| | APK local | Google Play |
+|---|---|---|
+| `targetSdkVersion` | 34 | **36** |
+| `compileSdkVersion` | 36 | 36 |
+| `minSdkVersion` | 24 | 24 |
+
+**Por qué el local se queda en 34.** Desde API 36 Android obliga al modo
+borde a borde y ya no deja desactivarlo: la app dibuja debajo de la barra de
+estado siempre. La web está preparada (`viewportFit: "cover"` y
+`env(safe-area-inset-*)` en el encabezado, la navegación y los lectores),
+pero es un cambio visible que solo necesita la variante de la tienda.
+
+**Por qué `minSdk` subió a 24.** Lo exige Capacitor 8. Deja fuera Android 5.0
+y 5.1, en las dos variantes; no hay forma de evitarlo sin quedarse en
+Capacitor 6, que no puede compilar contra API 36.
+
+### Compilar el paquete de Google Play
+
+Requisitos de Capacitor 8: **JDK 17**, Android Studio Otter (2025.2.1) o
+posterior, y la plataforma **API 36** instalada desde el SDK Manager (con
+tener la 34 no alcanza).
+
+```bash
+cd mobile
+npm install                  # trae Capacitor 8
+rm -rf android               # se regenera con las plantillas nuevas
+npx cap add android
+npm run build:playstore      # aplica la variante play y arma el .aab
+```
+
+El `.aab` sale en `mobile/android/app/build/outputs/bundle/release/`.
+
+**Probar en un teléfono de verdad antes de subir.** Lo que hay que mirar:
+que el encabezado no quede tapado por la barra de estado, que la navegación
+de abajo no quede debajo de los botones del sistema, y que el modo pantalla
+completa del lector siga entrando y saliendo bien. Compilar sin errores no
+prueba nada de eso.
+
 ## 10.4 Las firmas — la parte que hay que leer
 
 Hay **dos claves distintas** y confundirlas rompe las instalaciones de la

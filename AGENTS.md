@@ -80,6 +80,13 @@ Los tres tienen que coincidir. Si no, la app se presenta con un número que no
 es el suyo y **el aviso de actualización queda saliendo para siempre**. Ya
 pasó una vez, por compilar sin sincronizar.
 
+Lo mismo vale para los **niveles de SDK**: los escribe `patch.mjs` en
+`variables.gradle` según la variante, y son distintos a propósito —
+`targetSdk` 36 en el paquete de Google Play (lo exige desde el 31/08/2026) y
+34 en el APK local, porque desde 36 Android obliga al modo borde a borde y
+esa variante no necesita ese cambio. **Editar `variables.gradle` a mano no
+sirve**: se regenera y el cambio se pierde en silencio.
+
 `mobile/android/` no se versiona: Capacitor la regenera. Los cambios nativos
 viven en `mobile/patches/` y los copia `npm run patch`.
 

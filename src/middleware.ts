@@ -21,6 +21,7 @@ const PUBLIC_EXACT = new Set([
   "/ajustes",
   "/estadisticas",
   "/acerca-de",
+  "/privacidad",
   "/login",
   "/registro",
   "/recuperar",

@@ -68,6 +68,12 @@ const SECCIONES: {
         descripcion: "Qué es esto y de dónde sale lo que leés",
         icono: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z",
       },
+      {
+        href: "/privacidad",
+        label: "Política de privacidad",
+        descripcion: "Qué datos guardamos y cómo pedir que se borren",
+        icono: "M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5zm0 6a2 2 0 0 1 2 2v1h-4v-1a2 2 0 0 1 2-2zm-3 5h6v4H9z",
+      },
     ],
   },
   {

@@ -51,9 +51,29 @@ fs.writeFileSync(
   gradle,
   fs
     .readFileSync(gradle, "utf8")
-    .replace(/versionCode\s+\d+/, `versionCode ${version.versionCode}`)
-    .replace(/versionName\s+"[^"]*"/, `versionName "${version.versionName}"`)
+    .replace(/versionCode(\s*=\s*|\s+)\d+/, (_, sep) => `versionCode${sep}${version.versionCode}`)
+    .replace(/versionName(\s*=\s*|\s+)"[^"]*"/, (_, sep) => `versionName${sep}"${version.versionName}"`)
 );
+// Capacitor 8 pasó a escribir estas propiedades con signo igual
+// (versionCode = 19); antes iban sin él. Las expresiones de arriba aceptan
+// las dos formas, y esto confirma que de verdad quedaron escritas: un
+// .replace() que no encuentra su patrón no falla, deja el archivo igual, y
+// la app termina anunciando una versión que no es la suya con el aviso de
+// actualización saliendo para siempre.
+const gradleEscrito = fs.readFileSync(gradle, "utf8");
+for (const [clave, esperado] of [
+  ["versionCode", String(version.versionCode)],
+  ["versionName", JSON.stringify(version.versionName)],
+]) {
+  if (!gradleEscrito.includes(clave + " " + esperado) &&
+      !gradleEscrito.includes(clave + " = " + esperado)) {
+    throw new Error(
+      `No se pudo escribir ${clave} en build.gradle: cambió el formato de la ` +
+        "plantilla de Capacitor. Revisalo antes de compilar."
+    );
+  }
+}
+
 console.log(
   "variante:",
   variante,
@@ -77,6 +97,48 @@ const configEnApk = "android/app/src/main/assets/capacitor.config.json";
 if (fs.existsSync(configEnApk)) {
   fs.writeFileSync(configEnApk, configTexto);
   console.log("aplicado:", configEnApk);
+}
+
+/**
+ * Niveles de SDK, distintos según la variante.
+ *
+ * Google Play exige API 36 desde el 31 de agosto de 2026, así que el paquete
+ * que va a la tienda apunta ahí. El APK local se queda a propósito en 34:
+ * desde 36 Android obliga al modo borde a borde y ya no deja desactivarlo,
+ * y esa variante no tiene por qué pasar por ese cambio.
+ *
+ * compileSdk y minSdk son iguales en las dos porque los exige Capacitor 8.
+ * No cambian cómo se comporta la app, solo contra qué se compila. Ojo que
+ * minSdk 24 deja fuera Android 5.0 y 5.1.
+ *
+ * Vive acá, y no editado a mano en variables.gradle, porque android/ no se
+ * versiona: Capacitor la regenera con sus valores por defecto y un cambio
+ * hecho a mano ahí se pierde sin que nadie se entere.
+ */
+const SDK = {
+  compile: 36,
+  min: 24,
+  target: variante === "play" ? 36 : 34,
+};
+
+const variablesGradle = "android/variables.gradle";
+if (fs.existsSync(variablesGradle)) {
+  let v = fs.readFileSync(variablesGradle, "utf8");
+  for (const [clave, valor] of [
+    ["minSdkVersion", SDK.min],
+    ["compileSdkVersion", SDK.compile],
+    ["targetSdkVersion", SDK.target],
+  ]) {
+    const patron = new RegExp(clave + "\\s*=\\s*\\d+");
+    if (!patron.test(v)) {
+      throw new Error(`No se encontró ${clave} en variables.gradle.`);
+    }
+    v = v.replace(patron, `${clave} = ${valor}`);
+  }
+  fs.writeFileSync(variablesGradle, v);
+  console.log("SDK · compila con", SDK.compile, "· apunta a", SDK.target, "· mínimo", SDK.min);
+} else {
+  console.log("SDK: todavía no existe android/variables.gradle, se omite");
 }
 
 /**
