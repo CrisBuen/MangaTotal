@@ -80,7 +80,14 @@ export async function POST(req: NextRequest) {
   const user = await db.$transaction(async (tx) => {
     // Evita que dos registros simultáneos se conviertan ambos en el primer
     // administrador cuando la base todavía está vacía.
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('mangatotal-primer-admin'))`;
+    // pg_advisory_xact_lock devuelve el pseudotipo void, que Prisma no puede
+    // deserializar. Sin el IS NULL la consulta lanza, la excepción se escapa del
+    // handler y el registro responde 500 sin cuerpo JSON, que en el formulario se
+    // ve como «No se pudo conectar con el servidor». Mismo arreglo que ya lleva
+    // authRateLimit.ts, que pasó por esto antes.
+    await tx.$queryRaw<{ locked: boolean }[]>`
+      SELECT pg_advisory_xact_lock(hashtext('mangatotal-primer-admin')) IS NULL AS locked
+    `;
     const existing = await tx.user.findUnique({ where: { nickname } });
     if (existing) return null;
     if (email && (await tx.user.findUnique({ where: { email } }))) return null;
