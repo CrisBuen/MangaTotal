@@ -118,6 +118,16 @@ npx cap add android
 npm run build:playstore      # aplica la variante play y arma el .aab
 ```
 
+Al regenerar `android/` se pierde **`local.properties`**, que es de cada
+máquina y no se versiona. Sin ese archivo Gradle corta con *SDK location not
+found*. Se vuelve a crear con una línea:
+
+```
+sdk.dir=C:/Users/<usuario>/AppData/Local/Android/Sdk
+```
+
+(Abrir el proyecto una vez en Android Studio también lo genera solo.)
+
 El `.aab` sale en `mobile/android/app/build/outputs/bundle/release/`.
 
 **Probar en un teléfono de verdad antes de subir.** Lo que hay que mirar:
