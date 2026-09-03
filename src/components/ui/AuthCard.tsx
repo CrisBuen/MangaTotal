@@ -3,10 +3,22 @@ import { buttonStyles } from "./Button";
 import { fieldControlClass } from "./Field";
 import { Surface } from "./Surface";
 
+/**
+ * Login y registro no pasan por el layout con encabezado, que es el que se
+ * encarga de las zonas seguras. Desde Android 16 la app dibuja debajo de la
+ * barra de estado siempre, y al abrirse el teclado la tarjeta deja de entrar:
+ * como está centrada, se desborda hacia arriba y el texto queda tapado por el
+ * reloj. El relleno de abajo mantiene la tarjeta despejada sin cambiar nada en
+ * las pantallas donde sí entra.
+ */
 export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main
       className="flex min-h-screen items-center justify-center bg-canvas p-4 sm:p-6"
+      style={{
+        paddingTop: "max(1rem, env(safe-area-inset-top))",
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+      }}
       data-od-id="auth-layout"
     >
       <Surface className="w-full max-w-md p-7 sm:p-10" data-od-id="auth-card">
