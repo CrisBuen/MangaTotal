@@ -50,6 +50,30 @@ La clave y las direcciones **tienen que salir de la misma respuesta**.
 Cambian juntas en cada pedido: pedir el capítulo dos veces mezcla dos
 barajados y da un resultado que parece bueno y no lo es.
 
+### El `IS NULL` de `pg_advisory_xact_lock`
+
+Aparece en dos lugares —`src/lib/authRateLimit.ts` y
+`src/app/api/auth/register/route.ts`— escrito así:
+
+```sql
+SELECT pg_advisory_xact_lock(hashtext(...)) IS NULL AS locked
+```
+
+El `IS NULL` parece de más y no lo es. Esa función devuelve el pseudotipo
+`void`, que **Prisma no sabe deserializar**: sin el `IS NULL` la consulta
+lanza. Comparar contra `NULL` obliga a Postgres a devolver un booleano, que
+sí entiende, y no cambia en nada el efecto del bloqueo.
+
+Ya se pagó dos veces por esto. La primera en el limitador, que se corrigió en
+`a865f4e`. La segunda en el registro, que **quedó fuera de ese arreglo y**
+**estuvo caído cinco días** sin que nadie se enterara: la excepción se
+escapaba del handler, el registro respondía 500 sin cuerpo JSON, y en el
+formulario eso se veía como «No se pudo conectar con el servidor» —el mensaje
+genérico del `catch`— en la web, el escritorio y las dos de Android. Nada se
+caía, la página andaba perfecta, y el único síntoma era gente que no llegaba.
+
+Si aparece un `pg_advisory_xact_lock` nuevo en otro lado, va con `IS NULL`.
+
 ### `src/lib/leercapituloOrden.ts`
 Parece código muerto y ya no se usa, pero **no lo borres**. Es el camino
 viejo —reconstruir el orden descargando todas las imágenes y comparando
