@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
-import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 
 interface Entrada {
   source: string;
@@ -37,12 +37,25 @@ function coincide(entrada: Entrada, busqueda: string): boolean {
   return texto ? entrada.title.toLocaleLowerCase("es").includes(texto) : true;
 }
 
+function detalleEpisodio(entrada: Entrada): string {
+  if (!entrada.last_episode_number) return entrada.source;
+  if (entrada.completed) return `Episodio ${entrada.last_episode_number} · Ya visto`;
+  if (entrada.last_position_seconds > 0) {
+    return `Episodio ${entrada.last_episode_number} · ${minuto(entrada.last_position_seconds)}`;
+  }
+  return `Episodio ${entrada.last_episode_number}`;
+}
+
 function TarjetaProgreso({
   entrada,
   reanudar = false,
+  historial = false,
+  onQuitar,
 }: {
   entrada: Entrada;
   reanudar?: boolean;
+  historial?: boolean;
+  onQuitar?: (entrada: Entrada) => void;
 }) {
   const contenido = (
     <>
@@ -65,29 +78,55 @@ function TarjetaProgreso({
         <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
           {entrada.title}
         </h3>
-        {entrada.last_episode_number && (
+        {!historial && entrada.last_episode_number && (
           <p className="mt-1 font-mono text-[13px] text-accent-ink">
-            {entrada.completed
-              ? `Episodio ${entrada.last_episode_number} · Ya visto`
-              : entrada.last_position_seconds > 0
-                ? `Episodio ${entrada.last_episode_number} · ${minuto(entrada.last_position_seconds)}`
-                : `Episodio ${entrada.last_episode_number}`}
+            {detalleEpisodio(entrada)}
           </p>
         )}
       </div>
     </>
   );
 
-  const className =
-    "group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
-  if (reanudar && entrada.resume_href) {
-    return (
+  const className = "block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  const enlace = reanudar && entrada.resume_href ? (
       <EpisodeWatchLink href={entrada.resume_href} className={className}>
         {contenido}
       </EpisodeWatchLink>
+    ) : (
+      <Link href={entrada.href} className={className}>{contenido}</Link>
     );
-  }
-  return <Link href={entrada.href} className={className}>{contenido}</Link>;
+
+  return (
+    <div className="group relative min-w-0">
+      {historial && onQuitar && (
+        <button
+          type="button"
+          onClick={() => onQuitar(entrada)}
+          title="Sacar del historial"
+          aria-label={`Sacar ${entrada.title} del historial`}
+          className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--bg)_80%,transparent)] text-sm text-subtle opacity-0 transition hover:text-accent-ink focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          ×
+        </button>
+      )}
+      {enlace}
+      {historial && (
+        <div className="mt-1 flex items-center gap-2 px-1">
+          <p className="min-w-0 flex-1 truncate font-mono text-[11px] tracking-[0.04em] text-subtle">
+            {detalleEpisodio(entrada)}
+          </p>
+          <Link
+            href={entrada.href}
+            title="Ver ficha y episodios"
+            aria-label={`Ver ficha de ${entrada.title}`}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
+          >
+            →
+          </Link>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function BloqueProgreso({
@@ -95,11 +134,15 @@ function BloqueProgreso({
   detalle,
   entradas,
   reanudar = false,
+  historial = false,
+  onQuitar,
 }: {
   titulo: string;
   detalle: string;
   entradas: Entrada[];
   reanudar?: boolean;
+  historial?: boolean;
+  onQuitar?: (entrada: Entrada) => void;
 }) {
   if (entradas.length === 0) return null;
   return (
@@ -118,7 +161,9 @@ function BloqueProgreso({
             <TarjetaProgreso
               key={`${titulo}:${entrada.source}:${entrada.external_id}`}
               entrada={entrada}
-              reanudar={reanudar}
+              reanudar={reanudar || historial}
+              historial={historial}
+              onQuitar={onQuitar}
             />
           ))}
         </div>
@@ -173,6 +218,30 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
       .catch(() => setProgreso({ historial: [], continuar: [] }));
   }, []);
 
+  async function quitarHistorial(entrada: Entrada) {
+    setProgreso((anterior) => {
+      const siguientes = {
+        historial: (anterior?.historial ?? []).filter(
+          (item) =>
+            !(
+              item.source === entrada.source &&
+              item.external_id === entrada.external_id
+            )
+        ),
+        continuar: anterior?.continuar ?? [],
+      };
+      void guardarCacheAndroid("biblioteca:anime-externo:progreso", siguientes, {
+        privateData: true,
+      });
+      return siguientes;
+    });
+
+    await fetch(
+      `/api/anime/externo/historial?source=${encodeURIComponent(entrada.source)}&id=${encodeURIComponent(entrada.external_id)}`,
+      { method: "DELETE" }
+    ).catch(() => {});
+  }
+
   if (entradas === null) {
     return (
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
@@ -189,7 +258,13 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
 
   return (
     <div className="space-y-12" data-od-id="external-anime-library">
-      <BloqueProgreso titulo="Historial" detalle="Visto y sin guardar" entradas={historial} />
+      <BloqueProgreso
+        titulo="Historial"
+        detalle="Visto y sin guardar"
+        entradas={historial}
+        historial
+        onQuitar={quitarHistorial}
+      />
       <BloqueProgreso
         titulo="Continuar viendo"
         detalle="Tu progreso"
