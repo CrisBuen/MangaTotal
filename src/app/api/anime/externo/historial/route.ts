@@ -80,8 +80,8 @@ export async function DELETE(req: NextRequest) {
   }
 
   const verAdulto = await contenidoAdultoPermitido(user);
-  await db.externalAnime
-    .deleteMany({
+  try {
+    await db.externalAnime.deleteMany({
       where: {
         userId: user.id,
         source,
@@ -89,8 +89,14 @@ export async function DELETE(req: NextRequest) {
         saved: false,
         ...(verAdulto ? {} : { isAdult: false }),
       },
-    })
-    .catch(() => {});
+    });
+  } catch {
+    // Un fallo de la base no puede anunciar una eliminación que no ocurrió.
+    return NextResponse.json(
+      { error: "No se pudo quitar la serie del historial. Intentá de nuevo." },
+      { status: 500 }
+    );
+  }
 
   return new NextResponse(null, { status: 204 });
 }

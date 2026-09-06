@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
-import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
+import { cargarConCacheAndroid, fetchConLimiteAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 
 interface Entrada {
   source: string;
@@ -51,12 +51,26 @@ function TarjetaProgreso({
   reanudar = false,
   historial = false,
   onQuitar,
+  quitando = false,
 }: {
   entrada: Entrada;
   reanudar?: boolean;
   historial?: boolean;
   onQuitar?: (entrada: Entrada) => void;
+  quitando?: boolean;
 }) {
+  const [accionesTactiles, setAccionesTactiles] = useState(false);
+  const pulsacion = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inicio = useRef<{ x: number; y: number } | null>(null);
+  const omitirClick = useRef(false);
+
+  function cancelarPulsacion() {
+    if (pulsacion.current !== null) clearTimeout(pulsacion.current);
+    pulsacion.current = null;
+  }
+
+  useEffect(() => () => cancelarPulsacion(), []);
+
   const contenido = (
     <>
       <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -68,6 +82,7 @@ function TarjetaProgreso({
             className="h-full w-full object-cover"
             loading="lazy"
             referrerPolicy="no-referrer"
+            draggable={false}
           />
         )}
         <span className="absolute left-3 top-3 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink ">
@@ -97,19 +112,59 @@ function TarjetaProgreso({
     );
 
   return (
-    <div className="group relative min-w-0">
+    <div
+      className="group relative min-w-0"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setAccionesTactiles(false);
+      }}
+    >
       {historial && onQuitar && (
         <button
           type="button"
           onClick={() => onQuitar(entrada)}
           title="Sacar del historial"
           aria-label={`Sacar ${entrada.title} del historial`}
-          className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--bg)_80%,transparent)] text-sm text-subtle opacity-0 transition hover:text-accent-ink focus-visible:opacity-100 group-hover:opacity-100"
+          disabled={quitando}
+          className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--bg)_80%,transparent)] text-sm text-subtle transition hover:text-accent-ink disabled:cursor-wait focus-visible:opacity-100 focus-visible:pointer-events-auto group-hover:opacity-100 group-hover:pointer-events-auto sm:h-7 sm:w-7 ${accionesTactiles ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         >
           ×
         </button>
       )}
-      {enlace}
+      <div
+        className={historial ? "select-none" : undefined}
+        style={historial ? { WebkitTouchCallout: "none" } : undefined}
+        onPointerDown={(event) => {
+          cancelarPulsacion();
+          omitirClick.current = false;
+          inicio.current = null;
+          if (!historial || !onQuitar || event.pointerType !== "touch" || !event.isPrimary) return;
+          inicio.current = { x: event.clientX, y: event.clientY };
+          // En Android no hay hover: mantener el dedo muestra la X sin abrir el episodio.
+          pulsacion.current = setTimeout(() => {
+            setAccionesTactiles(true);
+            omitirClick.current = true;
+          }, 450);
+        }}
+        onPointerMove={(event) => {
+          if (inicio.current && Math.hypot(event.clientX - inicio.current.x, event.clientY - inicio.current.y) > 12) {
+            cancelarPulsacion();
+          }
+        }}
+        onPointerUp={cancelarPulsacion}
+        onPointerCancel={cancelarPulsacion}
+        onPointerLeave={cancelarPulsacion}
+        onContextMenu={(event) => {
+          if (historial && inicio.current) event.preventDefault();
+        }}
+        onClickCapture={(event) => {
+          if (!omitirClick.current) return;
+          event.preventDefault();
+          event.stopPropagation();
+          omitirClick.current = false;
+        }}
+      >
+        {enlace}
+      </div>
       {historial && (
         <div className="mt-1 flex items-center gap-2 px-1">
           <p className="min-w-0 flex-1 truncate font-mono text-[11px] tracking-[0.04em] text-subtle">
@@ -136,6 +191,7 @@ function BloqueProgreso({
   reanudar = false,
   historial = false,
   onQuitar,
+  quitando = false,
 }: {
   titulo: string;
   detalle: string;
@@ -143,6 +199,7 @@ function BloqueProgreso({
   reanudar?: boolean;
   historial?: boolean;
   onQuitar?: (entrada: Entrada) => void;
+  quitando?: boolean;
 }) {
   if (entradas.length === 0) return null;
   return (
@@ -164,6 +221,7 @@ function BloqueProgreso({
               reanudar={reanudar || historial}
               historial={historial}
               onQuitar={onQuitar}
+              quitando={quitando}
             />
           ))}
         </div>
@@ -176,6 +234,17 @@ function BloqueProgreso({
 export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
   const [progreso, setProgreso] = useState<ProgresoAnime | null>(null);
+  const [cargandoProgreso, setCargandoProgreso] = useState(true);
+  const [quitando, setQuitando] = useState(false);
+  const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
+  const [historialModificado, setHistorialModificado] = useState(false);
+
+  // Solo persistimos una eliminación confirmada, fuera del actualizador de React.
+  useEffect(() => {
+    if (historialModificado && progreso) {
+      void guardarCacheAndroid("biblioteca:anime-externo:progreso", progreso, { privateData: true });
+    }
+  }, [historialModificado, progreso]);
 
   useEffect(() => {
     cargarConCacheAndroid<Entrada[]>(
@@ -215,12 +284,21 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
         historial: Array.isArray(data?.historial) ? data.historial : [],
         continuar: Array.isArray(data?.continuar) ? data.continuar : [],
       }))
-      .catch(() => setProgreso({ historial: [], continuar: [] }));
+      .catch(() => setProgreso({ historial: [], continuar: [] }))
+      .finally(() => setCargandoProgreso(false));
   }, []);
 
   async function quitarHistorial(entrada: Entrada) {
-    setProgreso((anterior) => {
-      const siguientes = {
+    if (quitando || cargandoProgreso) return;
+    setQuitando(true);
+    setErrorHistorial(null);
+    try {
+      const respuesta = await fetchConLimiteAndroid(
+        `/api/anime/externo/historial?source=${encodeURIComponent(entrada.source)}&id=${encodeURIComponent(entrada.external_id)}`,
+        { method: "DELETE" }
+      );
+      if (!respuesta.ok) throw new Error("historial de anime");
+      setProgreso((anterior) => ({
         historial: (anterior?.historial ?? []).filter(
           (item) =>
             !(
@@ -229,17 +307,13 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
             )
         ),
         continuar: anterior?.continuar ?? [],
-      };
-      void guardarCacheAndroid("biblioteca:anime-externo:progreso", siguientes, {
-        privateData: true,
-      });
-      return siguientes;
-    });
-
-    await fetch(
-      `/api/anime/externo/historial?source=${encodeURIComponent(entrada.source)}&id=${encodeURIComponent(entrada.external_id)}`,
-      { method: "DELETE" }
-    ).catch(() => {});
+      }));
+      setHistorialModificado(true);
+    } catch {
+      setErrorHistorial("No se pudo quitar la serie del historial. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      setQuitando(false);
+    }
   }
 
   if (entradas === null) {
@@ -258,12 +332,14 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
 
   return (
     <div className="space-y-12" data-od-id="external-anime-library">
+      {errorHistorial && <p role="alert" className="text-sm text-red-400">{errorHistorial}</p>}
       <BloqueProgreso
         titulo="Historial"
         detalle="Visto y sin guardar"
         entradas={historial}
         historial
         onQuitar={quitarHistorial}
+        quitando={quitando || cargandoProgreso}
       />
       <BloqueProgreso
         titulo="Continuar viendo"
