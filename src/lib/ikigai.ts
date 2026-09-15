@@ -20,6 +20,7 @@ import {
   traerTexto,
 } from "./fuenteNativa";
 import { isPlayStoreApp } from "./appVersion";
+import { recuperarIdIkigai } from "./referenciasLectura";
 
 export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
 const IKIGAI_IMAGENES = "https://image2.ikigaimangas.cloud";
@@ -444,6 +445,23 @@ function fechaDelTexto(texto: string): string | null {
     limpio.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)?.[0] ??
     null
   );
+}
+
+/** Recupera también el progreso redondeado por versiones anteriores. */
+export async function lecturaIkigai(chapterId: string, slug: string) {
+  const desdePlay = isPlayStoreApp();
+  if (desdePlay && !slug) throw new Error("Abrí este capítulo desde la ficha de la serie");
+
+  // En Play siempre se valida la clasificación ANTES de pedir imágenes.
+  // En las demás variantes una ficha caída no impide abrir un id exacto.
+  const ficha = slug ? await serieIkigai(slug).catch((err) => {
+    if (desdePlay) throw err;
+    return null;
+  }) : null;
+  const id = recuperarIdIkigai(chapterId, ficha?.capitulos ?? []);
+  const cap = await capituloIkigai(id);
+  if (cap.paginas.length === 0) throw new Error("Este capítulo no tiene páginas");
+  return { cap, ficha };
 }
 
 /** Páginas de un capítulo (su visor las marca con el atributo q:key). */

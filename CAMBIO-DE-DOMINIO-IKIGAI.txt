@@ -5,6 +5,14 @@
 Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
 serie y en cada capítulo.
 
+14/09/2026: los ids de capítulos tienen 19 dígitos y se mantienen como texto.
+No usar Number(id) en el lector ni en Anterior/Siguiente: el redondeo causaba
+404 y se guardaba en el progreso. lecturaIkigai recupera los ids afectados
+comparándolos con la ficha oficial, solo si hay una coincidencia única.
+La página inicial se conserva; el guardado normal del lector corrige el id
+sin borrar ni volver a guardar la serie. La validación de Play sigue antes
+de abrir el capítulo. Pruebas: node --test scripts/verificar-referencias-lectura.cjs
+
 Igual que ZonaTMO, SOLO funciona en las apps de Android y Windows: su
 servidor no acepta peticiones desde centros de datos, así que las páginas
 se piden desde el dispositivo de cada persona. En el navegador la fuente ni

@@ -1,16 +1,10 @@
 "use client";
 
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
-import { IKIGAI_NOMBRE, capituloIkigai, ikigaiDisponible, serieIkigai } from "@/lib/ikigai";
-import { isPlayStoreApp } from "@/lib/appVersion";
-
-interface Vecino {
-  id: number;
-  name: string;
-}
+import { IKIGAI_NOMBRE, IKIGAI_WEB, ikigaiDisponible, lecturaIkigai } from "@/lib/ikigai";
 
 /** Lector de Ikigai Mangas: las páginas se piden desde el dispositivo. */
 export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> }) {
@@ -19,52 +13,29 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
   const slug = params.get("slug") ?? "";
   const paginaInicial = Number(params.get("page")) || 1;
 
-  const [paginas, setPaginas] = useState<string[] | null>(null);
-  const [vecinos, setVecinos] = useState<{ prev: Vecino | null; next: Vecino | null }>({
-    prev: null,
-    next: null,
-  });
-  const [numeroCapitulo, setNumeroCapitulo] = useState(chapterId);
+  const [lectura, setLectura] = useState<Awaited<ReturnType<typeof lecturaIkigai>> | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const solicitud = useRef(0);
 
   const cargar = useCallback(async () => {
+    const actual = ++solicitud.current;
     setError(null);
+    setLectura(null);
     try {
-      // En Play la ficha se valida antes de pedir una sola página. Así un
-      // enlace profundo tampoco puede saltarse la clasificación de la obra.
-      if (isPlayStoreApp() && !slug) {
-        throw new Error("Abrí este capítulo desde la ficha de la serie");
+      if (!ikigaiDisponible()) {
+        throw new Error(IKIGAI_NOMBRE + " solo está disponible en la app de Android o de Windows");
       }
-      const fichaValidada = isPlayStoreApp() && slug ? await serieIkigai(slug) : null;
-      const cap = await capituloIkigai(chapterId);
-      if (cap.paginas.length === 0) throw new Error("Este capítulo no tiene páginas");
-      setPaginas(cap.paginas);
-
-      if (slug) {
-        const ficha = fichaValidada ?? await serieIkigai(slug).catch(() => null);
-        const lista = ficha?.capitulos ?? [];
-        const i = lista.findIndex((c) => c.id === chapterId);
-        if (i >= 0) {
-          setNumeroCapitulo(String(lista[i].numero ?? chapterId));
-          const anterior = lista[i - 1];
-          const siguiente = lista[i + 1];
-          setVecinos({
-            prev: anterior ? { id: Number(anterior.id), name: anterior.numero ?? "" } : null,
-            next: siguiente ? { id: Number(siguiente.id), name: siguiente.numero ?? "" } : null,
-          });
-        }
-      }
+      const resultado = await lecturaIkigai(chapterId, slug);
+      if (actual === solicitud.current) setLectura(resultado);
     } catch (err) {
-      setError(err);
+      if (actual === solicitud.current) setError(err);
     }
   }, [chapterId, slug]);
 
   useEffect(() => {
-    if (!ikigaiDisponible()) {
-      setError(new Error(IKIGAI_NOMBRE + " solo está disponible en la app de Android o de Windows"));
-      return;
-    }
     cargar();
+    // Una respuesta vieja no debe reemplazar al capítulo al que ya se pasó.
+    return () => { solicitud.current++; };
   }, [cargar]);
 
   if (error) {
@@ -80,7 +51,7 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
     );
   }
 
-  if (!paginas) {
+  if (!lectura) {
     return (
       <p className="py-24 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
         Cargando capítulo...
@@ -88,24 +59,32 @@ export default function LeerIkigaiPage(props: { params: Promise<{ id: string }> 
     );
   }
 
+  const { cap, ficha } = lectura;
+  const lista = ficha?.capitulos ?? [];
+  const indice = lista.findIndex((c) => c.id === cap.id);
+  const anterior = indice >= 0 ? lista[indice - 1] : null;
+  const siguiente = indice >= 0 ? lista[indice + 1] : null;
+  const numeroCapitulo = lista[indice]?.numero ?? cap.id;
+
   return (
     <OlympusReader
+      key={cap.id}
       chapter={{
-        id: Number(chapterId),
+        id: cap.id,
         // Nunca se manda vacío: el progreso usa este valor para decidir si
         // la serie ya empezó y debe aparecer en «Continuar leyendo».
         name: numeroCapitulo,
-        urlOriginal: "https://visorikigai.gettocaboca.com/capitulo/" + chapterId + "/",
+        urlOriginal: cap.url_original,
       }}
       serie={{
         slug,
         tipo: "ikigai",
-        urlOriginal: "https://visorikigai.gettocaboca.com/series/" + slug + "/",
+        urlOriginal: IKIGAI_WEB + "/series/" + slug + "/",
       }}
       grupo={IKIGAI_NOMBRE}
-      pages={paginas.map((url, i) => ({ pageNumber: i + 1, url, width: 0, height: 0 }))}
-      prevChapter={vecinos.prev}
-      nextChapter={vecinos.next}
+      pages={cap.paginas.map((url, i) => ({ pageNumber: i + 1, url, width: 0, height: 0 }))}
+      prevChapter={anterior ? { id: anterior.id, name: anterior.numero ?? "" } : null}
+      nextChapter={siguiente ? { id: siguiente.id, name: siguiente.numero ?? "" } : null}
       initialMode="cascade"
       initialPage={paginaInicial}
       source="ikigai"

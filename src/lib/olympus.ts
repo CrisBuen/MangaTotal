@@ -4,6 +4,8 @@
  * ⚠️ SI CAMBIAN DE DOMINIO: los tres valores de abajo son lo único que hay
  * que tocar. Ver CAMBIO-DE-DOMINIO-OLYMPUS.txt en la raíz del proyecto.
  */
+import { aliasOlympus } from "./referenciasLectura";
+
 export const OLYMPUS_WEB = "https://olympusxyz.com";
 export const OLYMPUS_PANEL = "https://panel.olympusxyz.com";
 /** Nombre del grupo, visible en cada serie y capítulo. */
@@ -66,12 +68,18 @@ const UA = "MangaTotal/1.0 (+https://www.mangatotal.com)";
 /** Capítulos con acceso anticipado: Olympus los reserva a quienes los apoyan. */
 const PREFIJO_PROTEGIDO = "/cp/";
 
+class ErrorHttpOlympus extends Error {
+  constructor(public status: number, url: string) {
+    super(`Olympus respondió ${status} en ${url}`);
+  }
+}
+
 async function olympusFetch<T>(url: string, revalidate: number): Promise<T> {
   const res = await fetch(url, {
     headers: { "User-Agent": UA, Accept: "application/json" },
     next: { revalidate },
   });
-  if (!res.ok) throw new Error(`Olympus respondió ${res.status} en ${url}`);
+  if (!res.ok) throw new ErrorHttpOlympus(res.status, url);
   return (await res.json()) as T;
 }
 
@@ -230,11 +238,23 @@ function normalizar(texto: string): string {
     .trim();
 }
 
-export async function serie(slug: string) {
-  const data = await olympusFetch<{ data: OlySerieDetalle }>(
-    `${OLYMPUS_WEB}/api/series/${encodeURIComponent(slug)}`,
-    600
+export async function serie(slug: string, tipo?: string) {
+  const consultar = (s: string) => olympusFetch<{ data: OlySerieDetalle }>(
+    `${OLYMPUS_WEB}/api/series/${encodeURIComponent(s)}`, 600
   );
+  let data;
+  try {
+    data = await consultar(slug);
+  } catch (err) {
+    // Una caída o un bloqueo no prueban que haya cambiado la dirección.
+    // Solo ante 404 se consulta el índice fresco, sin reutilizar slugs viejos.
+    if (!(err instanceof ErrorHttpOlympus) || err.status !== 404) throw err;
+    const indice = await olympusFetch<{ data: OlySerieLista[] }>(`${OLYMPUS_WEB}/api/series/list`, 0);
+    const candidata = aliasOlympus(slug, indice.data, tipo);
+    if (!candidata) throw err;
+    data = await consultar(candidata.slug);
+    if (data.data.id !== candidata.id || data.data.type !== candidata.type) throw err;
+  }
   const d = data.data;
   return {
     ...serieResumen(d),
@@ -302,10 +322,21 @@ export async function paginas(chapterId: number, tipo: string, slug: string) {
   }
 
   // esta respuesta llega en la raíz, sin el envoltorio "data" del resto
-  const data = await olympusFetch<RespuestaCapitulo & { data?: RespuestaCapitulo }>(
-    `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(slug)}/${chapterId}`,
-    600
+  const consultar = (s: string) => olympusFetch<RespuestaCapitulo & { data?: RespuestaCapitulo }>(
+    `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(s)}/${chapterId}`, 600
   );
+  let slugVigente = slug;
+  let data;
+  try {
+    data = await consultar(slug);
+  } catch (err) {
+    if (!(err instanceof ErrorHttpOlympus) || err.status !== 404) throw err;
+    const ficha = await serie(slug, tipo);
+    // No sustituir un capítulo eliminado ni cambiar de cómic a novela.
+    if (ficha.slug === slug || ficha.type !== tipo) throw err;
+    slugVigente = ficha.slug;
+    data = await consultar(slugVigente);
+  }
 
   const d = data.data ?? data;
   if (!d?.chapter) throw new Error("Olympus no devolvió el capítulo");
@@ -316,7 +347,7 @@ export async function paginas(chapterId: number, tipo: string, slug: string) {
     pages: (d.chapter.pages ?? []).filter((u) => u.startsWith("http")),
     prev: d.prev_chapter ? { id: d.prev_chapter.id, name: d.prev_chapter.name } : null,
     next: d.next_chapter ? { id: d.next_chapter.id, name: d.next_chapter.name } : null,
-    url_original: urlCapituloEnOlympus(chapterId, tipo, slug),
+    url_original: urlCapituloEnOlympus(chapterId, tipo, slugVigente),
   };
 }
 

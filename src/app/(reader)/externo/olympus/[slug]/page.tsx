@@ -78,8 +78,10 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
   // la misma serie sirve para guardarla y para anotarla en el historial
   const serieGuardable = {
     source: "olympus" as const,
-    external_id: serie.slug,
-    slug: serie.slug,
+    // La URL guardada sigue siendo la identidad de la entrada. Resolver la
+    // ficha no debe crear otra fila ni desconectar favoritos y progreso.
+    external_id: slug,
+    slug,
     title: serie.title,
     cover_url: serie.cover_url,
     type: serie.type,
@@ -176,7 +178,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
                     last_chapter_name: String(c.name),
                   })
                 }
-                href={`/leer-externo/olympus/${c.id}?slug=${serie.slug}&tipo=${serie.type}${sufijoPagina(progreso, String(c.id) === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
+                href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(slug)}&tipo=${serie.type}${sufijoPagina(progreso, String(c.id) === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   String(c.id) === progreso.ultimoId,
                   progreso.ultimoNumero !== null && Number(c.name) < progreso.ultimoNumero

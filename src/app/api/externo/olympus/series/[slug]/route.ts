@@ -11,7 +11,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ slug: stri
   const { slug } = await ctx.params;
 
   try {
-    const [ficha, lista] = await Promise.all([serie(slug), capitulos(slug)]);
+    // La ficha puede resolver un slug antiguo: sus capítulos se consultan
+    // con esa misma dirección vigente, no con la que ya devolvió 404.
+    const ficha = await serie(slug);
+    const lista = await capitulos(ficha.slug);
     return NextResponse.json({ serie: ficha, ...lista });
   } catch (err) {
     console.error("[olympus] serie", slug, err);

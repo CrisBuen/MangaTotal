@@ -3,6 +3,14 @@
 ===========================================================================
 
 Olympus ya cambió una vez de dominio (olympusbiblioteca.com -> olympusxyz.com).
+14/09/2026: también cambia el sufijo fechado del slug de algunas series sin
+cambiar de dominio. Ante 404, serie() consulta /api/series/list sin caché y
+acepta solo una coincidencia de base exacta, verificando id y tipo. La API
+de MangaTotal pide los capítulos con el slug resuelto. La ficha mantiene la
+clave original de biblioteca/progreso para no duplicar ni perder la entrada.
+No reemplazar este mecanismo por un slug fechado fijo: vuelve a caducar.
+Pruebas: node --test scripts/verificar-referencias-lectura.cjs
+
 Si vuelve a pasar, la sección "Explorar -> Olympus" deja de cargar y muestra
 "No se pudo consultar el catálogo de Olympus".
 
