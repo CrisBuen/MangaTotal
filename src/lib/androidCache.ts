@@ -14,6 +14,8 @@ interface EntradaCache<T> {
 
 export interface AndroidCacheOptions<T> {
   privateData?: boolean;
+  /** Opt-in para JSON público de catálogo en web/Windows; nunca sesión o biblioteca. */
+  publicCache?: boolean;
   /** Durante este tiempo ni siquiera se gasta red: la copia local alcanza. */
   freshForMs?: number;
   /** Una copia más vieja que esto se descarta por completo. */
@@ -23,8 +25,10 @@ export interface AndroidCacheOptions<T> {
   onCached?: (value: T) => void;
 }
 
-function disponible(): boolean {
-  return typeof window !== "undefined" && isAndroidApp() && "caches" in window;
+function disponible(opciones: { publicCache?: boolean; privateData?: boolean } = {}): boolean {
+  return typeof window !== "undefined" && "caches" in window && (
+    isAndroidApp() || (opciones.publicCache === true && !opciones.privateData)
+  );
 }
 
 function requestDe(clave: string, privada: boolean): Request {
@@ -34,12 +38,12 @@ function requestDe(clave: string, privada: boolean): Request {
   );
 }
 
-/** Lee datos persistidos dentro del WebView. Nunca se usa en web ni Windows. */
+/** En web/Windows se persiste únicamente el catálogo público que lo solicite. */
 export async function leerCacheAndroid<T>(
   clave: string,
-  opciones: Pick<AndroidCacheOptions<T>, "privateData" | "maxAgeMs"> = {}
+  opciones: Pick<AndroidCacheOptions<T>, "privateData" | "maxAgeMs" | "publicCache"> = {}
 ): Promise<EntradaCache<T> | null> {
-  if (!disponible()) return null;
+  if (!disponible(opciones)) return null;
   try {
     const cache = await caches.open(CACHE_NAME);
     const respuesta = await cache.match(requestDe(clave, Boolean(opciones.privateData)));
@@ -60,9 +64,9 @@ export async function leerCacheAndroid<T>(
 export async function guardarCacheAndroid<T>(
   clave: string,
   value: T,
-  opciones: Pick<AndroidCacheOptions<T>, "privateData"> = {}
+  opciones: Pick<AndroidCacheOptions<T>, "privateData" | "publicCache"> = {}
 ): Promise<void> {
-  if (!disponible()) return;
+  if (!disponible(opciones)) return;
   try {
     const cache = await caches.open(CACHE_NAME);
     await cache.put(
@@ -136,7 +140,7 @@ export async function fetchConLimiteAndroid(
 }
 
 /**
- * En Android muestra primero la copia del teléfono y la revalida después.
+ * En Android (y catálogos públicos con opt-in) muestra primero la copia local.
  * Con mala señal conserva lo último válido en vez de vaciar toda la grilla.
  */
 export async function cargarConCacheAndroid<T>(
@@ -144,7 +148,10 @@ export async function cargarConCacheAndroid<T>(
   cargar: (signal: AbortSignal) => Promise<T>,
   opciones: AndroidCacheOptions<T> = {}
 ): Promise<T> {
-  if (!disponible()) return cargar(new AbortController().signal);
+  // Si CacheStorage está deshabilitado, el catálogo público todavía respeta
+  // su límite de red. Las llamadas privadas conservan el comportamiento previo.
+  const publico = opciones.publicCache === true && !opciones.privateData && typeof window !== "undefined";
+  if (!disponible(opciones) && !publico) return cargar(new AbortController().signal);
 
   const cache = await leerCacheAndroid<T>(clave, opciones);
   if (cache) opciones.onCached?.(cache.value);

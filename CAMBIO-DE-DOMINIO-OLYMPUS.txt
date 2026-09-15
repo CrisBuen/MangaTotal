@@ -11,6 +11,18 @@ clave original de biblioteca/progreso para no duplicar ni perder la entrada.
 No reemplazar este mecanismo por un slug fechado fijo: vuelve a caducar.
 Pruebas: node --test scripts/verificar-referencias-lectura.cjs
 
+15/09/2026: para conexiones débiles, Explorar reutiliza el JSON público de
+Olympus en web, Windows y ambos Android. Catálogo fresco: 15 minutos;
+ficha con capítulos: 5 minutos. Si falla la red se conserva la última copia
+válida, como máximo 24 horas; Actualizar fuerza una consulta del catálogo.
+La primera carga del catálogo o ficha admite 30 segundos. No acelera una
+fuente caída ni permite leer sin conexión un capítulo que no se descargó.
+Los filtros se reutilizan 7 días. No se cachean sesión/biblioteca en web ni
+se modifican el lector o sus permisos. El opt-in publicCache es deliberado:
+no habilitarlo indiscriminadamente para otras consultas, en especial privadas.
+Pruebas aisladas (red y plataformas simuladas):
+  node --test scripts/verificar-cache-catalogo.cjs
+
 Si vuelve a pasar, la sección "Explorar -> Olympus" deja de cargar y muestra
 "No se pudo consultar el catálogo de Olympus".
 

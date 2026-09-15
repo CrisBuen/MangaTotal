@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { JkanimeCatalog } from "@/components/anime/JkanimeCatalog";
-import { HentaitvCatalog } from "@/components/anime/HentaitvCatalog";
-import { TioanimeCatalog } from "@/components/anime/TioanimeCatalog";
+import dynamic from "next/dynamic";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { Chip } from "@/components/ui/Chip";
 import { fieldControlClass } from "@/components/ui/Field";
@@ -42,6 +40,12 @@ import {
   popularesTmo,
   type SerieTmo,
 } from "@/lib/zonatmo";
+
+// Leer manga no debe descargar también los tres catálogos de anime.
+const cargandoAnime = () => <p role="status" className="py-12 text-center text-subtle">Cargando catálogo de anime...</p>;
+const JkanimeCatalog = dynamic(() => import("@/components/anime/JkanimeCatalog").then((m) => m.JkanimeCatalog), { loading: cargandoAnime });
+const HentaitvCatalog = dynamic(() => import("@/components/anime/HentaitvCatalog").then((m) => m.HentaitvCatalog), { loading: cargandoAnime });
+const TioanimeCatalog = dynamic(() => import("@/components/anime/TioanimeCatalog").then((m) => m.TioanimeCatalog), { loading: cargandoAnime });
 
 interface ExternalSeries {
   id: string;
@@ -176,9 +180,11 @@ export default function ExplorarPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [fuente, setFuente] = useState("mangadex");
   const [seccion, setSeccion] = useState<SeccionExplorar>("lectura");
+  const [restaurado, setRestaurado] = useState(false);
   const [animeFuente, setAnimeFuente] = useState<FuenteAnime>("jkanime");
   const [animeHabilitado, setAnimeHabilitado] = useState(false);
   const [animeAdultoHabilitado, setAnimeAdultoHabilitado] = useState(false);
+  const lecturaActiva = restaurado && !(seccion === "animada" && animeHabilitado);
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
   const [olympusLastPage, setOlympusLastPage] = useState(1);
@@ -553,7 +559,7 @@ export default function ExplorarPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (fuente !== "olympus" || olyOpciones) return;
+    if (!lecturaActiva || fuente !== "olympus" || olyOpciones) return;
     cargarConCacheAndroid(
       "explorar:olympus:filtros",
       async (signal) => {
@@ -561,13 +567,15 @@ export default function ExplorarPage() {
         if (!r.ok) throw new Error("filtros");
         return r.json();
       },
-      { freshForMs: 7 * 24 * 60 * 60 * 1000, onCached: setOlyOpciones }
+      { publicCache: true, freshForMs: 7 * 24 * 60 * 60 * 1000, onCached: setOlyOpciones }
     )
       .then(setOlyOpciones)
       .catch(() => {});
-  }, [fuente, olyOpciones]);
+  }, [lecturaActiva, fuente, olyOpciones]);
 
   useEffect(() => {
+    // No gastar una consulta a MangaDex al entrar directamente en Olympus.
+    if (!lecturaActiva || fuente !== "mangadex" || genres.length > 0) return;
     cargarConCacheAndroid<Genre[]>(
       "explorar:mangadex:generos",
       async (signal) => {
@@ -579,13 +587,11 @@ export default function ExplorarPage() {
     )
       .then((d) => Array.isArray(d) && setGenres(d))
       .catch(() => {});
-  }, []);
+  }, [lecturaActiva, fuente, genres.length]);
 
   // ── estado en la URL ────────────────────────────────────────────────
   // Sin esto, volver desde una serie te devolvía a MangaDex en la página 1
   // y se perdía la búsqueda, los filtros y por dónde ibas.
-  const [restaurado, setRestaurado] = useState(false);
-
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const leer = (k: string) => p.get(k) || null;
@@ -735,7 +741,7 @@ export default function ExplorarPage() {
   }, [lang, search, offset, order, status, selectedGenres, origin, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "mangadex") return;
+    if (!lecturaActiva || fuente !== "mangadex") return;
     const solicitud = nuevaSolicitud("mangadex");
     if (!pedirFresco.current) setSeries(null);
     const t = setTimeout(() => void load(solicitud), search ? 350 : 0);
@@ -743,7 +749,7 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("mangadex", solicitud);
     };
-  }, [load, search, fuente, nuevaSolicitud, cancelarSolicitud]);
+  }, [load, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
   const cargarOlympus = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("olympus", solicitud)) return;
@@ -770,6 +776,9 @@ export default function ExplorarPage() {
           return res.json();
         },
         {
+          publicCache: true,
+          timeoutMs: 30_000,
+          maxAgeMs: 24 * 60 * 60 * 1000,
           force: fresco,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
@@ -794,7 +803,7 @@ export default function ExplorarPage() {
   }, [olympusPage, search, olyOrden, olyGenero, olyEstado, olyTipo, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "olympus") return;
+    if (!lecturaActiva || fuente !== "olympus") return;
     const solicitud = nuevaSolicitud("olympus");
     if (!pedirFresco.current) setOlympus(null);
     const t = setTimeout(() => void cargarOlympus(solicitud), search ? 350 : 0);
@@ -802,7 +811,7 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("olympus", solicitud);
     };
-  }, [cargarOlympus, search, fuente, nuevaSolicitud, cancelarSolicitud]);
+  }, [cargarOlympus, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
   useEffect(() => {
     setOlympusPage(1);
@@ -1362,6 +1371,7 @@ export default function ExplorarPage() {
                 <Link
                   key={s.id}
                   href={`/externo/olympus/${s.slug}`}
+                  prefetch={false}
                   className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">

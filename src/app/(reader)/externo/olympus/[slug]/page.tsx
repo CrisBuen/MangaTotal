@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { use } from "react";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 interface SerieOlympus {
   id: number;
@@ -36,22 +37,43 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
   const [error, setError] = useState(false);
   const [orden, setOrden] = useState<"asc" | "desc">("asc");
   const progreso = useProgresoSerie("olympus", slug);
+  const solicitud = useRef(0);
 
   const cargar = useCallback(async () => {
+    const actual = ++solicitud.current;
     setError(false);
-    try {
-      const res = await fetch(`/api/externo/olympus/series/${slug}`);
-      if (!res.ok) throw new Error("fallo");
-      const data = await res.json();
+    setSerie(null);
+    setCapitulos([]);
+    const aplicar = (data: { serie: SerieOlympus; chapters: CapituloOlympus[] }) => {
+      if (actual !== solicitud.current) return;
       setSerie(data.serie);
       setCapitulos(data.chapters);
+    };
+    try {
+      const data = await cargarConCacheAndroid<{ serie: SerieOlympus; chapters: CapituloOlympus[] }>(
+        `ficha:olympus:${slug}`,
+        async (signal) => {
+          const res = await fetch(`/api/externo/olympus/series/${encodeURIComponent(slug)}`, { signal });
+          if (!res.ok) throw new Error("fallo");
+          return res.json();
+        },
+        {
+          publicCache: true,
+          freshForMs: 5 * 60 * 1000,
+          maxAgeMs: 24 * 60 * 60 * 1000,
+          timeoutMs: 30_000,
+          onCached: aplicar,
+        }
+      );
+      aplicar(data);
     } catch {
-      setError(true);
+      if (actual === solicitud.current) setError(true);
     }
   }, [slug]);
 
   useEffect(() => {
     cargar();
+    return () => { solicitud.current++; };
   }, [cargar]);
 
   if (error) {
