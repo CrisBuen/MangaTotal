@@ -72,6 +72,58 @@ public class FuentesPlugin extends Plugin {
     private static final int MAX_REDIRECCIONES = 5;
     private static final int MAX_RESPUESTA_BYTES = 20 * 1024 * 1024;
 
+    private static final java.util.concurrent.ExecutorService IMAGENES = java.util.concurrent.Executors.newFixedThreadPool(3);
+
+    /** Solo imágenes públicas de Ikigai, con referencia fija y sin intermediarios. */
+    @PluginMethod
+    public void traerImagen(final PluginCall call) {
+        final String direccion = call.getString("url", "");
+        IMAGENES.execute(() -> {
+            HttpsURLConnection conexion = null;
+            try {
+                URL destino = new URL(direccion);
+                String host = destino.getHost().toLowerCase(Locale.ROOT);
+                if (!direccionPermitida(destino) || direccion.length() > 4096 ||
+                    !(host.equals("image2.ikigaimangas.cloud") || host.equals("image3.ikigaimangas.cloud")) ||
+                    destino.getQuery() != null || destino.getRef() != null ||
+                    !destino.getPath().matches("(?i).*\\.(webp|png|jpe?g|gif)$")) {
+                    throw new IOException("Imagen de fuente no permitida");
+                }
+                conexion = (HttpsURLConnection) destino.openConnection();
+                conexion.setInstanceFollowRedirects(false);
+                conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
+                conexion.setReadTimeout(TIEMPO_ESPERA_MS);
+                conexion.setRequestProperty("User-Agent", UA_NAVEGADOR);
+                conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
+                // La referencia sola no basta: el CDN redirige al aviso sin este modo.
+                conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
+                conexion.setRequestProperty("Accept", "image/webp,image/png,image/jpeg,image/gif");
+                String tipo = conexion.getContentType();
+                if (tipo != null) tipo = tipo.split(";")[0].trim().toLowerCase(Locale.ROOT);
+                if (conexion.getResponseCode() != 200 || tipo == null ||
+                    !tipo.matches("image/(webp|png|jpeg|gif)") ||
+                    (destino.getPath().endsWith(".webp") && !tipo.equals("image/webp")) ||
+                    conexion.getContentLengthLong() > MAX_RESPUESTA_BYTES) {
+                    throw new IOException("Ikigai no entregó la imagen original");
+                }
+                try (InputStream entrada = conexion.getInputStream();
+                     ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+                    byte[] trozo = new byte[8192];
+                    int leidos, total = 0;
+                    while ((leidos = entrada.read(trozo)) != -1) {
+                        total += leidos;
+                        if (total > MAX_RESPUESTA_BYTES) throw new IOException("Imagen demasiado grande");
+                        buffer.write(trozo, 0, leidos);
+                    }
+                    JSObject salida = new JSObject();
+                    salida.put("data", android.util.Base64.encodeToString(buffer.toByteArray(), android.util.Base64.NO_WRAP));
+                    call.resolve(salida);
+                }
+            } catch (Exception e) { call.reject(mensaje(e)); }
+            finally { if (conexion != null) conexion.disconnect(); }
+        });
+    }
+
     @PluginMethod
     public void traerPagina(final PluginCall call) {
         final String direccion = call.getString("url", "");

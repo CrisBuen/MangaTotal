@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { useRouter } from "next/navigation";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
@@ -73,7 +74,7 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
           <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)]">
             {ficha.cover_url && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <ImagenFuente
                 src={ficha.cover_url}
                 alt={ficha.title}
                 className="h-full w-full object-cover"

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { retryThroughProxy } from "./pageImage";
@@ -194,7 +195,7 @@ export function CascadeReader({
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ImagenFuente
             src={p.url}
             alt={`Página ${p.pageNumber}`}
             className="block h-auto w-full select-none"

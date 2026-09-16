@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { useCallback, useEffect, useState } from "react";
 import { SeriesCard, type SeriesSummary } from "@/components/library/SeriesCard";
 import { buttonStyles } from "@/components/ui/Button";
@@ -451,7 +452,7 @@ export default function BibliotecaPage() {
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {g.cover_url && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <ImagenFuente
                       src={g.cover_url}
                       alt={g.title}
                       className="h-full w-full object-cover"
@@ -545,7 +546,7 @@ export default function BibliotecaPage() {
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {g.cover_url && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <ImagenFuente
                       src={g.cover_url}
                       alt={g.title}
                       className="h-full w-full object-cover"

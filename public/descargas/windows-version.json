@@ -1,12 +1,12 @@
 {
-  "versionCode": 9,
-  "versionName": "1.8",
-  "date": "2026-09-01",
+  "versionCode": 10,
+  "versionName": "1.9",
+  "date": "2026-09-16",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "5EE116D02F1BFD081C95B58C9A82FA8165B37251996352A4B05C0C786099DD58",
+  "sha256": "58C9FCE5D0A462DCD6D9B6A86F2E5425FB1C3EEFEB69D25244B82854C64641A7",
   "sizeMb": 2.6,
   "changes": [
-    "Corrige la carga intermitente de capítulos de Ikigai al autorizar sus dos visores rotativos",
-    "Hace que Reintentar limpie el error anterior y muestre la causa real"
+    "Carga portadas y páginas de Ikigai directamente desde el dispositivo, sin proxy",
+    "Agrega importación de biblioteca y punto de lectura desde respaldos de Mihon"
   ]
 }

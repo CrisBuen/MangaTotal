@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect } from "react";
 import { retryThroughProxy } from "./pageImage";
+import { esImagenIkigai } from "@/lib/imagenFuenteNativa";
 import type { ChapterLink, ReaderPage } from "./types";
 
 /**
@@ -59,6 +61,8 @@ export function RtlReader({
   // precarga la página actual + las 2 siguientes (transición instantánea)
   useEffect(() => {
     for (let i = currentPage; i < Math.min(currentPage + 2, total); i++) {
+      // La precarga del navegador carece de la referencia nativa de Ikigai.
+      if (esImagenIkigai(pages[i].url)) continue;
       const img = new Image();
       img.src = pages[i].url;
     }
@@ -69,7 +73,7 @@ export function RtlReader({
   return (
     <div className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center" data-od-id="rtl-reader">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <ImagenFuente
         key={page.pageNumber}
         src={page.url}
         alt={`Página ${page.pageNumber}`}

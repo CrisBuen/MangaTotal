@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
@@ -1377,7 +1378,7 @@ export default function ExplorarPage() {
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                     {s.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <ImagenFuente
                         src={s.cover_url}
                         alt={s.title}
                         className="h-full w-full object-cover transition duration-500"

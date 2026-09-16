@@ -5,6 +5,15 @@
 Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
 serie y en cada capítulo.
 
+16/09/2026: el CDN exige Referer de visorikigai.gettocaboca.com Y
+Sec-Fetch-Mode: cors. Sin el segundo redirige al aviso de resubida, incluso
+con referencia correcta. Android/Windows descargan imágenes por el puente
+nativo (traerImagen / traer_imagen) y las muestran como Blob local. NUNCA
+se envían por Vercel ni R2; las demás fuentes no cambian de transporte.
+Requiere instalar las nuevas apps. Límites, pruebas y detalles:
+docs/importar-mihon-ikigai.md. No quitar la validación de destino ni seguir
+redirecciones hacia IkigaiAviso.png.
+
 14/09/2026: los ids de capítulos tienen 19 dígitos y se mantienen como texto.
 No usar Number(id) en el lector ni en Anterior/Siguiente: el redondeo causaba
 404 y se guardaba en el progreso. lecturaIkigai recupera los ids afectados

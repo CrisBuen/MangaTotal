@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
 import { Button } from "@/components/ui/Button";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { isAndroidApp, isPlayStoreApp } from "@/lib/appVersion";
+
+const ImportarMihon = dynamic(() => import("@/components/library/ImportarMihon").then((m) => m.ImportarMihon), { ssr: false });
 
 interface Me {
   nickname?: string;
@@ -188,6 +191,8 @@ export default function AjustesPage() {
           </Surface>
         )}
       </section>
+
+      {conSesion && <ImportarMihon />}
 
       {terminosAnime && (
         <>

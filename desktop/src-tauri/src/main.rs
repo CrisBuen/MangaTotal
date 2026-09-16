@@ -15,6 +15,48 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Windo
 /// coinciden, el permiso no sirve.
 const UA_NAVEGADOR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+fn validar_imagen_ikigai(valor: &str) -> Result<url::Url, String> {
+    let u = validar_url_fuente(valor)?;
+    let host = u.host_str().unwrap_or_default();
+    let extension = u.path().rsplit('.').next().unwrap_or_default().to_ascii_lowercase();
+    if valor.len() > 4096 || !["image2.ikigaimangas.cloud", "image3.ikigaimangas.cloud"].contains(&host)
+        || u.query().is_some() || u.fragment().is_some()
+        || !["webp", "png", "jpg", "jpeg", "gif"].contains(&extension.as_str()) {
+        return Err("Imagen de fuente no permitida".into());
+    }
+    Ok(u)
+}
+
+/// Descarga binaria directa; la web no elige otros hosts, cookies o referencias.
+#[tauri::command]
+async fn traer_imagen(url: String) -> Result<tauri::ipc::Response, String> {
+    let destino = validar_imagen_ikigai(&url)?;
+    let http = cliente_sin_redirecciones(UA_NAVEGADOR)?;
+    let respuesta = http.get(destino.clone())
+        .timeout(Duration::from_secs(25))
+        .header("Referer", "https://visorikigai.gettocaboca.com/")
+        // Su CDN exige ambos encabezados; sin el modo devuelve un 302 al aviso.
+        .header("Sec-Fetch-Mode", "cors")
+        .header("Accept", "image/webp,image/png,image/jpeg,image/gif")
+        .send().await.map_err(|e| e.to_string())?;
+    let tipo = respuesta.headers().get("content-type").and_then(|h| h.to_str().ok())
+        .unwrap_or_default().split(';').next().unwrap_or_default().trim();
+    let maximo = 20 * 1024 * 1024;
+    if respuesta.status().as_u16() != 200 || !["image/webp", "image/png", "image/jpeg", "image/gif"].contains(&tipo)
+        || (destino.path().ends_with(".webp") && tipo != "image/webp")
+        || respuesta.content_length().unwrap_or(0) > maximo {
+        return Err(format!("Ikigai no entregó la imagen original (HTTP {}, tipo {})", respuesta.status().as_u16(), tipo));
+    }
+    let mut flujo = respuesta.bytes_stream();
+    let mut datos = Vec::new();
+    while let Some(trozo) = flujo.next().await {
+        let trozo = trozo.map_err(|e| e.to_string())?;
+        if datos.len() + trozo.len() > maximo as usize { return Err("Imagen demasiado grande".into()); }
+        datos.extend_from_slice(&trozo);
+    }
+    Ok(tauri::ipc::Response::new(datos))
+}
+
 /// Permisos de Cloudflare ya obtenidos, uno por dominio.
 #[derive(Default)]
 struct Permisos(Mutex<HashMap<String, String>>);
@@ -468,7 +510,41 @@ async fn limpiar_verificacion(app: AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{destino_instalador, validar_url_fuente};
+    use super::{destino_instalador, validar_url_fuente, validar_imagen_ikigai};
+
+    #[test]
+    #[ignore = "Solo con una URL pública real de Ikigai proporcionada para QA"]
+    fn imagen_real_por_el_mismo_comando_nativo() {
+        use tauri::ipc::{IpcResponse, InvokeResponseBody};
+        let url = std::env::var("MANGATOTAL_TEST_IMAGE_URL").expect("Falta URL de QA");
+        let respuesta = tauri::async_runtime::block_on(super::traer_imagen(url)).expect("Descarga nativa");
+        match respuesta.body().unwrap() {
+            InvokeResponseBody::Raw(bytes) => {
+                assert!(bytes.len() > 1000);
+                assert_eq!(&bytes[..4], b"RIFF");
+                assert_eq!(&bytes[8..12], b"WEBP");
+                if let Ok(ruta) = std::env::var("MANGATOTAL_TEST_IMAGE_OUTPUT") {
+                    std::fs::write(ruta, &bytes).expect("Imagen de QA");
+                }
+                println!("Imagen WebP original: {} bytes, por conexión directa del dispositivo", bytes.len());
+            }
+            _ => panic!("El puente debe entregar binario, no JSON ni HTML"),
+        }
+    }
+
+    #[test]
+    fn imagenes_solo_desde_los_dos_cdn_sin_destinos_arbitrarios() {
+        assert!(validar_imagen_ikigai("https://image3.ikigaimangas.cloud/series/1/2/0.webp").is_ok());
+        for url in [
+            "http://image3.ikigaimangas.cloud/0.webp",
+            "https://image3.ikigaimangas.cloud.evil.example/0.webp",
+            "https://user@image3.ikigaimangas.cloud/0.webp",
+            "https://127.0.0.1/0.webp",
+            "https://image3.ikigaimangas.cloud/0.svg",
+            "https://image3.ikigaimangas.cloud/0.webp?redirect=x",
+            "https://image3.ikigaimangas.cloud:444/0.webp",
+        ] { assert!(validar_imagen_ikigai(url).is_err(), "Aceptó: {url}"); }
+    }
 
     #[test]
     fn el_instalador_solo_puede_ser_el_oficial() {
@@ -498,6 +574,7 @@ fn main() {
         .manage(Permisos::default())
         .manage(ActualizacionPendiente::default())
         .invoke_handler(tauri::generate_handler![
+            traer_imagen,
             traer_pagina,
             enviar_json,
             resolver_desafio,
