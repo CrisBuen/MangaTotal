@@ -1,12 +1,12 @@
 {
-  "versionCode": 10,
-  "versionName": "1.9",
+  "versionCode": 11,
+  "versionName": "1.10",
   "date": "2026-09-16",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "58C9FCE5D0A462DCD6D9B6A86F2E5425FB1C3EEFEB69D25244B82854C64641A7",
+  "sha256": "F193429A1B64B6B2BBD5F6E497D9341020727D52C9C964AFC6E12A752CCE4788",
   "sizeMb": 2.6,
   "changes": [
-    "Carga portadas y páginas de Ikigai directamente desde el dispositivo, sin proxy",
-    "Agrega importación de biblioteca y punto de lectura desde respaldos de Mihon"
+    "Permite el nuevo dominio del lector de Ikigai y corrige el error de dirección",
+    "Corrige la carga directa de las portadas de Ikigai en Explorar"
   ]
 }

@@ -128,6 +128,12 @@ const manifiesto = ejecutar(herramienta("aapt"), [
   "badging",
   apk,
 ]);
+// La firma y la versión no bastan: .pruebaplay producía un APK válido,
+// pero Android lo rechazaba como actualización de la app instalada.
+const paquete = manifiesto.match(/^package: name='([^']+)'/m)?.[1];
+if (paquete !== "app.mangatotal.android") {
+  throw new Error("APK NO publicado: paquete incompatible (" + (paquete || "desconocido") + ")");
+}
 const codigo = manifiesto.match(/versionCode='(\d+)'/)?.[1];
 const nombre = manifiesto.match(/versionName='([^']+)'/)?.[1];
 if (

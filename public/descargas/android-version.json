@@ -1,13 +1,14 @@
 {
-  "versionCode": 20,
-  "versionName": "1.9.7",
+  "versionCode": 21,
+  "versionName": "1.9.8",
   "date": "2026-09-16",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "9F909FD01DC3A11F82D8CA6A4FC3712BFC4FA3F4920F344C8115C2ABEBD432EB",
-  "sizeMb": 4.0,
+  "sha256": "4E4D98DD06057788E72DF08618B024FC975B883906E123924B065AB80336C4A9",
+  "sizeMb": 3.9,
   "changes": [
-    "Carga portadas y páginas de Ikigai directamente desde el dispositivo, sin proxy",
-    "Agrega importación de biblioteca y punto de lectura desde respaldos de Mihon"
+    "Corrige el paquete del APK para actualizar instalaciones existentes sin desinstalar",
+    "Corrige las portadas del catálogo y permite el nuevo dominio del lector de Ikigai",
+    "Mantiene la carga directa desde el dispositivo, sin proxy ni almacenamiento externo"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

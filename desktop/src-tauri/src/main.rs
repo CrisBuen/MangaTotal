@@ -82,7 +82,7 @@ struct ManifiestoActualizacion {
     sha256: String,
 }
 
-const DOMINIOS_FUENTES: [&str; 11] = [
+const DOMINIOS_FUENTES: [&str; 12] = [
     "newcatharsis.dig-it.info",
     // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
     "catharsisfood.com",
@@ -93,6 +93,7 @@ const DOMINIOS_FUENTES: [&str; 11] = [
     "cdn.zonatmo.to",
     "visorikigai.gettocaboca.com",
     "viralikigai.milkchoco.online",
+    "viralikigai.radiot.space",
     "visualikigai.treefy.online",
     "image2.ikigaimangas.cloud",
     "image3.ikigaimangas.cloud",
@@ -562,6 +563,9 @@ mod tests {
         assert!(validar_url_fuente("https://leercapitulo.co/serie").is_ok());
         assert!(validar_url_fuente("https://lc3-cdn.t34798ndc.com/pagina.webp").is_ok());
         assert!(validar_url_fuente("https://viralikigai.milkchoco.online/capitulo/1/").is_ok());
+        assert!(validar_url_fuente("https://viralikigai.radiot.space/capitulo/1/").is_ok());
+        assert!(validar_url_fuente("https://viralikigai.radiot.space.evil.example/capitulo/1/").is_err());
+        assert!(validar_url_fuente("https://otro.radiot.space/capitulo/1/").is_err());
         assert!(validar_url_fuente("https://visualikigai.treefy.online/capitulo/1/").is_ok());
         assert!(validar_url_fuente("http://leercapitulo.co/serie").is_err());
         assert!(validar_url_fuente("https://leercapitulo.co.evil.example/serie").is_err());

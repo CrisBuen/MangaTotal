@@ -5,6 +5,14 @@
 Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
 serie y en cada capítulo.
 
+16/09/2026 (corrección): el visor también usa viralikigai.radiot.space.
+Está permitido expresamente en Android y Windows, no todo radiot.space.
+Explorar debe usar ImagenFuente en la grilla de Ikigai, igual que la ficha;
+un img directo vuelve a mostrar el aviso aunque la ficha funcione.
+El APK local 1.9.8 corrige el identificador .pruebaplay que se filtró en
+1.9.7. patch.mjs quita ese sufijo y publicar-apk.mjs comprueba el paquete
+real antes de copiarlo: no relajar la validación del actualizador.
+
 16/09/2026: el CDN exige Referer de visorikigai.gettocaboca.com Y
 Sec-Fetch-Mode: cors. Sin el segundo redirige al aviso de resubida, incluso
 con referencia correcta. Android/Windows descargan imágenes por el puente
@@ -32,12 +40,13 @@ siquiera aparece en el selector de Explorar.
 DOS COSAS PROPIAS DE SU SITIO
 ---------------------------------------------------------------------------
 
-1. USAN DOS DOMINIOS
+1. USAN VARIOS DOMINIOS
 
    Catálogo y fichas:  https://visorikigai.gettocaboca.com
-   Visor de capítulos: /capitulo/<id> REDIRIGE al azar a uno de dos dominios
+   Visor de capítulos: /capitulo/<id> REDIRIGE al azar entre sus dominios
                        (hoy: viralikigai.milkchoco.online y
-                       visualikigai.treefy.online)
+                       visualikigai.treefy.online; también
+                       viralikigai.radiot.space)
 
    La redirección la sigue sola el puente nativo, así que en el código solo
    está escrito el primer dominio.
@@ -65,15 +74,13 @@ PASO 1. Editar UNA línea en:
 
   Poner el dominio nuevo, sin barra final.
 
-PASO 2. Permitir los dominios nuevos en la app de Windows.
+PASO 2. Permitir los dominios nuevos en las dos apps.
 
-  Editar:  desktop/src-tauri/capabilities/default.json
-
-  Agregar (o reemplazar) en la lista "allow":
-
-     { "url": "https://DOMINIO-NUEVO/*" },
-     { "url": "https://DOMINIO-DEL-VISOR/*" },
-     { "url": "https://SERVIDOR-DE-IMAGENES/*" }
+  Editar DOMINIOS_FUENTES en desktop/src-tauri/src/main.rs y PERMITIDOS
+  en mobile/patches/FuentesPlugin.java. Se valida cada salto de redirección.
+  Agregar solo los hosts confirmados, nunca todo el dominio del proveedor.
+  Para imágenes, revisar además las listas estrictas de imagenFuenteNativa.ts
+  y validar_imagen_ikigai/imagenIkigaiPermitida en los puentes nativos.
 
   Para averiguar los dos últimos: abrí un capítulo en su web y mirá la barra
   de direcciones (ahí está el visor); después clic derecho sobre una página

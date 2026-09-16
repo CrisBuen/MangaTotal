@@ -47,10 +47,22 @@ if (!version?.versionCode || !version?.versionName) {
 }
 
 const gradle = "android/app/build.gradle";
+let gradleBase = fs.readFileSync(gradle, "utf8");
+if (variante === "local") {
+  // El APK local se publica desde debug con la firma histórica. Un sufijo
+  // de pruebas como .pruebaplay lo convierte en OTRA app y bloquea la
+  // actualización aunque la versión y la firma sean correctas.
+  gradleBase = gradleBase.replace(
+    /^[ \t]*applicationIdSuffix(?:\s*=\s*|\s+)["'][^"']*["'][ \t]*;?[ \t]*\r?\n/gm,
+    "",
+  );
+  if (/\bapplicationIdSuffix\b/.test(gradleBase)) {
+    throw new Error("No se pudo quitar el sufijo de pruebas del APK local");
+  }
+}
 fs.writeFileSync(
   gradle,
-  fs
-    .readFileSync(gradle, "utf8")
+  gradleBase
     .replace(/versionCode(\s*=\s*|\s+)\d+/, (_, sep) => `versionCode${sep}${version.versionCode}`)
     .replace(/versionName(\s*=\s*|\s+)"[^"]*"/, (_, sep) => `versionName${sep}"${version.versionName}"`)
 );
