@@ -54,6 +54,7 @@ public class MainActivity extends BridgeActivity {
         // el puente de fuentes tiene que existir antes de que arranque la web
         registerPlugin(FuentesPlugin.class);
         registerPlugin(PantallaPlugin.class);
+        registerPlugin(ActualizacionPlugin.class);
         super.onCreate(savedInstanceState);
 
         WebView webView = webViewPrincipal();
@@ -259,10 +260,8 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onStop() {
         WebView webView = webViewPrincipal();
-        if (webView != null) {
-            webView.onPause();
-            webView.pauseTimers();
-        }
+        // Solo la revisión explícita mantiene los temporizadores activos.
+        ActualizacionServicio.visibilidad(webView, false);
         super.onStop();
     }
 
@@ -270,14 +269,12 @@ public class MainActivity extends BridgeActivity {
     public void onStart() {
         super.onStart();
         WebView webView = webViewPrincipal();
-        if (webView != null) {
-            webView.resumeTimers();
-            webView.onResume();
-        }
+        ActualizacionServicio.visibilidad(webView, true);
     }
 
     @Override
     public void onDestroy() {
+        stopService(new android.content.Intent(this, ActualizacionServicio.class));
         if (receptorDescarga != null) {
             unregisterReceiver(receptorDescarga);
             receptorDescarga = null;

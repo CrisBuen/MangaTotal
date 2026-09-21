@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { cargarConCacheAndroid, fetchConLimiteAndroid, guardarCacheAndroid } from "@/lib/androidCache";
+import { EstadoActualizacion, useActualizaciones } from "./ActualizacionesBiblioteca";
+import { FavoritoBiblioteca, MenuBiblioteca, grillaBiblioteca, useOpcionesBiblioteca } from "./MenuBiblioteca";
+import { fechaBiblioteca, ordenarBiblioteca, serieFinalizada } from "@/lib/opcionesBiblioteca";
 
 interface Entrada {
   source: string;
@@ -20,6 +23,9 @@ interface Entrada {
   completed: boolean;
   href: string;
   resume_href: string | null;
+  slug?: string | null;
+  created_at?: string | null;
+  last_watched_at?: string | null;
 }
 
 interface ProgresoAnime {
@@ -232,6 +238,11 @@ function BloqueProgreso({
 
 /** Biblioteca, historial y continuación de anime reproducible. */
 export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
+  const { usuario, trabajos, iniciar } = useActualizaciones();
+  const { opciones, cambiar, favorito } = useOpcionesBiblioteca("anime");
+  const [consulta, setConsulta] = useState(busqueda);
+  const resultados = trabajos.anime?.resultados ?? {};
+  const revisando = trabajos.anime?.estado === "activo";
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
   const [progreso, setProgreso] = useState<ProgresoAnime | null>(null);
   const [cargandoProgreso, setCargandoProgreso] = useState(true);
@@ -326,12 +337,29 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
     );
   }
 
-  const visibles = entradas.filter((entrada) => coincide(entrada, busqueda));
-  const historial = (progreso?.historial ?? []).filter((entrada) => coincide(entrada, busqueda));
-  const continuar = (progreso?.continuar ?? []).filter((entrada) => coincide(entrada, busqueda));
+  const clave = (e: Entrada) => `${e.source}-${e.external_id}`;
+  const visibles = ordenarBiblioteca(entradas.filter(e => coincide(e, consulta)), opciones, e => {
+    const n = resultados[clave(e)], total = n?.total ?? e.total_episodes;
+    const vistos = e.last_episode_number ? Math.max(0, Number(e.last_episode_number) - (e.completed ? 0 : 1)) : 0;
+    return { clave: clave(e), titulo: e.title, cantidad: total, lectura: fechaBiblioteca(e.last_watched_at),
+      comprobacion: n?.comprobado, pendientes: total != null ? Math.max(0, total - vistos) : null,
+      reciente: n?.ultimo != null ? Number(n.ultimo) : total, obtencion: n?.obtenido, antiguedad: fechaBiblioteca(e.created_at),
+      empezado: !!e.last_episode_number, favorito: opciones.favoritos.includes(clave(e)), completado: serieFinalizada(n?.estado ?? e.status) };
+  });
+  const historial = (progreso?.historial ?? []).filter((entrada) => coincide(entrada, consulta));
+  const continuar = (progreso?.continuar ?? []).filter((entrada) => coincide(entrada, consulta));
 
   return (
     <div className="space-y-12" data-od-id="external-anime-library">
+      <section className="rounded-[10px] border border-line bg-panel p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <input aria-label="Buscar anime en biblioteca" placeholder="Buscar anime…" value={consulta} onChange={e => setConsulta(e.target.value)} className="min-h-11 min-w-0 flex-1 rounded-md border border-line bg-canvas px-3" />
+          <button type="button" disabled={revisando || !usuario || !entradas.length} onClick={() => iniciar("anime", entradas.map(e => ({ source: e.source, external_id: e.external_id, slug: e.slug ?? null, type: e.type, last_chapter_name: e.last_episode_number })))}
+            className="min-h-11 rounded-md border border-line px-4 text-sm disabled:opacity-50">{revisando ? "Revisando…" : "Actualizar todo"}</button>
+          <MenuBiblioteca opciones={opciones} cambiar={cambiar} anime />
+        </div>
+        <EstadoActualizacion tipo="anime" />
+      </section>
       {errorHistorial && <p role="alert" className="text-sm text-red-400">{errorHistorial}</p>}
       <BloqueProgreso
         titulo="Historial"
@@ -379,12 +407,13 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
         ) : visibles.length === 0 ? (
           <EmptyState title="Sin resultados" description="Probá con otro nombre." />
         ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          <div className={grillaBiblioteca(opciones)} data-vista={opciones.vista} data-titulos={opciones.titulos}>
             {visibles.map((entrada) => (
+              <div key={`${entrada.source}:${entrada.external_id}`} className="relative min-w-0 pb-8">
               <Link
                 key={`${entrada.source}:${entrada.external_id}`}
                 href={entrada.href}
-                className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                   {entrada.cover_url && (
@@ -406,12 +435,14 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
                     {entrada.title}
                   </h3>
                   <p className="mt-1 font-mono text-[13px] text-faint">
-                    {[entrada.type, entrada.status, entrada.total_episodes ? `${entrada.total_episodes} ep.` : null]
+                    {[entrada.type, resultados[clave(entrada)]?.estado ?? entrada.status, (resultados[clave(entrada)]?.total ?? entrada.total_episodes) ? `${resultados[clave(entrada)]?.total ?? entrada.total_episodes} ep.` : null]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 </div>
               </Link>
+              <FavoritoBiblioteca titulo={entrada.title} activo={opciones.favoritos.includes(clave(entrada))} onClick={() => favorito(clave(entrada))} />
+              </div>
             ))}
           </div>
         )}

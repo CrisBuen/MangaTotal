@@ -9,7 +9,10 @@ import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { Chip } from "@/components/ui/Chip";
-import { buscarNovedades, type Novedad } from "@/components/library/novedades";
+import { EstadoActualizacion, useActualizaciones } from "@/components/library/ActualizacionesBiblioteca";
+import { FavoritoBiblioteca, MenuBiblioteca, grillaBiblioteca, useOpcionesBiblioteca } from "@/components/library/MenuBiblioteca";
+import { fechaBiblioteca, ordenarBiblioteca, serieFinalizada } from "@/lib/opcionesBiblioteca";
+import { pendientesBiblioteca } from "@/lib/colaBiblioteca";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
 import { SeccionAnimeExterno } from "@/components/library/SeccionAnimeExterno";
 import { SeccionHistorial } from "@/components/library/SeccionHistorial";
@@ -53,6 +56,8 @@ interface SerieGuardada {
   href: string;
   /** Al capítulo y la página donde quedó, no a la ficha. */
   href_continuar: string;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 interface TagChip {
@@ -77,9 +82,12 @@ export default function BibliotecaPage() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [guardadas, setGuardadas] = useState<SerieGuardada[]>([]);
-  const [novedades, setNovedades] = useState<Record<string, Novedad>>({});
-  const [revisando, setRevisando] = useState(false);
-  const [avance, setAvance] = useState({ hechas: 0, total: 0 });
+  const { usuario, trabajos, iniciar } = useActualizaciones();
+  const { opciones, cambiar, favorito } = useOpcionesBiblioteca("lectura");
+  const trabajo = trabajos.lectura;
+  const novedades = trabajo?.resultados ?? {};
+  const revisando = trabajo?.estado === "activo";
+  const avance = { hechas: trabajo?.hechas.length ?? 0, total: trabajo?.tareas.length ?? 0 };
 
   const loggedIn = Boolean(me?.nickname);
 
@@ -197,7 +205,7 @@ export default function BibliotecaPage() {
   // el filtro por tag muestra catálogo aunque la pestaña sea "Todo"
 
   const load = useCallback(async () => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ biblioteca: "1" });
     if (filter === "normal" || filter === "adult") params.set("type", filter);
     if (filter === "favoritos") params.set("favorites", "true");
     if (search.trim()) params.set("search", search.trim());
@@ -233,24 +241,23 @@ export default function BibliotecaPage() {
   // capítulo nuevo desde la última vez que las leíste.
   async function actualizarTodo() {
     if (revisando || guardadas.length === 0) return;
-    setRevisando(true);
-    setAvance({ hechas: 0, total: guardadas.length });
-    try {
-      const r = await buscarNovedades(guardadas, (hechas, total) => setAvance({ hechas, total }));
-      setNovedades(r);
-    } finally {
-      setRevisando(false);
-    }
+    iniciar("lectura", guardadas.map(g => ({ source: g.source, external_id: g.external_id, slug: g.slug, type: g.type, last_chapter_name: g.last_chapter_name })));
   }
 
   const claveDe = (g: SerieGuardada) => `${g.source}-${g.external_id}`;
 
   // primero las que tienen capítulos sin leer, de mayor a menor
-  const guardadasOrdenadas = [...guardadas].sort((a, b) => {
-    const sa = novedades[claveDe(a)]?.sinLeer ?? 0;
-    const sb = novedades[claveDe(b)]?.sinLeer ?? 0;
-    return sb - sa;
+  const guardadasOrdenadas = ordenarBiblioteca(guardadas.filter(g => g.title.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es"))), opciones, g => {
+    const n = novedades[claveDe(g)];
+    return { clave: claveDe(g), titulo: g.title, cantidad: n?.total, lectura: g.last_chapter_name ? fechaBiblioteca(g.updated_at) : null,
+      comprobacion: n?.comprobado, pendientes: pendientesBiblioteca(n, g.last_chapter_name),
+      reciente: n?.ultimo != null ? Number(n.ultimo) : null, obtencion: n?.obtenido, antiguedad: fechaBiblioteca(g.created_at),
+      empezado: g.last_chapter_name !== null, favorito: opciones.favoritos.includes(claveDe(g)), completado: serieFinalizada(n?.estado) };
   });
+  const seriesOrdenadas = ordenarBiblioteca(series ?? [], opciones, s => ({
+    clave: String(s.id), titulo: s.title, cantidad: s.chapter_count, lectura: fechaBiblioteca(s.last_read_at), pendientes: s.unread_count,
+    reciente: s.latest_chapter, antiguedad: fechaBiblioteca(s.created_at), empezado: !!s.started, favorito: !!s.is_favorite, completado: serieFinalizada(s.status),
+  }));
 
   function toggleTag(slug: string) {
     setSelectedTag(selectedTag === slug ? null : slug);
@@ -347,6 +354,7 @@ export default function BibliotecaPage() {
           aria-label="Buscar serie"
           data-od-id="library-search"
         />
+        <MenuBiblioteca opciones={opciones} cambiar={cambiar} />
       </section>
 
       {/* Historial: lo que abriste para leer y no llegaste a guardar */}
@@ -521,7 +529,7 @@ export default function BibliotecaPage() {
             </h2>
             <button
               onClick={actualizarTodo}
-              disabled={revisando}
+              disabled={revisando || !usuario}
               title="Revisa todas tus series guardadas y adelanta las que tienen capítulos nuevos"
               className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
               data-od-id="actualizar-todo"
@@ -536,12 +544,15 @@ export default function BibliotecaPage() {
               {revisando ? `Revisando ${avance.hechas}/${avance.total}` : "Actualizar todo"}
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          <EstadoActualizacion tipo="lectura" />
+          {guardadasOrdenadas.length === 0 && <p className="py-6 text-subtle">Ninguna serie coincide con estos filtros.</p>}
+          <div className={`${grillaBiblioteca(opciones)} mt-5`} data-vista={opciones.vista} data-titulos={opciones.titulos}>
             {guardadasOrdenadas.map((g) => (
+              <div key={`${g.source}-${g.external_id}`} className="relative min-w-0 pb-8">
               <Link
                 key={`${g.source}-${g.external_id}`}
                 href={g.href}
-                className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
+                className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
               >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
                   {g.cover_url && (
@@ -557,9 +568,9 @@ export default function BibliotecaPage() {
                   <span className="absolute left-3 top-3 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] px-2 py-1 font-mono text-[11px] text-ink">
                     {g.source}
                   </span>
-                  {(novedades[claveDe(g)]?.sinLeer ?? 0) > 0 && (
+                  {(pendientesBiblioteca(novedades[claveDe(g)], g.last_chapter_name) ?? 0) > 0 && (
                     <span className="absolute right-3 top-3 rounded-md bg-accent px-2 py-1 font-mono text-[11px] font-medium text-[var(--on-accent)]">
-                      +{novedades[claveDe(g)].sinLeer}
+                      +{pendientesBiblioteca(novedades[claveDe(g)], g.last_chapter_name)}
                     </span>
                   )}
                 </div>
@@ -575,6 +586,8 @@ export default function BibliotecaPage() {
                   </p>
                 </div>
               </Link>
+              <FavoritoBiblioteca titulo={g.title} activo={opciones.favoritos.includes(claveDe(g))} onClick={() => favorito(claveDe(g))} />
+              </div>
             ))}
           </div>
         </section>
@@ -621,8 +634,9 @@ export default function BibliotecaPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" data-od-id="series-grid">
-              {series.map((s) => (
+            <div className={grillaBiblioteca(opciones)} data-vista={opciones.vista} data-titulos={opciones.titulos} data-od-id="series-grid">
+              {seriesOrdenadas.length === 0 && <p className="col-span-full text-subtle">Ninguna serie coincide con estos filtros.</p>}
+              {seriesOrdenadas.map((s) => (
                 <SeriesCard key={s.id} series={s} />
               ))}
             </div>

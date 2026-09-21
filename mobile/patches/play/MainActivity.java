@@ -21,16 +21,15 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FuentesPlugin.class);
         registerPlugin(PantallaPlugin.class);
+        registerPlugin(ActualizacionPlugin.class);
         super.onCreate(savedInstanceState);
     }
 
     @Override
     public void onStop() {
         WebView webView = webViewPrincipal();
-        if (webView != null) {
-            webView.onPause();
-            webView.pauseTimers();
-        }
+        // Solo la revisión explícita mantiene los temporizadores activos.
+        ActualizacionServicio.visibilidad(webView, false);
         super.onStop();
     }
 
@@ -38,14 +37,12 @@ public class MainActivity extends BridgeActivity {
     public void onStart() {
         super.onStart();
         WebView webView = webViewPrincipal();
-        if (webView != null) {
-            webView.resumeTimers();
-            webView.onResume();
-        }
+        ActualizacionServicio.visibilidad(webView, true);
     }
 
     @Override
     public void onDestroy() {
+        stopService(new android.content.Intent(this, ActualizacionServicio.class));
         WebView webView = webViewPrincipal();
         if (webView != null) {
             webView.stopLoading();

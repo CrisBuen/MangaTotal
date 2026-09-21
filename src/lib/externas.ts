@@ -90,6 +90,7 @@ export interface SerieExternaFila {
   lastPageNumber: number | null;
   saved: boolean;
   updatedAt: Date;
+  createdAt?: Date;
 }
 
 /** La forma en que se le entrega una serie externa a la web. */
@@ -107,6 +108,7 @@ export function publico(e: SerieExternaFila) {
     last_page_number: e.lastPageNumber,
     saved: e.saved,
     updated_at: e.updatedAt,
+    created_at: e.createdAt ?? null,
     // a dónde lleva la tarjeta dentro de MangaTotal
     href,
     // retomar la lectura exactamente donde quedó, si ya empezó

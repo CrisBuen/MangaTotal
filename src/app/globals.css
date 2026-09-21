@@ -152,3 +152,8 @@ textarea {
     transform-origin: top left;
   }
 }
+/* Solo las rejillas de biblioteca: no modifica lectores ni fichas externas. */
+.biblioteca-grid[data-vista="lista"] .biblioteca-tarjeta { display: flex; align-items: center; gap: 1rem; }
+.biblioteca-grid[data-vista="lista"] .biblioteca-tarjeta > div:first-child { width: 76px; flex: 0 0 76px; }
+.biblioteca-grid[data-vista="lista"] .biblioteca-tarjeta > div:nth-child(2) { min-width: 0; padding-top: 0; }
+.biblioteca-grid[data-titulos="false"] h3 { display: none; }

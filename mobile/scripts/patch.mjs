@@ -1,4 +1,5 @@
 import fs from "fs";
+import { aplicarIconos } from "./iconos.mjs";
 
 const argumentoVariante = process.argv.indexOf("--variant");
 const variante = argumentoVariante >= 0 ? process.argv[argumentoVariante + 1] : "local";
@@ -11,6 +12,8 @@ if (variante !== "local" && variante !== "play") {
  * ajustes nativos viven en patches/ y se vuelven a copiar acá.
  */
 const copias = [
+  ["patches/ActualizacionPlugin.java", "android/app/src/main/java/app/mangatotal/android/ActualizacionPlugin.java"],
+  ["patches/ActualizacionServicio.java", "android/app/src/main/java/app/mangatotal/android/ActualizacionServicio.java"],
   [
     variante === "play" ? "patches/play/MainActivity.java" : "patches/MainActivity.java",
     "android/app/src/main/java/app/mangatotal/android/MainActivity.java",
@@ -29,6 +32,7 @@ for (const [origen, destino] of copias) {
   fs.copyFileSync(origen, destino);
   console.log("aplicado:", destino);
 }
+await aplicarIconos();
 
 /**
  * La versión, en los dos lugares que la necesitan.

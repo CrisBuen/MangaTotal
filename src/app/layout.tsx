@@ -4,6 +4,7 @@ import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
 import { AndroidUpdateBanner } from "@/components/pwa/AndroidUpdateBanner";
 import { DesktopUpdater } from "@/components/pwa/DesktopUpdater";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
+import { ActualizacionesBiblioteca } from "@/components/library/ActualizacionesBiblioteca";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -74,7 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es-ES" className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}>
       <body>
-        {children}
+        <ActualizacionesBiblioteca>{children}</ActualizacionesBiblioteca>
         <AnalyticsTracker />
         <UpdatePrompt />
         <AndroidUpdateBanner />

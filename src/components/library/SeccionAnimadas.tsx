@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { EstadoActualizacion, useActualizaciones } from "./ActualizacionesBiblioteca";
 
 interface Entrada {
   anilist_id: number;
@@ -35,9 +36,10 @@ const ESTADOS: { key: string; label: string }[] = [
  */
 export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
-  const [novedades, setNovedades] = useState<Record<number, Novedad>>({});
+  const { trabajos, iniciar, usuario } = useActualizaciones();
+  const novedades: Record<string, Novedad> = trabajos.animelist?.resultados["anilist-lista"]?.anilist ?? {};
   const [estado, setEstado] = useState<string | null>(null);
-  const [revisando, setRevisando] = useState(false);
+  const revisando = trabajos.animelist?.estado === "activo";
 
   const cargar = useCallback(async () => {
     try {
@@ -62,13 +64,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
 
   async function actualizarTodo() {
     if (revisando) return;
-    setRevisando(true);
-    try {
-      const r = await fetch("/api/anime/novedades", { cache: "no-store" });
-      if (r.ok) setNovedades(await r.json());
-    } finally {
-      setRevisando(false);
-    }
+    iniciar("animelist", [{ source: "anilist", external_id: "lista", slug: null, type: null, last_chapter_name: null }]);
   }
 
   if (entradas === null) {
@@ -139,7 +135,7 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
         </div>
         <button
           onClick={actualizarTodo}
-          disabled={revisando}
+          disabled={revisando || !usuario}
           title="Revisa si salieron episodios nuevos de lo que seguís"
           className="inline-flex shrink-0 items-center gap-2 rounded-md border border-line px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-60 sm:ml-auto"
         >
@@ -153,6 +149,8 @@ export function SeccionAnimadas({ busqueda }: { busqueda: string }) {
           {revisando ? "Revisando" : "Actualizar todo"}
         </button>
       </section>
+
+      <EstadoActualizacion tipo="animelist" />
 
       {continuando.length > 0 && (
         <section>

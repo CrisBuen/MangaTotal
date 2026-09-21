@@ -9,13 +9,19 @@ export interface SeriesSummary {
   status?: string;
   chapter_count?: number;
   is_favorite?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  last_read_at?: string | null;
+  started?: boolean;
+  unread_count?: number;
+  latest_chapter?: number | null;
 }
 
 export function SeriesCard({ series }: { series: SeriesSummary }) {
   return (
     <Link
       href={`/serie/${series.slug}`}
-      className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink focus-visible:ring-offset-4 focus-visible:ring-offset-canvas"
+      className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink focus-visible:ring-offset-4 focus-visible:ring-offset-canvas"
       data-od-id={`series-card-${series.slug}`}
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">

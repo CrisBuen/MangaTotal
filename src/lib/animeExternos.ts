@@ -37,6 +37,7 @@ export interface AnimeExternoFila {
   lastEpisodeTitle: string | null;
   lastWatchedAt: Date | null;
   updatedAt: Date;
+  createdAt?: Date;
   episodeProgress?: {
     positionSeconds: number;
     durationSeconds: number;
@@ -64,6 +65,7 @@ export function animeExternoPublico(e: AnimeExternoFila) {
     completed: ultimo?.completed ?? false,
     last_watched_at: e.lastWatchedAt,
     updated_at: e.updatedAt,
+    created_at: e.createdAt ?? null,
     href: fichaAnimeHref(source, e.externalId, e.slug),
     resume_href:
       e.slug && e.lastEpisodeNumber

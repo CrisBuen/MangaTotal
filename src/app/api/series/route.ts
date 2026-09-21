@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const type = params.get("type");
   const search = params.get("search")?.trim();
   const favorites = params.get("favorites") === "true";
+  const biblioteca = params.get("biblioteca") === "1";
   // all=true: vista de gestión (solo admin) — ignora el filtro show_adult_content
   const all = params.get("all") === "true" && user?.isAdmin && verAdulto;
 
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
     include: {
       _count: { select: { chapters: true } },
       favorites: { where: { userId: user?.id ?? -1 }, select: { id: true } },
+      progress: { where: { userId: biblioteca ? user?.id ?? -1 : -1 }, select: { updatedAt: true, chapter: { select: { number: true } } } },
+      chapters: biblioteca ? { select: { number: true } } : false,
       tags: { orderBy: { name: "asc" } },
     },
   });
@@ -73,6 +76,13 @@ export async function GET(req: NextRequest) {
       is_favorite: s.favorites.length > 0,
       tags: s.tags.map(publicTag),
       updated_at: s.updatedAt,
+      created_at: s.createdAt,
+      ...(biblioteca ? {
+        last_read_at: s.progress?.[0]?.updatedAt ?? null,
+        started: (s.progress?.length ?? 0) > 0,
+        unread_count: s.chapters?.filter(c => c.number > (s.progress?.[0]?.chapter.number ?? -1)).length ?? 0,
+        latest_chapter: s.chapters?.length ? Math.max(...s.chapters.map(c => c.number)) : null,
+      } : {}),
     }))
   );
 }
