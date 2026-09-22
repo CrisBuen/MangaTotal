@@ -28,12 +28,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   }
 
   const lang = req.nextUrl.searchParams.get("lang") ?? "es";
+  const fresco = req.nextUrl.searchParams.get("fresco") === "1";
   const langs = LANG_GROUPS[lang] ?? LANG_GROUPS.es;
 
   try {
     const mangaRes = await mdFetch<{ data: MdManga }>(
       `/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`,
-      300
+      fresco ? 0 : 300
     );
     const series = publicManga(mangaRes.data);
 
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
       const page = await mdFetch<{ data: MdChapter[]; total: number }>(
         `/chapter?${qs.toString()}`,
-        120
+        fresco ? 0 : 120
       );
       totalCapitulos = page.total;
       chapters.push(...page.data);

@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FavoriteButton } from "@/components/library/FavoriteButton";
+import { BotonRefrescarFichaPropia, RefrescarFichaPropia } from "@/components/library/RefrescarFichaPropia";
 import { buttonStyles } from "@/components/ui/Button";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
@@ -82,7 +83,7 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
     include: {
       chapters: {
         orderBy: { number: "asc" },
-        include: { progress: { where: { userId } } },
+        include: { progress: { where: { userId } }, readChapters: { where: { userId } } },
       },
       favorites: { where: { userId } },
       progress: { where: { userId }, include: { chapter: true } },
@@ -96,7 +97,7 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
   const bookmark = series.progress[0] ?? null;
 
   return (
-    <div className="space-y-12" data-od-id="series-detail-page">
+    <RefrescarFichaPropia slug={slug}>
       <section className="grid gap-8 border-b border-line pb-10 md:grid-cols-[minmax(220px,28%)_1fr]" data-od-id="series-hero">
         <div className="w-full max-w-xs overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)]">
           <div className="aspect-[2/3]">
@@ -131,13 +132,12 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
           {series.tags.length > 0 && (
             <div className="mb-5 flex flex-wrap gap-2">
               {series.tags.map((t) => (
-                <Link
+                <span
                   key={t.id}
-                  href={`/biblioteca?tag=${encodeURIComponent(t.slug)}`}
-                  className="relative inline-flex h-9 items-center rounded-md border border-line-strong bg-transparent px-3 text-[13px] text-subtle transition-colors after:absolute after:-inset-1 after:content-[''] hover:border-ink hover:text-ink"
+                  className="relative inline-flex h-9 items-center rounded-md border border-line-strong bg-transparent px-3 text-[13px] text-subtle"
                 >
                   {t.name}
-                </Link>
+                </span>
               ))}
             </div>
           )}
@@ -180,34 +180,40 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
       <section data-od-id="chapter-list">
         <div className="mb-5 flex items-end justify-between gap-4">
           <h2 className="font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold tracking-[-0.035em] text-ink">Capítulos</h2>
-          <span className="font-mono text-[11px] text-faint">Orden ascendente</span>
+          <div className="flex items-center gap-2">
+            <BotonRefrescarFichaPropia slug={slug} />
+            <span className="font-mono text-[11px] text-faint">Orden ascendente</span>
+          </div>
         </div>
         {series.chapters.length === 0 ? (
           <EmptyState title="Todavía no hay capítulos" description="Esta serie aún no tiene archivos publicados." />
         ) : (
           <ul className="overflow-hidden rounded-[10px] border border-line bg-panel">
             {series.chapters.map((c) => {
-              const prog = c.progress[0];
-              const done = prog && prog.lastPageNumber >= c.pageCount;
+              const pagina = c.readChapters[0]?.pageNumber ?? c.progress[0]?.lastPageNumber;
+              const esActual = bookmark?.chapterId === c.id;
+              const leido = pagina != null || (bookmark?.readThroughNumber != null && c.number <= bookmark.readThroughNumber);
+              const done = pagina != null && pagina >= c.pageCount;
               return (
                 <li key={c.id}>
                   <Link
-                    href={`/leer/${c.id}${prog ? `?page=${prog.lastPageNumber}` : ""}`}
-                    className="flex min-h-14 items-center gap-3 border-t border-line px-4 py-3 transition-colors first:border-t-0 hover:bg-[var(--surface-raised)]"
+                    href={`/leer/${c.id}${pagina ? `?page=${pagina}` : ""}`}
+                    className={`flex min-h-14 items-center gap-3 border-t border-line px-4 py-3 transition-colors first:border-t-0 hover:bg-[var(--surface-raised)] ${leido ? "opacity-55" : ""} ${esActual ? "bg-[var(--accent-soft)]" : ""}`}
                     data-od-id={`chapter-${c.id}`}
                   >
                     <span className="font-display text-base font-semibold text-ink">Capítulo {c.number}</span>
+                    {esActual && <span className="font-mono text-[11px] text-accent-ink">vas por acá</span>}
                     {c.title && <span className="truncate text-sm text-subtle">{c.title}</span>}
                     <span className="ml-auto shrink-0 font-mono text-[13px] text-faint">
                       {c.pageCount} págs.
                     </span>
-                    {prog && (
+                    {pagina != null && (
                       <span
                         className={`shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[11px] font-medium ${
                           done ? "border-success text-success" : "border-line text-subtle"
                         }`}
                       >
-                        {done ? "Leído" : `pág. ${prog.lastPageNumber}/${c.pageCount}`}
+                        {done ? "Leído" : `pág. ${pagina}/${c.pageCount}`}
                       </span>
                     )}
                   </Link>
@@ -217,6 +223,6 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
           </ul>
         )}
       </section>
-    </div>
+    </RefrescarFichaPropia>
   );
 }

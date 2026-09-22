@@ -33,7 +33,7 @@ const NOMBRE_FUENTE: Record<string, string> = {
  *
  * Solo entra lo que abriste para leer. Mirar una serie y volverse no cuenta.
  */
-export function SeccionHistorial({ tipo = "normal" }: { tipo?: "normal" | "adult" }) {
+export function SeccionHistorial({ tipo = "normal", alAbrir }: { tipo?: "normal" | "adult"; alAbrir?: () => void }) {
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
 
   const cargar = useCallback(async () => {
@@ -100,7 +100,7 @@ export function SeccionHistorial({ tipo = "normal" }: { tipo?: "normal" | "adult
               ×
             </button>
 
-            <Link href={e.href_continuar} className="block">
+            <Link href={e.href_continuar} onClick={alAbrir} className="block">
               <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors hover:border-line-strong">
                 {e.cover_url && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -125,6 +125,7 @@ export function SeccionHistorial({ tipo = "normal" }: { tipo?: "normal" | "adult
               </p>
               <Link
                 href={e.href}
+                onClick={alAbrir}
                 title="Ver ficha y capítulos"
                 aria-label={`Ver ficha de ${e.title}`}
                 className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"

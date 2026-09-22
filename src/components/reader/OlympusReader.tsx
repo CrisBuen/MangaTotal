@@ -162,7 +162,7 @@ export function OlympusReader({
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <header
-        className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_92%,transparent)]  transition-all duration-200 ease-out ${
+        className={`${isFullscreen ? "fixed inset-x-0" : "sticky"} top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] transition-all duration-200 ease-out ${
           showBar ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
         }`}
       >

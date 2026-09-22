@@ -5,7 +5,8 @@ import { use, useCallback, useEffect, useState } from "react";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
-import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
+import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { CW_NOMBRE, CW_WEB, imagenCw, serieCw, type FichaCw } from "@/lib/catharsis";
 
 /**
@@ -22,35 +23,27 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
   const [ficha, setFicha] = useState<FichaCw | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [orden, setOrden] = useState<"asc" | "desc">("desc");
-  const [actualizando, setActualizando] = useState(false);
 
   const progreso = useProgresoSerie("catharsis", id);
 
   const cargar = useCallback(
     async (fresco = false) => {
-      setError(null);
+      if (!fresco) setError(null);
       try {
         setFicha(await serieCw(id, fresco));
+        setError(null);
       } catch (err) {
+        if (fresco) throw err;
         setError(err);
       }
     },
     [id]
   );
+  const refresco = useRefrescoSerie(() => cargar(true));
 
   useEffect(() => {
     cargar();
   }, [cargar]);
-
-  async function actualizar() {
-    if (actualizando) return;
-    setActualizando(true);
-    try {
-      await cargar(true);
-    } finally {
-      setActualizando(false);
-    }
-  }
 
   if (error) {
     return <AvisoFuente error={error} onReintentar={() => cargar()} />;
@@ -77,13 +70,19 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
   const continuar = ficha.capitulos.find((c) => c.id === progreso.ultimoId);
   const arranque = continuar ?? primero;
 
-  const hrefCapitulo = (capId: string, esActual: boolean) => {
-    const extra = sufijoPagina(progreso, esActual);
+  const hrefCapitulo = (capId: string) => {
+    const extra = paginaCapitulo(progreso, capId);
     return `/leer-externo/catharsis/${capId}?serie=${id}${extra ? `&${extra}` : ""}`;
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10" {...refresco.gesto}>
+      {refresco.android && (refresco.refrescando || refresco.desplazamiento > 0) && (
+        <div className="fixed left-1/2 top-4 z-[80] -translate-x-1/2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-ink shadow-xl" role="status">
+          <span className="mr-2 inline-block animate-spin">↻</span>Actualizando capítulos…
+        </div>
+      )}
+      {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
       <Link
         href="/explorar?fuente=catharsis"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
@@ -131,7 +130,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
                     last_chapter_name: String(arranque.etiqueta),
                   })
                 }
-                href={hrefCapitulo(arranque.id, arranque.id === progreso.ultimoId)}
+                href={hrefCapitulo(arranque.id)}
                 className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]  transition hover:bg-[var(--accent-hover)]"
               >
                 {continuar ? `Seguir en el ${continuar.etiqueta}` : "Empezar a leer"}
@@ -140,21 +139,6 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
 
             <SaveExternalButton serie={serieGuardable} />
 
-            <button
-              onClick={actualizar}
-              disabled={actualizando}
-              title="Busca capítulos recién subidos"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-60"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className={`h-3.5 w-3.5 fill-current ${actualizando ? "animate-spin" : ""}`}
-                aria-hidden="true"
-              >
-                <path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
-              </svg>
-              {actualizando ? "Buscando" : "Actualizar"}
-            </button>
           </div>
         </div>
       </header>
@@ -165,12 +149,18 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
           <h2 className="font-display text-3xl font-bold leading-none text-ink">
             Capítulos
           </h2>
+          <div className="flex items-center gap-2">
+          {!refresco.android && <button type="button" onClick={refresco.refrescar} disabled={refresco.refrescando}
+            className="rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-60">
+            {refresco.refrescando ? "Actualizando…" : "↻ Actualizar"}
+          </button>}
           <button
             onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
             className="inline-flex min-h-11 items-center rounded-md border border-line px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             {orden === "asc" ? "Del 1 al último" : "Del último al 1"}
           </button>
+          </div>
         </div>
 
         {capitulos.length === 0 ? (
@@ -181,8 +171,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-10">
             {capitulos.map((c) => {
               const esActual = c.id === progreso.ultimoId;
-              const esLeido =
-                progreso.ultimoNumero !== null && !esActual && c.numero < progreso.ultimoNumero;
+              const esLeido = capituloLeido(progreso, String(c.id), c.numero);
 
               return (
                 <Link
@@ -194,7 +183,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
                       last_chapter_name: String(c.etiqueta),
                     })
                   }
-                  href={hrefCapitulo(c.id, esActual)}
+                  href={hrefCapitulo(c.id)}
                   title={`Capítulo ${c.etiqueta}`}
                   className={`flex min-h-11 items-center justify-center rounded-md border border-line bg-panel px-2 text-sm font-bold tabular-nums text-ink transition hover:border-line-strong hover:text-accent-ink ${estiloCapitulo(
                     esActual,

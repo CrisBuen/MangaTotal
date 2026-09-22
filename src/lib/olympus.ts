@@ -238,9 +238,9 @@ function normalizar(texto: string): string {
     .trim();
 }
 
-export async function serie(slug: string, tipo?: string) {
+export async function serie(slug: string, tipo?: string, fresco = false) {
   const consultar = (s: string) => olympusFetch<{ data: OlySerieDetalle }>(
-    `${OLYMPUS_WEB}/api/series/${encodeURIComponent(s)}`, 600
+    `${OLYMPUS_WEB}/api/series/${encodeURIComponent(s)}`, fresco ? 0 : 600
   );
   let data;
   try {
@@ -271,10 +271,10 @@ interface PaginaCapitulos {
   meta: { current_page: number; last_page: number; total: number };
 }
 
-const paginaDeCapitulos = (slug: string, page: number) =>
+const paginaDeCapitulos = (slug: string, page: number, fresco = false) =>
   olympusFetch<PaginaCapitulos>(
     `${OLYMPUS_PANEL}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}`,
-    600
+    fresco ? 0 : 600
   );
 
 const aCapitulo = (c: OlyCapitulo) => ({
@@ -290,8 +290,8 @@ const aCapitulo = (c: OlyCapitulo) => ({
  * Su API los manda de a 40, así que una serie larga son muchas páginas: se
  * piden de a seis en paralelo. Devuelve la lista entera, sin cortes.
  */
-export async function capitulos(slug: string) {
-  const primera = await paginaDeCapitulos(slug, 1);
+export async function capitulos(slug: string, fresco = false) {
+  const primera = await paginaDeCapitulos(slug, 1, fresco);
   const total = primera.meta.last_page;
 
   const paginas: PaginaCapitulos[] = [primera];
@@ -299,7 +299,7 @@ export async function capitulos(slug: string) {
   for (let desde = 2; desde <= total; desde += LOTE) {
     const lote = [];
     for (let p = desde; p < desde + LOTE && p <= total; p++) {
-      lote.push(paginaDeCapitulos(slug, p).catch(() => null));
+      lote.push(paginaDeCapitulos(slug, p, fresco).catch(() => null));
     }
     for (const r of await Promise.all(lote)) if (r) paginas.push(r);
   }

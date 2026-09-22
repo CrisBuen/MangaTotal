@@ -345,10 +345,10 @@ function numeroLegible(n: string | null | undefined): string | null {
  * `tipo` e `id` se conservan solo para que sigan andando los enlaces viejos
  * guardados en la biblioteca: la API nueva busca por slug.
  */
-export async function serieTmo(tipo: string, id: string, slug: string) {
+export async function serieTmo(tipo: string, id: string, slug: string, fresco = false) {
   const [ficha, capitulos] = await Promise.all([
-    pedir<ItemApi>(`/single/manga/${slug}`),
-    todosLosCapitulos(slug),
+    pedir<ItemApi>(`/single/manga/${slug}`, fresco),
+    todosLosCapitulos(slug, fresco),
   ]);
 
   if (!permitidaEnEstaEdicion(ficha)) {
@@ -379,15 +379,15 @@ interface PaginaCapitulos {
   pagination?: { total_pages?: number };
 }
 
-const paginaCapitulos = (slug: string, page: number) =>
-  pedir<PaginaCapitulos>(`/single/manga/${slug}/chapters?page=${page}`);
+const paginaCapitulos = (slug: string, page: number, fresco = false) =>
+  pedir<PaginaCapitulos>(`/single/manga/${slug}/chapters?page=${page}`, fresco);
 
 /**
  * Su lista de capítulos viene de a 25 y no se puede pedir más por vuelta, así
  * que una serie larga son muchas páginas: se piden de a seis en paralelo.
  */
-async function todosLosCapitulos(slug: string): Promise<CapituloTmo[]> {
-  const primera = await paginaCapitulos(slug, 1);
+async function todosLosCapitulos(slug: string, fresco = false): Promise<CapituloTmo[]> {
+  const primera = await paginaCapitulos(slug, 1, fresco);
   // se recorren todas las que diga su paginador: una serie larga tiene que
   // llegar hasta el final. El tope es solo una red por si informa cualquier cosa
   const totalPaginas = Math.min(primera.pagination?.total_pages ?? 1, 400);
@@ -396,7 +396,7 @@ async function todosLosCapitulos(slug: string): Promise<CapituloTmo[]> {
   for (let desde = 2; desde <= totalPaginas; desde += 6) {
     const lote = [];
     for (let p = desde; p < desde + 6 && p <= totalPaginas; p++) {
-      lote.push(paginaCapitulos(slug, p).catch(() => ({ items: [] as CapituloApi[] })));
+      lote.push(paginaCapitulos(slug, p, fresco).catch(() => ({ items: [] as CapituloApi[] })));
     }
     paginas.push(...(await Promise.all(lote)));
   }

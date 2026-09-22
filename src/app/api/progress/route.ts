@@ -22,20 +22,28 @@ export async function PATCH(req: NextRequest) {
 
   const chapter = await db.chapter.findUnique({ where: { id: chapterId } });
   if (!chapter) return NextResponse.json({ error: "Capítulo no encontrado" }, { status: 404 });
+  const pagina = Math.min(pageNumber, Math.max(1, chapter.pageCount));
 
-  // un solo marcador activo por (usuario, serie) — se sobrescribe al avanzar
+  // El marcador activo cambia al abrir otro capítulo; el capítulo visitado
+  // conserva su propia página para que releer el primero no borre el cien.
   const progress = await db.readingProgress.upsert({
     where: { userId_seriesId: { userId: user.id, seriesId: chapter.seriesId } },
     create: {
       userId: user.id,
       seriesId: chapter.seriesId,
       chapterId,
-      lastPageNumber: Math.min(pageNumber, chapter.pageCount),
+      lastPageNumber: pagina,
     },
     update: {
       chapterId,
-      lastPageNumber: Math.min(pageNumber, chapter.pageCount),
+      lastPageNumber: pagina,
     },
+  });
+
+  await db.readChapter.upsert({
+    where: { userId_chapterId: { userId: user.id, chapterId } },
+    create: { userId: user.id, chapterId, pageNumber: pagina },
+    update: { pageNumber: pagina },
   });
 
   return NextResponse.json({ progress });

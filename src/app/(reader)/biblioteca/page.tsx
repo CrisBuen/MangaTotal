@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
-import { useCallback, useEffect, useState } from "react";
-import { SeriesCard, type SeriesSummary } from "@/components/library/SeriesCard";
+import { useEffect, useRef, useState } from "react";
 import { buttonStyles } from "@/components/ui/Button";
-import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { Chip } from "@/components/ui/Chip";
@@ -60,28 +58,18 @@ interface SerieGuardada {
   updated_at?: string | null;
 }
 
-interface TagChip {
-  id: number;
-  name: string;
-  slug: string;
-  series_count: number;
-}
-
 type Filter = "normal" | "adult" | "favoritos";
 
 export default function BibliotecaPage() {
   const [me, setMe] = useState<Me | null>(null);
-  const [series, setSeries] = useState<SeriesSummary[] | null>(null);
-  const [seriesError, setSeriesError] = useState(false);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [filter, setFilter] = useState<Filter>("normal");
   const [seccion, setSeccion] = useState<"lectura" | "animelist" | "anime-animado">("lectura");
   const [animeAnimadoHabilitado, setAnimeAnimadoHabilitado] = useState(false);
   const [search, setSearch] = useState("");
-  const [tags, setTags] = useState<TagChip[]>([]);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [guardadas, setGuardadas] = useState<SerieGuardada[]>([]);
+  const regresoDeLectura = useRef(false);
   const { usuario, trabajos, iniciar } = useActualizaciones();
   const { opciones, cambiar, favorito } = useOpcionesBiblioteca("lectura");
   const trabajo = trabajos.lectura;
@@ -91,27 +79,17 @@ export default function BibliotecaPage() {
 
   const loggedIn = Boolean(me?.nickname);
 
-  // Las categorías siguen a la pestaña, y solo se muestran dentro de
-  // "Normal" o "+18". En "Todo" no aparecen: ahí las del +18 quedaban a la
-  // vista de cualquiera, que no es donde corresponde.
   useEffect(() => {
-    const qs = `?tipo=${filter === "adult" ? "adult" : "normal"}`;
-    cargarConCacheAndroid<TagChip[]>(
-      `biblioteca:tags:${qs}`,
-      async (signal) => {
-        const r = await fetch(`/api/tags${qs}`, { signal });
-        if (!r.ok) throw new Error("tags");
-        return r.json();
-      },
-      {
-        privateData: true,
-        freshForMs: 12 * 60 * 60 * 1000,
-        onCached: setTags,
-      }
-    )
-      .then((d) => Array.isArray(d) && setTags(d))
-      .catch(() => {});
-  }, [filter]);
+    regresoDeLectura.current = sessionStorage.getItem("biblioteca:regreso") === "1";
+    sessionStorage.removeItem("biblioteca:regreso");
+    if (regresoDeLectura.current) window.scrollTo(0, 0);
+  }, []);
+  useEffect(() => {
+    if (!regresoDeLectura.current || guardadas.length === 0) return;
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+    regresoDeLectura.current = false;
+  }, [guardadas.length]);
+  const abrirDesdeBiblioteca = () => sessionStorage.setItem("biblioteca:regreso", "1");
 
   useEffect(() => {
     const aplicarMe = (actual: Me) => {
@@ -180,8 +158,6 @@ export default function BibliotecaPage() {
     if (urlFilter && ["normal", "adult", "favoritos"].includes(urlFilter)) {
       setFilter(urlFilter as Filter);
     }
-    const urlTag = params.get("tag");
-    if (urlTag) setSelectedTag(urlTag);
     const urlSearch = params.get("q");
     if (urlSearch) setSearch(urlSearch);
     setRestored(true);
@@ -195,47 +171,10 @@ export default function BibliotecaPage() {
     else url.searchParams.delete("s");
     if (filter !== "normal") url.searchParams.set("f", filter);
     else url.searchParams.delete("f");
-    if (selectedTag) url.searchParams.set("tag", selectedTag);
-    else url.searchParams.delete("tag");
     if (search.trim()) url.searchParams.set("q", search.trim());
     else url.searchParams.delete("q");
     window.history.replaceState(null, "", url.toString());
-  }, [restored, seccion, filter, selectedTag, search]);
-
-  // el filtro por tag muestra catálogo aunque la pestaña sea "Todo"
-
-  const load = useCallback(async () => {
-    const params = new URLSearchParams({ biblioteca: "1" });
-    if (filter === "normal" || filter === "adult") params.set("type", filter);
-    if (filter === "favoritos") params.set("favorites", "true");
-    if (search.trim()) params.set("search", search.trim());
-    if (selectedTag) params.set("tag", selectedTag);
-    setSeriesError(false);
-    try {
-      const data = await cargarConCacheAndroid<SeriesSummary[]>(
-        `biblioteca:series:${params.toString()}`,
-        async (signal) => {
-          const res = await fetch(`/api/series?${params}`, { signal });
-          if (!res.ok) throw new Error("catalog");
-          return res.json();
-        },
-        {
-          privateData: true,
-          // Favoritos y progreso pueden cambiar recién antes de entrar:
-          // se muestra la copia ya, pero siempre se confirma en segundo plano.
-          freshForMs: 0,
-          onCached: (guardada) => {
-            setSeries(guardada);
-            setSeriesError(false);
-          },
-        }
-      );
-      setSeries(data);
-    } catch {
-      setSeries([]);
-      setSeriesError(true);
-    }
-  }, [filter, search, selectedTag]);
+  }, [restored, seccion, filter, search]);
 
   // Revisa todas las series guardadas y pone adelante las que sacaron
   // capítulo nuevo desde la última vez que las leíste.
@@ -247,43 +186,26 @@ export default function BibliotecaPage() {
   const claveDe = (g: SerieGuardada) => `${g.source}-${g.external_id}`;
 
   // primero las que tienen capítulos sin leer, de mayor a menor
-  const guardadasOrdenadas = ordenarBiblioteca(guardadas.filter(g => g.title.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es"))), opciones, g => {
+  const esAdulta = (g: SerieGuardada) => /^(adult|\+18|hentai)$/i.test(g.type ?? "");
+  const guardadasVisibles = guardadas.filter(g =>
+    filter === "favoritos" ? opciones.favoritos.includes(claveDe(g)) :
+      filter === "adult" ? esAdulta(g) : !esAdulta(g));
+  const guardadasOrdenadas = ordenarBiblioteca(guardadasVisibles.filter(g => g.title.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es"))), opciones, g => {
     const n = novedades[claveDe(g)];
     return { clave: claveDe(g), titulo: g.title, cantidad: n?.total, lectura: g.last_chapter_name ? fechaBiblioteca(g.updated_at) : null,
       comprobacion: n?.comprobado, pendientes: pendientesBiblioteca(n, g.last_chapter_name),
       reciente: n?.ultimo != null ? Number(n.ultimo) : null, obtencion: n?.obtenido, antiguedad: fechaBiblioteca(g.created_at),
       empezado: g.last_chapter_name !== null, favorito: opciones.favoritos.includes(claveDe(g)), completado: serieFinalizada(n?.estado) };
   });
-  const seriesOrdenadas = ordenarBiblioteca(series ?? [], opciones, s => ({
-    clave: String(s.id), titulo: s.title, cantidad: s.chapter_count, lectura: fechaBiblioteca(s.last_read_at), pendientes: s.unread_count,
-    reciente: s.latest_chapter, antiguedad: fechaBiblioteca(s.created_at), empezado: !!s.started, favorito: !!s.is_favorite, completado: serieFinalizada(s.status),
-  }));
-
-  function toggleTag(slug: string) {
-    setSelectedTag(selectedTag === slug ? null : slug);
-  }
-
-  // en Normal/+18 se acota a esa sección; en Todo y Favoritos se ve completo
+  // El filtro se aplica igual a las lecturas propias y a las otras fuentes.
   const continuesVisible =
     filter === "favoritos"
       ? continues.filter((c) => c.series.is_favorite)
       : continues.filter((c) => c.series.type === filter);
 
-  // Las series de otras fuentes también son lecturas empezadas: van en la
-  // misma fila, después de las propias. En Favoritos y +18 no aplican,
-  // porque esas pestañas son del catálogo propio.
-  const externasEmpezadas =
-    filter === "favoritos" || filter === "adult"
-      ? []
-      : guardadas.filter((g) => g.last_chapter_name);
+  const externasEmpezadas = guardadasVisibles.filter((g) => g.last_chapter_name);
 
   const hayQueContinuar = continuesVisible.length + externasEmpezadas.length > 0;
-
-  useEffect(() => {
-    setSeries(null);
-    const t = setTimeout(load, search ? 250 : 0);
-    return () => clearTimeout(t);
-  }, [load, search, filter, selectedTag]);
 
   const filters: { key: Filter; label: string }[] = [
     { key: "normal", label: "Normal" },
@@ -326,73 +248,8 @@ export default function BibliotecaPage() {
         <SeccionAnimeExterno busqueda={search} />
       ) : (
        <>
-      <section className="flex flex-col gap-4 rounded-[10px] border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
-        <div
-          className="flex min-w-0 gap-1 overflow-x-auto"
-          role="tablist"
-          aria-label="Secciones de biblioteca"
-        >
-          {filters.map((f) => (
-            <Chip
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              selected={filter === f.key}
-              className="shrink-0"
-              role="tab"
-              aria-selected={filter === f.key}
-              data-od-id={`library-filter-${f.key}`}
-            >
-              {f.label}
-            </Chip>
-          ))}
-        </div>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar serie…"
-          className={`min-w-0 sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
-          aria-label="Buscar serie"
-          data-od-id="library-search"
-        />
-        <MenuBiblioteca opciones={opciones} cambiar={cambiar} />
-      </section>
-
       {/* Historial: lo que abriste para leer y no llegaste a guardar */}
-      {loggedIn && filter === "normal" && <SeccionHistorial tipo="normal" />}
-
-      {/* Categorías: solo dentro de Normal o +18, nunca en Todo */}
-      {tags.length > 0 && (filter === "normal" || filter === "adult") && (
-        <section id="categorias" className="scroll-mt-28" data-od-id="library-tags">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
-              Categorías
-            </h2>
-            <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-faint">
-              Explorar
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-panel p-4">
-            {tags.map((t) => (
-              <Chip
-                key={t.id}
-                onClick={() => toggleTag(t.slug)}
-                selected={selectedTag === t.slug}
-                aria-pressed={selectedTag === t.slug}
-              >
-                {t.name} <span className="font-mono opacity-70">{t.series_count}</span>
-              </Chip>
-            ))}
-            {selectedTag && (
-              <button
-                onClick={() => toggleTag(selectedTag)}
-                className={buttonStyles({ variant: "ghost", size: "sm" })}
-              >
-                Limpiar
-              </button>
-            )}
-          </div>
-        </section>
-      )}
+      {loggedIn && filter === "normal" && <SeccionHistorial tipo="normal" alAbrir={abrirDesdeBiblioteca} />}
 
       {/* Continuar leyendo */}
       {loggedIn && hayQueContinuar && (
@@ -413,6 +270,7 @@ export default function BibliotecaPage() {
               <div key={c.series.id} className="group w-40 shrink-0">
               <Link
                 href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
+                onClick={abrirDesdeBiblioteca}
                 className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
@@ -431,12 +289,14 @@ export default function BibliotecaPage() {
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
+                      onClick={abrirDesdeBiblioteca}
                       className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
                     >
                       {c.series.title}
                     </Link>
                     <Link
                       href={`/serie/${c.series.slug}`}
+                      onClick={abrirDesdeBiblioteca}
                       title="Ver ficha y capítulos"
                       aria-label={`Ver ficha de ${c.series.title}`}
                       className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
@@ -455,6 +315,7 @@ export default function BibliotecaPage() {
               <div key={`${g.source}-${g.external_id}`} className="group w-40 shrink-0">
               <Link
                 href={g.href_continuar}
+                onClick={abrirDesdeBiblioteca}
                 className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
@@ -477,12 +338,14 @@ export default function BibliotecaPage() {
                   <div className="flex items-center gap-2">
                     <Link
                       href={g.href_continuar}
+                      onClick={abrirDesdeBiblioteca}
                       className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
                     >
                       {g.title}
                     </Link>
                     <Link
                       href={g.href}
+                      onClick={abrirDesdeBiblioteca}
                       title="Ver ficha y capítulos"
                       aria-label={`Ver ficha de ${g.title}`}
                       className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
@@ -503,6 +366,22 @@ export default function BibliotecaPage() {
         </section>
       )}
 
+      <section className="flex flex-col gap-4 rounded-[10px] border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
+        <div className="flex min-w-0 gap-1 overflow-x-auto" role="tablist" aria-label="Secciones de biblioteca">
+          {filters.map((f) => (
+            <Chip key={f.key} onClick={() => setFilter(f.key)} selected={filter === f.key}
+              className="shrink-0" role="tab" aria-selected={filter === f.key}
+              data-od-id={`library-filter-${f.key}`}>
+              {f.label}
+            </Chip>
+          ))}
+        </div>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar serie…"
+          className={`min-w-0 sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
+          aria-label="Buscar serie" data-od-id="library-search" />
+        <MenuBiblioteca opciones={opciones} cambiar={cambiar} />
+      </section>
+
         {me !== null && !loggedIn && (
           <Surface className="grid gap-5 border-accent p-6  sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
             <p className="text-sm text-subtle">
@@ -521,11 +400,11 @@ export default function BibliotecaPage() {
           </Surface>
         )}
 
-      {loggedIn && guardadas.length > 0 && filter === "normal" && (
+      {loggedIn && guardadas.length > 0 && (
         <section data-od-id="library-external">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
-              Guardadas de otras fuentes
+              CATÁLOGO
             </h2>
             <button
               onClick={actualizarTodo}
@@ -552,6 +431,7 @@ export default function BibliotecaPage() {
               <Link
                 key={`${g.source}-${g.external_id}`}
                 href={g.href}
+                onClick={abrirDesdeBiblioteca}
                 className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
               >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
@@ -593,55 +473,6 @@ export default function BibliotecaPage() {
         </section>
       )}
 
-      <section data-od-id="library-catalog">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
-              Catálogo
-            </h2>
-            <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-faint">
-              MangaTotal
-            </span>
-          </div>
-
-          {series === null ? (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" aria-label="Cargando catálogo">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="aspect-[2/3]" />
-              ))}
-            </div>
-          ) : seriesError ? (
-            <EmptyState
-              title="No se pudo cargar el catálogo"
-              description="Revisá la conexión con la base de datos y volvé a intentarlo."
-              action={
-                <button type="button" onClick={load} className={buttonStyles({ variant: "secondary" })}>
-                  Reintentar
-                </button>
-              }
-            />
-          ) : series.length === 0 ? (
-            <div className="border border-dashed border-line bg-panel py-16 text-center text-subtle">
-              {filter === "favoritos" ? (
-                <>
-                  <p className="mb-1 text-lg">Todavía no tenés favoritos</p>
-                  <p className="text-sm">Marcá una serie con ★ y va a quedar guardada acá.</p>
-                </>
-              ) : (
-                <>
-                  <p className="mb-1 text-lg">No hay series en esta sección</p>
-                  <p className="text-sm">Pronto se va a agregar contenido nuevo.</p>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className={grillaBiblioteca(opciones)} data-vista={opciones.vista} data-titulos={opciones.titulos} data-od-id="series-grid">
-              {seriesOrdenadas.length === 0 && <p className="col-span-full text-subtle">Ninguna serie coincide con estos filtros.</p>}
-              {seriesOrdenadas.map((s) => (
-                <SeriesCard key={s.id} series={s} />
-              ))}
-            </div>
-          )}
-      </section>
        </>
       )}
     </div>

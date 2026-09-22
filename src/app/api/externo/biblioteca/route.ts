@@ -43,6 +43,7 @@ export async function PUT(req: NextRequest) {
     last_chapter_id?: string | null;
     last_chapter_name?: string | null;
     last_page_number?: number | null;
+    solo_pagina?: boolean;
   };
   try {
     body = await req.json();
@@ -66,18 +67,30 @@ export async function PUT(req: NextRequest) {
     const existente = await db.externalSeries.findUnique({ where: llave });
     if (!existente) return NextResponse.json({ error: "La serie no está guardada" }, { status: 404 });
 
+    const chapterId = body.last_chapter_id ?? existente.lastChapterId;
+    const page = body.last_page_number == null ? 1 : Math.max(1, Math.min(1_000_000, Math.trunc(body.last_page_number)));
+    if (!Number.isFinite(page)) return NextResponse.json({ error: "Página inválida" }, { status: 400 });
+
     const actualizada = await db.externalSeries.update({
       where: llave,
       data: {
-        ...(body.last_chapter_id !== undefined
+        ...(!body.solo_pagina && body.last_chapter_id !== undefined
           ? {
               lastChapterId: body.last_chapter_id,
               lastChapterName: body.last_chapter_name ?? null,
             }
           : {}),
-        ...(body.last_page_number !== undefined ? { lastPageNumber: body.last_page_number } : {}),
+        ...(body.last_page_number !== undefined && (!body.solo_pagina || chapterId === existente.lastChapterId)
+          ? { lastPageNumber: page } : {}),
       },
     });
+    if (chapterId && chapterId.length <= 500 && (body.last_chapter_id !== undefined || body.last_page_number !== undefined)) {
+      await db.externalChapterProgress.upsert({
+        where: { externalSeriesId_chapterId: { externalSeriesId: existente.id, chapterId } },
+        create: { externalSeriesId: existente.id, chapterId, pageNumber: page },
+        update: { pageNumber: page },
+      });
+    }
     return NextResponse.json(publico(actualizada));
   }
 

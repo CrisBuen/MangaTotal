@@ -356,8 +356,8 @@ function campo(texto: string, etiqueta: string): string | null {
 }
 
 /** Ficha de una serie con todos sus capítulos (los publican en una sola página). */
-export async function serieLc(id: string, slug: string) {
-  const doc = await pedir(`/manga/${id}/${slug}/`);
+export async function serieLc(id: string, slug: string, fresco = false) {
+  const doc = await pedir(`/manga/${id}/${slug}/`, fresco);
 
   const datos = doc.querySelector(".description-update")?.textContent ?? "";
 

@@ -165,7 +165,27 @@ function SelectorSecciones({
   );
 }
 
+function MarcaGuardada({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+  return <span className="absolute left-2 top-2 z-10 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-ink shadow-sm" aria-label="En biblioteca">▣ En biblioteca</span>;
+}
+
 export default function ExplorarPage() {
+  const [guardadas, setGuardadas] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let vigente = true;
+    const cargar = async () => {
+      const res = await fetch("/api/externo/biblioteca", { cache: "no-store" }).catch(() => null);
+      if (!res?.ok || !vigente) return;
+      const datos: { source: string; external_id: string }[] = await res.json().catch(() => []);
+      if (vigente && Array.isArray(datos)) setGuardadas(new Set(datos.map(s => `${s.source}:${s.external_id}`)));
+    };
+    void cargar();
+    window.addEventListener("focus", cargar);
+    window.addEventListener("pageshow", cargar);
+    return () => { vigente = false; window.removeEventListener("focus", cargar); window.removeEventListener("pageshow", cargar); };
+  }, []);
+  const guardada = (source: string, id: string) => guardadas.has(`${source}:${id}`);
   const [series, setSeries] = useState<ExternalSeries[] | null>(null);
   const [lang, setLang] = useState("es");
   const [search, setSearch] = useState("");
@@ -1209,9 +1229,10 @@ export default function ExplorarPage() {
             <Link
               key={s.id}
               href={`/externo/${s.id}`}
-              className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("mangadex", s.id) ? "opacity-60" : ""}`}
             >
               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                <MarcaGuardada visible={guardada("mangadex", s.id)} />
                 {s.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -1373,9 +1394,10 @@ export default function ExplorarPage() {
                   key={s.id}
                   href={`/externo/olympus/${s.slug}`}
                   prefetch={false}
-                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("olympus", s.slug) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                    <MarcaGuardada visible={guardada("olympus", s.slug)} />
                     {s.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1509,9 +1531,10 @@ export default function ExplorarPage() {
                 <Link
                   key={t.id}
                   href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
-                  className="group w-32 shrink-0 rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-36"
+                  className={`group w-32 shrink-0 rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-36 ${guardada("tmo", `${t.tipo}/${t.id}/${t.slug}`) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                    <MarcaGuardada visible={guardada("tmo", `${t.tipo}/${t.id}/${t.slug}`)} />
                     {t.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1549,9 +1572,10 @@ export default function ExplorarPage() {
                 <Link
                   key={s.id}
                   href={`/externo/catharsis/${s.id}`}
-                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("catharsis", s.id) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                    <MarcaGuardada visible={guardada("catharsis", s.id)} />
                     {s.portada && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1620,9 +1644,10 @@ export default function ExplorarPage() {
                 <Link
                   key={t.id}
                   href={`/externo/leercapitulo/${t.id}/${t.slug}`}
-                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("leercapitulo", `${t.id}/${t.slug}`) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                    <MarcaGuardada visible={guardada("leercapitulo", `${t.id}/${t.slug}`)} />
                     {t.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1683,9 +1708,10 @@ export default function ExplorarPage() {
                 <Link
                   key={t.id}
                   href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
-                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("tmo", `${t.tipo}/${t.id}/${t.slug}`) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                    <MarcaGuardada visible={guardada("tmo", `${t.tipo}/${t.id}/${t.slug}`)} />
                     {t.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1749,9 +1775,10 @@ export default function ExplorarPage() {
                 <Link
                   key={s.slug}
                   href={`/externo/ikigai/${s.slug}`}
-                  className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("ikigai", s.slug) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                    <MarcaGuardada visible={guardada("ikigai", s.slug)} />
                     {s.cover_url && (
                       <ImagenFuente
                         src={s.cover_url}

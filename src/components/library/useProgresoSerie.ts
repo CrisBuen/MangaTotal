@@ -10,6 +10,8 @@ export interface ProgresoSerie {
   /** Página por la que iba dentro de ese capítulo. */
   ultimaPagina: number | null;
   guardada: boolean;
+  paginas: Record<string, number>;
+  readThroughNumber: number | null;
 }
 
 const VACIO: ProgresoSerie = {
@@ -17,6 +19,8 @@ const VACIO: ProgresoSerie = {
   ultimoNumero: null,
   ultimaPagina: null,
   guardada: false,
+  paginas: {},
+  readThroughNumber: null,
 };
 
 /** El sufijo para retomar en la página exacta, si hay que retomar. */
@@ -25,11 +29,22 @@ export function sufijoPagina(progreso: ProgresoSerie, esActual: boolean): string
   return `page=${progreso.ultimaPagina}`;
 }
 
+export function paginaCapitulo(progreso: ProgresoSerie, chapterId: string): string {
+  const pagina = progreso.paginas[chapterId] ?? (chapterId === progreso.ultimoId ? progreso.ultimaPagina : null);
+  return pagina && pagina > 1 ? `page=${pagina}` : "";
+}
+
+export function capituloLeido(progreso: ProgresoSerie, chapterId: string, numero: string | number | null): boolean {
+  if (progreso.paginas[chapterId] !== undefined) return true;
+  const valor = Number(numero);
+  return progreso.readThroughNumber !== null && Number.isFinite(valor) && valor <= progreso.readThroughNumber;
+}
+
 /**
  * Por dónde va el usuario en una serie externa que tiene guardada.
  *
- * Solo se guarda el último capítulo abierto, así que los anteriores se dan
- * por leídos: es como se lee un manga y evita llevar una lista por capítulo.
+ * El capítulo actual y el historial de capítulos abiertos se consultan por
+ * separado. La cota anterior conserva el aspecto de lecturas ya existentes.
  */
 export function useProgresoSerie(source: string, externalId: string): ProgresoSerie {
   const [progreso, setProgreso] = useState<ProgresoSerie>(VACIO);
@@ -39,22 +54,18 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
     let cancelado = false;
 
     const cargar = async () => {
-      // ?todo=1: también las del historial, para que la ficha muestre por
-      // dónde ibas aunque no esté guardada
-      const res = await fetch("/api/externo/biblioteca?todo=1", {
+      const res = await fetch(`/api/externo/progreso?source=${encodeURIComponent(source)}&id=${encodeURIComponent(externalId)}`, {
         cache: "no-store",
       }).catch(() => null);
       if (!res?.ok || cancelado) return;
 
-      const guardadas: {
-        source: string;
-        external_id: string;
+      const serie: {
         last_chapter_id: string | null;
         last_chapter_name: string | null;
         last_page_number: number | null;
-      }[] = await res.json().catch(() => []);
-
-      const serie = guardadas.find((e) => e.source === source && e.external_id === externalId);
+        read_through_number: number | null;
+        chapters: { id: string; page: number }[];
+      } | null = await res.json().catch(() => null);
       if (cancelado) return;
       if (!serie) return setProgreso(VACIO);
 
@@ -64,6 +75,8 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
         ultimoNumero: Number.isFinite(numero) ? numero : null,
         ultimaPagina: serie.last_page_number,
         guardada: true,
+        paginas: Object.fromEntries((serie.chapters ?? []).map(c => [c.id, c.page])),
+        readThroughNumber: serie.read_through_number,
       });
     };
 
@@ -88,7 +101,5 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
 
 /** Clases para pintar un capítulo según si ya se leyó o es el actual. */
 export function estiloCapitulo(esActual: boolean, esLeido: boolean): string {
-  if (esActual) return "bg-[var(--accent-soft)]";
-  if (esLeido) return "opacity-55";
-  return "";
+  return `${esActual ? "bg-[var(--accent-soft)]" : ""} ${esLeido ? "opacity-55" : ""}`;
 }

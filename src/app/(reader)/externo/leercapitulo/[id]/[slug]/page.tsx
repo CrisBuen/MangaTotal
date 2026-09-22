@@ -5,7 +5,8 @@ import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
-import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
+import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { LC_NOMBRE, serieLc } from "@/lib/leercapitulo";
 
 type Ficha = Awaited<ReturnType<typeof serieLc>>;
@@ -19,14 +20,17 @@ export default function SerieLcPage(props: {
   const [orden, setOrden] = useState<"asc" | "desc">("desc");
   const progreso = useProgresoSerie("leercapitulo", `${id}/${slug}`);
 
-  const cargar = useCallback(async () => {
-    setError(null);
+  const cargar = useCallback(async (fresco = false) => {
+    if (!fresco) setError(null);
     try {
-      setFicha(await serieLc(id, slug));
+      setFicha(await serieLc(id, slug, fresco));
+      setError(null);
     } catch (err) {
+      if (fresco) throw err;
       setError(err);
     }
   }, [id, slug]);
+  const refresco = useRefrescoSerie(() => cargar(true));
 
   useEffect(() => {
     cargar();
@@ -57,7 +61,13 @@ export default function SerieLcPage(props: {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" {...refresco.gesto}>
+      {refresco.android && (refresco.refrescando || refresco.desplazamiento > 0) && (
+        <div className="fixed left-1/2 top-4 z-[80] -translate-x-1/2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-ink shadow-xl" role="status">
+          <span className="mr-2 inline-block animate-spin">↻</span>Actualizando capítulos…
+        </div>
+      )}
+      {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
       <Link
         href="/explorar?fuente=leercapitulo"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
@@ -133,12 +143,18 @@ export default function SerieLcPage(props: {
           <h2 className="font-display text-2xl font-bold tracking-[-0.03em] text-ink">
             Capítulos
           </h2>
+          <div className="flex items-center gap-2">
+          {!refresco.android && <button type="button" onClick={refresco.refrescar} disabled={refresco.refrescando}
+            className="rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-60">
+            {refresco.refrescando ? "Actualizando…" : "↻ Actualizar"}
+          </button>}
           <button
             onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
             className="rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             {orden === "asc" ? "Del 1 al último ↑" : "Del último al 1 ↓"}
           </button>
+          </div>
         </div>
 
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line">
@@ -152,10 +168,10 @@ export default function SerieLcPage(props: {
                     last_chapter_name: String(c.numero),
                   })
                 }
-                href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${sufijoPagina(progreso, c.numero === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
+                href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.numero === progreso.ultimoId,
-                  progreso.ultimoNumero !== null && Number(c.numero) < progreso.ultimoNumero
+                  capituloLeido(progreso, String(c.numero), c.numero)
                 )}`}
               >
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">

@@ -85,7 +85,9 @@ export function useProgresoExterno(entrada: {
           source,
           external_id: externalId,
           // sin título: el servidor lo toma como aviso de avance a secas
+          last_chapter_id: chapterId,
           last_page_number: pageNumber,
+          solo_pagina: true,
         }),
         keepalive: true,
       }).catch(() => {});
@@ -94,5 +96,5 @@ export function useProgresoExterno(entrada: {
     return () => {
       if (temporizador.current) clearTimeout(temporizador.current);
     };
-  }, [pageNumber, source, externalId]);
+  }, [pageNumber, source, externalId, chapterId]);
 }

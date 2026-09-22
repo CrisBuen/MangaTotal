@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
-import { estiloCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { use, useCallback, useEffect, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 
@@ -46,24 +47,27 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
   const progreso = useProgresoSerie("mangadex", id);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresco = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/externo/series/${id}?lang=${lang}`);
+      const res = await fetch(`/api/externo/series/${id}?lang=${lang}${fresco ? "&fresco=1" : ""}`, { cache: fresco ? "no-store" : "default" });
       const data = await res.json();
       if (!res.ok) {
+        if (fresco) throw new Error(data.error ?? "No se pudo actualizar la serie");
         setError(data.error ?? "No se pudo cargar la serie");
         return;
       }
       setSeries(data.series);
       setChapters(data.chapters);
-    } catch {
+    } catch (err) {
+      if (fresco) throw err;
       setError("No se pudo conectar con el catálogo externo");
     } finally {
       setLoading(false);
     }
   }, [id, lang]);
+  const refresco = useRefrescoSerie(() => load(true));
 
   useEffect(() => {
     load();
@@ -105,7 +109,13 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10" {...refresco.gesto}>
+      {refresco.android && (refresco.refrescando || refresco.desplazamiento > 0) && (
+        <div className="fixed left-1/2 top-4 z-[80] -translate-x-1/2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-ink shadow-xl" role="status">
+          <span className="mr-2 inline-block animate-spin">↻</span>Actualizando capítulos…
+        </div>
+      )}
+      {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
       <Link
         href="/explorar"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
@@ -211,6 +221,11 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
           <h2 className="font-display text-2xl font-bold tracking-[-0.03em] text-ink">
             Capítulos
           </h2>
+          <div className="flex items-center gap-2">
+          {!refresco.android && <button type="button" onClick={refresco.refrescar} disabled={refresco.refrescando}
+            className="rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-60">
+            {refresco.refrescando ? "Actualizando…" : "↻ Actualizar"}
+          </button>}
           {chapters.length > 1 && (
             <button
               onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
@@ -219,6 +234,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
               {orden === "asc" ? "Del 1 al último ↑" : "Del último al 1 ↓"}
             </button>
           )}
+          </div>
         </div>
         {chapters.length === 0 ? (
           <Surface className="p-10 text-center text-sm text-subtle">
@@ -237,7 +253,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                   <div
                     className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                       c.id === progreso.ultimoId,
-                      progreso.ultimoNumero !== null && Number(entry.number) < progreso.ultimoNumero
+                      capituloLeido(progreso, String(c.id), entry.number)
                     )}`}
                   >
                     <Link
@@ -248,7 +264,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                           last_chapter_name: String(entry.number ?? c.id),
                         })
                       }
-                      href={`/leer-externo/${c.id}`}
+                      href={`/leer-externo/${c.id}${paginaCapitulo(progreso, String(c.id)) ? `?${paginaCapitulo(progreso, String(c.id))}` : ""}`}
                       className="min-w-0 flex-1"
                     >
                       <p className="truncate text-sm font-semibold text-ink">
@@ -281,7 +297,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                           last_chapter_name: String(entry.number ?? c.id),
                         })
                       }
-                      href={`/leer-externo/${c.id}`}
+                      href={`/leer-externo/${c.id}${paginaCapitulo(progreso, String(c.id)) ? `?${paginaCapitulo(progreso, String(c.id))}` : ""}`}
                       className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
                     >
                       Leer →
@@ -300,7 +316,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                                 last_chapter_name: String(entry.number ?? v.id),
                               })
                             }
-                            href={`/leer-externo/${v.id}`}
+                            href={`/leer-externo/${v.id}${paginaCapitulo(progreso, String(v.id)) ? `?${paginaCapitulo(progreso, String(v.id))}` : ""}`}
                             className="flex items-center gap-3 px-8 py-2.5 transition hover:bg-[color-mix(in_oklch,var(--accent)_10%,transparent)]"
                           >
                             <span className="min-w-0 flex-1 truncate font-mono text-[11px] tracking-[0.1em] text-subtle">

@@ -23,6 +23,7 @@ model User {
   avatarPath           String?           @map("avatar_path")
   createdAt            DateTime          @default(now()) @map("created_at")
   progress             ReadingProgress[]
+  readChapters          ReadChapter[]
   favorites            Favorite[]
   animeEntries         AnimeEntry[]
   externalAnime        ExternalAnime[]
@@ -201,16 +202,31 @@ model ExternalSeries {
   lastChapterId   String?  @map("last_chapter_id")
   lastChapterName String?  @map("last_chapter_name")
   lastPageNumber  Int?     @map("last_page_number")
+  /// Conserva el gris de capítulos anteriores al marcador antiguo; los nuevos se registran uno por uno.
+  readThroughNumber Float? @map("read_through_number")
   /// true = está en la biblioteca; false = solo quedó en el historial de
   /// lectura, porque abrió un capítulo pero no llegó a guardarla.
   saved           Boolean  @default(true)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapterProgress ExternalChapterProgress[]
 
   @@unique([userId, source, externalId])
   @@index([userId, saved, updatedAt])
   @@map("external_series")
+}
+
+model ExternalChapterProgress {
+  id               Int      @id @default(autoincrement())
+  externalSeriesId Int      @map("external_series_id")
+  chapterId        String   @map("chapter_id")
+  pageNumber       Int      @default(1) @map("page_number")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  externalSeries   ExternalSeries @relation(fields: [externalSeriesId], references: [id], onDelete: Cascade)
+
+  @@unique([externalSeriesId, chapterId])
+  @@map("external_chapter_progress")
 }
 
 model Tag {
@@ -233,6 +249,7 @@ model Chapter {
   series        Series            @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   pages         Page[]
   progress      ReadingProgress[]
+  readChapters  ReadChapter[]
   ingestionJobs IngestionJob[]
 
   @@index([seriesId, number])
@@ -260,6 +277,7 @@ model ReadingProgress {
   seriesId       Int      @map("series_id")
   chapterId      Int      @map("chapter_id")
   lastPageNumber Int      @map("last_page_number")
+  readThroughNumber Float? @map("read_through_number")
   updatedAt      DateTime @updatedAt @map("updated_at")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   series         Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
@@ -268,6 +286,19 @@ model ReadingProgress {
   @@unique([userId, seriesId])
   @@index([userId, updatedAt])
   @@map("reading_progress")
+}
+
+model ReadChapter {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  chapterId   Int      @map("chapter_id")
+  pageNumber  Int      @default(1) @map("page_number")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+  @@map("read_chapters")
 }
 
 model Favorite {

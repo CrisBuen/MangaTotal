@@ -174,7 +174,7 @@ export function Reader({
     >
       {/* barra superior del lector */}
       <header
-        className={`sticky top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)]  transition-opacity ${
+        className={`${isFullscreen ? "fixed inset-x-0" : "sticky"} top-0 z-50 border-b border-line bg-[color-mix(in_oklch,var(--bg)_88%,transparent)] transition-opacity ${
           showBar ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >

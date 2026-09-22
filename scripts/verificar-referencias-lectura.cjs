@@ -114,7 +114,7 @@ test("La API de ficha pide los capítulos de la dirección resuelta", async () =
       capitulos: async (s) => { llamadas.push(s); return { chapters: [], total: 0 }; },
     },
   });
-  const res = await route.GET(null, { params: Promise.resolve({ slug: viejo }) });
+  const res = await route.GET({ nextUrl: new URL("https://example.test/api/externo/olympus/series/obra") }, { params: Promise.resolve({ slug: viejo }) });
   assert.equal(res.status, 200);
   assert.deepEqual(llamadas, [viejo, vigente]);
 });

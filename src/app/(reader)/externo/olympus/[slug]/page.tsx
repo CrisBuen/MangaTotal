@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { use } from "react";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
-import { estiloCapitulo, sufijoPagina, useProgresoSerie } from "@/components/library/useProgresoSerie";
+import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
+import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 
@@ -39,11 +40,13 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
   const progreso = useProgresoSerie("olympus", slug);
   const solicitud = useRef(0);
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (fresco = false) => {
     const actual = ++solicitud.current;
-    setError(false);
-    setSerie(null);
-    setCapitulos([]);
+    if (!fresco) {
+      setError(false);
+      setSerie(null);
+      setCapitulos([]);
+    }
     const aplicar = (data: { serie: SerieOlympus; chapters: CapituloOlympus[] }) => {
       if (actual !== solicitud.current) return;
       setSerie(data.serie);
@@ -53,23 +56,26 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
       const data = await cargarConCacheAndroid<{ serie: SerieOlympus; chapters: CapituloOlympus[] }>(
         `ficha:olympus:${slug}`,
         async (signal) => {
-          const res = await fetch(`/api/externo/olympus/series/${encodeURIComponent(slug)}`, { signal });
+          const res = await fetch(`/api/externo/olympus/series/${encodeURIComponent(slug)}${fresco ? "?fresco=1" : ""}`, { signal, cache: fresco ? "no-store" : "default" });
           if (!res.ok) throw new Error("fallo");
           return res.json();
         },
         {
           publicCache: true,
+          force: fresco,
           freshForMs: 5 * 60 * 1000,
           maxAgeMs: 24 * 60 * 60 * 1000,
-          timeoutMs: 30_000,
+          timeoutMs: fresco ? 19_000 : 30_000,
           onCached: aplicar,
         }
       );
       aplicar(data);
-    } catch {
+    } catch (err) {
+      if (fresco) throw err;
       if (actual === solicitud.current) setError(true);
     }
   }, [slug]);
+  const refresco = useRefrescoSerie(() => cargar(true));
 
   useEffect(() => {
     cargar();
@@ -110,7 +116,13 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" {...refresco.gesto}>
+      {refresco.android && (refresco.refrescando || refresco.desplazamiento > 0) && (
+        <div className="fixed left-1/2 top-4 z-[80] -translate-x-1/2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-ink shadow-xl" role="status">
+          <span className="mr-2 inline-block animate-spin">↻</span>Actualizando capítulos…
+        </div>
+      )}
+      {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
       <Link
         href="/explorar?fuente=olympus"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
@@ -181,12 +193,18 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
           <h2 className="font-display text-2xl font-bold tracking-[-0.03em] text-ink">
             Capítulos
           </h2>
+          <div className="flex items-center gap-2">
+          {!refresco.android && <button type="button" onClick={refresco.refrescar} disabled={refresco.refrescando}
+            className="rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-60">
+            {refresco.refrescando ? "Actualizando…" : "↻ Actualizar"}
+          </button>}
           <button
             onClick={() => setOrden(orden === "asc" ? "desc" : "asc")}
             className="rounded-md border border-line px-3 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             {orden === "asc" ? "Del 1 al último ↑" : "Del último al 1 ↓"}
           </button>
+          </div>
         </div>
 
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line">
@@ -200,10 +218,10 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
                     last_chapter_name: String(c.name),
                   })
                 }
-                href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(slug)}&tipo=${serie.type}${sufijoPagina(progreso, String(c.id) === progreso.ultimoId) ? "&" + sufijoPagina(progreso, true) : ""}`}
+                href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   String(c.id) === progreso.ultimoId,
-                  progreso.ultimoNumero !== null && Number(c.name) < progreso.ultimoNumero
+                  capituloLeido(progreso, String(c.id), c.name)
                 )}`}
               >
                 <div className="min-w-0 flex-1">
