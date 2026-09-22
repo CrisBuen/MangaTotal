@@ -5,6 +5,12 @@
 Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
 serie y en cada capítulo.
 
+22/09/2026: /capitulo/<id> redirige ahora también a
+visualikigai.cmpunjabrashancard.pk. Confirmado con HTTP 302 desde el
+dominio oficial en dos capítulos y HTTP 200 al seguir la redirección.
+Se permite solo ese host exacto en Android y Windows; hace falta instalar
+las versiones nativas nuevas para que el lector deje de rechazarlo.
+
 16/09/2026 (corrección): el visor también usa viralikigai.radiot.space.
 Está permitido expresamente en Android y Windows, no todo radiot.space.
 Explorar debe usar ImagenFuente en la grilla de Ikigai, igual que la ficha;
@@ -46,7 +52,8 @@ DOS COSAS PROPIAS DE SU SITIO
    Visor de capítulos: /capitulo/<id> REDIRIGE al azar entre sus dominios
                        (hoy: viralikigai.milkchoco.online y
                        visualikigai.treefy.online; también
-                       viralikigai.radiot.space)
+                       viralikigai.radiot.space y
+                       visualikigai.cmpunjabrashancard.pk)
 
    La redirección la sigue sola el puente nativo, así que en el código solo
    está escrito el primer dominio.

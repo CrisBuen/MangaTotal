@@ -21,7 +21,7 @@ export const TMO_CDN = "https://cdn.zonatmo.to";
 export const TMO_SUBIDAS = `${TMO_WEB}/wp-content/uploads`;
 export const TMO_NOMBRE = "ZonaTMO";
 
-import { traerJson, fuenteAndroidDisponible, fuenteNativaDisponible } from "./fuenteNativa";
+import { traerJson, fuenteAndroidDisponible, fuenteNativaDisponible, DesafioPendiente } from "./fuenteNativa";
 import { isPlayStoreApp } from "./appVersion";
 
 /** Ahora funciona en cualquier plataforma: el servidor lo intenta primero. */
@@ -52,6 +52,7 @@ async function pedir<T>(ruta: string, fresco = false): Promise<T> {
       const cuerpo = await traerJson<Respuesta<T>>(`${TMO_API}${ruta}`);
       return cuerpo.data;
     } catch (err) {
+      if (err instanceof DesafioPendiente) throw err;
       errorAndroid = err;
       // El servidor queda como respaldo si justo falla la ruta directa.
     }
@@ -59,12 +60,19 @@ async function pedir<T>(ruta: string, fresco = false): Promise<T> {
 
   try {
     const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
-    const res = await fetch(`/api/externo/tmo?${qs}`, {
-      cache: fresco ? "no-store" : "default",
-    });
-    if (res.ok) {
-      const cuerpo = (await res.json()) as Respuesta<T>;
-      if (cuerpo.data !== undefined) return cuerpo.data;
+    const control = new AbortController();
+    const limite = fuenteAndroidDisponible() ? window.setTimeout(() => control.abort(), 5000) : null;
+    try {
+      const res = await fetch(`/api/externo/tmo?${qs}`, {
+        cache: fresco ? "no-store" : "default",
+        signal: control.signal,
+      });
+      if (res.ok) {
+        const cuerpo = (await res.json()) as Respuesta<T>;
+        if (cuerpo.data !== undefined) return cuerpo.data;
+      }
+    } finally {
+      if (limite !== null) window.clearTimeout(limite);
     }
   } catch {
     // sin conexión con nuestro propio servidor: se prueba el puente nativo

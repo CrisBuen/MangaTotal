@@ -11,6 +11,8 @@
  *   · Web      → no disponible (un sitio no puede leer otro)
  */
 
+import { esDesafioHtml } from "./desafioHtml";
+
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -163,7 +165,9 @@ export async function traerDocumento(url: string): Promise<Document> {
     throw new Error("La fuente respondió " + res.status);
   }
 
-  return new DOMParser().parseFromString(String(res.data), "text/html");
+  const html = String(res.data);
+  if (esDesafioHtml(html)) throw new DesafioPendiente(new URL(url).hostname);
+  return new DOMParser().parseFromString(html, "text/html");
 }
 
 /** Pide un recurso de texto sin interpretarlo como HTML. */
@@ -280,6 +284,7 @@ export async function traerJson<T>(url: string): Promise<T> {
 
   // el puente de Capacitor ya devuelve objetos cuando el tipo es JSON
   if (typeof res.data === "object") return res.data as T;
+  if (esDesafioHtml(res.data as string)) throw new DesafioPendiente(new URL(url).hostname);
   return JSON.parse(res.data as string) as T;
 }
 

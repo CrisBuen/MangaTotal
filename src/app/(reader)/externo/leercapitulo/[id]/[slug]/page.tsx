@@ -8,6 +8,7 @@ import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { LC_NOMBRE, serieLc } from "@/lib/leercapitulo";
+import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 
 type Ficha = Awaited<ReturnType<typeof serieLc>>;
 
@@ -22,8 +23,18 @@ export default function SerieLcPage(props: {
 
   const cargar = useCallback(async (fresco = false) => {
     if (!fresco) setError(null);
+    const clave = `leercapitulo:ficha:v2:${id}/${slug}`;
     try {
-      setFicha(await serieLc(id, slug, fresco));
+      const resultado = fresco
+        ? await serieLc(id, slug, true)
+        : await cargarConCacheAndroid(clave, () => serieLc(id, slug), {
+            publicCache: true,
+            freshForMs: 3 * 60_000,
+            maxAgeMs: 24 * 60 * 60_000,
+            onCached: setFicha,
+          });
+      if (fresco) await guardarCacheAndroid(clave, resultado, { publicCache: true });
+      setFicha(resultado);
       setError(null);
     } catch (err) {
       if (fresco) throw err;

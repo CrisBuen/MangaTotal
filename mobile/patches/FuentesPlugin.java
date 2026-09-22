@@ -65,6 +65,7 @@ public class FuentesPlugin extends Plugin {
         "viralikigai.milkchoco.online",
         "viralikigai.radiot.space",
         "visualikigai.treefy.online",
+        "visualikigai.cmpunjabrashancard.pk",
         "image2.ikigaimangas.cloud",
         "image3.ikigaimangas.cloud",
     };

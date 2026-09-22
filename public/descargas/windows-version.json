@@ -1,12 +1,12 @@
 {
-  "versionCode": 11,
-  "versionName": "1.10",
-  "date": "2026-09-16",
+  "versionCode": 12,
+  "versionName": "1.11",
+  "date": "2026-09-22",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "F193429A1B64B6B2BBD5F6E497D9341020727D52C9C964AFC6E12A752CCE4788",
+  "sha256": "CBCBBED2209E2886DC25C25D39BA12988167A5EFA9CAF8A5AF31AC490F8B6617",
   "sizeMb": 2.6,
   "changes": [
-    "Permite el nuevo dominio del lector de Ikigai y corrige el error de dirección",
-    "Corrige la carga directa de las portadas de Ikigai en Explorar"
+    "Permite el nuevo dominio oficial del visor de Ikigai y corrige el error de dirección",
+    "Detecta las verificaciones de LeerCapítulo aunque respondan HTTP 200"
   ]
 }

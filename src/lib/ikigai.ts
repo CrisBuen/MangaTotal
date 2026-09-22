@@ -21,6 +21,7 @@ import {
 } from "./fuenteNativa";
 import { isPlayStoreApp } from "./appVersion";
 import { recuperarIdIkigai } from "./referenciasLectura";
+import { cargarConCacheAndroid, guardarCacheAndroid } from "./androidCache";
 
 export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
 const IKIGAI_IMAGENES = "https://image2.ikigaimangas.cloud";
@@ -369,7 +370,7 @@ export interface CapituloIkigai {
  * Su ficha muestra 24 capítulos por página (con el parámetro "pagina"), así
  * que se recorren todas hasta que dejan de aparecer capítulos nuevos.
  */
-export async function serieIkigai(slug: string) {
+async function serieIkigaiDeLaFuente(slug: string) {
   const capitulos: CapituloIkigai[] = [];
   const vistos = new Set<string>();
   let primera: Document | null = null;
@@ -435,6 +436,27 @@ export async function serieIkigai(slug: string) {
     capitulos: capitulos.reverse(),
     url_original: `${IKIGAI_WEB}/series/${slug}/`,
   };
+}
+
+/** La ficha puede recorrer decenas de páginas; se reutiliza al abrir el lector. */
+export async function serieIkigai(
+  slug: string,
+  fresco = false,
+  onCached?: (ficha: Awaited<ReturnType<typeof serieIkigaiDeLaFuente>>) => void
+) {
+  if (typeof window === "undefined") return serieIkigaiDeLaFuente(slug);
+  const clave = `ikigai:ficha:v2:${isPlayStoreApp() ? "play" : "normal"}:${slug}`;
+  if (fresco) {
+    const ficha = await serieIkigaiDeLaFuente(slug);
+    await guardarCacheAndroid(clave, ficha, { publicCache: true });
+    return ficha;
+  }
+  return cargarConCacheAndroid(clave, () => serieIkigaiDeLaFuente(slug), {
+    publicCache: true,
+    freshForMs: 5 * 60_000,
+    maxAgeMs: 24 * 60 * 60_000,
+    onCached,
+  });
 }
 
 /** Rescata "hace 7 h" o "12/03/2026" del texto de la tarjeta. */

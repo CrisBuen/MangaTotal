@@ -24,7 +24,7 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
   const cargar = useCallback(async (fresco = false) => {
     if (!fresco) setError(null);
     try {
-      setFicha(await serieIkigai(slug));
+      setFicha(await serieIkigai(slug, fresco, fresco ? undefined : setFicha));
       setError(null);
     } catch (err) {
       if (fresco) throw err;

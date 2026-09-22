@@ -18,7 +18,9 @@ import {
   traerJson,
   fuenteAndroidDisponible,
   fuenteNativaDisponible,
+  DesafioPendiente,
 } from "./fuenteNativa";
+import { esDesafioHtml } from "./desafioHtml";
 
 /**
  * INTERRUPTOR DE LEERCAPÍTULO — poner en true para volver a mostrarla.
@@ -44,7 +46,6 @@ async function pedir(ruta: string, fresco = false): Promise<Document> {
     throw new Error("LeerCapítulo está fuera de servicio por ahora.");
   }
 
-  let html: string | null = null;
   let errorAndroid: unknown = null;
 
   // En Android se consulta primero desde el teléfono. El recorrido anterior
@@ -54,19 +55,29 @@ async function pedir(ruta: string, fresco = false): Promise<Document> {
     try {
       return await traerDocumento(`${LC_WEB}${ruta}`);
     } catch (err) {
+      // La casilla se resuelve en el dispositivo; esperar a Vercel solo
+      // retrasa el aviso y puede terminar mostrando una ficha vacía.
+      if (err instanceof DesafioPendiente) throw err;
       errorAndroid = err;
     }
   }
 
+  let html: string | null = null;
   try {
-    if (html !== null) return new DOMParser().parseFromString(html, "text/html");
     const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
-    const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
-      cache: fresco ? "no-store" : "default",
-    });
-    if (res.ok) {
-      const cuerpo = (await res.json()) as { html?: string };
-      if (cuerpo.html) html = cuerpo.html;
+    const control = new AbortController();
+    const limite = fuenteAndroidDisponible() ? window.setTimeout(() => control.abort(), 5000) : null;
+    try {
+      const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
+        cache: fresco ? "no-store" : "default",
+        signal: control.signal,
+      });
+      if (res.ok) {
+        const cuerpo = (await res.json()) as { html?: string };
+        if (cuerpo.html && !esDesafioHtml(cuerpo.html)) html = cuerpo.html;
+      }
+    } finally {
+      if (limite !== null) window.clearTimeout(limite);
     }
   } catch {
     // sin conexión con nuestro servidor: se prueba el puente del dispositivo
@@ -247,6 +258,7 @@ async function buscarLc(termino: string, fresco: boolean): Promise<SerieLc[]> {
     try {
       resultados = await traerJson<ResultadoBusquedaLc[]>(`${LC_WEB}${ruta}`);
     } catch (error) {
+      if (error instanceof DesafioPendiente) throw error;
       errorAndroid = error;
     }
   }
@@ -254,12 +266,19 @@ async function buscarLc(termino: string, fresco: boolean): Promise<SerieLc[]> {
   if (resultados === null) {
     try {
       const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
-      const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
-        cache: fresco ? "no-store" : "default",
-      });
-      if (res.ok) {
-        const cuerpo = (await res.json()) as { data?: ResultadoBusquedaLc[] };
-        if (Array.isArray(cuerpo.data)) resultados = cuerpo.data;
+      const control = new AbortController();
+      const limite = fuenteAndroidDisponible() ? window.setTimeout(() => control.abort(), 5000) : null;
+      try {
+        const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
+          cache: fresco ? "no-store" : "default",
+          signal: control.signal,
+        });
+        if (res.ok) {
+          const cuerpo = (await res.json()) as { data?: ResultadoBusquedaLc[] };
+          if (Array.isArray(cuerpo.data)) resultados = cuerpo.data;
+        }
+      } finally {
+        if (limite !== null) window.clearTimeout(limite);
       }
     } catch {
       // Si nuestro servidor no llega, las apps todavía pueden pedirlo directo.
@@ -358,6 +377,8 @@ function campo(texto: string, etiqueta: string): string | null {
 /** Ficha de una serie con todos sus capítulos (los publican en una sola página). */
 export async function serieLc(id: string, slug: string, fresco = false) {
   const doc = await pedir(`/manga/${id}/${slug}/`, fresco);
+  const titulo = doc.querySelector("h1.title-manga")?.textContent?.trim();
+  if (!titulo) throw new Error("LeerCapítulo no entregó la ficha de esta serie. Probá actualizarla.");
 
   const datos = doc.querySelector(".description-update")?.textContent ?? "";
 
@@ -384,7 +405,7 @@ export async function serieLc(id: string, slug: string, fresco = false) {
   return {
     id,
     slug,
-    title: doc.querySelector("h1.title-manga")?.textContent?.trim() ?? "Sin título",
+    title: titulo,
     cover_url: urlAbsoluta(doc.querySelector(".cover-detail img")?.getAttribute("src")),
     description: doc.querySelector(".manga-collapse")?.textContent?.trim() || null,
     tipo: campo(datos, "Escribe"),

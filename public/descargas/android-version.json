@@ -1,15 +1,14 @@
 {
-  "versionCode": 22,
-  "versionName": "1.9.9",
-  "date": "2026-09-21",
+  "versionCode": 23,
+  "versionName": "1.9.10",
+  "date": "2026-09-22",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "8072CE02B25E379639A612D7DC4F5066B19B1E3C93AB0E82A96CCE5E2542345F",
+  "sha256": "4483A5452532DC2512866C244ED063A548DE01C3660118A1BF49DD1245D14AC9",
   "sizeMb": 4.1,
   "changes": [
-    "Restaura el logo original de MangaTotal en el icono de Android",
-    "Mantiene Actualizar todo al navegar y guarda el avance para reanudar; notificación durante la revisión en segundo plano",
-    "Agrega filtros, orden y apariencia en las bibliotecas de lectura y anime animado",
-    "Mantiene la conexión directa con las fuentes, sin nuevos proxies ni almacenamiento de imágenes"
+    "Permite el nuevo dominio oficial al que redirige el lector de Ikigai",
+    "Detecta las verificaciones de LeerCapítulo aunque respondan HTTP 200",
+    "Evita esperas largas del servidor de respaldo en Android"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

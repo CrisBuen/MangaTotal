@@ -8,6 +8,7 @@ import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { TMO_NOMBRE, serieTmo } from "@/lib/zonatmo";
+import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 
 type Ficha = Awaited<ReturnType<typeof serieTmo>>;
 
@@ -22,8 +23,18 @@ export default function SerieTmoPage(props: {
 
   const cargar = useCallback(async (fresco = false) => {
     if (!fresco) setError(null);
+    const clave = `tmo:ficha:v2:${tipo}/${id}/${slug}`;
     try {
-      setFicha(await serieTmo(tipo, id, slug, fresco));
+      const resultado = fresco
+        ? await serieTmo(tipo, id, slug, true)
+        : await cargarConCacheAndroid(clave, () => serieTmo(tipo, id, slug), {
+            publicCache: true,
+            freshForMs: 3 * 60_000,
+            maxAgeMs: 24 * 60 * 60_000,
+            onCached: setFicha,
+          });
+      if (fresco) await guardarCacheAndroid(clave, resultado, { publicCache: true });
+      setFicha(resultado);
       setError(null);
     } catch (err) {
       if (fresco) throw err;

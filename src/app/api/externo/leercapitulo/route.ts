@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { paginasDelHtml } from "@/lib/leercapituloCodigo";
+import { esDesafioHtml } from "@/lib/desafioHtml";
 
 /**
  * Puente del servidor hacia LeerCapítulo (integrada con su permiso).
@@ -90,6 +91,12 @@ export async function GET(request: Request) {
       }
 
       const html = await res.text();
+      if (esDesafioHtml(html)) {
+        return NextResponse.json(
+          { error: "LeerCapítulo pide verificación desde el servidor", bloqueado: true },
+          { status: 502 }
+        );
+      }
       const paginas = paginasDelHtml(html);
       if (paginas.length === 0) {
         return NextResponse.json({ error: "Este capítulo no trae páginas" }, { status: 404 });
@@ -148,7 +155,14 @@ export async function GET(request: Request) {
       return respuesta;
     }
 
-    const respuesta = NextResponse.json({ html: aligerar(await res.text()) });
+    const html = await res.text();
+    if (esDesafioHtml(html)) {
+      return NextResponse.json(
+        { error: "LeerCapítulo pide verificación desde el servidor", bloqueado: true },
+        { status: 502 }
+      );
+    }
+    const respuesta = NextResponse.json({ html: aligerar(html) });
     if (fresco) respuesta.headers.set("Cache-Control", "no-store");
     return respuesta;
   } catch {
