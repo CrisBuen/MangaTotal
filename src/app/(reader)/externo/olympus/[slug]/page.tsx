@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { VolverFuente } from "@/components/library/VolverFuente";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { use } from "react";
 import { anotarHistorial } from "@/components/library/historial";
@@ -86,9 +87,9 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
     return (
       <Surface className="p-10 text-center">
         <p className="text-lg font-bold text-ink">No se pudo cargar la serie</p>
-        <Link href="/explorar" className="mt-3 inline-block text-sm text-accent-ink hover:underline">
+<VolverFuente href="/explorar" className="mt-3 inline-block text-sm text-accent-ink hover:underline">
           Volver a Explorar
-        </Link>
+        </VolverFuente>
       </Surface>
     );
   }
@@ -123,12 +124,12 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
         </div>
       )}
       {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
-      <Link
+<VolverFuente
         href="/explorar?fuente=olympus"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar
-      </Link>
+      </VolverFuente>
 
       <div className="flex flex-col gap-6 sm:flex-row">
         <div className="w-full shrink-0 sm:w-48">

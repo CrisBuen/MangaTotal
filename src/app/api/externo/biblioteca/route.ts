@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { resolverIdBiblioteca } from "@/lib/resolverBiblioteca";
 import { esFuenteExterna, publico, type FuenteExterna } from "@/lib/externas";
 
 
@@ -52,13 +53,14 @@ export async function PUT(req: NextRequest) {
   }
 
   const source = body.source as FuenteExterna;
-  const externalId = String(body.external_id ?? "").trim();
+  let externalId = String(body.external_id ?? "").trim();
   const title = String(body.title ?? "").trim();
 
   if (!esFuenteExterna(source) || !externalId) {
     return NextResponse.json({ error: "Faltan datos de la serie" }, { status: 400 });
   }
 
+  externalId = await resolverIdBiblioteca(user.id, source, externalId, body.type);
   const llave = { userId_source_externalId: { userId: user.id, source, externalId } };
 
   // Sin título es un aviso de avance a secas: solo toca el progreso de una

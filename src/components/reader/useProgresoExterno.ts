@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 
 const GUARDAR_MS = 1500;
 
@@ -40,11 +41,11 @@ export function useProgresoExterno(entrada: {
       const res = await fetch("/api/externo/biblioteca?todo=1").catch(() => null);
       if (!res?.ok || cancelado) return;
 
-      const anotadas: { source: string; external_id: string }[] = await res
+      const anotadas: ReferenciaBiblioteca[] = await res
         .json()
         .catch(() => []);
 
-      const existe = anotadas.some((e) => e.source === source && e.external_id === externalId);
+      const existe = buscarReferenciaBiblioteca(anotadas, source, externalId);
       if (!existe || cancelado) return;
       anotada.current = true;
 

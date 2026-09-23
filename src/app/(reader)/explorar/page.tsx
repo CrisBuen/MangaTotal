@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -171,21 +172,21 @@ function MarcaGuardada({ visible }: { visible: boolean }) {
 }
 
 export default function ExplorarPage() {
-  const [guardadas, setGuardadas] = useState<Set<string>>(new Set());
+  const [guardadas, setGuardadas] = useState<ReferenciaBiblioteca[]>([]);
   useEffect(() => {
     let vigente = true;
     const cargar = async () => {
       const res = await fetch("/api/externo/biblioteca", { cache: "no-store" }).catch(() => null);
       if (!res?.ok || !vigente) return;
-      const datos: { source: string; external_id: string }[] = await res.json().catch(() => []);
-      if (vigente && Array.isArray(datos)) setGuardadas(new Set(datos.map(s => `${s.source}:${s.external_id}`)));
+      const datos: ReferenciaBiblioteca[] = await res.json().catch(() => []);
+      if (vigente && Array.isArray(datos)) setGuardadas(datos);
     };
     void cargar();
     window.addEventListener("focus", cargar);
     window.addEventListener("pageshow", cargar);
     return () => { vigente = false; window.removeEventListener("focus", cargar); window.removeEventListener("pageshow", cargar); };
   }, []);
-  const guardada = (source: string, id: string) => guardadas.has(`${source}:${id}`);
+  const guardada = (source: string, id: string, tipo?: string) => Boolean(buscarReferenciaBiblioteca(guardadas, source, id, tipo));
   const [series, setSeries] = useState<ExternalSeries[] | null>(null);
   const [lang, setLang] = useState("es");
   const [search, setSearch] = useState("");
@@ -1394,10 +1395,10 @@ export default function ExplorarPage() {
                   key={s.id}
                   href={`/externo/olympus/${s.slug}`}
                   prefetch={false}
-                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("olympus", s.slug) ? "opacity-60" : ""}`}
+                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("olympus", s.slug, s.type) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
-                    <MarcaGuardada visible={guardada("olympus", s.slug)} />
+                    <MarcaGuardada visible={guardada("olympus", s.slug, s.type)} />
                     {s.cover_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

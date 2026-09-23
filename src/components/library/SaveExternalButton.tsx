@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 
 export interface SerieExternaGuardable {
   source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis";
@@ -20,24 +21,29 @@ export function SaveExternalButton({ serie }: { serie: SerieExternaGuardable }) 
   const [guardada, setGuardada] = useState<boolean | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [sinSesion, setSinSesion] = useState(false);
+  const [idGuardado, setIdGuardado] = useState(serie.external_id);
 
   useEffect(() => {
+    let vigente = true;
+    setGuardada(null);
     fetch("/api/externo/biblioteca")
       .then((r) => (r.ok ? r.json() : []))
-      .then((lista: { source: string; external_id: string }[]) => {
-        setGuardada(
-          lista.some((e) => e.source === serie.source && e.external_id === serie.external_id)
-        );
+      .then((lista: ReferenciaBiblioteca[]) => {
+        if (!vigente) return;
+        const existente = buscarReferenciaBiblioteca(lista, serie.source, serie.external_id, serie.type);
+        setIdGuardado(existente?.external_id ?? serie.external_id);
+        setGuardada(Boolean(existente));
       })
-      .catch(() => setGuardada(false));
-  }, [serie.source, serie.external_id]);
+      .catch(() => { if (vigente) setGuardada(false); });
+    return () => { vigente = false; };
+  }, [serie.source, serie.external_id, serie.type]);
 
   async function alternar() {
     setOcupado(true);
     try {
       if (guardada) {
         await fetch(
-          `/api/externo/biblioteca?source=${serie.source}&id=${encodeURIComponent(serie.external_id)}`,
+          `/api/externo/biblioteca?source=${serie.source}&id=${encodeURIComponent(idGuardado)}`,
           { method: "DELETE" }
         );
         setGuardada(false);
@@ -53,7 +59,11 @@ export function SaveExternalButton({ serie }: { serie: SerieExternaGuardable }) 
         setSinSesion(true);
         return;
       }
-      if (res.ok) setGuardada(true);
+      if (res.ok) {
+        const entrada = await res.json();
+        setIdGuardado(entrada.external_id);
+        setGuardada(true);
+      }
     } finally {
       setOcupado(false);
     }

@@ -3,6 +3,13 @@
 ===========================================================================
 
 Olympus ya cambió una vez de dominio (olympusbiblioteca.com -> olympusxyz.com).
+23/09/2026: Explorar, guardar y progreso también reconocen la base exacta del
+slug fechado mediante identidadBiblioteca.ts. resolverBiblioteca.ts consulta
+solo las filas del usuario y reutiliza su externalId original; no migra,
+fusiona ni elimina registros. Si hay varias candidatas, no se adivina.
+Esto evita que las importadas de Mihon parezcan nuevas al cambiar el sufijo.
+QA: verificar-referencias-lectura.cjs y qa-fuentes-ui.cjs (datos ficticios).
+
 14/09/2026: también cambia el sufijo fechado del slug de algunas series sin
 cambiar de dominio. Ante 404, serie() consulta /api/series/list sin caché y
 acepta solo una coincidencia de base exacta, verificando id y tipo. La API

@@ -38,6 +38,56 @@ function cargar(archivo, mocks = {}, globals = {}, cache = new Map()) {
 
 const ids = ["1202575895160651779", "1206272332840796162"];
 const referencias = cargar("src/lib/referenciasLectura.ts");
+const identidades = cargar("src/lib/identidadBiblioteca.ts");
+test("Biblioteca reconoce el slug renovado sin cambiar la entrada importada", () => {
+  const guardada = Object.freeze({ source: "olympus", external_id: "mercenario-20260827-110518270", slug: "mercenario-20260827-110518270", type: "comic", last_chapter_name: "105" });
+  const actual = "mercenario-20260923-080456839";
+  assert.equal(identidades.buscarReferenciaBiblioteca([guardada], "olympus", actual, "comic"), guardada);
+  assert.equal(guardada.last_chapter_name, "105");
+  assert.equal(identidades.buscarReferenciaBiblioteca([guardada], "olympus", actual, "novel"), null);
+  assert.equal(identidades.buscarReferenciaBiblioteca([guardada], "ikigai", actual), null);
+  assert.equal(identidades.buscarReferenciaBiblioteca([guardada], "olympus", "otro-mercenario"), null);
+  const otra = { ...guardada, external_id: "mercenario-20260901-110518270" };
+  assert.equal(identidades.buscarReferenciaBiblioteca([guardada, otra], "olympus", actual), null);
+  assert.equal(identidades.buscarReferenciaBiblioteca([guardada, otra], "olympus", guardada.external_id), guardada);
+  const importada = Object.freeze({ ...guardada, saved: true });
+  const historial = Object.freeze({ ...guardada, external_id: actual, slug: actual, saved: false, last_chapter_name: "1" });
+  assert.equal(identidades.buscarReferenciaBiblioteca([historial, importada], "olympus", actual), importada);
+  assert.equal(historial.last_chapter_name, "1");
+  assert.equal(importada.last_chapter_name, "105");
+});
+
+test("La ficha y los avisos de lectura reutilizan la clave antigua del mismo usuario", async () => {
+  const anterior = "mercenario-20260827-110518270", actual = "mercenario-20260923-080456839";
+  const fila = { id: 10, userId: 7, source: "olympus", externalId: anterior, slug: anterior, type: "comic", title: "Mercenario", coverUrl: null,
+    saved: true, lastChapterId: "cap105", lastChapterName: "105", lastPageNumber: 8, readThroughNumber: 105,
+    updatedAt: new Date(), chapterProgress: [{ chapterId: "cap105", pageNumber: 8 }] };
+  let escrituras = 0;
+  const db = { externalSeries: {
+    findMany: async ({ where }) => { assert.equal(where.userId, 7); assert.equal(where.source, "olympus"); return [fila]; },
+    findUnique: async ({ where }) => { assert.equal(where.userId_source_externalId.externalId, anterior); return fila; },
+    update: async ({ where }) => { assert.equal(where.userId_source_externalId.externalId, anterior); escrituras++; return fila; },
+    upsert: async ({ where }) => { assert.equal(where.userId_source_externalId.externalId, anterior); escrituras++; return fila; },
+  }, externalChapterProgress: { upsert: async ({ where }) => { assert.equal(where.externalSeriesId_chapterId.externalSeriesId, 10); } } };
+  const mocks = { "@/lib/db": { db }, "./db": { db }, "@/lib/auth": { getSessionUser: async () => ({ id: 7 }) },
+    "next/server": { NextResponse: { json: (v) => Response.json(v) } } };
+  const progreso = cargar("src/app/api/externo/progreso/route.ts", mocks);
+  const res = await progreso.GET({ nextUrl: new URL(`https://example.test/api/externo/progreso?source=olympus&id=${actual}`) });
+  const json = await res.json();
+  assert.equal(json.last_chapter_name, "105"); assert.equal(json.last_page_number, 8);
+  assert.equal(json.chapters[0].id, "cap105"); assert.equal(escrituras, 0);
+  const biblioteca = cargar("src/app/api/externo/biblioteca/route.ts", mocks);
+  await biblioteca.PUT({ json: async () => ({ source: "olympus", external_id: actual, last_chapter_id: "cap106", last_chapter_name: "106", last_page_number: 2 }) });
+  const historial = cargar("src/app/api/externo/historial/route.ts", mocks);
+  await historial.POST({ json: async () => ({ source: "olympus", external_id: actual, title: "Mercenario", type: "comic", last_chapter_id: "cap106" }) });
+  assert.equal(escrituras, 2);
+});
+
+test("Fuentes solo admite regresos internos a las fuentes conocidas", () => {
+  const fuentes = cargar("src/lib/fuentesBiblioteca.ts");
+  for (const f of fuentes.FUENTES_BIBLIOTECA) assert.equal(fuentes.regresoFuente(f.id), `/fuentes?fuente=${f.id}`);
+  for (const f of [null, "", "//example.com", "../perfil", "olympus&admin=1"]) assert.equal(fuentes.regresoFuente(f), null);
+});
 test("Ikigai conserva ids exactos y recupera los dos progresos redondeados", () => {
   for (const id of ids) {
     assert.equal(referencias.recuperarIdIkigai(id, [{ id }]), id);

@@ -26,6 +26,12 @@ const SECCIONES: {
     titulo: "Descubrir",
     entradas: [
       {
+        href: "/fuentes",
+        label: "Fuentes",
+        descripcion: "Tus series guardadas, organizadas por fuente",
+        icono: "M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z",
+      },
+      {
         href: "/aleatorio",
         label: "Aleatorio",
         descripcion: "Una serie al azar de cualquiera de las fuentes",

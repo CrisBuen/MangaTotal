@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { VolverFuente } from "@/components/library/VolverFuente";
 import { use, useCallback, useEffect, useState } from "react";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { anotarHistorial } from "@/components/library/historial";
@@ -83,12 +84,12 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
         </div>
       )}
       {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
-      <Link
+<VolverFuente
         href="/explorar?fuente=catharsis"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar
-      </Link>
+      </VolverFuente>
 
       {/* cabecera: portada grande y lo poco que la fuente publica de la serie */}
       <header className="flex flex-col gap-8 sm:flex-row">

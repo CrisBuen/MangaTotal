@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { VolverFuente } from "@/components/library/VolverFuente";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
@@ -85,12 +86,12 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
     return (
       <Surface className="p-12 text-center">
         <p className="text-lg font-bold text-ink">{error}</p>
-        <Link
+<VolverFuente
           href="/explorar"
           className="mt-4 inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink hover:underline"
         >
           ← Volver a explorar
-        </Link>
+        </VolverFuente>
       </Surface>
     );
   }
@@ -116,12 +117,12 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
         </div>
       )}
       {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
-      <Link
+<VolverFuente
         href="/explorar"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar
-      </Link>
+      </VolverFuente>
 
       <div className="flex flex-col gap-8 sm:flex-row">
         <div className="w-44 shrink-0 overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] sm:w-52">

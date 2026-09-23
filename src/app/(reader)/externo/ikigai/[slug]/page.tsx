@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { VolverFuente } from "@/components/library/VolverFuente";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { useRouter } from "next/navigation";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
@@ -72,12 +73,12 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
         </div>
       )}
       {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
-      <Link
+<VolverFuente
         href="/explorar"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar
-      </Link>
+      </VolverFuente>
 
       <div className="flex flex-col gap-6 sm:flex-row">
         <div className="w-full shrink-0 sm:w-48">
