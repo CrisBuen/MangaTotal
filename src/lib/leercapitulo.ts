@@ -21,6 +21,7 @@ import {
   DesafioPendiente,
 } from "./fuenteNativa";
 import { esDesafioHtml } from "./desafioHtml";
+import { paginasDelHtml } from "./leercapituloCodigo";
 
 /**
  * INTERRUPTOR DE LEERCAPÍTULO — poner en true para volver a mostrarla.
@@ -438,15 +439,26 @@ export interface PaginasLc {
 /**
  * Páginas de un capítulo, YA EN ORDEN, más sus vecinos.
  *
- * Esto no se resuelve en el dispositivo como el resto de la fuente: su
- * servidor entrega las páginas barajadas, con un barajado distinto en cada
- * carga, y rehacer el orden bueno exige mirar las imágenes. Eso pasa en
- * nuestro servidor (ver src/lib/leercapituloOrden.ts) y por eso acá se pide
- * el capítulo entero de una, sin puente nativo de por medio: un capítulo
- * desordenado es peor que un capítulo que no abre.
+ * El decodificador reconstruye el orden desde el meta de la misma respuesta.
+ * Las apps lo hacen en el dispositivo; la web conserva el puente servidor.
  */
 export async function paginasLc(id: string, slug: string, numero: string): Promise<PaginasLc> {
   const ruta = `/leer/${id}/${slug}/${numero}/`;
+  // URLs efímeras y clave salen de UNA respuesta, por la conexión que
+  // pedirá las imágenes. No se mezclan dos barajados.
+  if (fuenteNativaDisponible()) {
+    const doc = await traerDocumento(`${LC_WEB}${ruta}`);
+    const paginas = paginasDelHtml(doc.documentElement.outerHTML);
+    if (!paginas.length) throw new Error("Este capítulo no trae páginas");
+    const numeros = [...new Set(Array.from(doc.querySelectorAll('option[value*="/leer/"]'))
+      .map((opcion) => opcion.getAttribute("value")?.split("/").filter(Boolean).pop())
+      .filter((n): n is string => Boolean(n)))];
+    const indice = numeros.indexOf(numero);
+    return { paginas, numero,
+      anterior: indice >= 0 ? numeros[indice + 1] ?? null : null,
+      siguiente: indice > 0 ? numeros[indice - 1] : null,
+      url_original: urlCapituloLc(id, slug, numero) };
+  }
   const res = await fetch(
     `/api/externo/leercapitulo?accion=capitulo&ruta=${encodeURIComponent(ruta)}`,
     { cache: "no-store" }

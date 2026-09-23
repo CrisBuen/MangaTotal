@@ -43,7 +43,6 @@ async fn traer_imagen(url: String) -> Result<tauri::ipc::Response, String> {
         .unwrap_or_default().split(';').next().unwrap_or_default().trim();
     let maximo = 20 * 1024 * 1024;
     if respuesta.status().as_u16() != 200 || !["image/webp", "image/png", "image/jpeg", "image/gif"].contains(&tipo)
-        || (destino.path().ends_with(".webp") && tipo != "image/webp")
         || respuesta.content_length().unwrap_or(0) > maximo {
         return Err(format!("Ikigai no entregó la imagen original (HTTP {}, tipo {})", respuesta.status().as_u16(), tipo));
     }

@@ -104,7 +104,6 @@ public class FuentesPlugin extends Plugin {
                 if (tipo != null) tipo = tipo.split(";")[0].trim().toLowerCase(Locale.ROOT);
                 if (conexion.getResponseCode() != 200 || tipo == null ||
                     !tipo.matches("image/(webp|png|jpeg|gif)") ||
-                    (destino.getPath().endsWith(".webp") && !tipo.equals("image/webp")) ||
                     conexion.getContentLengthLong() > MAX_RESPUESTA_BYTES) {
                     throw new IOException("Ikigai no entregó la imagen original");
                 }

@@ -1,11 +1,13 @@
 {
-  "versionCode": 23,
-  "versionName": "1.9.10",
+  "versionCode": 24,
+  "versionName": "1.9.11",
   "date": "2026-09-22",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "4483A5452532DC2512866C244ED063A548DE01C3660118A1BF49DD1245D14AC9",
+  "sha256": "E58FA2746476574EABB143131693A95D458EF4367E5864D664141284FDDD5C02",
   "sizeMb": 4.1,
   "changes": [
+    "Corrige páginas JPEG que Ikigai publica con nombre WebP",
+    "Obtiene los capítulos de LeerCapítulo desde el dispositivo en las apps",
     "Permite el nuevo dominio oficial al que redirige el lector de Ikigai",
     "Detecta las verificaciones de LeerCapítulo aunque respondan HTTP 200",
     "Evita esperas largas del servidor de respaldo en Android"

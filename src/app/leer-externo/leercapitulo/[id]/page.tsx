@@ -22,6 +22,8 @@ export default function LeerLcPage(props: { params: Promise<{ id: string }> }) {
   const [error, setError] = useState<unknown>(null);
 
   const cargar = useCallback(async () => {
+    setError(null);
+    setCapitulo(null);
     try {
       setCapitulo(await paginasLc(serieId, slug, numero));
     } catch (err) {

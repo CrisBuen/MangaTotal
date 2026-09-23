@@ -37,11 +37,12 @@ async function descargar(src: string): Promise<Blob> {
   }
   const firma = String.fromCharCode(...bytes.slice(0, 12));
   const tipo = firma.startsWith("RIFF") && firma.slice(8) === "WEBP" ? "image/webp"
-    : bytes[0] === 137 && firma.slice(1, 4) === "PNG" ? "image/png"
+    : bytes[0] === 137 && firma.slice(1, 4) === "PNG" && bytes[4] === 13 && bytes[5] === 10 && bytes[6] === 26 && bytes[7] === 10 ? "image/png"
     : bytes[0] === 255 && bytes[1] === 216 ? "image/jpeg"
     : firma.startsWith("GIF8") ? "image/gif" : null;
-  if (!tipo || bytes.length > 20 * 1024 * 1024 ||
-      (new URL(src).pathname.endsWith(".webp") && tipo !== "image/webp")) {
+  // El CDN conserva nombres .webp para páginas cuyo contenido real es JPEG.
+  // La firma binaria decide el formato; el puente rechaza redirecciones.
+  if (!tipo || bytes.length < 12 || bytes.length > 20 * 1024 * 1024) {
     throw new Error("Ikigai no entregó la imagen original.");
   }
   return new Blob([bytes], { type: tipo });

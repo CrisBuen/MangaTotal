@@ -170,6 +170,11 @@ test("puente Windows recibe binario; placeholder, URL ajena y navegador se recha
     assert.equal(cmd, "traer_imagen"); return [...webp];
   } } } } });
   assert.equal((await native.cargarImagenNativa(imagen)).type, "image/webp");
+  // Caso real: capítulo 38 de Soy la hija del heredero loco, URL .webp y JPEG.
+  const jpeg = cargar("src/lib/imagenFuenteNativa.ts", {}, { window: { __TAURI__: { core: {
+    invoke: async () => [255,216,255,224,0,16,74,70,73,70,0,1,1,0],
+  } } } });
+  assert.equal((await jpeg.cargarImagenNativa(imagen)).type, "image/jpeg");
   for (const url of ["https://127.0.0.1/0.webp", imagen + "?url=x", imagen.replace(".cloud", ".cloud.evil.test")]) {
     assert.equal(native.esImagenIkigai(url), false);
   }
