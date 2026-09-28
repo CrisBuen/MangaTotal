@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useLayoutEffect, useState } from "react";
-import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
+import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { fichaHref } from "@/lib/externas";
 import { FUENTES_BIBLIOTECA } from "@/lib/fuentesBiblioteca";
@@ -79,7 +79,7 @@ function ListaFuentes() {
           <Link href={`${fichaHref(s.source, s.external_id, s.slug)}?bibliotecaFuente=${fuente.id}`} prefetch={false} onClick={recordarScroll}
             className="flex min-h-24 items-center gap-4 rounded-md px-2 py-3 hover:bg-[var(--surface-raised)]">
             <div className="h-20 w-14 shrink-0 overflow-hidden rounded-md bg-panel">
-              {s.cover_url && <ImagenFuente src={s.cover_url} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
+              {s.cover_url && <PortadaExterna source={s.source} externalId={s.external_id} src={s.cover_url} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
             </div>
             <span className="min-w-0 flex-1"><span className="block font-semibold text-ink">{s.title}</span>
               <span className="mt-1 block text-xs text-subtle">{s.last_chapter_name ? `Vas por el cap. ${s.last_chapter_name}` : "Sin empezar"}</span>

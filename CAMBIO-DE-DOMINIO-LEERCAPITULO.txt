@@ -283,3 +283,34 @@ segundos por capitulo. Se dejo como registro de la investigacion: explica
 por que se busco donde se busco antes de encontrar el <meta>.
 
 No borrarlo y no volver a conectarlo.
+
+---------------------------------------------------------------------------
+REDISEÑO DEL SITIO COMPROBADO EL 28/09/2026
+---------------------------------------------------------------------------
+
+Las tarjetas usan .lc-release-title, .lc-slide-name y .lc-card-name. Las
+portadas ahora tienen alt vacío: no sacar de ahí el título. La ficha usa
+.lc-cover-lg, h1, #sinopsis y #chapterList. El h1 solo no alcanza: su 404
+también tiene uno. Los identificadores y enlaces /manga/id/slug/ no cambiaron.
+
+La búsqueda pasó de /search-autocomplete a /manga/?q=texto; los géneros a
+/manga/?genre=genero. La paginación se comprueba con a[rel=next]. El índice
+por inicial fue retirado por la fuente y se oculta en nuestros filtros.
+
+El visor nuevo entrega main#lcPages con img[data-src][data-index]. Se exige
+una secuencia completa, sin índices repetidos, y se ordena por ese índice.
+Esto NO permite devolver el array_data antiguo sin su meta: ese decodificador
+se conserva intacto para las respuestas viejas. URLs e índices siguen
+saliendo de UNA sola respuesta. No ejecutar los scripts del sitio.
+
+Comprobado con la-venganza-del-sabueso-de-sangre-de-hierro, id k1fl40list,
+capítulo 182: 40 imágenes, anterior 181, primera imagen devuelve bytes válidos.
+
+Algunas portadas de Mihon conservan dominios .re o rutas /covers/ que ahora
+dan 404 incluso en .co. No basta cambiar el dominio. PortadaExterna consulta
+la ficha por el MISMO id/slug cuando falla la imagen y está cerca de pantalla,
+con un máximo de tres consultas concurrentes. Solo cambia la imagen mostrada:
+no escribe en la biblioteca, ni elimina/importa series ni toca el progreso.
+
+QA: scripts/verificar-leercapitulo.cjs; MANGATOTAL_TEST_DOM=directorio/linkedom
+y MANGATOTAL_TEST_LIVE=1 activan las consultas reales de lectura únicamente.

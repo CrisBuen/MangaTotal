@@ -24,7 +24,7 @@ export default function SerieLcPage(props: {
 
   const cargar = useCallback(async (fresco = false) => {
     if (!fresco) setError(null);
-    const clave = `leercapitulo:ficha:v2:${id}/${slug}`;
+    const clave = `leercapitulo:ficha:v3:${id}/${slug}`;
     try {
       const resultado = fresco
         ? await serieLc(id, slug, true)

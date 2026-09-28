@@ -27,7 +27,6 @@ import { catalogoCw, imagenCw, type OrdenCw, type SerieCw } from "@/lib/catharsi
 import {
   LC_HABILITADA,
   LC_GENEROS,
-  LC_INICIALES,
   LC_LISTAS,
   catalogoLc,
   type SerieLc,
@@ -321,7 +320,7 @@ export default function ExplorarPage() {
     const fresco = pedirFresco.current;
     try {
       const r = await cargarConCacheAndroid(
-        `explorar:leercapitulo:${lcPage}:${lcGenero ?? ""}:${lcInicial ?? ""}:${lcLista}:${search.trim()}`,
+        `explorar:leercapitulo:v2:${lcPage}:${lcGenero ?? ""}:${lcInicial ?? ""}:${lcLista}:${search.trim()}`,
         () =>
           catalogoLc(
             lcPage,
@@ -1461,7 +1460,6 @@ export default function ExplorarPage() {
           {(fuente === "leercapitulo"
             ? [
                 { titulo: "Género", opciones: LC_GENEROS, valor: lcGenero, set: setLcGenero },
-                { titulo: "Inicial", opciones: LC_INICIALES, valor: lcInicial, set: setLcInicial },
               ]
             : fuente === "tmo"
             ? [

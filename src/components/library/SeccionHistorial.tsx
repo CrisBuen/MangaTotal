@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
+import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
 import { useCallback, useEffect, useState } from "react";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 
@@ -104,7 +104,7 @@ export function SeccionHistorial({ tipo = "normal", alAbrir }: { tipo?: "normal"
               <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors hover:border-line-strong">
                 {e.cover_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <ImagenFuente
+                  <PortadaExterna source={e.source} externalId={e.external_id}
                     src={e.cover_url}
                     alt={e.title}
                     className="h-full w-full object-cover"

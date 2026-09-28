@@ -89,6 +89,29 @@ function esPermutacionCompleta(indices: number[], cantidad: number): boolean {
  * un resultado que parece válido, pero se lee desordenado.
  */
 export function paginasDelHtml(html: string): string[] {
+  // Desde septiembre de 2026 el visor publica imágenes con un índice explícito.
+  // No es el antiguo array barajado: se valida su secuencia completa antes de usarlo.
+  const visor = [...html.matchAll(/<main\b[^>]*>([\s\S]*?)<\/main>/gi)]
+    .find(m => atributo(m[0].slice(0, m[0].indexOf(">") + 1), "id") === "lcPages");
+  if (visor) {
+    const etiquetas = [...visor[1].matchAll(/<img\b[^>]*>/gi)];
+    const paginas = etiquetas.map(m => {
+      const indice = atributo(m[0], "data-index");
+      const src = atributo(m[0], "data-src") || atributo(m[0], "src");
+      if (!indice || !/^\d+$/.test(indice) || !src) throw new Error("LeerCapítulo entregó una página sin índice o dirección.");
+      const url = new URL(src.replace(/&amp;/g, "&"));
+      if (url.protocol !== "https:" || url.username || url.password || url.port ||
+          !(url.hostname === "t34798ndc.com" || url.hostname.endsWith(".t34798ndc.com"))) {
+        throw new Error("LeerCapítulo entregó una dirección de imagen no reconocida.");
+      }
+      return { indice: Number(indice), url: url.href };
+    });
+    if (!esPermutacionCompleta(paginas.map(p => p.indice), paginas.length)) {
+      throw new Error("LeerCapítulo entregó índices de páginas incompletos o repetidos.");
+    }
+    return paginas.sort((a, b) => a.indice - b.indice).map(p => p.url);
+  }
+
   const crudo = html.match(/id="array_data"[^>]*>([\s\S]*?)<\/p>/)?.[1]?.trim();
   if (!crudo) return [];
 

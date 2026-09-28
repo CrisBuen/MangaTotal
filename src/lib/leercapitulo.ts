@@ -15,7 +15,6 @@ export const LC_NOMBRE = "LeerCapítulo";
 
 import {
   traerDocumento,
-  traerJson,
   fuenteAndroidDisponible,
   fuenteNativaDisponible,
   DesafioPendiente,
@@ -152,10 +151,7 @@ export const LC_GENEROS = [
 ];
 
 /** Su índice alfabético, para recorrer el catálogo entero. */
-export const LC_INICIALES = "abcdefghijklmnopqrstuvwxyz0123456789".split("").map((l) => ({
-  id: l,
-  name: l.toUpperCase(),
-}));
+export const LC_INICIALES: { id: string; name: string }[] = [];
 
 export interface FiltrosLc {
   q?: string;
@@ -204,8 +200,8 @@ function seriesDelDocumento(doc: Document, dentro?: string): SerieLc[] {
   const series: SerieLc[] = [];
   const vistos = new Set<string>();
 
-  const raiz = dentro ? `${dentro} ` : "";
-  for (const a of Array.from(doc.querySelectorAll(`${raiz}a[href*="/manga/"]`))) {
+  const selector = dentro ? dentro.split(",").map(s => `${s.trim()} a[href*="/manga/"]`).join(",") : 'a[href*="/manga/"]';
+  for (const a of Array.from(doc.querySelectorAll(selector))) {
     const href = a.getAttribute("href") ?? "";
     const partes = partesDeSerie(href);
     if (!partes || vistos.has(partes.id)) continue;
@@ -219,6 +215,8 @@ function seriesDelDocumento(doc: Document, dentro?: string): SerieLc[] {
     series.push({
       ...partes,
       title:
+        a.closest(".lc-release, .lc-slide, .lc-card")?.querySelector(".lc-release-title, .lc-slide-name, .lc-card-name")?.textContent?.trim() ||
+        a.querySelector(".lc-side-name")?.textContent?.trim() ||
         a.getAttribute("title")?.trim() ||
         img.getAttribute("alt")?.trim() ||
         "Sin título",
@@ -236,126 +234,21 @@ function seriesDelDocumento(doc: Document, dentro?: string): SerieLc[] {
   return series;
 }
 
-const POR_PAGINA = 30;
-
-interface ResultadoBusquedaLc {
-  value?: string;
-  label?: string;
-  link?: string;
-  thumbnail?: string;
-}
-
 /**
- * La búsqueda visible de LeerCapítulo usa un autocompletado JSON. El antiguo
- * /?s=texto fue retirado: responde 200, pero ignora el texto y devuelve el
- * inicio, que hacía parecer que nuestra lupa no filtraba nada.
- */
-async function buscarLc(termino: string, fresco: boolean): Promise<SerieLc[]> {
-  const ruta = `/search-autocomplete?term=${encodeURIComponent(termino)}`;
-  let resultados: ResultadoBusquedaLc[] | null = null;
-  let errorAndroid: unknown = null;
-
-  if (fuenteAndroidDisponible()) {
-    try {
-      resultados = await traerJson<ResultadoBusquedaLc[]>(`${LC_WEB}${ruta}`);
-    } catch (error) {
-      if (error instanceof DesafioPendiente) throw error;
-      errorAndroid = error;
-    }
-  }
-
-  if (resultados === null) {
-    try {
-      const qs = `ruta=${encodeURIComponent(ruta)}${fresco ? "&fresco=1" : ""}`;
-      const control = new AbortController();
-      const limite = fuenteAndroidDisponible() ? window.setTimeout(() => control.abort(), 5000) : null;
-      try {
-        const res = await fetch(`/api/externo/leercapitulo?${qs}`, {
-          cache: fresco ? "no-store" : "default",
-          signal: control.signal,
-        });
-        if (res.ok) {
-          const cuerpo = (await res.json()) as { data?: ResultadoBusquedaLc[] };
-          if (Array.isArray(cuerpo.data)) resultados = cuerpo.data;
-        }
-      } finally {
-        if (limite !== null) window.clearTimeout(limite);
-      }
-    } catch {
-      // Si nuestro servidor no llega, las apps todavía pueden pedirlo directo.
-    }
-  }
-
-  if (resultados === null) {
-    if (!fuenteNativaDisponible()) {
-      throw new Error("LeerCapítulo no está respondiendo en este momento.");
-    }
-    if (errorAndroid) throw errorAndroid;
-    resultados = await traerJson<ResultadoBusquedaLc[]>(`${LC_WEB}${ruta}`);
-  }
-
-  const series: SerieLc[] = [];
-  const vistos = new Set<string>();
-  for (const item of resultados) {
-    const link = item.link ?? "";
-    const partes = partesDeSerie(link);
-    if (!partes || vistos.has(partes.id)) continue;
-    vistos.add(partes.id);
-    series.push({
-      ...partes,
-      title: item.label?.trim() || item.value?.trim() || "Sin título",
-      cover_url: urlAbsoluta(item.thumbnail),
-      url_original: `${LC_WEB}/manga/${partes.id}/${partes.slug}/`,
-    });
-  }
-  return series;
-}
-
-/**
- * Catálogo paginado. Sin filtros muestra lo último que actualizaron; con
- * género o inicial recorre esa lista, que es la forma de ver todo el
- * catálogo porque no publican un listado general.
+ * El sitio nuevo publica el catálogo y la búsqueda en /manga/.
+ * Se usa su paginador real: una búsqueda vacía nunca cae en las tendencias.
  */
 export async function catalogoLc(page: number, filtros: FiltrosLc = {}, fresco = false) {
-  if (filtros.q?.trim()) {
-    return {
-      series: await buscarLc(filtros.q.trim(), fresco),
-      page: 1,
-      paginable: false,
-      hayMas: false,
-    };
-  }
-
-  let ruta: string;
-  let dentro: string | undefined;
-
-  if (filtros.genero) {
-    ruta = `/genre/${filtros.genero}/?page=${page}`;
-  } else if (filtros.inicial) {
-    ruta = `/initial/${filtros.inicial}/?page=${page}`;
-  } else if (filtros.lista === "tendencias") {
-    // el inicio trae las tendencias arriba, en su propio carrusel
-    ruta = "/";
-    dentro = ".hot-manga";
-  } else {
-    ruta = "/";
-    dentro = ".mainpage-manga";
-  }
-
-  const doc = await pedir(ruta, fresco);
-  let series = seriesDelDocumento(doc, dentro);
-  // si su maquetado cambió y la zona no existe, se lee la página entera
-  if (series.length === 0 && dentro) series = seriesDelDocumento(doc);
-
-  // su paginador no dice cuántas páginas hay: se avanza mientras la página
-  // venga llena
-  const paginable = Boolean(filtros.genero || filtros.inicial);
-  return {
-    series,
-    page,
-    paginable,
-    hayMas: paginable && series.length >= POR_PAGINA,
-  };
+  const paginable = Boolean(filtros.q?.trim() || filtros.genero || filtros.inicial);
+  const qs = new URLSearchParams({ page: String(page) });
+  if (filtros.q?.trim()) qs.set("q", filtros.q.trim());
+  if (filtros.genero) qs.set("genre", filtros.genero);
+  // Las iniciales del diseño anterior ya no existen; las selecciones antiguas se buscan.
+  if (filtros.inicial) qs.set("q", filtros.inicial);
+  const doc = await pedir(paginable ? `/manga/?${qs}` : "/", fresco);
+  const dentro = paginable ? ".lc-card" : filtros.lista === "tendencias" ? ".lc-strip, .hot-manga" : ".lc-release, .mainpage-manga";
+  const series = seriesDelDocumento(doc, dentro);
+  return { series, page, paginable, hayMas: paginable && Boolean(doc.querySelector('a[rel="next"]')) };
 }
 
 // ── ficha de la serie ────────────────────────────────────────────────────
@@ -378,14 +271,19 @@ function campo(texto: string, etiqueta: string): string | null {
 /** Ficha de una serie con todos sus capítulos (los publican en una sola página). */
 export async function serieLc(id: string, slug: string, fresco = false) {
   const doc = await pedir(`/manga/${id}/${slug}/`, fresco);
-  const titulo = doc.querySelector("h1.title-manga")?.textContent?.trim();
+  // El diseño nuevo usa un h1 genérico, también en los errores 404.
+  // Solo se acepta cuando están presentes la portada y la lista de capítulos.
+  const nueva = Boolean(doc.querySelector(".lc-cover-lg") && doc.querySelector("#chapterList"));
+  const titulo = doc.querySelector(nueva ? "h1" : "h1.title-manga")?.textContent?.trim();
   if (!titulo) throw new Error("LeerCapítulo no entregó la ficha de esta serie. Probá actualizarla.");
 
   const datos = doc.querySelector(".description-update")?.textContent ?? "";
+  const dato = (nombre: string) => Array.from(doc.querySelectorAll(".lc-facts li"))
+    .find(li => li.querySelector(".k")?.textContent?.trim() === nombre)?.lastElementChild?.textContent?.trim() || null;
 
   const capitulos: CapituloLc[] = [];
   const vistos = new Set<string>();
-  for (const a of Array.from(doc.querySelectorAll('.chapter a[href*="/leer/"]'))) {
+  for (const a of Array.from(doc.querySelectorAll('.chapter a[href*="/leer/"], #chapterList a[href*="/leer/"]'))) {
     const href = a.getAttribute("href") ?? "";
     // /leer/{id}/{slug}/{numero}/
     const numero = href.split("/").filter(Boolean).pop();
@@ -395,7 +293,7 @@ export async function serieLc(id: string, slug: string, fresco = false) {
     capitulos.push({
       id: numero,
       numero,
-      titulo: a.textContent?.trim() || null,
+      titulo: (a.querySelector(".n") ?? a).textContent?.trim() || null,
       url_original: urlAbsoluta(href)!,
     });
   }
@@ -407,12 +305,12 @@ export async function serieLc(id: string, slug: string, fresco = false) {
     id,
     slug,
     title: titulo,
-    cover_url: urlAbsoluta(doc.querySelector(".cover-detail img")?.getAttribute("src")),
-    description: doc.querySelector(".manga-collapse")?.textContent?.trim() || null,
-    tipo: campo(datos, "Escribe"),
-    estado: campo(datos, "Estado"),
-    titulosAlternativos: campo(datos, "Títulos Alternativos"),
-    generos: Array.from(doc.querySelectorAll('.description-update a[href*="/genre/"]'))
+    cover_url: urlAbsoluta(doc.querySelector(".lc-cover-lg img, .cover-detail img")?.getAttribute("src")),
+    description: doc.querySelector("#sinopsis p, .manga-collapse")?.textContent?.trim() || null,
+    tipo: nueva ? dato("Tipo") : campo(datos, "Escribe"),
+    estado: nueva ? dato("Estado") : campo(datos, "Estado"),
+    titulosAlternativos: nueva ? doc.querySelector("h1 + p")?.textContent?.trim() || null : campo(datos, "Títulos Alternativos"),
+    generos: Array.from(doc.querySelectorAll(nueva ? 'h1 ~ div a[href*="genre="], h1 ~ div a[href*="theme="]' : '.description-update a[href*="/genre/"]'))
       .map((g) => g.textContent?.trim() ?? "")
       .filter(Boolean),
     capitulos,
