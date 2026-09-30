@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
-import type { SerieJkanime } from "@/lib/jkanime";
+import { JKANIME_WEB, type SerieJkanime } from "@/lib/jkanime";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 const SORTS = [
@@ -142,6 +142,7 @@ export function JkanimeCatalog() {
   }, [filters, search, sort]);
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
+  const rechazo403 = Boolean(error?.includes("403"));
   const filterGroups: { key: FilterKey; label: string; options: readonly (readonly [string, string])[] }[] = [
     { key: "genre", label: "Género", options: GENRES.filter(([value]) => adultEnabled || value !== "hentai") },
     { key: "letter", label: "Inicial", options: LETTERS },
@@ -200,24 +201,50 @@ export function JkanimeCatalog() {
       {showFilters && (
         <Surface className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
           {filterGroups.map((group) => (
-            <label key={group.key} className="space-y-2">
+            <div key={group.key} className={`space-y-2 ${group.key === "genre" ? "sm:col-span-2 lg:col-span-3" : ""}`}>
               <span className="block font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">
                 {group.label}
               </span>
-              <select
-                value={filters[group.key]}
-                onChange={(event) =>
-                  setFilters((current) => ({ ...current, [group.key]: event.target.value }))
-                }
-                disabled={Boolean(search.trim())}
-                className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent disabled:opacity-40"
-              >
-                <option value="">Todos</option>
-                {group.options.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
+              {group.key === "genre" ? (
+                <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto rounded-lg border border-line bg-[var(--surface-raised)] p-3 sm:grid-cols-3 lg:grid-cols-5">
+                  <button
+                    type="button"
+                    aria-pressed={!filters.genre}
+                    onClick={() => setFilters((current) => ({ ...current, genre: "" }))}
+                    disabled={Boolean(search.trim())}
+                    className={`rounded-md border px-3 py-2 text-left text-xs transition disabled:opacity-40 ${!filters.genre ? "border-accent bg-[var(--accent-soft)] text-accent-ink" : "border-line text-subtle hover:border-accent hover:text-ink"}`}
+                  >
+                    Todos los géneros
+                  </button>
+                  {group.options.map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={filters.genre === value}
+                      onClick={() => setFilters((current) => ({ ...current, genre: current.genre === value ? "" : value }))}
+                      disabled={Boolean(search.trim())}
+                      className={`rounded-md border px-3 py-2 text-left text-xs transition disabled:opacity-40 ${filters.genre === value ? "border-accent bg-[var(--accent-soft)] text-accent-ink" : "border-line text-subtle hover:border-accent hover:text-ink"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <select
+                  value={filters[group.key]}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, [group.key]: event.target.value }))
+                  }
+                  disabled={Boolean(search.trim())}
+                  className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent disabled:opacity-40"
+                >
+                  <option value="">Todos</option>
+                  {group.options.map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           ))}
           {activeFilters > 0 && (
             <button
@@ -231,11 +258,38 @@ export function JkanimeCatalog() {
       )}
 
       {error && (
-        <Surface className="p-6 text-center">
-          <p className="text-sm text-red-400">{error}</p>
-          <button onClick={load} className="mt-3 font-mono text-[11px] text-accent-ink">
-            Reintentar
-          </button>
+        <Surface className="space-y-3 p-6 text-center" role="alert">
+          <p className="font-semibold text-red-400">
+            {rechazo403 ? "JKAnime rechazó la consulta del catálogo (403)." : error}
+          </p>
+          {rechazo403 && (
+            <>
+              <p className="mx-auto max-w-2xl text-sm leading-6 text-subtle">
+                Esto indica que la solicitud desde el servidor de MangaTotal está siendo denegada; no necesariamente que la web de JKAnime esté caída. No vamos a eludir esa protección.
+              </p>
+              <a
+                href={JKANIME_WEB}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-10 items-center rounded-md border border-line px-4 font-mono text-[11px] font-bold tracking-[0.05em] text-subtle transition hover:border-accent hover:text-accent-ink"
+              >
+                Abrir JKAnime ↗
+              </a>
+            </>
+          )}
+          <div>
+            <button
+              onClick={() => {
+                fresh.current = true;
+                setRefreshing(true);
+                setReload((value) => value + 1);
+              }}
+              disabled={refreshing}
+              className="font-mono text-[11px] font-bold text-accent-ink disabled:opacity-50"
+            >
+              {refreshing ? "Reintentando…" : "Reintentar"}
+            </button>
+          </div>
         </Surface>
       )}
 

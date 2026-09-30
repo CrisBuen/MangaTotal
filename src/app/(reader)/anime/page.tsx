@@ -94,20 +94,12 @@ export default function AnimePage() {
         title="AniList"
         description="Información de series animadas y plataformas oficiales. MangaTotal no reproduce anime en esta sección."
         action={
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/anime/animado"
-              className="inline-flex min-h-11 items-center rounded-md border border-accent bg-accent px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
-            >
-              Anime animado
-            </Link>
-            <Link
-              href="/anime/mi-lista"
-              className="inline-flex min-h-11 items-center rounded-md border border-line px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-accent hover:text-accent-ink"
-            >
-              Mi lista
-            </Link>
-          </div>
+          <Link
+            href="/anime/mi-lista"
+            className="inline-flex min-h-11 items-center rounded-md border border-line px-5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-accent hover:text-accent-ink"
+          >
+            Mi lista
+          </Link>
         }
       />
 

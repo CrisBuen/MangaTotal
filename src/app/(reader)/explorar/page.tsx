@@ -47,6 +47,7 @@ const cargandoAnime = () => <p role="status" className="py-12 text-center text-s
 const JkanimeCatalog = dynamic(() => import("@/components/anime/JkanimeCatalog").then((m) => m.JkanimeCatalog), { loading: cargandoAnime });
 const HentaitvCatalog = dynamic(() => import("@/components/anime/HentaitvCatalog").then((m) => m.HentaitvCatalog), { loading: cargandoAnime });
 const TioanimeCatalog = dynamic(() => import("@/components/anime/TioanimeCatalog").then((m) => m.TioanimeCatalog), { loading: cargandoAnime });
+const AnimeAnimadoHome = dynamic(() => import("@/components/anime/AnimeAnimadoHome").then((m) => m.AnimeAnimadoHome), { loading: cargandoAnime });
 
 interface ExternalSeries {
   id: string;
@@ -862,58 +863,67 @@ export default function ExplorarPage() {
 
   if (seccion === "animada" && animeHabilitado) {
     return (
-      <div className="space-y-10">
-        <SectionHeading
-          eyebrow="Catálogo animado"
-          title="Anime"
-          description="Elegí una fuente, revisá sus episodios y mirala con su reproductor oficial."
-        />
-
+      <div className="space-y-10 pb-8 sm:space-y-14">
         <SelectorSecciones
           seccion={seccion}
           animeHabilitado={animeHabilitado}
           onChange={setSeccion}
         />
 
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 font-mono text-[11px] font-medium text-faint">
-              Fuente
-            </span>
+        <AnimeAnimadoHome adultosHabilitados={animeAdultoHabilitado} />
+
+        <section id="anime-catalogo" className="scroll-mt-24 space-y-6 border-t border-line pt-8">
+          <div>
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent-ink">
+                Catálogo completo
+              </p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+                Explorar por fuente
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-subtle">
+                Filtrá por género, formato, estado, año o temporada y abrí la ficha para ver episodios.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Fuente de anime">
+            <span className="mr-1 font-mono text-[11px] font-medium text-faint">Fuente</span>
             {(["jkanime", "tioanime"] as const).map((source) => (
               <Chip
                 type="button"
                 key={source}
                 onClick={() => setAnimeFuente(source)}
                 selected={animeFuente === source}
+                role="tab"
+                aria-selected={animeFuente === source}
               >
                 {source === "jkanime" ? "JKAnime" : "TioAnime"}
               </Chip>
             ))}
-          </div>
-          {animeAdultoHabilitado && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 font-mono text-[11px] font-medium text-faint">
-                Fuente +18
-              </span>
+            {animeAdultoHabilitado && (
               <Chip
                 type="button"
                 onClick={() => setAnimeFuente("hentaitv")}
                 selected={animeFuente === "hentaitv"}
+                role="tab"
+                aria-selected={animeFuente === "hentaitv"}
               >
-                HentaiTV
+                HentaiTV · +18
               </Chip>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {animeFuente === "hentaitv" && animeAdultoHabilitado ? (
-          <HentaitvCatalog />
-        ) : animeFuente === "jkanime" ? (
-          <JkanimeCatalog />
-        ) : (
-          <TioanimeCatalog />
-        )}
+          <div role="tabpanel">
+            {animeFuente === "hentaitv" && animeAdultoHabilitado ? (
+              <HentaitvCatalog />
+            ) : animeFuente === "jkanime" ? (
+              <JkanimeCatalog />
+            ) : (
+              <TioanimeCatalog />
+            )}
+          </div>
+        </section>
       </div>
     );
   }

@@ -62,6 +62,10 @@ const FUENTES: { id: FiltroFuente; nombre: string }[] = [
   { id: "hentaitv", nombre: "HentaiTV" },
 ];
 
+interface AnimeAnimadoHomeProps {
+  adultosHabilitados?: boolean;
+}
+
 const RUTAS: Record<Fuente, string> = {
   jkanime: "/api/anime/jkanime?page=1&sort=popularidad",
   tioanime: "/api/anime/tioanime?page=1&sort=recent",
@@ -222,7 +226,7 @@ function FilaAnime({
   );
 }
 
-export function AnimeAnimadoHome() {
+export function AnimeAnimadoHome({ adultosHabilitados = false }: AnimeAnimadoHomeProps) {
   const [catalogos, setCatalogos] = useState<Record<Fuente, AnimeTitulo[]>>({ jkanime: [], tioanime: [], hentaitv: [] });
   const [guardadas, setGuardadas] = useState<AnimeConProgreso[]>([]);
   const [continuar, setContinuar] = useState<AnimeConProgreso[]>([]);
@@ -238,13 +242,14 @@ export function AnimeAnimadoHome() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [destacado, setDestacado] = useState(0);
-  const [mostrarHentai, setMostrarHentai] = useState(false);
   const requestId = useRef(0);
 
   const cargarInicio = useCallback(async () => {
     setCargando(true);
     setError(false);
-    const fuentes: Fuente[] = ["jkanime", "tioanime", "hentaitv"];
+    const fuentes: Fuente[] = adultosHabilitados
+      ? ["jkanime", "tioanime", "hentaitv"]
+      : ["jkanime", "tioanime"];
     const resultadosFuentes = await Promise.allSettled(
       fuentes.map(async (source) => ({ source, data: await pedirJson<CatalogoRespuesta>(RUTAS[source]) }))
     );
@@ -257,7 +262,6 @@ export function AnimeAnimadoHome() {
       disponibles += 1;
     });
     setCatalogos(nuevoCatalogo);
-    setMostrarHentai(nuevoCatalogo.hentaitv.length > 0);
     setError(disponibles === 0);
 
     const [progreso, biblioteca] = await Promise.allSettled([
@@ -274,7 +278,7 @@ export function AnimeAnimadoHome() {
       setFavoritos(new Set(lista.map(clave)));
     }
     setCargando(false);
-  }, []);
+  }, [adultosHabilitados]);
 
   useEffect(() => {
     void cargarInicio();
@@ -290,7 +294,9 @@ export function AnimeAnimadoHome() {
     }
     const timer = window.setTimeout(async () => {
       setBuscando(true);
-      const fuentes: Fuente[] = ["jkanime", "tioanime", "hentaitv"];
+      const fuentes: Fuente[] = adultosHabilitados
+        ? ["jkanime", "tioanime", "hentaitv"]
+        : ["jkanime", "tioanime"];
       const datos = await Promise.allSettled(
         fuentes.map(async (source) => {
           const params = new URLSearchParams(RUTAS[source].split("?")[1]);
@@ -305,7 +311,7 @@ export function AnimeAnimadoHome() {
       setBuscando(false);
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [busqueda]);
+  }, [adultosHabilitados, busqueda]);
 
   useEffect(() => {
     if (!seleccionado) return;
@@ -316,16 +322,37 @@ export function AnimeAnimadoHome() {
     return () => window.removeEventListener("keydown", cerrarConEscape);
   }, [seleccionado]);
 
-  const disponibles = useMemo(() => mostrarHentai ? FUENTES : FUENTES.filter((item) => item.id !== "hentaitv"), [mostrarHentai]);
+  const disponibles = useMemo(
+    () => adultosHabilitados ? FUENTES : FUENTES.filter((item) => item.id !== "hentaitv"),
+    [adultosHabilitados]
+  );
   const itemsBusqueda = useMemo(
     () => resultados.filter((anime) => fuente === "todo" || anime.source === fuente),
     [resultados, fuente]
   );
+  const catalogoVisible = useMemo(() => {
+    const todo = [...catalogos.jkanime, ...catalogos.tioanime, ...(adultosHabilitados ? catalogos.hentaitv : [])];
+    return fuente === "todo" ? todo : catalogos[fuente];
+  }, [adultosHabilitados, catalogos, fuente]);
+  const continuarVisible = useMemo(
+    () => fuente === "todo" ? continuar : continuar.filter((anime) => anime.source === fuente),
+    [continuar, fuente]
+  );
+  const historialVisible = useMemo(
+    () => fuente === "todo" ? historial : historial.filter((anime) => anime.source === fuente),
+    [historial, fuente]
+  );
+  const guardadasVisibles = useMemo(
+    () => fuente === "todo" ? guardadas : guardadas.filter((anime) => anime.source === fuente),
+    [fuente, guardadas]
+  );
   const destacados = useMemo(
-    () => continuar.length ? continuar : [...catalogos.jkanime, ...catalogos.tioanime, ...catalogos.hentaitv].slice(0, 5),
-    [catalogos, continuar]
+    () => continuarVisible.length ? continuarVisible : catalogoVisible.slice(0, 8),
+    [catalogoVisible, continuarVisible]
   );
   const actual = destacados.length ? destacados[destacado % destacados.length] : null;
+  const enEmision = catalogoVisible.filter((anime) => /emisi[oó]n|ongoing|airing|activo/i.test(anime.status ?? ""));
+  const peliculas = catalogoVisible.filter((anime) => /pel[ií]cula|movie|film/i.test(anime.type ?? ""));
 
   useEffect(() => {
     if (destacados.length < 2 || busqueda.trim()) return;
@@ -335,42 +362,36 @@ export function AnimeAnimadoHome() {
 
   async function alternarBiblioteca(anime: AnimeTitulo) {
     const itemKey = clave(anime);
+    // Este panel permite sumar títulos, nunca borrar una serie ya guardada.
+    if (favoritos.has(itemKey)) return;
     setGuardando(true);
     setMensaje(null);
     try {
-      const esFavorito = favoritos.has(itemKey);
-      const respuesta = esFavorito
-        ? await fetch(`/api/anime/externo/biblioteca?source=${anime.source}&id=${encodeURIComponent(anime.external_id)}`, { method: "DELETE" })
-        : await fetch("/api/anime/externo/biblioteca", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              source: anime.source,
-              external_id: anime.external_id,
-              slug: anime.slug,
-              title: anime.title,
-              cover_url: anime.cover_url,
-              type: anime.type,
-              status: anime.status,
-              total_episodes: anime.total_episodes ?? null,
-            }),
-          });
+      const respuesta = await fetch("/api/anime/externo/biblioteca", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: anime.source,
+          external_id: anime.external_id,
+          slug: anime.slug,
+          title: anime.title,
+          cover_url: anime.cover_url,
+          type: anime.type,
+          status: anime.status,
+          total_episodes: anime.total_episodes ?? null,
+        }),
+      });
       if (!respuesta.ok) {
         const errorApi = await respuesta.json().catch(() => null) as { error?: string } | null;
         throw new Error(errorApi?.error ?? "No se pudo actualizar tu biblioteca");
       }
       setFavoritos((previo) => {
         const nuevo = new Set(previo);
-        if (esFavorito) nuevo.delete(itemKey);
-        else nuevo.add(itemKey);
+        nuevo.add(itemKey);
         return nuevo;
       });
-      if (esFavorito) {
-        setGuardadas((previo) => previo.filter((item) => clave(item) !== itemKey));
-      } else {
-        const guardada = normalizarBiblioteca(await respuesta.json() as BibliotecaItem);
-        if (guardada) setGuardadas((previo) => [guardada, ...previo.filter((item) => clave(item) !== itemKey)]);
-      }
+      const guardada = normalizarBiblioteca(await respuesta.json() as BibliotecaItem);
+      if (guardada) setGuardadas((previo) => [guardada, ...previo.filter((item) => clave(item) !== itemKey)]);
     } catch (err) {
       setMensaje(err instanceof Error ? err.message : "No se pudo actualizar tu biblioteca");
     } finally {
@@ -385,7 +406,7 @@ export function AnimeAnimadoHome() {
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-accent-ink">MangaTotal · reproducción desde las fuentes</p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-ink sm:text-4xl">Anime animado</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-subtle">Descubrí series, retomá donde quedaste y guardá tu lista en MangaTotal.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-subtle">Descubrí series de tus fuentes, retomá donde quedaste y organizá tu biblioteca en MangaTotal.</p>
           </div>
           <Link href="/biblioteca?seccion=anime-animado" className={`${CLASE_BOTON} border-line text-subtle hover:border-accent hover:text-accent-ink`}>
             <Icono nombre="bookmark" className="h-4 w-4" /> Mi biblioteca
@@ -416,6 +437,13 @@ export function AnimeAnimadoHome() {
             ))}
           </div>
         </div>
+
+        <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-4" aria-label="Secciones de anime animado">
+          <a href="#anime-destacados" className="font-mono text-[11px] font-bold tracking-[0.05em] text-subtle transition hover:text-accent-ink">Destacados</a>
+          <a href="#anime-progreso" className="font-mono text-[11px] font-bold tracking-[0.05em] text-subtle transition hover:text-accent-ink">Tu progreso</a>
+          <a href="#anime-fuentes" className="font-mono text-[11px] font-bold tracking-[0.05em] text-subtle transition hover:text-accent-ink">Por fuente</a>
+          <a href="#anime-catalogo" className="font-mono text-[11px] font-bold tracking-[0.05em] text-accent-ink transition hover:underline">Catálogo y filtros ↓</a>
+        </nav>
       </header>
 
       {busqueda.trim() ? (
@@ -443,7 +471,7 @@ export function AnimeAnimadoHome() {
       ) : (
         <>
           {actual && (
-            <section className="relative isolate min-h-[390px] overflow-hidden rounded-2xl border border-line bg-[var(--surface)] sm:min-h-[440px]">
+            <section id="anime-destacados" className="relative isolate min-h-[390px] overflow-hidden rounded-2xl border border-line bg-[var(--surface)] shadow-xl shadow-black/20 sm:min-h-[440px]">
               {actual.cover_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={actual.cover_url} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-30 blur-[2px] sm:opacity-40" />
@@ -486,12 +514,24 @@ export function AnimeAnimadoHome() {
             </div>
           ) : (
             <>
-              <FilaAnime titulo="Continuar viendo" items={continuar} onOpen={setSeleccionado} continuacion />
-              <FilaAnime titulo="Mi lista" items={guardadas} onOpen={setSeleccionado} />
-              <FilaAnime titulo="Lo último que viste" items={historial} onOpen={setSeleccionado} continuacion />
-              <FilaAnime titulo="Populares en JKAnime" items={catalogos.jkanime} onOpen={setSeleccionado} />
-              <FilaAnime titulo="Novedades de TioAnime" items={catalogos.tioanime} onOpen={setSeleccionado} />
-              {mostrarHentai && <FilaAnime titulo="Catálogo HentaiTV" items={catalogos.hentaitv} onOpen={setSeleccionado} />}
+              <div id="anime-progreso" className="space-y-10 scroll-mt-24">
+                <FilaAnime titulo="Continuar viendo" items={continuarVisible} onOpen={setSeleccionado} continuacion />
+                <FilaAnime titulo="Mi lista" items={guardadasVisibles} onOpen={setSeleccionado} />
+                <FilaAnime titulo="Lo último que viste" items={historialVisible} onOpen={setSeleccionado} continuacion />
+              </div>
+              <div id="anime-fuentes" className="space-y-10 scroll-mt-24">
+                {fuente === "todo" ? (
+                  <>
+                    <FilaAnime titulo="Populares en JKAnime" items={catalogos.jkanime} onOpen={setSeleccionado} />
+                    <FilaAnime titulo="Novedades de TioAnime" items={catalogos.tioanime} onOpen={setSeleccionado} />
+                    {adultosHabilitados && <FilaAnime titulo="Catálogo HentaiTV · +18" items={catalogos.hentaitv} onOpen={setSeleccionado} />}
+                  </>
+                ) : (
+                  <FilaAnime titulo={`Catálogo de ${ETIQUETAS[fuente]}`} items={catalogos[fuente]} onOpen={setSeleccionado} />
+                )}
+                <FilaAnime titulo="En emisión" items={enEmision} onOpen={setSeleccionado} />
+                <FilaAnime titulo="Películas y especiales" items={peliculas} onOpen={setSeleccionado} />
+              </div>
               {!catalogos.jkanime.length && !catalogos.tioanime.length && !catalogos.hentaitv.length && (
                 <p className="py-8 text-center text-sm text-subtle">No hay series disponibles en las fuentes habilitadas.</p>
               )}
@@ -528,8 +568,8 @@ export function AnimeAnimadoHome() {
                   <Link href={(seleccionado as AnimeConProgreso).resume_href || seleccionado.href} className={`${CLASE_BOTON} border-accent bg-accent text-[var(--on-accent)] hover:opacity-90`}>
                     <Icono nombre="play" className="h-4 w-4" /> {(seleccionado as AnimeConProgreso).resume_href ? "Continuar" : "Ver capítulos"}
                   </Link>
-                  <button type="button" disabled={guardando} onClick={() => void alternarBiblioteca(seleccionado)} className={`${CLASE_BOTON} ${favoritos.has(clave(seleccionado)) ? "border-accent bg-[var(--accent-soft)] text-accent-ink" : "border-line text-ink hover:border-accent hover:text-accent-ink"}`}>
-                    <Icono nombre="bookmark" className="h-4 w-4" /> {guardando ? "Guardando…" : favoritos.has(clave(seleccionado)) ? "En mi biblioteca" : "Guardar"}
+                  <button type="button" disabled={guardando || favoritos.has(clave(seleccionado))} onClick={() => void alternarBiblioteca(seleccionado)} className={`${CLASE_BOTON} ${favoritos.has(clave(seleccionado)) ? "border-accent bg-[var(--accent-soft)] text-accent-ink" : "border-line text-ink hover:border-accent hover:text-accent-ink"}`}>
+                    <Icono nombre="bookmark" className="h-4 w-4" /> {guardando ? "Guardando…" : favoritos.has(clave(seleccionado)) ? "Ya está en mi biblioteca" : "Guardar en mi biblioteca"}
                   </button>
                 </div>
                 {mensaje && <p role="status" className="text-sm text-red-400">{mensaje}</p>}
