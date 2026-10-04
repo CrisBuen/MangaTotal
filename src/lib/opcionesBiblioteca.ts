@@ -9,7 +9,7 @@ export const ordenes: { valor: OrdenBiblioteca; titulo: string }[] = [
   { valor: "titulo", titulo: "Alfabéticamente" }, { valor: "cantidad", titulo: "Por cantidad publicada" },
   { valor: "lectura", titulo: "Por última lectura / reproducción" }, { valor: "comprobacion", titulo: "Por última comprobación de actualizaciones" },
   { valor: "pendientes", titulo: "Por capítulos / episodios restantes" }, { valor: "reciente", titulo: "Por capítulo / episodio más reciente" },
-  { valor: "obtencion", titulo: "Por fecha de detección de novedades" }, { valor: "antiguedad", titulo: "Por antigüedad en la biblioteca" },
+  { valor: "obtencion", titulo: "Por última actualización con capítulos nuevos" }, { valor: "antiguedad", titulo: "Por antigüedad en la biblioteca" },
   { valor: "azar", titulo: "Al azar" },
 ];
 export function leerOpciones(texto: string | null): OpcionesBiblioteca {
@@ -43,8 +43,13 @@ export function ordenarBiblioteca<T>(lista: T[], opciones: OpcionesBiblioteca, d
   )).sort((a, b) => {
     if (opciones.orden === "titulo") return signo * a.d.titulo.localeCompare(b.d.titulo, "es", { numeric: true, sensitivity: "base" });
     if (opciones.orden === "azar") return azar(a.d.clave, opciones.semilla) - azar(b.d.clave, opciones.semilla);
-    const x = a.d[opciones.orden], y = b.d[opciones.orden];
+    const valorA = a.d[opciones.orden], valorB = b.d[opciones.orden];
+    // Un Number("capítulo 10") produce NaN. Tratarlo como desconocido evita
+    // que el comparador devuelva NaN y el navegador conserve un orden viejo.
+    const x = typeof valorA === "number" && Number.isFinite(valorA) ? valorA : null;
+    const y = typeof valorB === "number" && Number.isFinite(valorB) ? valorB : null;
     if (x == null && y != null) return 1; if (x != null && y == null) return -1;
-    return x != null && y != null ? signo * (x - y) : 0;
+    if (x != null && y != null && x !== y) return signo * (x - y);
+    return a.d.titulo.localeCompare(b.d.titulo, "es", { numeric: true, sensitivity: "base" });
   }).map(({ item }) => item);
 }

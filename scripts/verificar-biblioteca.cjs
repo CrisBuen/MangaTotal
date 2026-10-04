@@ -83,6 +83,12 @@ test("fechas de detección se conservan si no hay capítulo nuevo", async () => 
   await cola.ejecutarCola(() => j, x => { j = x; }, async () => resultado("3"), new AbortController().signal);
   assert.equal(j.resultados["mangadex-a"].obtenido, 2);
 });
+test("una cola antigua sin fecha recibe una al volver a comprobarse", async () => {
+  let j = cola.trabajoNuevo("lectura", [tarea("a")]);
+  j.resultados["mangadex-a"] = { ...resultado("3"), obtenido: undefined };
+  await cola.ejecutarCola(() => j, x => { j = x; }, async () => ({ ...resultado("3"), obtenido: 250 }), new AbortController().signal);
+  assert.equal(j.resultados["mangadex-a"].obtenido, 250);
+});
 test("capítulos discontinuos, decimales y progreso posterior se cuentan correctamente", () => {
   const { resumirCapitulos } = modulo("consultarBiblioteca");
   const r = resumirCapitulos([{ numero: "1" }, { numero: "1" }, { numero: "2.5" }, { numero: "9" }, { numero: null }], "1");
@@ -126,6 +132,14 @@ test("dato desconocido queda al final en ambos sentidos; aleatorio estable", () 
   assert.equal(ordenar({ orden: "cantidad" }), "b,c,a");
   assert.equal(ordenar({ orden: "cantidad", descendente: false }), "c,b,a");
   assert.equal(ordenar({ orden: "azar", semilla: 5 }), ordenar({ orden: "azar", semilla: 5 }));
+});
+test("pendientes descendentes ponen primero las novedades y NaN queda al final", () => {
+  const datos = [
+    { clave: "ocho", titulo: "Ocho", pendientes: 8, empezado: true, favorito: true, completado: false },
+    { clave: "cuarenta", titulo: "Cuarenta", pendientes: 43, empezado: true, favorito: true, completado: false },
+    { clave: "invalido", titulo: "Inválido", pendientes: Number.NaN, empezado: true, favorito: true, completado: false },
+  ];
+  assert.equal(opciones.ordenarBiblioteca(datos, { ...opciones.opcionesIniciales, orden: "pendientes", descendente: true }, x => x).map(x => x.clave).join(","), "cuarenta,ocho,invalido");
 });
 test("preferencias corruptas no rompen el menú", () => {
   assert.equal(opciones.leerOpciones("{").vista, "comoda");

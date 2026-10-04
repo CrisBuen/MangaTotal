@@ -47,7 +47,7 @@ export function MenuBiblioteca({ opciones, cambiar, anime = false }: { opciones:
       {pestana === "filtrar" && <div className="space-y-3">
         <label className="flex min-h-11 items-center gap-3 text-faint"><input type="checkbox" disabled />Descargados · no disponible</label>
         {etiquetas.map(([f, label]) => <label key={f} className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={opciones.filtros.includes(f)} onChange={() => cambiarFiltro(f)} className="h-5 w-5 accent-[var(--accent)]" />{label}</label>)}
-        <p className="text-xs text-subtle">Los filtros se combinan. «Actualizar todo» obtiene los datos de las fuentes. Si no informan estado o cantidad, no se inventan. La app no descarga capítulos ni vídeos.</p>
+        <p className="text-xs text-subtle">Los filtros se combinan. «Actualizar todo» revisa el catálogo y «Actualizar favoritos» solo las series marcadas. Si una fuente no informa estado o cantidad, no se inventan. La app no descarga capítulos ni vídeos.</p>
         <button type="button" onClick={() => cambiar({ ...opciones, filtros: [] })} className="min-h-11 text-accent-ink">Limpiar filtros</button>
       </div>}
       {pestana === "ordenar" && <div className="space-y-1">

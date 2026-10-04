@@ -91,7 +91,10 @@ export async function ejecutarCola(
       const resultados = { ...actual.resultados }, errores = { ...actual.errores };
       if (resultado) {
         const anterior = resultados[clave];
-        resultados[clave] = { ...resultado, obtenido: anterior?.ultimo === resultado.ultimo ? anterior.obtenido : resultado.obtenido };
+        // Colas de versiones anteriores podían no tener `obtenido`. Solo se
+        // conserva una fecha anterior si realmente es válida; de otro modo la
+        // serie quedaba para siempre sin dato y no podía ordenarse al refrescar.
+        resultados[clave] = { ...resultado, obtenido: anterior?.ultimo === resultado.ultimo && typeof anterior.obtenido === "number" && Number.isFinite(anterior.obtenido) ? anterior.obtenido : resultado.obtenido };
         delete errores[clave];
       } else { errores[clave] = error ?? "Sin datos de la fuente"; }
       guardar({ ...actual, resultados, errores, hechas: [...new Set([...actual.hechas, clave])], actualizado: Date.now() });

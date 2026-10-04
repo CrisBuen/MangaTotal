@@ -343,7 +343,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
     const vistos = e.last_episode_number ? Math.max(0, Number(e.last_episode_number) - (e.completed ? 0 : 1)) : 0;
     return { clave: clave(e), titulo: e.title, cantidad: total, lectura: fechaBiblioteca(e.last_watched_at),
       comprobacion: n?.comprobado, pendientes: total != null ? Math.max(0, total - vistos) : null,
-      reciente: n?.ultimo != null ? Number(n.ultimo) : total, obtencion: n?.obtenido, antiguedad: fechaBiblioteca(e.created_at),
+      reciente: n?.ultimo != null ? Number(n.ultimo) : total, obtencion: n?.publicado ?? n?.obtenido, antiguedad: fechaBiblioteca(e.created_at),
       empezado: !!e.last_episode_number, favorito: opciones.favoritos.includes(clave(e)), completado: serieFinalizada(n?.estado ?? e.status) };
   });
   const historial = (progreso?.historial ?? []).filter((entrada) => coincide(entrada, consulta));

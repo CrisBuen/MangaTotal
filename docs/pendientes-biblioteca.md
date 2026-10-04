@@ -28,12 +28,12 @@ Solo metadatos: identificadores, números de capítulos, fechas y estados. No se
 
 Tres puntos en Lectura y Anime animado: Filtrar / Ordenar / Apariencia.
 Filtros combinables de pendientes, empezados, favoritos y series finalizadas.
-Orden por título, cantidad publicada, última lectura, comprobación, pendientes, capítulo más reciente, detección de novedades, antigüedad y azar estable.
+Orden por título, cantidad publicada, última lectura, comprobación, pendientes, capítulo más reciente, última actualización con capítulos nuevos, antigüedad y azar estable.
 Vista cómoda, compacta o lista, y títulos opcionales.
 Preferencias y estrellas de fuentes externas son locales por cuenta y sección; no modifican ni reemplazan el guardado existente.
 
 Descargados aparece deshabilitado: MangaTotal no descarga capítulos/vídeos.
-La fecha de detección no se presenta como una fecha de descarga.
+La última actualización usa la fecha publicada por la fuente y, si la fuente no la informa, la fecha local de detección. Nunca se presenta como una fecha de descarga.
 Los estados/cantidades que una fuente no proporciona quedan desconocidos; no se inventa un estado terminado.
 Los pendientes de lectura se recalculan contra los números publicados, incluso si hay saltos o decimales.
 

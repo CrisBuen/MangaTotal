@@ -176,14 +176,17 @@ export default function BibliotecaPage() {
     window.history.replaceState(null, "", url.toString());
   }, [restored, seccion, filter, search]);
 
-  // Revisa todas las series guardadas y pone adelante las que sacaron
-  // capítulo nuevo desde la última vez que las leíste.
-  async function actualizarTodo() {
-    if (revisando || guardadas.length === 0) return;
-    iniciar("lectura", guardadas.map(g => ({ source: g.source, external_id: g.external_id, slug: g.slug, type: g.type, last_chapter_name: g.last_chapter_name })));
-  }
-
   const claveDe = (g: SerieGuardada) => `${g.source}-${g.external_id}`;
+
+  // Favoritos es una revisión deliberadamente acotada: no consulta las
+  // demás fichas ni reemplaza la cola completa que ya conserva sus datos.
+  const seriesParaActualizar = filter === "favoritos"
+    ? guardadas.filter(g => opciones.favoritos.includes(claveDe(g)))
+    : filter === "normal" ? guardadas : [];
+  function actualizarCatalogo() {
+    if (revisando || seriesParaActualizar.length === 0) return;
+    iniciar("lectura", seriesParaActualizar.map(g => ({ source: g.source, external_id: g.external_id, slug: g.slug, type: g.type, last_chapter_name: g.last_chapter_name })));
+  }
 
   // primero las que tienen capítulos sin leer, de mayor a menor
   const esAdulta = (g: SerieGuardada) => /^(adult|\+18|hentai)$/i.test(g.type ?? "");
@@ -194,7 +197,7 @@ export default function BibliotecaPage() {
     const n = novedades[claveDe(g)];
     return { clave: claveDe(g), titulo: g.title, cantidad: n?.total, lectura: g.last_chapter_name ? fechaBiblioteca(g.updated_at) : null,
       comprobacion: n?.comprobado, pendientes: pendientesBiblioteca(n, g.last_chapter_name),
-      reciente: n?.ultimo != null ? Number(n.ultimo) : null, obtencion: n?.obtenido, antiguedad: fechaBiblioteca(g.created_at),
+      reciente: n?.ultimo != null ? Number(n.ultimo) : null, obtencion: n?.publicado ?? n?.obtenido, antiguedad: fechaBiblioteca(g.created_at),
       empezado: g.last_chapter_name !== null, favorito: opciones.favoritos.includes(claveDe(g)), completado: serieFinalizada(n?.estado) };
   });
   // El filtro se aplica igual a las lecturas propias y a las otras fuentes.
@@ -406,22 +409,28 @@ export default function BibliotecaPage() {
             <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
               CATÁLOGO
             </h2>
-            <button
-              onClick={actualizarTodo}
-              disabled={revisando || !usuario}
-              title="Revisa todas tus series guardadas y adelanta las que tienen capítulos nuevos"
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
-              data-od-id="actualizar-todo"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className={`h-3.5 w-3.5 fill-current ${revisando ? "animate-spin" : ""}`}
-                aria-hidden="true"
+            {filter !== "adult" && (
+              <button
+                onClick={actualizarCatalogo}
+                disabled={revisando || !usuario || seriesParaActualizar.length === 0}
+                title={filter === "favoritos"
+                  ? "Revisa solamente las series marcadas como favoritas"
+                  : "Revisa todas tus series guardadas y adelanta las que tienen capítulos nuevos"}
+                className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
+                data-od-id={filter === "favoritos" ? "actualizar-favoritos" : "actualizar-todo"}
               >
-                <path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
-              </svg>
-              {revisando ? `Revisando ${avance.hechas}/${avance.total}` : "Actualizar todo"}
-            </button>
+                <svg
+                  viewBox="0 0 24 24"
+                  className={`h-3.5 w-3.5 fill-current ${revisando ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                >
+                  <path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
+                </svg>
+                {revisando
+                  ? `Revisando ${avance.hechas}/${avance.total}`
+                  : filter === "favoritos" ? "Actualizar favoritos" : "Actualizar todo"}
+              </button>
+            )}
           </div>
           <EstadoActualizacion tipo="lectura" />
           {guardadasOrdenadas.length === 0 && <p className="py-6 text-subtle">Ninguna serie coincide con estos filtros.</p>}
