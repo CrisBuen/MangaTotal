@@ -165,11 +165,17 @@ SI CAMBIA EL DOMINIO O EL HTML
 alternativo respondieron. El manifiesto y un segmento HLS devolvieron 200 y
 Access-Control-Allow-Origin: *.
 
-El 04/10/2026 JKAnime empezó a responder 403 al directorio desde algunos
-centros de datos aunque el sitio siguiera cargando normalmente. El adaptador
-reintenta una sola vez después de abrir la portada y reutiliza únicamente las
-cookies temporales que JKAnime entrega en esa misma navegación. No resuelve
-desafíos, no persiste cookies y no cambia el dominio ni el contrato descrito.
+El 04/10/2026 JKAnime empezó a responder 403 al directorio desde la salida de
+Vercel en IAD, aunque el sitio siguiera cargando normalmente. La respuesta era
+un desafío administrado de Cloudflare: también bloqueaba la portada y no
+entregaba cookies, por lo que abrirla antes y reintentar no solucionaba el
+problema. La misma solicitud desde la región gru1 de Vercel respondió 200.
+
+Por eso vercel.json fija en gru1 únicamente las funciones que consultan
+JKAnime, incluidas las que comprueban contenido adulto al guardar biblioteca o
+progreso. No moverlas otra vez a IAD sin repetir la prueba real. Esto no
+resuelve desafíos, no falsifica cookies y no cambia el dominio ni el contrato
+descrito. TioAnime y las demás fuentes conservan su ejecución normal.
 
 En Android, cualquier reproductor animado entra mediante
 activarReproductorHorizontalAndroid(): oculta las barras y fuerza paisaje

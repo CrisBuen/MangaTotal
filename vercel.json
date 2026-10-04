@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/anime/jkanime/route.ts": {
+      "regions": ["gru1"]
+    },
+    "src/app/api/anime/jkanime/[slug]/route.ts": {
+      "regions": ["gru1"]
+    },
+    "src/app/api/anime/jkanime/[slug]/[episode]/route.ts": {
+      "regions": ["gru1"]
+    },
+    "src/app/api/anime/externo/biblioteca/route.ts": {
+      "regions": ["gru1"]
+    },
+    "src/app/api/anime/externo/progreso/route.ts": {
+      "regions": ["gru1"]
+    }
+  }
+}
