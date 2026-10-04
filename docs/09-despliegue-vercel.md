@@ -15,7 +15,7 @@ el alias las dejaría sin web y sin camino de actualización.
 ## 9.1 Qué corre en cada deploy
 
 ```
-vercel-build = prisma generate && prisma migrate deploy && next build
+vercel-build = prisma generate && node scripts/prisma-migrate-deploy.mjs && next build
 ```
 
 Las **migraciones se aplican solas**. Consecuencia directa: una migración
@@ -29,6 +29,7 @@ Se configuran en Vercel → Settings → Environment Variables.
 | Variable | Obligatoria | Para qué |
 |---|---|---|
 | `DATABASE_URL` | sí | Postgres de Neon. **La administra la integración de Neon**: es de solo lectura y se resincroniza sola |
+| `DATABASE_URL_UNPOOLED` | sí en Vercel | Conexión directa de Neon usada exclusivamente por Prisma Migrate para que el bloqueo de migraciones no pase por el pool |
 | `SESSION_SECRET` | sí | Firma la cookie de sesión. Mínimo 32 caracteres |
 | `STORAGE_PROVIDER` | sí en Vercel | `local` \| `blob` \| `r2`. En Vercel **nunca `local`** |
 | `BLOB_READ_WRITE_TOKEN` | si es `blob` | Vercel → Storage → Blob |
@@ -71,6 +72,11 @@ Las dos cosas se ajustan **desde el código, no desde la variable de
 entorno**, porque `DATABASE_URL` la maneja la integración de Neon: es de solo
 lectura y se resincroniza sola cada vez que cambia la contraseña. Lo que se
 ponga a mano en esa variable se pierde.
+
+Las migraciones son la excepción: `scripts/prisma-migrate-deploy.mjs` usa
+`DATABASE_URL_UNPOOLED` (o `POSTGRES_URL_NON_POOLING` en integraciones
+antiguas) solamente durante `prisma migrate deploy`. Los bloqueos de sesión
+de Prisma no deben ejecutarse a través del pool transaccional.
 
 ## 9.4 Almacenamiento de imágenes
 

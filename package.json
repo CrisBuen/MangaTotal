@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && node scripts/prisma-migrate-deploy.mjs && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "branding:generate": "node scripts/generar-logo.mjs",

@@ -112,7 +112,7 @@ si falló).
 En Vercel corren **solas** en cada deploy, porque `vercel-build` es:
 
 ```
-prisma generate && prisma migrate deploy && next build
+prisma generate && node scripts/prisma-migrate-deploy.mjs && next build
 ```
 
 Esto significa dos cosas importantes:
