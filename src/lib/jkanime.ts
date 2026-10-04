@@ -11,7 +11,17 @@ export const JKANIME_NOMBRE = "JKAnime";
 export const JKANIME_WEB = "https://jkanime.net";
 
 const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+
+const CABECERAS_HTML = {
+  "User-Agent": UA,
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
+  "Upgrade-Insecure-Requests": "1",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "same-origin",
+} as const;
 
 export interface SerieJkanime {
   id: number | null;
@@ -272,21 +282,66 @@ function resultadosBusqueda(html: string): SerieJkanime[] {
   return salida;
 }
 
-async function pedirHtml(url: string, fresco = false): Promise<Response> {
+interface RespuestaHtmlJkanime {
+  respuesta: Response;
+  cookies: string;
+}
+
+function unirCookies(...grupos: string[]): string {
+  const cookies = new Map<string, string>();
+  for (const grupo of grupos) {
+    for (const parte of grupo.split(/;\s*/)) {
+      const separador = parte.indexOf("=");
+      if (separador <= 0) continue;
+      cookies.set(parte.slice(0, separador), parte);
+    }
+  }
+  return [...cookies.values()].join("; ");
+}
+
+async function pedirHtmlConSesion(url: string, fresco = false): Promise<RespuestaHtmlJkanime> {
   const init: RequestInit & { next?: { revalidate: number } } = {
-    headers: {
-      "User-Agent": UA,
-      Accept: "text/html,application/xhtml+xml",
-      "Accept-Language": "es-ES,es;q=0.9",
-    },
+    headers: CABECERAS_HTML,
   };
   if (fresco) init.cache = "no-store";
   else init.next = { revalidate: 300 };
   try {
-    return await fetch(url, init);
+    const directa = await fetch(url, init);
+    if (directa.status !== 403 || url === `${JKANIME_WEB}/`) {
+      return { respuesta: directa, cookies: cookiesDe(directa) };
+    }
+
+    // JKAnime empezó a exigir en algunos centros de datos la sesión que su
+    // portada entrega antes de abrir el directorio. Se reproduce esa navegación
+    // normal una sola vez; no se resuelven desafíos ni se guardan sus cookies.
+    const portada = await fetch(`${JKANIME_WEB}/`, {
+      headers: { ...CABECERAS_HTML, "Sec-Fetch-Site": "none" },
+      cache: "no-store",
+    });
+    const cookiesPortada = cookiesDe(portada);
+    if (!portada.ok || !cookiesPortada) {
+      return { respuesta: directa, cookies: cookiesDe(directa) };
+    }
+
+    const respuesta = await fetch(url, {
+      headers: {
+        ...CABECERAS_HTML,
+        Referer: `${JKANIME_WEB}/`,
+        Cookie: cookiesPortada,
+      },
+      cache: "no-store",
+    });
+    return {
+      respuesta,
+      cookies: unirCookies(cookiesPortada, cookiesDe(respuesta)),
+    };
   } catch {
     throw new ErrorJkanime("No se pudo contactar con JKAnime");
   }
+}
+
+async function pedirHtml(url: string, fresco = false): Promise<Response> {
+  return (await pedirHtmlConSesion(url, fresco)).respuesta;
 }
 
 /** Controla accesos directos a episodios cuando +18 está apagado. */
@@ -350,8 +405,9 @@ function datoDe(html: string, etiqueta: string): string | null {
 
 function cookiesDe(res: Response): string {
   const headers = res.headers as Headers & { getSetCookie?: () => string[] };
+  const combinada = headers.get("set-cookie") ?? "";
   const crudas = headers.getSetCookie?.() ??
-    (headers.get("set-cookie") ? [headers.get("set-cookie") as string] : []);
+    (combinada ? combinada.split(/,(?=\s*[^;,\s]+=)/) : []);
   return crudas.map((cookie) => cookie.split(";")[0]).filter(Boolean).join("; ");
 }
 
@@ -361,22 +417,17 @@ export async function fichaJkanime(slug: string, requestedPage = 1): Promise<Fic
   const url = `${JKANIME_WEB}/${slug}/`;
 
   let res: Response;
+  let cookies = "";
   try {
-    res = await fetch(url, {
-      headers: {
-        "User-Agent": UA,
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "es-ES,es;q=0.9",
-      },
-      cache: "no-store",
-    });
+    const ficha = await pedirHtmlConSesion(url, true);
+    res = ficha.respuesta;
+    cookies = ficha.cookies;
   } catch {
     throw new ErrorJkanime("No se pudo contactar con JKAnime");
   }
   if (res.status === 404) throw new ErrorJkanime("Anime no encontrado", 404);
   if (!res.ok) throw new ErrorJkanime(`JKAnime respondió ${res.status}`);
 
-  const cookies = cookiesDe(res);
   const html = await res.text();
   const id = Number(/\/ajax\/episodes\/(\d+)\//i.exec(html)?.[1] ?? 0);
   const token =

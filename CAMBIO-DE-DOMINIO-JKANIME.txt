@@ -165,6 +165,12 @@ SI CAMBIA EL DOMINIO O EL HTML
 alternativo respondieron. El manifiesto y un segmento HLS devolvieron 200 y
 Access-Control-Allow-Origin: *.
 
+El 04/10/2026 JKAnime empezó a responder 403 al directorio desde algunos
+centros de datos aunque el sitio siguiera cargando normalmente. El adaptador
+reintenta una sola vez después de abrir la portada y reutiliza únicamente las
+cookies temporales que JKAnime entrega en esa misma navegación. No resuelve
+desafíos, no persiste cookies y no cambia el dominio ni el contrato descrito.
+
 En Android, cualquier reproductor animado entra mediante
 activarReproductorHorizontalAndroid(): oculta las barras y fuerza paisaje
 desde PantallaPlugin. Al salir restaura la orientación anterior. El CSS
