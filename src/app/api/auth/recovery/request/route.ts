@@ -34,19 +34,27 @@ export async function POST(req: NextRequest) {
     // La respuesta siempre es igual para no revelar qué correos existen.
   }
 
+  let resultado: "correo_invalido" | "cuenta_no_encontrada" | "enviado" | "fallido" =
+    email ? "cuenta_no_encontrada" : "correo_invalido";
   if (email) {
     const user = await db.user.findUnique({ where: { email } });
-    if (user?.email && user.emailVerifiedAt) {
-      await enviarRecuperacion({
+    // Recibir y usar el enlace demuestra control del correo, aunque la cuenta
+    // todavía no haya completado el enlace separado de verificación.
+    if (user?.email) {
+      const enviado = await enviarRecuperacion({
         id: user.id,
         nickname: user.nickname,
         email: user.email,
       }).catch(() => false);
+      resultado = enviado ? "enviado" : "fallido";
     }
   }
+  // Se registra únicamente el resultado, nunca el correo ni el usuario. La
+  // respuesta pública sigue siendo idéntica para no revelar cuentas existentes.
+  console.info(`[recuperacion] resultado=${resultado}`);
 
   return NextResponse.json({
     ok: true,
-    message: "Si el correo está verificado, recibirás un enlace en unos minutos.",
+    message: "Si el correo está asociado a una cuenta, recibirás un enlace en unos minutos.",
   });
 }

@@ -310,7 +310,8 @@ export default function PerfilPage() {
         <div>
           <h2 className="text-3xl text-ink">Datos de recuperación</h2>
           <p className="mt-2 text-[13px] leading-5 text-subtle">
-            El correo es opcional, pero debe verificarse para recuperar una contraseña perdida.
+            El correo es opcional. Los enlaces de verificación y recuperación confirman que te
+            pertenece.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

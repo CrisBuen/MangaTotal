@@ -63,6 +63,7 @@ async function enviarCorreo(
     text?: string;
     replyTo?: string | null;
     attachments?: AdjuntoCorreo[];
+    idempotencyKey?: string;
   } = {},
 ): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -72,28 +73,65 @@ async function enviarCorreo(
     return false;
   }
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html,
-      ...(opciones.text ? { text: opciones.text } : {}),
-      ...(opciones.replyTo ? { reply_to: opciones.replyTo } : {}),
-      ...(opciones.attachments?.length ? { attachments: opciones.attachments } : {}),
-    }),
-    cache: "no-store",
+  const body = JSON.stringify({
+    from,
+    to: [to],
+    subject,
+    html,
+    ...(opciones.text ? { text: opciones.text } : {}),
+    ...(opciones.replyTo ? { reply_to: opciones.replyTo } : {}),
+    ...(opciones.attachments?.length ? { attachments: opciones.attachments } : {}),
   });
-  if (!res.ok) {
-    console.error("[correo] Resend respondió", res.status, await res.text());
-    return false;
+
+  // Resend conserva la clave idempotente durante 24 horas. Así se puede
+  // repetir una caída transitoria sin entregar dos veces el mismo enlace.
+  for (let intento = 0; intento < 2; intento += 1) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          ...(opciones.idempotencyKey
+            ? { "Idempotency-Key": opciones.idempotencyKey }
+            : {}),
+        },
+        body,
+        cache: "no-store",
+      });
+      if (res.ok) return true;
+
+      const detalle = await res.text();
+      const transitorio = res.status === 429 || res.status >= 500;
+      if (transitorio && intento === 0) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        const esperaMs = Number.isFinite(retryAfter)
+          ? Math.min(Math.max(retryAfter * 1_000, 250), 2_000)
+          : 500;
+        await new Promise((resolve) => setTimeout(resolve, esperaMs));
+        continue;
+      }
+      console.error("[correo] Resend respondió", res.status, detalle);
+      return false;
+    } catch (error) {
+      if (intento === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
+      console.error(
+        "[correo] No se pudo conectar con Resend",
+        error instanceof Error ? error.message : "Error desconocido",
+      );
+      return false;
+    }
   }
-  return true;
+  return false;
+}
+
+async function eliminarTokenNoEnviado(token: string): Promise<void> {
+  await db.accountToken.deleteMany({
+    where: { tokenHash: tokenHash(token), usedAt: null },
+  });
 }
 
 function botonCorreo(href: string, etiqueta: string): string {
@@ -268,7 +306,7 @@ export async function enviarVerificacion(
     <p style="margin:0 0 10px;color:#a9a29a;font-size:13px;line-height:20px">El enlace vence en 24 horas y solo se puede usar una vez.</p>
     <p style="margin:0;color:#817b75;font-size:12px;line-height:18px">Si el botón no abre, copiá esta dirección en tu navegador:<br><a href="${escapeHtml(link)}" style="color:#bd7cff;word-break:break-all">${escapeHtml(link)}</a></p>
   `;
-  return enviarCorreo(
+  const enviado = await enviarCorreo(
     user.email,
     "Verificá tu correo de MangaTotal",
     plantillaCorreo({
@@ -285,8 +323,11 @@ Confirmá que este correo pertenece a tu cuenta de MangaTotal:
 ${link}
 
 El enlace vence en 24 horas y solo se puede usar una vez. Si no lo pediste, podés ignorarlo.`,
+      idempotencyKey: `verificacion/${user.id}/${tokenHash(token)}`,
     },
   );
+  if (!enviado) await eliminarTokenNoEnviado(token);
+  return enviado;
 }
 
 export async function enviarRecuperacion(
@@ -306,7 +347,7 @@ export async function enviarRecuperacion(
     <p style="margin:0 0 10px;color:#a9a29a;font-size:13px;line-height:20px">El enlace vence en 30 minutos y solo se puede usar una vez.</p>
     <p style="margin:0;color:#817b75;font-size:12px;line-height:18px">Si el botón no abre, copiá esta dirección en tu navegador:<br><a href="${escapeHtml(link)}" style="color:#bd7cff;word-break:break-all">${escapeHtml(link)}</a></p>
   `;
-  return enviarCorreo(
+  const enviado = await enviarCorreo(
     user.email,
     "Restablecé tu contraseña de MangaTotal",
     plantillaCorreo({
@@ -323,8 +364,11 @@ Recibimos una solicitud para cambiar tu contraseña de MangaTotal:
 ${link}
 
 El enlace vence en 30 minutos y solo se puede usar una vez. Si no lo pediste, no hagas nada.`,
+      idempotencyKey: `recuperacion/${user.id}/${tokenHash(token)}`,
     },
   );
+  if (!enviado) await eliminarTokenNoEnviado(token);
+  return enviado;
 }
 
 export async function verificarTokenCorreo(token: string) {
@@ -363,7 +407,7 @@ export async function usarTokenRecuperacion(
   return db.$transaction(async (tx) => {
     const record = await tx.accountToken.findUnique({
       where: { tokenHash: tokenHash(token) },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, emailVerifiedAt: true } } },
     });
     if (
       !record ||
@@ -381,7 +425,11 @@ export async function usarTokenRecuperacion(
     if (claimed.count !== 1) return false;
     await tx.user.update({
       where: { id: record.userId },
-      data: { passwordHash, sessionVersion: { increment: 1 } },
+      data: {
+        passwordHash,
+        emailVerifiedAt: record.user.emailVerifiedAt ?? ahora,
+        sessionVersion: { increment: 1 },
+      },
     });
     return true;
   });

@@ -31,7 +31,7 @@ export default function RecuperarPage() {
   return (
     <AuthCard title="Recuperá el acceso a tu cuenta">
       <form onSubmit={submit} className="space-y-4">
-        <Field id="recovery-email" label="Correo verificado">
+        <Field id="recovery-email" label="Correo de tu cuenta">
           <input
             id="recovery-email"
             className={inputClass}
