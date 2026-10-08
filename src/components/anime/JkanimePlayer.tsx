@@ -115,6 +115,8 @@ export function ReproductorAnimeExterno({
   const currentRef = useRef(0);
   const durationRef = useRef(0);
   const lastSavedRef = useRef(0);
+  const progresoListoRef = useRef(false);
+  const cargaRef = useRef(0);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastUiUpdateRef = useRef(0);
 
@@ -138,9 +140,11 @@ export function ReproductorAnimeExterno({
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [androidPlayer, setAndroidPlayer] = useState(false);
 
-  const guardarProgreso = useCallback((position: number, total: number) => {
+  const guardarProgreso = useCallback((position: number, total: number, apertura = false) => {
     const info = dataRef.current;
-    if (!info) return;
+    // load()/destroy() también emiten pause y timeupdate en cero. Hasta
+    // restaurar el reloj no deben reemplazar el progreso que vino de la API.
+    if (!info || (!progresoListoRef.current && !apertura)) return;
     const pos = Math.max(0, Math.round(position));
     const dur = Math.max(0, Math.round(total));
     lastSavedRef.current = pos;
@@ -166,6 +170,9 @@ export function ReproductorAnimeExterno({
 
   const cargar = useCallback(
     async (sourceId?: string, positionOverride?: number) => {
+      const carga = ++cargaRef.current;
+      guardarProgreso(currentRef.current, durationRef.current);
+      progresoListoRef.current = false;
       videoRef.current?.pause();
       setLoading(true);
       setMediaReady(false);
@@ -183,6 +190,7 @@ export function ReproductorAnimeExterno({
           { cache: "no-store" }
         );
         const next = await res.json();
+        if (carga !== cargaRef.current) return;
         if (!res.ok) throw new Error(next?.error ?? "No se pudo cargar el episodio");
 
         let inicio = Math.max(0, positionOverride ?? 0);
@@ -197,30 +205,31 @@ export function ReproductorAnimeExterno({
             `/api/anime/externo/progreso?${progressParams}`,
             { cache: "no-store" }
           );
-          if (progressRes.ok) {
-            const progress = await progressRes.json();
-            const posicionGuardada = Math.max(0, Number(progress.position_seconds) || 0);
-            const duracionGuardada = Math.max(0, Number(progress.duration_seconds) || 0);
-            inicio = progress.completed ? 0 : Math.max(0, Number(progress.position_seconds) || 0);
-            registrarApertura =
-              !progress.completed && posicionGuardada === 0 && duracionGuardada === 0;
-          }
+          if (!progressRes.ok) throw new Error("No se pudo recuperar el minuto guardado. Reintentá para conservar tu progreso.");
+          const progress = await progressRes.json();
+          const posicionGuardada = Math.max(0, Number(progress.position_seconds) || 0);
+          const duracionGuardada = Math.max(0, Number(progress.duration_seconds) || 0);
+          inicio = progress.completed ? 0 : posicionGuardada;
+          registrarApertura =
+            !progress.completed && posicionGuardada === 0 && duracionGuardada === 0;
         }
+        if (carga !== cargaRef.current) return;
 
         dataRef.current = next as Reproduccion;
         currentRef.current = inicio;
+        durationRef.current = 0;
         lastSavedRef.current = inicio;
         setStartPosition(inicio);
         setCurrentTime(inicio);
         setData(next as Reproduccion);
         // Crea el historial apenas se abre el episodio. Así también queda
         // registrado si la persona sale antes del primer guardado periódico.
-        if (registrarApertura) guardarProgreso(0, 0);
+        if (registrarApertura) guardarProgreso(0, 0, true);
         if (next.playback.kind === "embed") setMediaReady(false);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo cargar el episodio");
+        if (carga === cargaRef.current) setError(err instanceof Error ? err.message : "No se pudo cargar el episodio");
       } finally {
-        setLoading(false);
+        if (carga === cargaRef.current) setLoading(false);
       }
     },
     [episode, guardarProgreso, slug, source]
@@ -228,12 +237,14 @@ export function ReproductorAnimeExterno({
 
   useEffect(() => {
     void cargar();
+    return () => { cargaRef.current += 1; };
   }, [cargar]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !data || data.playback.kind === "embed") return;
 
+    progresoListoRef.current = false;
     hlsRef.current?.destroy();
     hlsRef.current = null;
     video.pause();
@@ -241,6 +252,7 @@ export function ReproductorAnimeExterno({
     video.load();
     setMediaReady(false);
     setPlaying(false);
+    const carga = cargaRef.current;
     let espera: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       setError(
         "El reproductor no pudo abrir el video en 20 segundos. Código: media-timeout."
@@ -254,13 +266,28 @@ export function ReproductorAnimeExterno({
       espera = null;
     };
 
+    let inicioAplicado = false;
     const iniciar = () => {
-      terminarEspera();
-      if (startPosition > 0 && Number.isFinite(video.duration)) {
-        video.currentTime = Math.min(startPosition, Math.max(0, video.duration - 1));
+      if (carga !== cargaRef.current || inicioAplicado || video.readyState < 1 || !Number.isFinite(video.duration) || video.duration <= 0) return;
+      const objetivo = Math.min(startPosition, Math.max(0, video.duration - 1));
+      if (video.seeking) return;
+      if (Math.abs(video.currentTime - objetivo) > 0.5) {
+        try {
+          video.currentTime = objetivo;
+        } catch {
+          // Algunos WebView aún no admiten seek al recibir los metadatos.
+          // canplay/durationchange vuelven a intentarlo sin perder el marcador.
+          return;
+        }
+        if (video.seeking || Math.abs(video.currentTime - objetivo) > 0.5) return;
       }
-      setDuration(Number.isFinite(video.duration) ? video.duration : 0);
-      durationRef.current = Number.isFinite(video.duration) ? video.duration : 0;
+      inicioAplicado = true;
+      progresoListoRef.current = true;
+      terminarEspera();
+      currentRef.current = video.currentTime;
+      durationRef.current = video.duration;
+      setCurrentTime(video.currentTime);
+      setDuration(video.duration);
       setMediaReady(true);
       void video.play().catch(() => setControlsVisible(true));
     };
@@ -270,9 +297,15 @@ export function ReproductorAnimeExterno({
       setControlsVisible(true);
     };
 
+    // MANIFEST_PARSED puede llegar con duration=NaN/0: no significa que el
+    // video esté listo para saltar al minuto guardado. Restaurar una sola vez
+    // con metadatos reales, y esperar seeked antes de habilitar el guardado.
+    video.addEventListener("loadedmetadata", iniciar);
+    video.addEventListener("durationchange", iniciar);
+    video.addEventListener("canplay", iniciar);
+    video.addEventListener("seeked", iniciar);
     if (data.playback.kind === "mp4") {
       video.src = data.playback.url;
-      video.addEventListener("loadedmetadata", iniciar, { once: true });
       video.addEventListener("error", errorNativo, { once: true });
       video.load();
     } else if (Hls.isSupported()) {
@@ -281,6 +314,7 @@ export function ReproductorAnimeExterno({
         // contexto autenticado al pedir el manifiesto a MangaTotal.
         enableWorker: false,
         lowLatencyMode: false,
+        startPosition,
         manifestLoadingTimeOut: 15_000,
         manifestLoadingMaxRetry: 1,
         // HentaiTV publica muchas pistas VTT en el maestro, pero su reproductor
@@ -325,7 +359,6 @@ export function ReproductorAnimeExterno({
               }))
           );
         }
-        iniciar();
       });
       hls.on(Hls.Events.ERROR, (_event, details) => {
         const esSubtituloOpcionalHentaitv =
@@ -349,7 +382,6 @@ export function ReproductorAnimeExterno({
       // Chromium y WebView2 pueden responder "maybe" y fallar al reproducir,
       // por eso esta comprobación debe quedar después de hls.js.
       video.src = data.playback.url;
-      video.addEventListener("loadedmetadata", iniciar, { once: true });
       video.addEventListener("error", errorNativo, { once: true });
     } else {
       terminarEspera();
@@ -357,8 +389,15 @@ export function ReproductorAnimeExterno({
     }
 
     return () => {
+      // Guardar antes de desmontar; los eventos del vaciado posterior ya no
+      // deben convertir el último minuto visto en un cero.
+      guardarProgreso(currentRef.current, durationRef.current);
+      progresoListoRef.current = false;
       terminarEspera();
       video.removeEventListener("loadedmetadata", iniciar);
+      video.removeEventListener("durationchange", iniciar);
+      video.removeEventListener("canplay", iniciar);
+      video.removeEventListener("seeked", iniciar);
       video.removeEventListener("error", errorNativo);
       hlsRef.current?.destroy();
       hlsRef.current = null;
@@ -366,7 +405,7 @@ export function ReproductorAnimeExterno({
       video.removeAttribute("src");
       video.load();
     };
-  }, [data, source, startPosition]);
+  }, [data, guardarProgreso, source, startPosition]);
 
   useEffect(() => {
     if (source !== "hentaitv") return;
@@ -446,7 +485,7 @@ export function ReproductorAnimeExterno({
 
   const alternarPlay = () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !progresoListoRef.current) return;
     if (video.paused) void video.play().catch(() => {});
     else video.pause();
     mostrarControles();
@@ -472,7 +511,7 @@ export function ReproductorAnimeExterno({
 
   const cambiarTiempo = (value: number) => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !progresoListoRef.current) return;
     video.currentTime = value;
     currentRef.current = value;
     setCurrentTime(value);
@@ -571,13 +610,13 @@ export function ReproductorAnimeExterno({
               guardarProgreso(currentRef.current, durationRef.current);
               mostrarControles();
             }}
-            onCanPlay={() => setMediaReady(true)}
             onLoadedMetadata={(event) => {
               const total = event.currentTarget.duration;
               setDuration(Number.isFinite(total) ? total : 0);
               durationRef.current = Number.isFinite(total) ? total : 0;
             }}
             onTimeUpdate={(event) => {
+              if (!progresoListoRef.current) return;
               const position = event.currentTarget.currentTime;
               const total = event.currentTarget.duration;
               currentRef.current = position;
@@ -701,7 +740,10 @@ export function ReproductorAnimeExterno({
             <span>{error}</span>
             <button
               type="button"
-              onClick={() => void cargar(data?.selected_source, currentRef.current)}
+              onClick={() => {
+                const mismoEpisodio = data?.slug === slug && data?.episode_number === episode;
+                void cargar(mismoEpisodio ? data?.selected_source : undefined, mismoEpisodio ? currentRef.current : undefined);
+              }}
               className="font-mono text-[11px] font-bold text-white underline"
             >
               Reintentar

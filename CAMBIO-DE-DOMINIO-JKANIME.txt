@@ -144,6 +144,15 @@ iframe alternativo no permite leer su reloj por la separación de orígenes.
 Esto es independiente de show_adult_content. El género hentai solo se expone
 si esa segunda preferencia está activa o la cuenta es administradora.
 
+La reanudación no debe hacerse en MANIFEST_PARSED: hls.js puede emitirlo
+cuando el video todavía tiene duration=NaN o cero. Se configura startPosition
+y se espera a los metadatos y al seek confirmado antes de reproducir y guardar.
+Los eventos de load()/destroy() también pueden traer el segundo cero; no deben
+sobrescribir el marcador durante la preparación o la salida. Si falla la consulta
+del progreso, se pide reintentar en lugar de suponer que el episodio es nuevo.
+scripts/verificar-reanudacion-anime.cjs comprueba esta regresión sin cuentas;
+QA_JK_REAL=1 verifica además un episodio HLS real, con progreso ficticio.
+
 
 SI CAMBIA EL DOMINIO O EL HTML
 ------------------------------
