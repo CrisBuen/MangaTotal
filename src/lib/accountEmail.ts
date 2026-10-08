@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { db } from "./db";
 
 const VERIFY_KIND = "verify_email";
@@ -55,6 +55,10 @@ interface AdjuntoCorreo {
   content: string;
 }
 
+export function correoConfigurado(): boolean {
+  return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.EMAIL_FROM?.trim());
+}
+
 async function enviarCorreo(
   to: string,
   subject: string,
@@ -66,8 +70,8 @@ async function enviarCorreo(
     idempotencyKey?: string;
   } = {},
 ): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const from = process.env.EMAIL_FROM?.trim();
   if (!apiKey || !from) {
     console.warn("[correo] RESEND_API_KEY o EMAIL_FROM no configurado");
     return false;
@@ -82,6 +86,7 @@ async function enviarCorreo(
     ...(opciones.replyTo ? { reply_to: opciones.replyTo } : {}),
     ...(opciones.attachments?.length ? { attachments: opciones.attachments } : {}),
   });
+  const idempotencyKey = opciones.idempotencyKey ?? `correo/${randomUUID()}`;
 
   // Resend conserva la clave idempotente durante 24 horas. Así se puede
   // repetir una caída transitoria sin entregar dos veces el mismo enlace.
@@ -92,26 +97,35 @@ async function enviarCorreo(
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          ...(opciones.idempotencyKey
-            ? { "Idempotency-Key": opciones.idempotencyKey }
-            : {}),
+          "Idempotency-Key": idempotencyKey,
         },
         body,
         cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
       });
-      if (res.ok) return true;
+      const detalle = await res.json().catch(() => null) as { id?: string; name?: string } | null;
+      if (res.ok && typeof detalle?.id === "string") {
+        // La aceptación permite rastrear la entrega en Resend. No equivale a
+        // haber llegado al buzón: no guardar el correo, el cuerpo ni el token.
+        console.info("[correo] aceptado por Resend", detalle.id);
+        return true;
+      }
 
-      const detalle = await res.text();
       const transitorio = res.status === 429 || res.status >= 500;
       if (transitorio && intento === 0) {
-        const retryAfter = Number(res.headers.get("retry-after"));
-        const esperaMs = Number.isFinite(retryAfter)
-          ? Math.min(Math.max(retryAfter * 1_000, 250), 2_000)
-          : 500;
-        await new Promise((resolve) => setTimeout(resolve, esperaMs));
-        continue;
+        const retryAfter = res.headers.get("retry-after");
+        const segundos = retryAfter === null ? 0.5 : Number(retryAfter);
+        const esperaMs = Number.isFinite(segundos)
+          ? Math.max(segundos * 1_000, 500)
+          : Math.max(Date.parse(retryAfter!) - Date.now(), 500);
+        // No alargar una petición interactiva ni reintentar antes de lo que
+        // permite el proveedor si agotó la cuota o pidió una espera larga.
+        if (Number.isFinite(esperaMs) && esperaMs <= 2_000) {
+          await new Promise((resolve) => setTimeout(resolve, esperaMs));
+          continue;
+        }
       }
-      console.error("[correo] Resend respondió", res.status, detalle);
+      console.error("[correo] Resend rechazó el envío", res.status, detalle?.name ?? "respuesta_invalida");
       return false;
     } catch (error) {
       if (intento === 0) {
@@ -120,18 +134,12 @@ async function enviarCorreo(
       }
       console.error(
         "[correo] No se pudo conectar con Resend",
-        error instanceof Error ? error.message : "Error desconocido",
+        error instanceof Error ? error.name : "Error desconocido",
       );
       return false;
     }
   }
   return false;
-}
-
-async function eliminarTokenNoEnviado(token: string): Promise<void> {
-  await db.accountToken.deleteMany({
-    where: { tokenHash: tokenHash(token), usedAt: null },
-  });
 }
 
 function botonCorreo(href: string, etiqueta: string): string {
@@ -326,7 +334,8 @@ El enlace vence en 24 horas y solo se puede usar una vez. Si no lo pediste, pod�
       idempotencyKey: `verificacion/${user.id}/${tokenHash(token)}`,
     },
   );
-  if (!enviado) await eliminarTokenNoEnviado(token);
+  // Ante una respuesta perdida, el proveedor puede haber aceptado el correo.
+  // Conservar el token hasta que venza evita entregar un enlace ya invalidado.
   return enviado;
 }
 
@@ -367,7 +376,6 @@ El enlace vence en 30 minutos y solo se puede usar una vez. Si no lo pediste, no
       idempotencyKey: `recuperacion/${user.id}/${tokenHash(token)}`,
     },
   );
-  if (!enviado) await eliminarTokenNoEnviado(token);
   return enviado;
 }
 
