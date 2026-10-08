@@ -3,25 +3,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/Feedback";
 import { SectionHeading } from "@/components/ui/Surface";
-
-interface AdminUser {
-  id: number;
-  nickname: string;
-  is_admin: boolean;
-  show_adult_content: boolean;
-  email: string | null;
-  email_verified: boolean;
-  created_at: string;
-}
+import { Button } from "@/components/ui/Button";
+import { UserSettingsDialog, type AdminUser } from "@/components/admin/UserSettingsDialog";
 
 export default function AdminUsuariosPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [me, setMe] = useState<{ id: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/users");
-    if (res.ok) setUsers(await res.json());
+    try {
+      setError(null);
+      const res = await fetch("/api/admin/users", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo cargar la lista de usuarios.");
+      setUsers(data);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "No se pudo cargar la lista de usuarios.");
+    }
   }, []);
 
   useEffect(() => {
@@ -32,44 +32,14 @@ export default function AdminUsuariosPage() {
     load();
   }, [load]);
 
-  async function toggleAdmin(u: AdminUser) {
-    setError(null);
-    const res = await fetch(`/api/admin/users/${u.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_admin: !u.is_admin }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "No se pudo actualizar");
-      return;
-    }
-    await load();
-  }
-
-  async function remove(u: AdminUser) {
-    setError(null);
-    const ok = window.confirm(
-      `¿Borrar la cuenta "${u.nickname}"? Se pierde su progreso de lectura y favoritos.`
-    );
-    if (!ok) return;
-    const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
-    if (!res.ok && res.status !== 204) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "No se pudo borrar");
-      return;
-    }
-    await load();
-  }
-
   return (
     <div className="space-y-10" data-od-id="admin-users-page">
       <SectionHeading eyebrow="Acceso" title="Usuarios" description="Cuentas de confianza de tu red local. Las cuentas nuevas se crean desde /registro." />
 
-      {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
+      {error && <div className="space-y-3"><p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p><Button onClick={load}>Reintentar</Button></div>}
 
       {users === null ? (
-        <p className="py-6 text-center text-sm text-subtle">Cargando…</p>
+        !error && <p className="py-6 text-center text-sm text-subtle">Cargando…</p>
       ) : users.length === 0 ? (
         <EmptyState title="No hay usuarios" description="Las cuentas registradas aparecerán en esta tabla." />
       ) : (
@@ -82,7 +52,7 @@ export default function AdminUsuariosPage() {
                 <th className="px-4 py-2.5">Correo</th>
                 <th className="px-4 py-2.5">+18</th>
                 <th className="px-4 py-2.5">Creado</th>
-                <th className="px-4 py-2.5"></th>
+                <th className="px-4 py-2.5 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y-2 divide-line">
@@ -120,21 +90,10 @@ export default function AdminUsuariosPage() {
                     {new Date(u.created_at).toLocaleDateString("es-AR")}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    {me?.id !== u.id && (
-                      <>
-                        <button
-                          onClick={() => toggleAdmin(u)}
-                          className="mr-3 min-h-11 text-[13px] font-bold text-ink underline underline-offset-4"
-                        >
-                          {u.is_admin ? "Quitar admin" : "Hacer admin"}
-                        </button>
-                        <button
-                          onClick={() => remove(u)}
-                          className="min-h-11 text-[13px] font-bold text-danger underline underline-offset-4"
-                        >
-                          Borrar
-                        </button>
-                      </>
+                    {me && me.id !== u.id && (
+                      <Button onClick={() => setSelected(u)} aria-haspopup="dialog" aria-label={`Ajustes de ${u.nickname}`}>
+                        Ajustes
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -143,6 +102,15 @@ export default function AdminUsuariosPage() {
           </table>
         </div>
       )}
+      {selected && <UserSettingsDialog key={selected.id} user={selected} onClose={() => setSelected(null)}
+        onUpdated={(updated) => {
+          setUsers((actuales) => actuales?.map((u) => u.id === updated.id ? updated : u) ?? null);
+          setSelected(updated);
+        }}
+        onDeleted={(id) => {
+          setUsers((actuales) => actuales?.filter((u) => u.id !== id) ?? null);
+          setSelected(null);
+        }} />}
     </div>
   );
 }
