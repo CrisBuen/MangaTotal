@@ -224,7 +224,7 @@ export default function BibliotecaPage() {
         description="Explorá tus series, retomá lecturas y encontrá contenido por categoría."
       />
       {/* Lectura, AniList y fuentes animadas se guardan por separado. */}
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tipo de biblioteca">
+      <div className="od-tabs" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
           { key: "animelist" as const, label: "AniList" },

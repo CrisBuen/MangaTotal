@@ -3,7 +3,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 export function Surface({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`rounded-[10px] border border-line bg-panel ${className}`}
+      className={`od-surface rounded border border-line bg-panel ${className}`}
       {...props}
     />
   );
@@ -23,7 +23,7 @@ export function SectionHeading({
   as?: "h1" | "h2" | "h3";
 }) {
   return (
-    <div className="flex flex-col gap-5 border-b border-line pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <div className="od-section-heading flex flex-col gap-5 border-b border-line pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div className="max-w-3xl">
         {eyebrow && (
           <p className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-faint">

@@ -1,30 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Lato } from "next/font/google";
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
 import { AndroidUpdateBanner } from "@/components/pwa/AndroidUpdateBanner";
 import { DesktopUpdater } from "@/components/pwa/DesktopUpdater";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import { ActualizacionesBiblioteca } from "@/components/library/ActualizacionesBiblioteca";
 import "./globals.css";
+import "./opendesign.css";
 
-const archivo = Archivo({
+// La misma familia del HTML de OpenDesign, servida localmente por Next.
+// Una sola familia reduce descargas y evita depender de Google en el WebView.
+const lato = Lato({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-archivo",
-  display: "swap",
-});
-
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-sans",
-  display: "swap",
-});
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-plex-mono",
+  weight: ["400", "700", "900"],
+  variable: "--font-lato",
   display: "swap",
 });
 
@@ -73,7 +62,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es-ES" className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}>
+    <html lang="es-ES" className={lato.variable}>
       <body>
         <ActualizacionesBiblioteca>{children}</ActualizacionesBiblioteca>
         <AnalyticsTracker />

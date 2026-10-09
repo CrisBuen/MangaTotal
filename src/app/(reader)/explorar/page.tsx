@@ -44,9 +44,8 @@ import {
 
 // Leer manga no debe descargar también los tres catálogos de anime.
 const cargandoAnime = () => <p role="status" className="py-12 text-center text-subtle">Cargando catálogo de anime...</p>;
-const JkanimeCatalog = dynamic(() => import("@/components/anime/JkanimeCatalog").then((m) => m.JkanimeCatalog), { loading: cargandoAnime });
+const AnimeDiscover = dynamic(() => import("@/components/discover/AnimeDiscover").then((m) => m.AnimeDiscover), { loading: cargandoAnime });
 const HentaitvCatalog = dynamic(() => import("@/components/anime/HentaitvCatalog").then((m) => m.HentaitvCatalog), { loading: cargandoAnime });
-const TioanimeCatalog = dynamic(() => import("@/components/anime/TioanimeCatalog").then((m) => m.TioanimeCatalog), { loading: cargandoAnime });
 
 interface ExternalSeries {
   id: string;
@@ -119,49 +118,11 @@ function SelectorSecciones({
   animeHabilitado: boolean;
   onChange: (seccion: SeccionExplorar) => void;
 }) {
-  const tarjeta = (activa: boolean) =>
-    `group rounded-[10px] border p-5 text-left transition-colors ${
-      activa
-        ? "border-accent bg-[var(--accent-soft)]"
-        : "border-line bg-panel hover:border-line-strong"
-    }`;
-
   return (
-    <div className={`grid gap-3 ${animeHabilitado ? "sm:grid-cols-2" : ""}`}>
-      <button className={tarjeta(seccion === "lectura")} onClick={() => onChange("lectura")}>
-        <p
-          className={`font-mono text-[11px] font-medium tracking-[0.08em] ${
-            seccion === "lectura" ? "text-accent-ink" : "text-subtle group-hover:text-accent-ink"
-          }`}
-        >
-          {seccion === "lectura" ? "Sección activa" : "Lectura"}
-        </p>
-        <h2 className="mt-2 font-display text-2xl font-semibold text-ink">
-          Sección de lectura
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-subtle">
-          Manga, manhwa y manhua de las fuentes integradas.
-        </p>
-      </button>
-
-      {animeHabilitado && (
-        <button className={tarjeta(seccion === "animada")} onClick={() => onChange("animada")}>
-          <p
-            className={`font-mono text-[11px] font-medium tracking-[0.08em] ${
-              seccion === "animada" ? "text-accent-ink" : "text-subtle group-hover:text-accent-ink"
-            }`}
-          >
-            {seccion === "animada" ? "Sección activa" : "JKAnime · TioAnime"}
-          </p>
-          <h2 className="mt-2 font-display text-2xl font-semibold text-ink">
-            Sección animada
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-subtle">
-            Catálogos, episodios y reproductores oficiales de las fuentes.
-          </p>
-        </button>
-      )}
-    </div>
+    <nav className="od-tabs od-section-tabs" aria-label="Secciones de Explorar">
+      <button aria-current={seccion === "lectura" ? "page" : undefined} onClick={() => onChange("lectura")}>▤ Sección de lectura</button>
+      {animeHabilitado && <button aria-current={seccion === "animada" ? "page" : undefined} onClick={() => onChange("animada")}>▷ Sección animada</button>}
+    </nav>
   );
 }
 
@@ -671,7 +632,7 @@ export default function ExplorarPage() {
     poner("seccion", seccion === "animada" ? "animada" : null);
     poner("anime_fuente", seccion === "animada" && animeFuente !== "jkanime" ? animeFuente : null);
     poner("fuente", fuente === "mangadex" ? null : fuente);
-    poner("q", search.trim() || null);
+    if (seccion === "lectura") poner("q", search.trim() || null);
 
     const pagina =
       fuente === "olympus"
@@ -860,22 +821,29 @@ export default function ExplorarPage() {
     setFuente(siguiente);
   };
 
+  const cambiarFuenteAnime = (siguiente: FuenteAnime) => {
+    if (siguiente === animeFuente) return;
+    // Los nombres y valores de los filtros pertenecen a cada fuente.
+    const url = new URL(location.href);
+    for (const key of ["vista", "q", "genre", "sort", "status", "type", "year", "year_from", "year_to", "season", "letter", "anime_page", "demographic", "category", "order"]) url.searchParams.delete(key);
+    url.searchParams.set("anime_fuente", siguiente);
+    history.replaceState(history.state, "", url);
+    setSearch("");
+    setAnimeFuente(siguiente);
+  };
+
   if (seccion === "animada" && animeHabilitado) {
     return (
-      <div className="space-y-10">
-        <SectionHeading
-          eyebrow="Catálogo animado"
-          title="Anime"
-          description="Elegí una fuente, revisá sus episodios y mirala con su reproductor oficial."
-        />
-
+      <div className="od-explore space-y-6">
+        <h1 className="sr-only">Explorar anime</h1>
+        <div className="od-explore-switcher">
         <SelectorSecciones
           seccion={seccion}
           animeHabilitado={animeHabilitado}
           onChange={setSeccion}
         />
 
-        <div className="space-y-3">
+        <div className="od-source-switcher">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 font-mono text-[11px] font-medium text-faint">
               Fuente
@@ -884,7 +852,7 @@ export default function ExplorarPage() {
               <Chip
                 type="button"
                 key={source}
-                onClick={() => setAnimeFuente(source)}
+                onClick={() => cambiarFuenteAnime(source)}
                 selected={animeFuente === source}
               >
                 {source === "jkanime" ? "JKAnime" : "TioAnime"}
@@ -898,7 +866,7 @@ export default function ExplorarPage() {
               </span>
               <Chip
                 type="button"
-                onClick={() => setAnimeFuente("hentaitv")}
+                onClick={() => cambiarFuenteAnime("hentaitv")}
                 selected={animeFuente === "hentaitv"}
               >
                 HentaiTV
@@ -906,24 +874,23 @@ export default function ExplorarPage() {
             </div>
           )}
         </div>
+        </div>
 
         {animeFuente === "hentaitv" && animeAdultoHabilitado ? (
           <HentaitvCatalog />
-        ) : animeFuente === "jkanime" ? (
-          <JkanimeCatalog />
         ) : (
-          <TioanimeCatalog />
+          <AnimeDiscover key={animeFuente} source={animeFuente === "tioanime" ? "tioanime" : "jkanime"} />
         )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-10">
+    <div className="od-explore space-y-8">
       <SectionHeading
         eyebrow="Catálogo externo"
         title="Explorar"
-        description="Series publicadas por grupos de scanlation en MangaDex. Se leen acá mismo, con tu progreso guardado."
+        description="Manga, manhwa y manhua de tus fuentes. Leé acá mismo y continuá donde quedaste."
       />
 
       <SelectorSecciones

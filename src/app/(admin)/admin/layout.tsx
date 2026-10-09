@@ -8,7 +8,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user.isAdmin) redirect("/biblioteca");
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="od-shell min-h-screen bg-canvas">
       <AppHeader
         mode="admin"
         user={{ nickname: user.nickname, avatarPath: user.avatarPath, isAdmin: user.isAdmin }}

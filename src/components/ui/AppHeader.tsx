@@ -5,11 +5,13 @@ import { HeaderNavLink } from "./HeaderNavLink";
 import { LogoutButton } from "./LogoutButton";
 import { RandomSeriesButton } from "./RandomSeriesButton";
 import { UserAvatar } from "./UserAvatar";
+import { DiscoverMenu } from "@/components/discover/DiscoverMenu";
 
 interface HeaderUser {
   nickname: string;
   avatarPath: string | null;
   isAdmin: boolean;
+  animeEnabled?: boolean;
 }
 
 const adminLinks = [
@@ -92,6 +94,7 @@ export function AppHeader({
         </nav>
 
         <div className="ml-auto flex min-h-11 items-center gap-1.5" data-od-id="account-actions">
+          {mode !== "admin" && <DiscoverMenu animeEnabled={user?.animeEnabled} />}
           {mode !== "admin" && (
             <Link
               href="/mas"

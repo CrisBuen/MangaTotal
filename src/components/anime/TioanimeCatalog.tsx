@@ -37,27 +37,30 @@ function alternar(lista: string[], valor: string): string[] {
   return lista.includes(valor) ? lista.filter((item) => item !== valor) : [...lista, valor];
 }
 
-export function TioanimeCatalog() {
+export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, string> }) {
   const [series, setSeries] = useState<SerieTioanime[] | null>(null);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("recent");
-  const [types, setTypes] = useState<string[]>([]);
-  const [genres, setGenres] = useState<string[]>([]);
-  const [status, setStatus] = useState("");
-  const [yearFrom, setYearFrom] = useState("");
-  const [yearTo, setYearTo] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(initial.q ?? "");
+  const [sort, setSort] = useState(initial.sort ?? "recent");
+  const [types, setTypes] = useState<string[]>(initial.type ? initial.type.split(",") : []);
+  const [genres, setGenres] = useState<string[]>(initial.genre ? initial.genre.split(",") : []);
+  const [status, setStatus] = useState(initial.status ?? "");
+  const [yearFrom, setYearFrom] = useState(initial.year_from ?? "");
+  const [yearTo, setYearTo] = useState(initial.year_to ?? "");
+  const [showFilters, setShowFilters] = useState(Boolean(initial.genre || initial.status));
+  const [page, setPage] = useState(() => Math.max(1, Math.floor(Number(initial.anime_page) || 1)));
   const [lastPage, setLastPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const fresh = useRef(false);
+  const requestId = useRef(0);
+  const lastFilters = useRef(JSON.stringify([genres, search, sort, status, types, yearFrom, yearTo]));
 
   const activeFilters = types.length + genres.length + Number(Boolean(status)) +
     Number(Boolean(yearFrom || yearTo));
 
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     const params = new URLSearchParams({ page: String(page), sort });
     if (search.trim()) params.set("q", search.trim());
     for (const type of types) params.append("type", type);
@@ -88,30 +91,44 @@ export function TioanimeCatalog() {
           force: forzar,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (id !== requestId.current) return;
             setSeries(guardado.series);
             setPage(guardado.page);
             setLastPage(guardado.lastPage);
           },
         }
       );
+      if (id !== requestId.current) return;
       setSeries(data.series);
       setPage(data.page);
       setLastPage(data.lastPage);
     } catch (err) {
+      if (id !== requestId.current) return;
       setSeries([]);
       setError(err instanceof Error ? err.message : "No se pudo cargar TioAnime");
     } finally {
-      fresh.current = false;
-      setRefreshing(false);
+      if (id === requestId.current) { fresh.current = false; setRefreshing(false); }
     }
   }, [genres, page, reload, search, sort, status, types, yearFrom, yearTo]);
 
   useEffect(() => {
     const timer = setTimeout(load, search ? 350 : 0);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); requestId.current++; };
   }, [load, search]);
 
-  useEffect(() => setPage(1), [genres, search, sort, status, types, yearFrom, yearTo]);
+  useEffect(() => {
+    const key = JSON.stringify([genres, search, sort, status, types, yearFrom, yearTo]);
+    if (key !== lastFilters.current) { lastFilters.current = key; setPage(1); }
+  }, [genres, search, sort, status, types, yearFrom, yearTo]);
+
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (url.searchParams.get("vista") !== "catalogo") return;
+    for (const [key, value] of Object.entries({ genre: genres.join(","), type: types.join(","), q: search, sort, status, year_from: yearFrom, year_to: yearTo, anime_page: String(page) })) {
+      if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+    }
+    history.replaceState(history.state, "", url);
+  }, [genres, search, sort, status, types, yearFrom, yearTo, page]);
 
   function limpiar() {
     setTypes([]);
@@ -245,9 +262,9 @@ export function TioanimeCatalog() {
           <p className="mt-1 text-sm text-subtle">Probá con otro término o cambiá los filtros.</p>
         </Surface>
       ) : (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div className="od-catalog-grid grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {series.map((anime) => (
-            <Link key={anime.slug} href={`/explorar/tioanime/${anime.slug}`} className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <Link key={anime.slug} prefetch={false} href={`/explorar/tioanime/${anime.slug}`} className="od-catalog-card group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                 {anime.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element

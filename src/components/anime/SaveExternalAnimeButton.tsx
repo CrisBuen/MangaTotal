@@ -15,7 +15,7 @@ export interface AnimeExternoGuardable {
 }
 
 /** Guarda referencias de anime externo; el reproductor permanece en la fuente. */
-export function SaveExternalAnimeButton({ anime }: { anime: AnimeExternoGuardable }) {
+export function SaveExternalAnimeButton({ anime, onChange }: { anime: AnimeExternoGuardable; onChange?: (saved: boolean) => void }) {
   const [guardado, setGuardado] = useState<boolean | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +52,7 @@ export function SaveExternalAnimeButton({ anime }: { anime: AnimeExternoGuardabl
         throw new Error(data?.error ?? "No se pudo actualizar la biblioteca");
       }
       setGuardado(!guardado);
+      onChange?.(!guardado);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo actualizar la biblioteca");
     } finally {

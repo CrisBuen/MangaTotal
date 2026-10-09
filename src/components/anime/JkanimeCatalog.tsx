@@ -70,13 +70,13 @@ interface CatalogResponse {
   error?: string;
 }
 
-export function JkanimeCatalog() {
+export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, string> }) {
   const [series, setSeries] = useState<SerieJkanime[] | null>(null);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("");
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(initial.q ?? "");
+  const [sort, setSort] = useState(initial.sort ?? "");
+  const [filters, setFilters] = useState(() => Object.fromEntries(Object.keys(EMPTY_FILTERS).map(key => [key, initial[key] ?? ""])) as typeof EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = useState(Boolean(initial.genre || initial.status));
+  const [page, setPage] = useState(() => Math.max(1, Math.floor(Number(initial.anime_page) || 1)));
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
   const [adultEnabled, setAdultEnabled] = useState(false);
@@ -84,8 +84,11 @@ export function JkanimeCatalog() {
   const [reload, setReload] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const fresh = useRef(false);
+  const requestId = useRef(0);
+  const lastFilters = useRef(JSON.stringify([filters, search, sort]));
 
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     const params = new URLSearchParams({ page: String(page) });
     if (search.trim()) params.set("q", search.trim());
     if (sort) params.set("sort", sort);
@@ -110,6 +113,7 @@ export function JkanimeCatalog() {
           force: fresco,
           freshForMs: 15 * 60 * 1000,
           onCached: (guardado) => {
+            if (id !== requestId.current) return;
             setSeries(guardado.series);
             setPage(guardado.page);
             setLastPage(guardado.lastPage);
@@ -118,28 +122,40 @@ export function JkanimeCatalog() {
           },
         }
       );
+      if (id !== requestId.current) return;
       setSeries(data.series);
       setPage(data.page);
       setLastPage(data.lastPage);
       setTotal(data.total);
       setAdultEnabled(data.adult_enabled);
     } catch (err) {
+      if (id !== requestId.current) return;
       setSeries([]);
       setError(err instanceof Error ? err.message : "No se pudo cargar JKAnime");
     } finally {
-      fresh.current = false;
-      setRefreshing(false);
+      if (id === requestId.current) { fresh.current = false; setRefreshing(false); }
     }
   }, [filters, page, reload, search, sort]);
 
   useEffect(() => {
     const timer = setTimeout(load, search ? 350 : 0);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); requestId.current++; };
   }, [load, search]);
 
   useEffect(() => {
-    setPage(1);
+    const key = JSON.stringify([filters, search, sort]);
+    if (key !== lastFilters.current) { lastFilters.current = key; setPage(1); }
   }, [filters, search, sort]);
+
+  useEffect(() => {
+    // Volver desde una serie conserva también página y filtros del directorio.
+    const url = new URL(location.href);
+    if (url.searchParams.get("vista") !== "catalogo") return;
+    for (const [key, value] of Object.entries({ ...filters, q: search, sort, anime_page: String(page) })) {
+      if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+    }
+    history.replaceState(history.state, "", url);
+  }, [filters, search, sort, page]);
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
   const filterGroups: { key: FilterKey; label: string; options: readonly (readonly [string, string])[] }[] = [
@@ -249,12 +265,13 @@ export function JkanimeCatalog() {
           <p className="mt-1 text-sm text-subtle">Probá con otro término o cambiá los filtros.</p>
         </Surface>
       ) : (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div className="od-catalog-grid grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {series.map((anime) => (
             <Link
               key={anime.slug}
               href={`/explorar/jkanime/${anime.slug}`}
-              className="group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              prefetch={false}
+              className="od-catalog-card group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                 {anime.cover_url ? (

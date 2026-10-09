@@ -1,13 +1,17 @@
 import { AppHeader } from "@/components/ui/AppHeader";
 import { MobileNav } from "@/components/ui/MobileNav";
 import { getSessionUser } from "@/lib/auth";
+import { AppFooter } from "@/components/discover/AppFooter";
+import { animeAnimadoPermitido } from "@/lib/animeAcceso";
 
 export default async function ReaderLayout({ children }: { children: React.ReactNode }) {
   // La biblioteca sigue siendo pública; la sesión solo modifica las acciones disponibles.
   const user = await getSessionUser();
+  const animeEnabled = user ? await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt) : false;
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="od-shell min-h-screen bg-canvas">
+      <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[100] focus:bg-accent focus:p-3">Saltar al contenido</a>
       <AppHeader
         user={
           user
@@ -15,6 +19,7 @@ export default async function ReaderLayout({ children }: { children: React.React
                 nickname: user.nickname,
                 avatarPath: user.avatarPath,
                 isAdmin: user.isAdmin,
+                animeEnabled,
               }
             : null
         }
@@ -30,11 +35,13 @@ export default async function ReaderLayout({ children }: { children: React.React
         hermano de main, no hijo.
       */}
       <main
+        id="contenido"
         className="mx-auto max-w-app overflow-x-hidden px-4 pb-28 pt-8 sm:px-6 md:pb-20 md:pt-10 lg:px-10"
         data-od-id="page-content"
       >
         {children}
       </main>
+      <AppFooter />
       <MobileNav />
     </div>
   );

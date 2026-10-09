@@ -14,10 +14,12 @@ export function EpisodeWatchLink({
   href,
   className,
   children,
+  replace = false,
 }: {
   href: string;
   className?: string;
   children: ReactNode;
+  replace?: boolean;
 }) {
   const router = useRouter();
 
@@ -32,11 +34,11 @@ export function EpisodeWatchLink({
       return;
     }
     event.preventDefault();
-    void activarPantallaCompleta().finally(() => router.push(href));
+    void activarPantallaCompleta().finally(() => replace ? router.replace(href) : router.push(href));
   };
 
   return (
-    <Link href={href} onClick={abrir} className={className}>
+    <Link href={href} replace={replace} prefetch={false} onClick={abrir} className={className}>
       {children}
     </Link>
   );
