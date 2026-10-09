@@ -55,3 +55,13 @@ la sincronización, los parsers de fuentes ni los puentes de reproducción.
 No se borró ninguna serie ni progreso. El nuevo aspecto de las apps instaladas
 solo llegará cuando se apruebe y publique en producción; este trabajo entrega
 un preview, no una actualización forzada de sus binarios.
+
+### Aprobación posterior del preview
+
+El 9 de octubre el usuario aprobó el resultado y solicitó publicarlo en main
+con Mi lista integrada en Explorar, sin la pestaña animada duplicada de
+Biblioteca. Los ajustes y la validación adicional se detallan en `NOTES.md`.
+La composición del carrusel mantiene sus controles y transiciones, pero una
+portada pequeña se muestra sin ampliarla; un fondo horizontal HD válido puede
+sustituirla. Esta diferencia evita prometer una resolución que la fuente no
+entrega. Guardados, historial y minutos de reproducción no se migran ni borran.

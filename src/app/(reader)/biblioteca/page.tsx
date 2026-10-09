@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
 import { useEffect, useRef, useState } from "react";
 import { buttonStyles } from "@/components/ui/Button";
@@ -12,9 +13,7 @@ import { FavoritoBiblioteca, MenuBiblioteca, grillaBiblioteca, useOpcionesBiblio
 import { fechaBiblioteca, ordenarBiblioteca, serieFinalizada } from "@/lib/opcionesBiblioteca";
 import { pendientesBiblioteca } from "@/lib/colaBiblioteca";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
-import { SeccionAnimeExterno } from "@/components/library/SeccionAnimeExterno";
 import { SeccionHistorial } from "@/components/library/SeccionHistorial";
-import { isAndroidApp } from "@/lib/appVersion";
 import {
   borrarCachePrivadaAndroid,
   cargarConCacheAndroid,
@@ -61,11 +60,11 @@ interface SerieGuardada {
 type Filter = "normal" | "adult" | "favoritos";
 
 export default function BibliotecaPage() {
+  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [filter, setFilter] = useState<Filter>("normal");
-  const [seccion, setSeccion] = useState<"lectura" | "animelist" | "anime-animado">("lectura");
-  const [animeAnimadoHabilitado, setAnimeAnimadoHabilitado] = useState(false);
+  const [seccion, setSeccion] = useState<"lectura" | "animelist">("lectura");
   const [search, setSearch] = useState("");
   const [restored, setRestored] = useState(false);
   const [guardadas, setGuardadas] = useState<SerieGuardada[]>([]);
@@ -92,13 +91,17 @@ export default function BibliotecaPage() {
   const abrirDesdeBiblioteca = () => sessionStorage.setItem("biblioteca:regreso", "1");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    // Los marcadores antiguos llevan a la misma colección, ahora en Explorar.
+    // Solo cambia su ubicación: no se borra ni migra ninguna referencia.
+    if (params.get("s") === "anime-animado") {
+      const destino = new URLSearchParams({ seccion: "animada", vista: "milista" });
+      if (params.get("q")) destino.set("q", params.get("q")!);
+      router.replace(`/explorar?${destino}`);
+      return;
+    }
     const aplicarMe = (actual: Me) => {
         setMe(actual);
-        const permitido = !isAndroidApp() || Boolean(actual.anime_enabled);
-        setAnimeAnimadoHabilitado(permitido);
-        if (!permitido) {
-          setSeccion((valor) => (valor === "anime-animado" ? "lectura" : valor));
-        }
     };
 
     void (async () => {
@@ -150,10 +153,8 @@ export default function BibliotecaPage() {
       .catch(() => {});
     // restaurar el estado desde la URL: pestaña activa, tag y búsqueda
     // (así "atrás" desde una serie vuelve a la misma sección)
-    const params = new URLSearchParams(window.location.search);
     const urlSeccion = params.get("s");
     if (urlSeccion === "animadas" || urlSeccion === "animelist") setSeccion("animelist");
-    if (urlSeccion === "anime-animado") setSeccion("anime-animado");
     const urlFilter = params.get("f");
     if (urlFilter && ["normal", "adult", "favoritos"].includes(urlFilter)) {
       setFilter(urlFilter as Filter);
@@ -161,7 +162,7 @@ export default function BibliotecaPage() {
     const urlSearch = params.get("q");
     if (urlSearch) setSearch(urlSearch);
     setRestored(true);
-  }, []);
+  }, [router]);
 
   // reflejar el estado en la URL (replaceState: no ensucia el historial)
   useEffect(() => {
@@ -223,14 +224,11 @@ export default function BibliotecaPage() {
         title="Biblioteca"
         description="Explorá tus series, retomá lecturas y encontrá contenido por categoría."
       />
-      {/* Lectura, AniList y fuentes animadas se guardan por separado. */}
+      {/* AniList conserva su seguimiento; las fuentes animadas viven en Explorar. */}
       <div className="od-tabs" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
           { key: "animelist" as const, label: "AniList" },
-          ...(animeAnimadoHabilitado
-            ? [{ key: "anime-animado" as const, label: "Anime animado" }]
-            : []),
         ] as const).map((t) => (
           <Chip
             key={t.key}
@@ -247,8 +245,6 @@ export default function BibliotecaPage() {
 
       {seccion === "animelist" ? (
         <SeccionAnimadas busqueda={search} />
-      ) : seccion === "anime-animado" && animeAnimadoHabilitado ? (
-        <SeccionAnimeExterno busqueda={search} />
       ) : (
        <>
       {/* Historial: lo que abriste para leer y no llegaste a guardar */}

@@ -13,7 +13,7 @@ No se clonan ni reemplazan autenticación, base de datos, parsers o puentes.
 La referencia tiene catálogo ficticio y enlaces vacíos; no se copiarán como
 funciones reales ni se inventarán datos, calendarios, doblajes o tendencias.
 
-## Plan y límites
+## Plan y límites del preview inicial
 
 1. Rama `codex/opendesign-integral` desde producción. Nunca publicar en main.
 2. Tipografía Lato autoalojada, tokens originales, navegación y superficies.
@@ -92,3 +92,29 @@ marca ficticia ni se redistribuye su HTML o skill. La fuente conserva sus
 créditos y el proyecto conserva su licencia. No hay cambios de dependencia,
 base de datos, claves ni configuración de producción.
 Publicación autorizada: rama `codex/opendesign-integral` y preview de Vercel.
+
+## Ajustes aprobados y paso a producción · 9 de octubre de 2026
+
+El usuario aprobó el preview y autorizó publicar el diseño y estos ajustes en
+main. Se implementan en la misma rama aparte antes de avanzar main, sin force.
+
+- Se retira solo la pestaña «Anime animado» de Biblioteca. Los enlaces antiguos
+  redirigen a Explorar → Sección animada → Mi lista, conservando la búsqueda.
+- Mi lista usa la colección y las preferencias existentes, en cuadrícula de
+  portadas. No mueve, duplica ni elimina registros. El historial y la continuación
+  siguen accesibles desde esa sección, separados de los guardados.
+- Se conserva la actualización del catálogo, el menú de biblioteca, los
+  favoritos y las restricciones por cuenta/canal Android.
+- Los catálogos JKAnime/TioAnime dejan de repetir el selector de orden; las
+  pestañas y sus parámetros controlan el directorio. El guardado dice
+  «Guardar en Mi lista» / «En Mi lista».
+- El carrusel deja de ampliar portadas pequeñas hasta cubrir toda la pantalla.
+  JKAnime se comprobó con una portada original de 429×600 y TioAnime con una
+  de 260×370. TioAnime ofrece además `/uploads/fondos/`, pero algunas imágenes
+  son marcadores de 1×1: solo se usan fondos horizontales de al menos 1280×720.
+  No se inventa Full HD ni se incorpora otro servicio o petición de metadatos.
+
+La comprobación adicional cubre ambas rutas personales, enlaces antiguos,
+ausencia del selector duplicado, guardado desde la ficha y fondos HD/1×1 con
+datos simulados. No hay migraciones, escrituras en cuentas reales ni cambios
+en binarios: las cuatro plataformas reciben el frontend al recargar producción.

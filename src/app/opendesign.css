@@ -110,6 +110,9 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
 .od-slide { position: absolute; inset: 0; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
 .od-slide[data-active="true"] { opacity: 1; pointer-events: auto; }
 .od-slide-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% 30%; }
+.od-slide-poster { position: absolute; top: 0; right: 5%; width: 48%; height: 100%; object-fit: scale-down; object-position: center; }
+.od-slide-poster[hidden] { display: none; }
+.od-artwash { position: absolute; inset: 0; background: radial-gradient(ellipse at 80% 40%,var(--accent-soft),transparent 65%); }
 .od-slide-scrim { position: absolute; inset: 0; background: linear-gradient(90deg,#000f 0%,#000d 26%,#0005 56%,#0000 78%),linear-gradient(0deg,#000 0%,#0000 34%); }
 .od-slide-content { position: relative; height: 100%; max-width: min(560px,72%); padding: 0 0 clamp(76px,10vh,104px) var(--od-pad); display: flex; flex-direction: column; justify-content: flex-end; opacity: 0; transition: opacity .18s ease; }
 .od-slide[data-active="true"] .od-slide-content { opacity: 1; transition: opacity .34s ease .22s; }
@@ -235,6 +238,10 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
   .od-slide { position: relative; display: none; }
   .od-slide[data-active="true"] { display: block; }
   .od-slide-art { position: relative; aspect-ratio: 16/10; height: auto; }
+  .od-slide-poster { position: relative; right: auto; width: 100%; height: min(82vw,340px); }
+  .od-slide[data-poster="true"] .od-slide-art { position: absolute; height: min(82vw,340px); }
+  .od-slide[data-poster="true"] .od-slide-poster[hidden] { display: block; visibility: hidden; }
+  .od-slide[data-poster="true"] .od-slide-content { margin-top: 12px; }
   .od-slide-scrim { background: linear-gradient(0deg,#000 4%,#0005 46%,transparent); }
   .od-slide-content { max-width: 100%; padding: 0 var(--od-pad) 22px; margin-top: -56px; height: auto; }
   .od-slide[data-image="false"] .od-slide-content { margin-top: 0; padding-top: 40px; }

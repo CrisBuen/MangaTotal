@@ -237,7 +237,7 @@ function BloqueProgreso({
 }
 
 /** Biblioteca, historial y continuación de anime reproducible. */
-export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
+export function SeccionAnimeExterno({ busqueda, soloGuardados = false, soloHistorial = false }: { busqueda: string; soloGuardados?: boolean; soloHistorial?: boolean }) {
   const { usuario, trabajos, iniciar } = useActualizaciones();
   const { opciones, cambiar, favorito } = useOpcionesBiblioteca("anime");
   const [consulta, setConsulta] = useState(busqueda);
@@ -250,6 +250,14 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
   const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
   const [historialModificado, setHistorialModificado] = useState(false);
 
+  useEffect(() => {
+    if (!soloGuardados && !soloHistorial) return;
+    const url = new URL(location.href);
+    if (consulta.trim()) url.searchParams.set("q", consulta.trim());
+    else url.searchParams.delete("q");
+    history.replaceState(history.state, "", url);
+  }, [consulta, soloGuardados, soloHistorial]);
+
   // Solo persistimos una eliminación confirmada, fuera del actualizador de React.
   useEffect(() => {
     if (historialModificado && progreso) {
@@ -258,7 +266,8 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
   }, [historialModificado, progreso]);
 
   useEffect(() => {
-    cargarConCacheAndroid<Entrada[]>(
+    if (soloHistorial) setEntradas([]);
+    else cargarConCacheAndroid<Entrada[]>(
       "biblioteca:anime-externo",
       async (signal) => {
         const res = await fetch("/api/anime/externo/biblioteca", {
@@ -273,6 +282,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
       .then((data) => setEntradas(Array.isArray(data) ? data : []))
       .catch(() => setEntradas([]));
 
+    if (soloGuardados) { setCargandoProgreso(false); return; }
     cargarConCacheAndroid<ProgresoAnime>(
       "biblioteca:anime-externo:progreso",
       async (signal) => {
@@ -297,7 +307,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
       }))
       .catch(() => setProgreso({ historial: [], continuar: [] }))
       .finally(() => setCargandoProgreso(false));
-  }, []);
+  }, [soloGuardados, soloHistorial]);
 
   async function quitarHistorial(entrada: Entrada) {
     if (quitando || cargandoProgreso) return;
@@ -354,36 +364,38 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
       <section className="rounded-[10px] border border-line bg-panel p-3">
         <div className="flex flex-wrap items-center gap-3">
           <input aria-label="Buscar anime en biblioteca" placeholder="Buscar anime…" value={consulta} onChange={e => setConsulta(e.target.value)} className="min-h-11 min-w-0 flex-1 rounded-md border border-line bg-canvas px-3" />
-          <button type="button" disabled={revisando || !usuario || !entradas.length} onClick={() => iniciar("anime", entradas.map(e => ({ source: e.source, external_id: e.external_id, slug: e.slug ?? null, type: e.type, last_chapter_name: e.last_episode_number })))}
+          {!soloHistorial && <><button type="button" disabled={revisando || !usuario || !entradas.length} onClick={() => iniciar("anime", entradas.map(e => ({ source: e.source, external_id: e.external_id, slug: e.slug ?? null, type: e.type, last_chapter_name: e.last_episode_number })))}
             className="min-h-11 rounded-md border border-line px-4 text-sm disabled:opacity-50">{revisando ? "Revisando…" : "Actualizar todo"}</button>
-          <MenuBiblioteca opciones={opciones} cambiar={cambiar} anime />
+          <MenuBiblioteca opciones={opciones} cambiar={cambiar} anime /></>}
         </div>
-        <EstadoActualizacion tipo="anime" />
+        {!soloHistorial && <EstadoActualizacion tipo="anime" />}
       </section>
       {errorHistorial && <p role="alert" className="text-sm text-red-400">{errorHistorial}</p>}
-      <BloqueProgreso
+      {soloHistorial && cargandoProgreso && <p role="status">Cargando historial…</p>}
+      {soloHistorial && !cargandoProgreso && !historial.length && !continuar.length && <EmptyState title="Sin resultados en el historial" description="Los animes que veas aparecerán acá. Si buscaste un nombre, probá con otro." />}
+      {!soloGuardados && <BloqueProgreso
         titulo="Historial"
         detalle="Visto y sin guardar"
         entradas={historial}
         historial
         onQuitar={quitarHistorial}
         quitando={quitando || cargandoProgreso}
-      />
-      <BloqueProgreso
+      />}
+      {!soloGuardados && <BloqueProgreso
         titulo="Continuar viendo"
         detalle="Tu progreso"
         entradas={continuar}
         reanudar
-      />
+      />}
 
-      <section className="space-y-6">
+      {!soloHistorial && <section className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="font-mono text-[11px] font-bold tracking-[0.08em] text-accent-ink">
               Fuentes externas
             </p>
             <h2 className="mt-1 font-display text-3xl font-bold leading-none text-ink">
-              Anime animado
+              Mi lista
             </h2>
           </div>
           <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
@@ -393,7 +405,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
 
         {entradas.length === 0 ? (
           <EmptyState
-            title="Todavía no guardaste anime animado"
+            title="Todavía no guardaste animes en Mi lista"
             description="Elegí una serie de JKAnime, TioAnime o una fuente +18 habilitada y guardala para encontrarla acá."
             action={
               <Link
@@ -413,6 +425,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
               <Link
                 key={`${entrada.source}:${entrada.external_id}`}
                 href={entrada.href}
+                prefetch={false}
                 className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -446,7 +459,7 @@ export function SeccionAnimeExterno({ busqueda }: { busqueda: string }) {
             ))}
           </div>
         )}
-      </section>
+      </section>}
     </div>
   );
 }

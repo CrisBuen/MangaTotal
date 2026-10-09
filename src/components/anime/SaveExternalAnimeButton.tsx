@@ -79,7 +79,7 @@ export function SaveExternalAnimeButton({ anime, onChange }: { anime: AnimeExter
             <path d="M6 2h12a1 1 0 0 1 1 1v18l-7-4-7 4V3a1 1 0 0 1 1-1zm1 2v14.3l5-2.9 5 2.9V4H7z" />
           )}
         </svg>
-        {guardado === null ? "..." : guardado ? "En Anime animado" : "Guardar en Anime animado"}
+        {guardado === null ? "..." : guardado ? "En Mi lista" : "Guardar en Mi lista"}
       </button>
       {error && <p className="max-w-xs text-[13px] text-red-400">{error}</p>}
     </div>

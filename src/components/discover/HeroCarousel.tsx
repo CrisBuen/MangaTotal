@@ -7,11 +7,36 @@ export interface HeroItem {
   id: string;
   title: string;
   image: string | null;
+  poster?: boolean;
+  backdrop?: string | null;
   description?: string | null;
   meta?: string;
   href: string;
   action?: string;
   extra?: ReactNode;
+}
+
+function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
+  const [wide, setWide] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
+  return <>
+    {/* Una portada vertical no tiene resolución para cubrir una pantalla entera.
+        Se conserva a escala natural; un fondo solo la sustituye si es HD real.
+        TioAnime entrega también fondos de 1×1 para series sin banner. */}
+    {item.poster && <div className="od-artwash" aria-hidden="true" />}
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    {item.image && <img className={item.poster ? "od-slide-poster" : "od-slide-art"} src={item.image} alt="" hidden={wide} referrerPolicy="no-referrer" fetchPriority={active ? "high" : "low"} decoding="async" />}
+    {item.backdrop && !unavailable && (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img className="od-slide-art" src={item.backdrop} alt="" style={{ visibility: wide ? "visible" : "hidden" }}
+        referrerPolicy="no-referrer" fetchPriority="low" decoding="async"
+        onError={() => setUnavailable(true)} onLoad={event => {
+          const { naturalWidth: width, naturalHeight: height } = event.currentTarget;
+          if (width >= 1280 && height >= 720 && width / height >= 1.5) setWide(true);
+          else setUnavailable(true);
+        }} />
+    )}
+  </>;
 }
 
 /** La animación proviene del HTML; solamente los datos y enlaces son reales. */
@@ -42,11 +67,10 @@ export function HeroCarousel({ items, heading = "h1" }: { items: HeroItem[]; hea
       onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
       onFocusCapture={() => setInteracting(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}>
       {items.map((item, i) => (
-        <div key={item.id} className="od-slide" data-active={i === current} data-image={Boolean(item.image)} aria-hidden={i !== current} inert={i !== current}>
+        <div key={item.id} className="od-slide" data-active={i === current} data-image={Boolean(item.image)} data-poster={Boolean(item.poster)} aria-hidden={i !== current} inert={i !== current}>
           {/* No descargar las seis portadas enormes antes del primer cuadro. */}
           {item.image && (i === current || i === (current + 1) % items.length || i === (current + items.length - 1) % items.length) && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className="od-slide-art" src={item.image} alt="" referrerPolicy="no-referrer" fetchPriority={i === current ? "high" : "low"} decoding="async" />
+            <HeroArtwork item={item} active={i === current} />
           )}
           <div className="od-slide-scrim" aria-hidden="true" />
           <div className="od-slide-content">

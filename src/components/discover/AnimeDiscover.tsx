@@ -13,6 +13,7 @@ import type { FichaTioanime } from "@/lib/tioanime";
 
 const JkanimeCatalog = dynamic(() => import("@/components/anime/JkanimeCatalog").then(m => m.JkanimeCatalog));
 const TioanimeCatalog = dynamic(() => import("@/components/anime/TioanimeCatalog").then(m => m.TioanimeCatalog));
+const MiLista = dynamic(() => import("@/components/library/SeccionAnimeExterno").then(m => m.SeccionAnimeExterno));
 type Source = "jkanime" | "tioanime";
 type Series = { slug: string; title: string; cover_url: string | null; type: string | null; status: string | null };
 type Catalog = { series: Series[] };
@@ -21,6 +22,13 @@ type Progress = { episode_number: string; position_seconds: number; duration_sec
 type Detail = FichaJkanime | FichaTioanime;
 const SOURCE_NAMES = { jkanime: "JKAnime", tioanime: "TioAnime" };
 const TIO_GENRES: Record<string, string> = { "sci-fi": "ciencia-ficcion", "cosas-de-la-vida": "recuentos-de-la-vida", thriller: "suspenso" };
+
+function backdrop(source: Source, cover: string | null) {
+  if (source !== "tioanime" || !cover) return null;
+  // Ruta publicada por la ficha oficial; no acepta hosts ni URLs arbitrarias.
+  const match = /^https:\/\/tioanime\.com\/uploads\/portadas\/(\d+)\.jpg$/.exec(cover);
+  return match ? `https://tioanime.com/uploads/fondos/${match[1]}.jpg` : null;
+}
 
 function catalogUrl(source: Source, values: Record<string, string> = {}) {
   return `/explorar?${new URLSearchParams({ seccion: "animada", anime_fuente: source, vista: "catalogo", ...values })}`;
@@ -165,6 +173,11 @@ function AnimeSheet({ source, item, close, onLibraryChange }: { source: Source; 
 export function AnimeDiscover({ source }: { source: Source }) {
   const [initial] = useState(() => typeof window === "undefined" ? {} : Object.fromEntries(new URLSearchParams(location.search)));
   const directory = initial.vista === "catalogo";
+  const myList = initial.vista === "milista";
+  const historyView = initial.vista === "historial";
+  const personalView = myList || historyView;
+  const listUrl = `/explorar?seccion=animada&anime_fuente=${source}&vista=milista`;
+  const historyUrl = `/explorar?seccion=animada&anime_fuente=${source}&vista=historial`;
   const [recent, setRecent] = useState<Series[] | null>(null);
   const [error, setError] = useState("");
   const [library, setLibrary] = useState<Saved[]>([]);
@@ -200,13 +213,13 @@ export function AnimeDiscover({ source }: { source: Source }) {
   }, [source]);
   useEffect(() => { const active = controllers.current; return () => { active.forEach(controller => controller.abort()); }; }, []);
   useEffect(() => {
-    if (directory) return;
+    if (directory || personalView) return;
     let active = true; setError("");
     load("page=1").then(data => { if (active) setRecent(data.series); }).catch(err => { if (active) setError(err.name === "AbortError" ? "La fuente tardó demasiado. Reintentá la carga." : err.message); });
     return () => { active = false; };
-  }, [load, directory, attempt]);
+  }, [load, directory, personalView, attempt]);
   useEffect(() => {
-    if (directory) return;
+    if (directory || personalView) return;
     const controller = new AbortController();
     setAccountError("");
     Promise.all([
@@ -224,30 +237,33 @@ export function AnimeDiscover({ source }: { source: Source }) {
       else setAccountError(err.message);
     });
     return () => controller.abort();
-  }, [source, directory, accountVersion]);
+  }, [source, directory, personalView, accountVersion]);
   const savedSlugs = new Set(library.map(entry => entry.slug));
   const continuing = historyItems.filter(entry => !entry.completed && entry.resume_href);
   const title = SOURCE_NAMES[source];
   const genre = (id: string) => source === "tioanime" ? TIO_GENRES[id] ?? id : id;
   return <div className="od-discover" data-od-id="anime-discover">
     <nav className="od-tabs" aria-label="Descubrir anime">
-      <a aria-current={!directory ? "page" : undefined} href={`/explorar?seccion=animada&anime_fuente=${source}`}>Descubrir</a>
-      <a aria-current={directory && !initial.sort && !initial.status && !initial.genre ? "page" : undefined} href={catalogUrl(source)}>Todos los títulos</a>
-      {source === "jkanime" && <a href={catalogUrl(source, { sort: "popularidad" })}>Populares</a>}
-      <a href={catalogUrl(source, { status: source === "jkanime" ? "emision" : "1" })}>En emisión</a>
-      {source === "jkanime" && <a href={catalogUrl(source, { sort: "nombre" })}>A–Z</a>}
-      <Link href="/biblioteca?s=anime-animado">Mi lista</Link>
+      <a aria-current={!directory && !personalView ? "page" : undefined} href={`/explorar?seccion=animada&anime_fuente=${source}`}>Descubrir</a>
+      <a aria-current={directory && (!initial.sort || initial.sort === "recent") && !initial.status ? "page" : undefined} href={catalogUrl(source)}>Todos los títulos</a>
+      {source === "jkanime" && <a aria-current={directory && initial.sort === "popularidad" ? "page" : undefined} href={catalogUrl(source, { sort: "popularidad" })}>Populares</a>}
+      <a aria-current={directory && initial.status ? "page" : undefined} href={catalogUrl(source, { status: source === "jkanime" ? "emision" : "1" })}>En emisión</a>
+      {source === "jkanime" && <a aria-current={directory && initial.sort === "nombre" ? "page" : undefined} href={catalogUrl(source, { sort: "nombre" })}>A–Z</a>}
+      <a aria-current={personalView ? "page" : undefined} href={listUrl}>Mi lista</a>
     </nav>
-    {directory ? <>{source === "jkanime" ? <JkanimeCatalog initial={initial} /> : <TioanimeCatalog initial={initial} />}</> : <>
+    {personalView ? <>
+      <div className="mb-5 flex justify-end"><a className="od-outline" href={historyView ? listUrl : historyUrl}>{historyView ? "← Volver a Mi lista" : "Ver historial"}</a></div>
+      <MiLista busqueda={initial.q ?? ""} soloGuardados={myList} soloHistorial={historyView} />
+    </> : directory ? <>{source === "jkanime" ? <JkanimeCatalog initial={initial} /> : <TioanimeCatalog initial={initial} />}</> : <>
       <form className="od-discover-tools" action="/explorar" role="search" aria-label={`Buscar en ${title}`}>
         <input type="hidden" name="seccion" value="animada" /><input type="hidden" name="anime_fuente" value={source} /><input type="hidden" name="vista" value="catalogo" />
         <input name="q" value={search} onChange={event => setSearch(event.target.value)} placeholder={`Buscar todas las series de ${title}…`} aria-label={`Buscar todas las series de ${title}`} type="search" />
         <button className="od-outline" type="submit">Buscar →</button>
       </form>
-      {recent?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={recent.slice(0, 5).map(item => ({ id: item.slug, title: item.title, image: item.cover_url, meta: [title, item.type, item.status].filter(Boolean).join(" · "), href: `/explorar/${source}/${item.slug}`, action: "Ver serie", extra: <button className="od-outline" onClick={() => setSelected(item)}>ⓘ Episodios y detalles</button> }))} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
+      {recent?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={recent.slice(0, 5).map(item => ({ id: item.slug, title: item.title, image: item.cover_url, poster: true, backdrop: backdrop(source, item.cover_url), meta: [title, item.type, item.status].filter(Boolean).join(" · "), href: `/explorar/${source}/${item.slug}`, action: "Ver serie", extra: <button className="od-outline" onClick={() => setSelected(item)}>ⓘ Episodios y detalles</button> }))} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
       {error && <div className="od-message" role="alert"><p>{error}</p><button onClick={() => setAttempt(value => value + 1)}>Reintentar {title}</button></div>}
       {accountError && <div className="od-message">No se pudo consultar tu lista: {accountError} <button onClick={() => setAccountVersion(value => value + 1)}>Reintentar lista</button></div>}
-      {continuing.length > 0 && <MediaRail title="Continuar viendo" wide href="/biblioteca?s=anime-animado">
+      {continuing.length > 0 && <MediaRail title="Continuar viendo" wide href={historyUrl}>
         {continuing.map(item => <div className="od-media-card" key={item.external_id}>
           <EpisodeWatchLink className="od-media-thumb" href={item.resume_href!}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -263,7 +279,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
       <section className="od-genres" aria-labelledby="od-genres-title"><h2 id="od-genres-title">¿Qué te gustaría ver?</h2><p>Elegí un género y explorá su catálogo completo.</p><div className="od-genre-grid">{DISCOVER_GENRES.map(([id, label]) => <a key={id} href={catalogUrl(source, { genre: genre(id) })}>{label}<span aria-hidden="true">↗</span></a>)}</div></section>
       {recent && source === "jkanime" && <LazyRail title="Populares en JKAnime" source={source} query="sort=popularidad" load={load} onPreview={setSelected} saved={savedSlugs} />}
       {recent && <LazyRail title="En emisión" source={source} query={`status=${source === "jkanime" ? "emision" : "1"}`} load={load} onPreview={setSelected} saved={savedSlugs} />}
-      {library.length > 0 && <MediaRail title="Tu lista" href="/biblioteca?s=anime-animado">{library.map(item => <Poster key={item.external_id} item={item} saved onPreview={setSelected} />)}</MediaRail>}
+      {library.length > 0 && <MediaRail title="Tu lista" href={listUrl}>{library.map(item => <Poster key={item.external_id} item={item} saved onPreview={setSelected} />)}</MediaRail>}
       {recent && [["accion", "Acción sin pausa"], ["fantasia", "Mundos de fantasía"], ["romance", "Historias de romance"], ["comedia", "Un momento de comedia"], ["sci-fi", "Ciencia ficción"]].map(([id, label]) => <LazyRail key={id} title={label} source={source} query={`genre=${genre(id)}`} load={load} onPreview={setSelected} saved={savedSlugs} />)}
       <div className="od-catalog-cta"><h2>Hay mucho más por descubrir</h2><p>Todos los títulos, filtros por género y episodios disponibles en {title}.</p><a href={catalogUrl(source)} className="od-primary">Explorar catálogo completo →</a></div>
       <p className="od-source-credit">Catálogo, fichas y episodios de <a href={source === "jkanime" ? "https://jkanime.net/" : "https://tioanime.com/"} target="_blank" rel="noopener noreferrer">{title} ↗</a>, con su permiso. Disponibilidad según la fuente.</p>

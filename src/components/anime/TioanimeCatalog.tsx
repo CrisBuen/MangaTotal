@@ -18,10 +18,6 @@ const ESTADOS = [
   ["2", "Finalizado"],
   ["3", "Próximamente"],
 ] as const;
-const ORDENES = [
-  ["recent", "Más recientes"],
-  ["-recent", "Más antiguos"],
-] as const;
 const ANIO_ACTUAL = new Date().getFullYear();
 const ANIOS = Array.from({ length: ANIO_ACTUAL - 1949 }, (_, indice) => ANIO_ACTUAL - indice);
 
@@ -40,7 +36,7 @@ function alternar(lista: string[], valor: string): string[] {
 export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, string> }) {
   const [series, setSeries] = useState<SerieTioanime[] | null>(null);
   const [search, setSearch] = useState(initial.q ?? "");
-  const [sort, setSort] = useState(initial.sort ?? "recent");
+  const sort = initial.sort ?? "recent";
   const [types, setTypes] = useState<string[]>(initial.type ? initial.type.split(",") : []);
   const [genres, setGenres] = useState<string[]>(initial.genre ? initial.genre.split(",") : []);
   const [status, setStatus] = useState(initial.status ?? "");
@@ -141,14 +137,6 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          value={sort}
-          onChange={(event) => setSort(event.target.value)}
-          className="rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-ink outline-none focus:border-accent"
-          aria-label="Ordenar catálogo de TioAnime"
-        >
-          {ORDENES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
         <button
           type="button"
           onClick={() => setShowFilters((value) => !value)}

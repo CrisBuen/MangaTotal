@@ -6,12 +6,6 @@ import { Surface } from "@/components/ui/Surface";
 import type { SerieJkanime } from "@/lib/jkanime";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 
-const SORTS = [
-  { value: "", label: "Más recientes" },
-  { value: "popularidad", label: "Populares" },
-  { value: "nombre", label: "A–Z" },
-];
-
 const GENRES = [
   ["accion", "Acción"], ["aventura", "Aventura"], ["autos", "Autos"],
   ["comedia", "Comedia"], ["dementia", "Dementia"], ["demonios", "Demonios"],
@@ -73,7 +67,7 @@ interface CatalogResponse {
 export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, string> }) {
   const [series, setSeries] = useState<SerieJkanime[] | null>(null);
   const [search, setSearch] = useState(initial.q ?? "");
-  const [sort, setSort] = useState(initial.sort ?? "");
+  const sort = initial.sort ?? "";
   const [filters, setFilters] = useState(() => Object.fromEntries(Object.keys(EMPTY_FILTERS).map(key => [key, initial[key] ?? ""])) as typeof EMPTY_FILTERS);
   const [showFilters, setShowFilters] = useState(Boolean(initial.genre || initial.status));
   const [page, setPage] = useState(() => Math.max(1, Math.floor(Number(initial.anime_page) || 1)));
@@ -173,17 +167,6 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          value={sort}
-          onChange={(event) => setSort(event.target.value)}
-          disabled={Boolean(search.trim())}
-          className="rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-ink outline-none focus:border-accent disabled:opacity-40"
-          aria-label="Ordenar catálogo de JKAnime"
-        >
-          {SORTS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
         <button
           onClick={() => setShowFilters((value) => !value)}
           className={`rounded-md border px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] transition ${
