@@ -47,7 +47,11 @@ export async function GET(request: Request) {
         total: series.length,
         paginas: Math.max(1, Math.ceil(series.length / POR_PAGINA)),
       });
-      if (fresco) respuesta.headers.set("Cache-Control", "no-store");
+      if (fresco) {
+        respuesta.headers.set("Cache-Control", "no-store");
+      } else {
+        respuesta.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1800");
+      }
       return respuesta;
     }
 
@@ -76,7 +80,11 @@ export async function GET(request: Request) {
         portada: serie?.portada ?? null,
         capitulos,
       });
-      if (fresco) respuesta.headers.set("Cache-Control", "no-store");
+      if (fresco) {
+        respuesta.headers.set("Cache-Control", "no-store");
+      } else {
+        respuesta.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
+      }
       return respuesta;
     }
 
@@ -106,7 +114,9 @@ export async function GET(request: Request) {
         .sort((a, b) => a.orden - b.orden)
         .map((p, i) => ({ numero: i + 1, id: p.id, ancho: p.ancho, alto: p.alto }));
 
-      return NextResponse.json({ id, paginas });
+      const respuesta = NextResponse.json({ id, paginas });
+      respuesta.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+      return respuesta;
     }
 
     return NextResponse.json({ error: "Acción desconocida" }, { status: 400 });
