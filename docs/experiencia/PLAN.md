@@ -37,8 +37,8 @@ inventadas ni se promete Full HD a partir de miniaturas.
 
 ## Estado · 10/10/2026
 
-Implementación y comprobación local completadas; preparada para publicar solo
-en Vercel Preview. No se considera validada una plataforma física por simular
+Implementación y comprobación local completadas; publicada solo en Vercel
+Preview. No se considera validada una plataforma física por simular
 su navegador. La aprobación visual del dueño y las pruebas en apps instaladas
 siguen siendo la condición para proponer el paso a main.
 
@@ -139,6 +139,24 @@ directorios temporales `mangatotal-opendesign-*` y `mangatotal-ikigai-real-*`;
 no se publican cookies, bases privadas ni capturas de cuentas reales.
 El servidor local de QA utilizó una URL de base de datos ficticia/inaccesible;
 las mutaciones de interfaz se interceptaron. Ninguna prueba modificó bibliotecas.
+
+### Evidencia de Vercel Preview
+
+- Implementación: `dc03508` (estabilidad) y `ba73852` (experiencias/diseño).
+- [Preview verificada de la implementación](https://manga-total-5jdfspta8-nyks-projects-d8d6655c.vercel.app).
+- [Alias de la rama para continuar iterando](https://manga-total-git-codex-experiencia-f64db4-nyks-projects-d8d6655c.vercel.app).
+- Vercel confirmó `Ready`, entorno `preview`, compilación correcta y ninguna
+  migración pendiente. Main y el despliegue de producción no se modificaron.
+- GET autenticado únicamente ante la protección de Vercel, sin sesión de
+  MangaTotal: `/`, `/lectura` y Explorar animado renderizan correctamente;
+  JKAnime devuelve 29 títulos, TioAnime 20 y el arte de One Piece está disponible.
+- Fichas reales: JKAnime `one-piece`, HTTP 200; TioAnime `shuiro-no-kamen`
+  (slug de su catálogo), HTTP 200. El slug supuesto `one-piece` de TioAnime
+  devolvió 404; no se utiliza para construir los enlaces de la app.
+- Progreso animado y biblioteca de lectura sin sesión devuelven HTTP 401.
+  No se efectuaron mutaciones de cuentas, ni se reprodujeron vídeos/anuncios.
+- Se conserva la protección de Vercel: abrir la preview puede pedir iniciar
+  sesión en Vercel. No se deshabilitó esa protección para facilitar QA.
 
 ## Despliegue, revisión y vuelta atrás
 
