@@ -6,7 +6,7 @@ import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
 import { useEffect, useRef, useState } from "react";
 import { buttonStyles } from "@/components/ui/Button";
 import { fieldControlClass } from "@/components/ui/Field";
-import { SectionHeading, Surface } from "@/components/ui/Surface";
+import { Surface } from "@/components/ui/Surface";
 import { Chip } from "@/components/ui/Chip";
 import { EstadoActualizacion, useActualizaciones } from "@/components/library/ActualizacionesBiblioteca";
 import { FavoritoBiblioteca, MenuBiblioteca, grillaBiblioteca, useOpcionesBiblioteca } from "@/components/library/MenuBiblioteca";
@@ -102,7 +102,7 @@ export default function BibliotecaPage() {
       return;
     }
     const aplicarMe = (actual: Me) => {
-        setMe(actual);
+      setMe(actual);
     };
 
     void (async () => {
@@ -194,25 +194,56 @@ export default function BibliotecaPage() {
   // Favoritos es una revisión deliberadamente acotada: no consulta las
   // demás fichas ni reemplaza la cola completa que ya conserva sus datos.
   const seriesParaActualizar = filter === "favoritos"
-    ? guardadas.filter(g => opciones.favoritos.includes(claveDe(g)))
-    : filter === "normal" ? guardadas : [];
+    ? guardadas.filter((g) => opciones.favoritos.includes(claveDe(g)))
+    : filter === "normal"
+      ? guardadas
+      : [];
   function actualizarCatalogo() {
     if (revisando || seriesParaActualizar.length === 0) return;
-    iniciar("lectura", seriesParaActualizar.map(g => ({ source: g.source, external_id: g.external_id, slug: g.slug, type: g.type, last_chapter_name: g.last_chapter_name })));
+    iniciar(
+      "lectura",
+      seriesParaActualizar.map((g) => ({
+        source: g.source,
+        external_id: g.external_id,
+        slug: g.slug,
+        type: g.type,
+        last_chapter_name: g.last_chapter_name,
+      }))
+    );
   }
 
   // primero las que tienen capítulos sin leer, de mayor a menor
   const esAdulta = (g: SerieGuardada) => /^(adult|\+18|hentai)$/i.test(g.type ?? "");
-  const guardadasVisibles = guardadas.filter(g =>
-    filter === "favoritos" ? opciones.favoritos.includes(claveDe(g)) :
-      filter === "adult" ? esAdulta(g) : !esAdulta(g));
-  const guardadasOrdenadas = ordenarBiblioteca(guardadasVisibles.filter(g => g.title.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es"))), opciones, g => {
-    const n = novedades[claveDe(g)];
-    return { clave: claveDe(g), titulo: g.title, cantidad: n?.total, lectura: g.last_chapter_name ? fechaBiblioteca(g.updated_at) : null,
-      comprobacion: n?.comprobado, pendientes: pendientesBiblioteca(n, g.last_chapter_name),
-      reciente: n?.ultimo != null ? Number(n.ultimo) : null, obtencion: n?.publicado ?? n?.obtenido, antiguedad: fechaBiblioteca(g.created_at),
-      empezado: g.last_chapter_name !== null, favorito: opciones.favoritos.includes(claveDe(g)), completado: serieFinalizada(n?.estado) };
-  });
+  const guardadasVisibles = guardadas.filter((g) =>
+    filter === "favoritos"
+      ? opciones.favoritos.includes(claveDe(g))
+      : filter === "adult"
+        ? esAdulta(g)
+        : !esAdulta(g)
+  );
+  const guardadasOrdenadas = ordenarBiblioteca(
+    guardadasVisibles.filter((g) =>
+      g.title.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es"))
+    ),
+    opciones,
+    (g) => {
+      const n = novedades[claveDe(g)];
+      return {
+        clave: claveDe(g),
+        titulo: g.title,
+        cantidad: n?.total,
+        lectura: g.last_chapter_name ? fechaBiblioteca(g.updated_at) : null,
+        comprobacion: n?.comprobado,
+        pendientes: pendientesBiblioteca(n, g.last_chapter_name),
+        reciente: n?.ultimo != null ? Number(n.ultimo) : null,
+        obtencion: n?.publicado ?? n?.obtenido,
+        antiguedad: fechaBiblioteca(g.created_at),
+        empezado: g.last_chapter_name !== null,
+        favorito: opciones.favoritos.includes(claveDe(g)),
+        completado: serieFinalizada(n?.estado),
+      };
+    }
+  );
   // El filtro se aplica igual a las lecturas propias y a las otras fuentes.
   const continuesVisible =
     filter === "favoritos"
@@ -230,13 +261,46 @@ export default function BibliotecaPage() {
   ];
 
   return (
-    <div className="space-y-12 sm:space-y-16" data-od-id="library-page">
-      <SectionHeading
-        eyebrow="Catálogo MangaTotal"
-        title="Biblioteca"
-        description="Explorá tus series, retomá lecturas y encontrá contenido por categoría."
-      />
-      {/* AniList conserva su seguimiento; las fuentes animadas viven en Explorar. */}
+    <div className="space-y-8" data-od-id="library-page">
+      <div className="flex flex-wrap items-baseline justify-between gap-4">
+        <div>
+          <span className="od-eyebrow">Tu colección personal</span>
+          <h1 className="text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">Mi biblioteca</h1>
+          <p className="mt-1 text-sm text-subtle">
+            {guardadas.length > 0
+              ? `${guardadas.length} series guardadas en tu colección`
+              : "Tus mangas, manhwas y favoritos en un solo lugar"}
+          </p>
+        </div>
+        {loggedIn && seccion === "lectura" && filter !== "adult" && guardadas.length > 0 && (
+          <button
+            onClick={actualizarCatalogo}
+            disabled={revisando || !usuario || seriesParaActualizar.length === 0}
+            title={
+              filter === "favoritos"
+                ? "Revisa solamente las series marcadas como favoritas"
+                : "Revisa todas tus series guardadas y adelanta las que tienen capítulos nuevos"
+            }
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-line-strong px-4 text-sm font-semibold text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
+            data-od-id={filter === "favoritos" ? "actualizar-favoritos" : "actualizar-todo"}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className={`h-3.5 w-3.5 fill-current ${revisando ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            >
+              <path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
+            </svg>
+            {revisando
+              ? `Revisando ${avance.hechas}/${avance.total}`
+              : filter === "favoritos"
+                ? "Actualizar favoritos"
+                : "Actualizar todo"}
+          </button>
+        )}
+      </div>
+
+      {/* Selector de sección de biblioteca: lectura o AniList */}
       <div className="od-tabs" role="tablist" aria-label="Tipo de biblioteca">
         {([
           { key: "lectura", label: "Series de lectura" },
@@ -258,239 +322,269 @@ export default function BibliotecaPage() {
       {seccion === "animelist" ? (
         <SeccionAnimadas busqueda={search} />
       ) : (
-       <>
-      {/* Historial: lo que abriste para leer y no llegaste a guardar */}
-      {loggedIn && filter === "normal" && <SeccionHistorial tipo="normal" alAbrir={abrirDesdeBiblioteca} />}
-
-      {/* Continuar leyendo */}
-      {loggedIn && hayQueContinuar && (
-        <section data-od-id="continue-reading">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
-              Continuar leyendo
-            </h2>
-            <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-faint">
-              Tu progreso
-            </span>
-          </div>
-          <div
-            className="flex min-w-0 gap-4 overflow-x-auto rounded-[10px] border border-line bg-panel p-4"
-            data-od-id="continue-reading-list"
+        <>
+          {/* 1. Herramientas y filtros de la colección en la parte superior */}
+          <section
+            className="flex flex-col gap-4 rounded-[10px] border border-line bg-panel p-3 sm:flex-row sm:items-center"
+            data-od-id="library-controls"
           >
-            {continuesVisible.map((c) => (
-              <div key={c.series.id} className="group w-40 shrink-0">
-              <Link
-                href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
-                onClick={abrirDesdeBiblioteca}
-                className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            <div className="flex min-w-0 gap-1 overflow-x-auto" role="tablist" aria-label="Secciones de biblioteca">
+              {filters.map((f) => (
+                <Chip
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  selected={filter === f.key}
+                  className="shrink-0"
+                  role="tab"
+                  aria-selected={filter === f.key}
+                  data-od-id={`library-filter-${f.key}`}
+                >
+                  {f.label}
+                </Chip>
+              ))}
+            </div>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar serie…"
+              className={`min-w-0 sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
+              aria-label="Buscar serie"
+              data-od-id="library-search"
+            />
+            <MenuBiblioteca opciones={opciones} cambiar={cambiar} />
+          </section>
+
+          {/* 2. Colección guardada (el centro de Mi Biblioteca) */}
+          <section data-od-id="library-external">
+            <EstadoActualizacion tipo="lectura" />
+
+            {!loggedIn && me !== null && (
+              <Surface
+                className="mt-4 grid gap-5 border-accent p-6 sm:grid-cols-[1fr_auto] sm:items-center"
+                data-od-id="guest-library-callout"
               >
-                <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
-                  {c.series.cover_image_path && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/api/images/${c.series.cover_image_path}`}
-                      alt={c.series.title}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  )}
+                <p className="text-sm text-subtle">
+                  <Link href="/registro" className="font-bold text-ink underline underline-offset-4">
+                    Creá tu cuenta
+                  </Link>{" "}
+                  o{" "}
+                  <Link href="/login" className="font-bold text-ink underline underline-offset-4">
+                    iniciá sesión
+                  </Link>{" "}
+                  para guardar series en tu colección, marcar favoritos y sincronizar tu avance.
+                </p>
+                <Link href="/registro" className={buttonStyles({ variant: "primary", size: "sm" })}>
+                  Crear cuenta
+                </Link>
+              </Surface>
+            )}
+
+            {loggedIn && (
+              <>
+                {guardadasOrdenadas.length === 0 ? (
+                  <div className="my-8 rounded-lg border border-line bg-panel p-8 text-center">
+                    <p className="text-base font-semibold text-ink">
+                      {search
+                        ? "Ninguna serie coincide con la búsqueda."
+                        : filter === "favoritos"
+                          ? "No tenés series marcadas como favoritas."
+                          : "Tu colección está vacía."}
+                    </p>
+                    <p className="mt-1 text-sm text-subtle">
+                      {filter === "favoritos"
+                        ? "Marcá una serie con la estrella para verla acá."
+                        : "Explorá tus fuentes favoritas y tocá 'Guardar' para agregar obras a tu biblioteca."}
+                    </p>
+                    <div className="mt-4">
+                      <Link href="/lectura/descubrir" className="od-outline">
+                        Explorar fuentes →
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`${grillaBiblioteca(opciones)} mt-4`}
+                    data-vista={opciones.vista}
+                    data-titulos={opciones.titulos}
+                  >
+                    {guardadasOrdenadas.map((g) => (
+                      <div key={`${g.source}-${g.external_id}`} className="relative min-w-0 pb-8">
+                        <Link
+                          href={g.href}
+                          onClick={abrirDesdeBiblioteca}
+                          className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
+                        >
+                          <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
+                            {g.cover_url && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <PortadaExterna
+                                source={g.source}
+                                externalId={g.external_id}
+                                src={g.cover_url}
+                                alt={g.title}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                              />
+                            )}
+                            <span className="absolute left-3 top-3 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] px-2 py-1 font-mono text-[11px] text-ink">
+                              {g.source}
+                            </span>
+                            {(pendientesBiblioteca(novedades[claveDe(g)], g.last_chapter_name) ?? 0) > 0 && (
+                              <span className="absolute right-3 top-3 rounded-md bg-accent px-2 py-1 font-mono text-[11px] font-medium text-[var(--on-accent)]">
+                                +{pendientesBiblioteca(novedades[claveDe(g)], g.last_chapter_name)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="px-1 pt-4">
+                            <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
+                              {g.title}
+                            </h3>
+                            <p className="mt-1 font-mono text-[13px] text-faint">
+                              {g.last_chapter_name ? `Vas por el cap. ${g.last_chapter_name}` : "Sin empezar"}
+                              {novedades[claveDe(g)]?.ultimo
+                                ? ` · último ${novedades[claveDe(g)].ultimo}`
+                                : ""}
+                            </p>
+                          </div>
+                        </Link>
+                        <FavoritoBiblioteca
+                          titulo={g.title}
+                          activo={opciones.favoritos.includes(claveDe(g))}
+                          onClick={() => favorito(claveDe(g))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+
+          {/* 3. Continuar leyendo - sección secundaria de progreso debajo de la colección */}
+          {loggedIn && hayQueContinuar && (
+            <section data-od-id="continue-reading" className="border-t border-line/60 pt-8">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <span className="od-eyebrow">Progreso</span>
+                  <h2 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
+                    Continuar leyendo
+                  </h2>
                 </div>
-              </Link>
-                <div className="pt-3">
-                  <div className="flex items-center gap-2">
+              </div>
+              <div
+                className="flex min-w-0 gap-4 overflow-x-auto rounded-[10px] border border-line bg-panel p-4"
+                data-od-id="continue-reading-list"
+              >
+                {continuesVisible.map((c) => (
+                  <div key={c.series.id} className="group w-40 shrink-0">
                     <Link
                       href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
                       onClick={abrirDesdeBiblioteca}
-                      className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
+                      className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
-                      {c.series.title}
+                      <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
+                        {c.series.cover_image_path && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`/api/images/${c.series.cover_image_path}`}
+                            alt={c.series.title}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
                     </Link>
-                    <Link
-                      href={`/serie/${c.series.slug}`}
-                      onClick={abrirDesdeBiblioteca}
-                      title="Ver ficha y capítulos"
-                      aria-label={`Ver ficha de ${c.series.title}`}
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
-                    >
-                      →
-                    </Link>
+                    <div className="pt-3">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
+                          onClick={abrirDesdeBiblioteca}
+                          className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
+                        >
+                          {c.series.title}
+                        </Link>
+                        <Link
+                          href={`/series/${c.series.slug}`}
+                          onClick={abrirDesdeBiblioteca}
+                          title="Ver ficha y capítulos"
+                          aria-label={`Ver ficha de ${c.series.title}`}
+                          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
+                        >
+                          →
+                        </Link>
+                      </div>
+                      <p className="mt-1 font-mono text-[13px] text-faint">
+                        Cap. {c.chapter.number}
+                        {c.lastPageNumber > 1 ? ` · pág. ${c.lastPageNumber}` : ""}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 font-mono text-[13px] text-faint">
-                    Cap. {c.chapter.number} · pág. {c.lastPageNumber}/{c.chapter.page_count}
-                  </p>
-                </div>
-              </div>
-            ))}
-
-            {externasEmpezadas.map((g) => (
-              <div key={`${g.source}-${g.external_id}`} className="group w-40 shrink-0">
-              <Link
-                href={g.href_continuar}
-                onClick={abrirDesdeBiblioteca}
-                className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
-                  {g.cover_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <PortadaExterna source={g.source} externalId={g.external_id}
-                      src={g.cover_url}
-                      alt={g.title}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <span className="absolute left-2 top-2 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] px-2 py-1 font-mono text-[11px] text-ink">
-                    {g.source}
-                  </span>
-                </div>
-              </Link>
-                <div className="pt-3">
-                  <div className="flex items-center gap-2">
+                ))}
+                {externasEmpezadas.map((g) => (
+                  <div key={`${g.source}-${g.external_id}`} className="group w-40 shrink-0">
                     <Link
                       href={g.href_continuar}
                       onClick={abrirDesdeBiblioteca}
-                      className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
+                      className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
-                      {g.title}
+                      <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
+                        {g.cover_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <PortadaExterna
+                            source={g.source}
+                            externalId={g.external_id}
+                            src={g.cover_url}
+                            alt={g.title}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        <span className="absolute left-2 top-2 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] px-2 py-1 font-mono text-[11px] text-ink">
+                          {g.source}
+                        </span>
+                      </div>
                     </Link>
-                    <Link
-                      href={g.href}
-                      onClick={abrirDesdeBiblioteca}
-                      title="Ver ficha y capítulos"
-                      aria-label={`Ver ficha de ${g.title}`}
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
-                    >
-                      →
-                    </Link>
+                    <div className="pt-3">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={g.href_continuar}
+                          onClick={abrirDesdeBiblioteca}
+                          className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
+                        >
+                          {g.title}
+                        </Link>
+                        <Link
+                          href={g.href}
+                          onClick={abrirDesdeBiblioteca}
+                          title="Ver ficha y capítulos"
+                          aria-label={`Ver ficha de ${g.title}`}
+                          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
+                        >
+                          →
+                        </Link>
+                      </div>
+                      <p className="mt-1 font-mono text-[13px] text-faint">
+                        Cap. {g.last_chapter_name}
+                        {g.last_page_number && g.last_page_number > 1
+                          ? ` · pág. ${g.last_page_number}`
+                          : ""}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 font-mono text-[13px] text-faint">
-                    Cap. {g.last_chapter_name}
-                    {g.last_page_number && g.last_page_number > 1
-                      ? ` · pág. ${g.last_page_number}`
-                      : ""}
-                  </p>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </section>
+          )}
 
-      <section className="flex flex-col gap-4 rounded-[10px] border border-line bg-panel p-3 sm:flex-row sm:items-center" data-od-id="library-controls">
-        <div className="flex min-w-0 gap-1 overflow-x-auto" role="tablist" aria-label="Secciones de biblioteca">
-          {filters.map((f) => (
-            <Chip key={f.key} onClick={() => setFilter(f.key)} selected={filter === f.key}
-              className="shrink-0" role="tab" aria-selected={filter === f.key}
-              data-od-id={`library-filter-${f.key}`}>
-              {f.label}
-            </Chip>
-          ))}
-        </div>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar serie…"
-          className={`min-w-0 sm:ml-auto sm:max-w-sm ${fieldControlClass}`}
-          aria-label="Buscar serie" data-od-id="library-search" />
-        <MenuBiblioteca opciones={opciones} cambiar={cambiar} />
-      </section>
-
-        {me !== null && !loggedIn && (
-          <Surface className="grid gap-5 border-accent p-6  sm:grid-cols-[1fr_auto] sm:items-center" data-od-id="guest-library-callout">
-            <p className="text-sm text-subtle">
-              <Link href="/registro" className="font-bold text-ink underline underline-offset-4">
-                Creá tu cuenta
-              </Link>{" "}
-              o{" "}
-              <Link href="/login" className="font-bold text-ink underline underline-offset-4">
-                iniciá sesión
-              </Link>{" "}
-              para leer, guardar tu progreso y marcar favoritos.
-            </p>
-            <Link href="/registro" className={buttonStyles({ variant: "primary", size: "sm" })}>
-              Crear cuenta
-            </Link>
-          </Surface>
-        )}
-
-      {loggedIn && guardadas.length > 0 && (
-        <section data-od-id="library-external">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="min-w-0 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight tracking-[-0.035em] text-ink">
-              CATÁLOGO
-            </h2>
-            {filter !== "adult" && (
-              <button
-                onClick={actualizarCatalogo}
-                disabled={revisando || !usuario || seriesParaActualizar.length === 0}
-                title={filter === "favoritos"
-                  ? "Revisa solamente las series marcadas como favoritas"
-                  : "Revisa todas tus series guardadas y adelanta las que tienen capítulos nuevos"}
-                className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-subtle transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
-                data-od-id={filter === "favoritos" ? "actualizar-favoritos" : "actualizar-todo"}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className={`h-3.5 w-3.5 fill-current ${revisando ? "animate-spin" : ""}`}
-                  aria-hidden="true"
-                >
-                  <path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
-                </svg>
-                {revisando
-                  ? `Revisando ${avance.hechas}/${avance.total}`
-                  : filter === "favoritos" ? "Actualizar favoritos" : "Actualizar todo"}
-              </button>
-            )}
-          </div>
-          <EstadoActualizacion tipo="lectura" />
-          {guardadasOrdenadas.length === 0 && <p className="py-6 text-subtle">Ninguna serie coincide con estos filtros.</p>}
-          <div className={`${grillaBiblioteca(opciones)} mt-5`} data-vista={opciones.vista} data-titulos={opciones.titulos}>
-            {guardadasOrdenadas.map((g) => (
-              <div key={`${g.source}-${g.external_id}`} className="relative min-w-0 pb-8">
-              <Link
-                key={`${g.source}-${g.external_id}`}
-                href={g.href}
-                onClick={abrirDesdeBiblioteca}
-                className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
-              >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
-                  {g.cover_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <PortadaExterna source={g.source} externalId={g.external_id}
-                      src={g.cover_url}
-                      alt={g.title}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <span className="absolute left-3 top-3 rounded-md border border-line-strong bg-[color-mix(in_oklch,var(--bg)_92%,transparent)] px-2 py-1 font-mono text-[11px] text-ink">
-                    {g.source}
-                  </span>
-                  {(pendientesBiblioteca(novedades[claveDe(g)], g.last_chapter_name) ?? 0) > 0 && (
-                    <span className="absolute right-3 top-3 rounded-md bg-accent px-2 py-1 font-mono text-[11px] font-medium text-[var(--on-accent)]">
-                      +{pendientesBiblioteca(novedades[claveDe(g)], g.last_chapter_name)}
-                    </span>
-                  )}
-                </div>
-                <div className="px-1 pt-4">
-                  <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
-                    {g.title}
-                  </h3>
-                  <p className="mt-1 font-mono text-[13px] text-faint">
-                    {g.last_chapter_name ? `Vas por el cap. ${g.last_chapter_name}` : "Sin empezar"}
-                    {novedades[claveDe(g)]?.ultimo
-                      ? ` · último ${novedades[claveDe(g)].ultimo}`
-                      : ""}
-                  </p>
-                </div>
-              </Link>
-              <FavoritoBiblioteca titulo={g.title} activo={opciones.favoritos.includes(claveDe(g))} onClick={() => favorito(claveDe(g))} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-       </>
+          {/* 4. Historial: lo que abriste para leer y no llegaste a guardar */}
+          {loggedIn && filter === "normal" && (
+            <div className="border-t border-line/60 pt-8">
+              <SeccionHistorial tipo="normal" alAbrir={abrirDesdeBiblioteca} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

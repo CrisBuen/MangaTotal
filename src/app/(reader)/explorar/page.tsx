@@ -564,7 +564,7 @@ export default function ExplorarPage() {
 
     const fuenteAnime = leer("anime_fuente");
     if (fuenteAnime === "tioanime" || fuenteAnime === "hentaitv") setAnimeFuente(fuenteAnime);
-    const f = leer("fuente");
+    const f = leer("fuente") || (typeof window !== "undefined" ? sessionStorage.getItem("mangatotal:fuente-lectura") : null);
     if (f) setFuente(f);
     const q = leer("q");
     if (q) setSearch(q);
@@ -801,8 +801,10 @@ export default function ExplorarPage() {
 
   const cambiarFuente = (siguiente: string) => {
     if (siguiente === fuente) return;
-    // Una consulta pertenece únicamente a la fuente donde se escribió. Si se
-    // conserva al cambiar, la fuente nueva parece vacía o rota.
+    try { sessionStorage.setItem("mangatotal:fuente-lectura", siguiente); } catch {}
+    const url = new URL(location.href);
+    url.searchParams.set("fuente", siguiente);
+    history.replaceState(history.state, "", url);
     setSearch("");
     setFuente(siguiente);
   };
@@ -868,18 +870,16 @@ export default function ExplorarPage() {
   }
 
   return (
-    <div className="od-explore space-y-8">
-      <SectionHeading
-        eyebrow="Catálogo externo"
-        title="Explorar"
-        description="Manga, manhwa y manhua de tus fuentes. Leé acá mismo y continuá donde quedaste."
-      />
+    <div className="od-explore space-y-6">
+      <h1 className="sr-only">Todos los títulos</h1>
+      <div className="od-explore-switcher">
+        <span className="od-eyebrow">Lectura · Todos los títulos</span>
 
-      {/* fuente: cada grupo publica su propio catálogo */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 font-mono text-[11px] font-medium text-faint">
-          Fuente
-        </span>
+        <div className="od-source-switcher">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 font-mono text-[11px] font-medium text-faint">
+              Fuente
+            </span>
         {[
           ...FUENTES,
           { key: "tmo", label: "ZonaTMO" },
@@ -891,6 +891,7 @@ export default function ExplorarPage() {
           ...(ikigaiHay ? [{ key: "ikigai", label: "Ikigai" }] : []),
         ].map((f) => (
           <Chip
+            type="button"
             key={f.key}
             onClick={() => cambiarFuente(f.key)}
             selected={fuente === f.key}
@@ -898,6 +899,8 @@ export default function ExplorarPage() {
             {f.label}
           </Chip>
         ))}
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

@@ -66,11 +66,11 @@ body { line-height: 1.5; }
 .od-reading-discover > * + * { margin-top: 42px; }
 .od-reading-discover h2 { font-size: 24px; margin: 8px 0 20px; }
 .od-reading-sources { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 12px; }
-.od-reading-sources a { position: relative; display: flex; flex-direction: column; gap: 8px; min-height: 112px; border: 1px solid rgba(255, 255, 255, 0.07); padding: 22px; border-radius: 8px; background: linear-gradient(170deg, #13141c 0%, #0e0f15 100%); transition: border-color .18s, transform .18s, box-shadow .18s; }
-.od-reading-sources a:hover { border-color: rgba(186, 149, 236, 0.35); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
-.od-reading-sources a > span:first-child { font-size: 20px; font-weight: 700; }
+.od-reading-sources a, .od-reading-sources button, .od-reading-source-card { position: relative; display: flex; flex-direction: column; text-align: left; gap: 8px; min-height: 112px; border: 1px solid rgba(255, 255, 255, 0.07); padding: 22px; border-radius: 8px; background: linear-gradient(170deg, #13141c 0%, #0e0f15 100%); transition: border-color .18s, transform .18s, box-shadow .18s; cursor: pointer; }
+.od-reading-sources a:hover, .od-reading-sources button:hover, .od-reading-source-card:hover { border-color: rgba(186, 149, 236, 0.45); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+.od-reading-sources button.active, .od-reading-source-card.active, .od-reading-sources button[aria-pressed="true"] { border-color: var(--accent); background: linear-gradient(170deg, #181b28 0%, #11131a 100%); box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(0, 0, 0, 0.5); }
 .od-reading-sources small { color: var(--muted); }
-.od-reading-sources a > span:last-child { position: absolute; right: 16px; top: 18px; color: var(--accent-fg); }
+.od-source-badge, .od-reading-sources a > span:last-child { position: absolute; right: 16px; top: 18px; font-size: 11px; font-weight: 700; color: var(--accent-fg); }
 .od-home-access { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
 .od-access-card { position: relative; padding: 24px; background: linear-gradient(170deg, #141620 0%, #0f1015 100%); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; transition: background .18s, border-color .18s, transform .18s, box-shadow .18s; }
 .od-access-card:hover { background: linear-gradient(170deg, #181b26 0%, #12131b 100%); border-color: rgba(186, 149, 236, 0.3); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
