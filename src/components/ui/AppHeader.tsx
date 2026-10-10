@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { buttonStyles } from "./Button";
@@ -5,7 +7,7 @@ import { HeaderNavLink } from "./HeaderNavLink";
 import { LogoutButton } from "./LogoutButton";
 import { RandomSeriesButton } from "./RandomSeriesButton";
 import { UserAvatar } from "./UserAvatar";
-import { DiscoverMenu } from "@/components/discover/DiscoverMenu";
+import { useExperience } from "@/components/experience/ExperienceShell";
 
 interface HeaderUser {
   nickname: string;
@@ -30,11 +32,13 @@ export function AppHeader({
   user: HeaderUser | null;
   mode?: "reader" | "admin";
 }) {
+  const experience = useExperience();
+  const watching = mode !== "admin" && experience.mode === "anime";
   const links =
     mode === "admin"
       ? adminLinks
-      : [
-          { href: "/", label: "Inicio", exact: true },
+      : watching ? [] : [
+          { href: "/lectura", label: "Inicio", exact: true },
           { href: "/biblioteca", label: "Biblioteca", exact: true },
           { href: "/explorar", label: "Explorar" },
           { href: "/anime", label: "AniList" },
@@ -49,7 +53,7 @@ export function AppHeader({
       <div className="mx-auto flex min-h-16 max-w-app items-center gap-x-3 px-4 sm:px-6 lg:gap-x-5 lg:px-10"
         style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <Link
-          href={mode === "admin" ? "/admin" : "/"}
+          href={mode === "admin" ? "/admin" : watching ? "/explorar?seccion=animada" : "/lectura"}
           className="group flex min-h-11 shrink-0 items-center gap-2 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
           data-od-id="brand-link"
           aria-label={mode === "admin" ? "MangaTotal, administración" : "MangaTotal, biblioteca"}
@@ -90,18 +94,18 @@ export function AppHeader({
               {link.label}
             </HeaderNavLink>
           ))}
-          {mode !== "admin" && <RandomSeriesButton />}
+          {mode !== "admin" && !watching && <RandomSeriesButton />}
         </nav>
 
         <div className="ml-auto flex min-h-11 items-center gap-1.5" data-od-id="account-actions">
-          {mode !== "admin" && <DiscoverMenu animeEnabled={user?.animeEnabled} />}
+          {mode !== "admin" && <Link href="/?elegir=1" className="od-switch-world" aria-label="Cambiar entre lectura y anime">⇄ <span>Cambiar sección</span></Link>}
           {mode !== "admin" && (
             <Link
               href="/mas"
               className={buttonStyles({
                 variant: "secondary",
                 size: "sm",
-                className: "hidden xl:inline-flex",
+                className: "hidden md:inline-flex",
               })}
               data-od-id="more-link"
             >

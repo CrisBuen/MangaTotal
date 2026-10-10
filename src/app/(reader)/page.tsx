@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HomeExperience } from "@/components/home/HomeExperience";
+import { ExperienceEntry } from "@/components/experience/ExperienceEntry";
 
 export const metadata: Metadata = {
   title: "Leer manga y ver anime online",
@@ -9,15 +9,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Inicio. Vive dentro del grupo (reader) para compartir la cabecera y la
- * barra de abajo con Biblioteca, Explorar, AniList y Perfil: así al cambiar
- * de pestaña solo se reemplaza el contenido, no toda la pantalla.
+ * La entrada usa la cuenta existente. El shell oculta la navegación aquí;
+ * después de elegir sección, los datos y lectores siguen en sus rutas originales.
  */
 export default function Home() {
-  // el margen negativo conserva el aire que tenía antes de compartir layout
-  return (
-    <div className="-mt-2 sm:-mt-4" data-od-id="home-content">
-      <HomeExperience />
-    </div>
-  );
+  return <ExperienceEntry />;
 }

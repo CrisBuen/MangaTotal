@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
+import type { AnimeArtwork } from "@/lib/animeArtwork";
+
+const artworkCache = new Map<string, AnimeArtwork>();
 
 export interface HeroItem {
   id: string;
@@ -9,6 +12,7 @@ export interface HeroItem {
   image: string | null;
   poster?: boolean;
   backdrop?: string | null;
+  artworkTitle?: string;
   description?: string | null;
   meta?: string;
   href: string;
@@ -17,25 +21,42 @@ export interface HeroItem {
 }
 
 function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
-  const [wide, setWide] = useState(false);
-  const [unavailable, setUnavailable] = useState(false);
+  const [wideUrl, setWideUrl] = useState<string | null>(null);
+  const [unavailableUrl, setUnavailableUrl] = useState<string | null>(null);
+  const [coverFailed, setCoverFailed] = useState(false);
+  const [art, setArt] = useState<AnimeArtwork | null>(() => artworkCache.get(item.artworkTitle ?? "") ?? null);
+  useEffect(() => {
+    const title = item.artworkTitle;
+    if (!title || !active || artworkCache.has(title)) return;
+    const controller = new AbortController();
+    // Solo el destacado visible, no un pedido por cada tarjeta del catálogo.
+    fetch(`/api/anime/arte?q=${encodeURIComponent(title)}`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null).then(value => {
+        if (!value || controller.signal.aborted) return;
+        if (artworkCache.size >= 40) artworkCache.delete(artworkCache.keys().next().value!);
+        artworkCache.set(title, value); setArt(value);
+      }).catch(() => {});
+    return () => controller.abort();
+  }, [item.artworkTitle, active]);
+  const banner = art?.banner || item.backdrop;
+  const wide = Boolean(banner && wideUrl === banner);
   return <>
-    {/* Una portada vertical no tiene resolución para cubrir una pantalla entera.
-        Se conserva a escala natural; un fondo solo la sustituye si es HD real.
-        TioAnime entrega también fondos de 1×1 para series sin banner. */}
+    {/* El arte de mayor resolución solo sustituye la fuente con coincidencia
+        exacta. Fondos de 1×1 no valen; sin arte verificado queda la portada real. */}
     {item.poster && <div className="od-artwash" aria-hidden="true" />}
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    {item.image && <img className={item.poster ? "od-slide-poster" : "od-slide-art"} src={item.image} alt="" hidden={wide} referrerPolicy="no-referrer" fetchPriority={active ? "high" : "low"} decoding="async" />}
-    {item.backdrop && !unavailable && (
+    {item.image && <img className={item.poster ? "od-slide-poster" : "od-slide-art"} src={(!coverFailed && art?.cover) || item.image} alt="" hidden={wide} referrerPolicy="no-referrer" fetchPriority={active ? "high" : "low"} decoding="async" onError={() => setCoverFailed(true)} />}
+    {banner && unavailableUrl !== banner && (
       // eslint-disable-next-line @next/next/no-img-element
-      <img className="od-slide-art" src={item.backdrop} alt="" style={{ visibility: wide ? "visible" : "hidden" }}
+      <img key={banner} className="od-slide-art" src={banner} alt="" style={{ visibility: wide ? "visible" : "hidden" }}
         referrerPolicy="no-referrer" fetchPriority="low" decoding="async"
-        onError={() => setUnavailable(true)} onLoad={event => {
+        onError={() => setUnavailableUrl(banner)} onLoad={event => {
           const { naturalWidth: width, naturalHeight: height } = event.currentTarget;
-          if (width >= 1280 && height >= 720 && width / height >= 1.5) setWide(true);
-          else setUnavailable(true);
+          if (width >= 1280 && height >= 400 && width / height >= 1.5) setWideUrl(banner);
+          else setUnavailableUrl(banner);
         }} />
     )}
+    {art?.credit && <a className="od-art-credit" href={art.credit} target="_blank" rel="noopener noreferrer">Arte · AniList ↗</a>}
   </>;
 }
 

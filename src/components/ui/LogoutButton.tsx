@@ -5,7 +5,7 @@ import { buttonStyles } from "./Button";
 import { borrarCachePrivadaAndroid } from "@/lib/androidCache";
 import { limpiarActualizacionesBiblioteca } from "@/components/library/ActualizacionesBiblioteca";
 
-export function LogoutButton() {
+export function LogoutButton({ label = "Salir" }: { label?: string }) {
   const router = useRouter();
   return (
     <button
@@ -19,7 +19,7 @@ export function LogoutButton() {
       className={buttonStyles({ variant: "ghost", size: "sm" })}
       data-od-id="logout-button"
     >
-      Salir
+      {label}
     </button>
   );
 }

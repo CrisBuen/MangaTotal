@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useExperience } from "@/components/experience/ExperienceShell";
 
 /**
  * Barra de navegación inferior para teléfonos. En pantallas altas (S26
@@ -12,7 +13,7 @@ import { usePathname } from "next/navigation";
 
 const ITEMS = [
   {
-    href: "/",
+    href: "/lectura",
     label: "Inicio",
     exact: true,
     icon: "M12 3 2 12h3v8h6v-5h2v5h6v-8h3z",
@@ -43,6 +44,17 @@ const ITEMS = [
 
 export function MobileNav() {
   const pathname = usePathname();
+  const params = useSearchParams();
+  const { mode } = useExperience();
+  const animeSource = params.get("anime_fuente");
+  const sourceSuffix = animeSource === "tioanime" || animeSource === "jkanime" ? `&anime_fuente=${animeSource}` : "";
+  const items = mode === "anime" ? [
+    { ...ITEMS[0], href: "/explorar?seccion=animada" + sourceSuffix, label: "Inicio" },
+    { ...ITEMS[1], href: "/explorar?seccion=animada&vista=milista" + sourceSuffix, label: "Mi lista" },
+    { ...ITEMS[2], href: "/explorar?seccion=animada&vista=catalogo" + sourceSuffix, label: "Catálogo" },
+    { ...ITEMS[3], href: "/lectura", label: "Lectura", icon: ITEMS[1].icon },
+    ITEMS[4],
+  ] : ITEMS;
 
   return (
     <nav
@@ -52,8 +64,10 @@ export function MobileNav() {
       data-od-id="mobile-nav"
     >
       <ul className="mx-auto flex max-w-md items-stretch">
-        {ITEMS.map((item) => {
-          const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+        {items.map((item) => {
+          const target = item.href.split("?")[0];
+          const view = new URLSearchParams(item.href.split("?")[1]).get("vista");
+          const active = item.href.includes("?") ? pathname === target && (params.get("vista") || null) === view : item.exact ? pathname === target : pathname.startsWith(target);
           return (
             <li key={item.href} className="flex-1">
               <Link

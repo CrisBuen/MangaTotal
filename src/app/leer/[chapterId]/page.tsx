@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Reader } from "@/components/reader/Reader";
@@ -9,7 +9,6 @@ export default async function LeerPage(props: {
   searchParams: Promise<{ page?: string }>;
 }) {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
 
   const { chapterId: raw } = await props.params;
   const { page } = await props.searchParams;
@@ -46,7 +45,7 @@ export default async function LeerPage(props: {
       ? requestedPage
       : 1;
 
-  const initialMode = user.preferredReadingMode === "rtl" ? "rtl" : "cascade";
+  const initialMode = user?.preferredReadingMode === "rtl" ? "rtl" : "cascade";
 
   return (
     <Reader

@@ -1,18 +1,15 @@
-import { AppHeader } from "@/components/ui/AppHeader";
-import { MobileNav } from "@/components/ui/MobileNav";
+import { Suspense } from "react";
+import { ExperienceShell } from "@/components/experience/ExperienceShell";
 import { getSessionUser } from "@/lib/auth";
-import { AppFooter } from "@/components/discover/AppFooter";
-import { animeAnimadoPermitido } from "@/lib/animeAcceso";
+import { animePublicoPermitido } from "@/lib/animeAcceso";
 
 export default async function ReaderLayout({ children }: { children: React.ReactNode }) {
   // La biblioteca sigue siendo pública; la sesión solo modifica las acciones disponibles.
   const user = await getSessionUser();
-  const animeEnabled = user ? await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt) : false;
+  const animeEnabled = await animePublicoPermitido(user);
 
   return (
-    <div className="od-shell min-h-screen bg-canvas">
-      <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[100] focus:bg-accent focus:p-3">Saltar al contenido</a>
-      <AppHeader
+    <Suspense fallback={<p role="status" className="p-8">Cargando MangaTotal…</p>}><ExperienceShell animeEnabled={animeEnabled}
         user={
           user
             ? {
@@ -23,7 +20,7 @@ export default async function ReaderLayout({ children }: { children: React.React
               }
             : null
         }
-      />
+      >
       {/*
         overflow-x-hidden es una red, no el arreglo.
         Si alguna sección vuelve a ser más ancha que la pantalla, se recorta
@@ -34,15 +31,7 @@ export default async function ReaderLayout({ children }: { children: React.React
         sticky: los lectores viven fuera de este layout y el encabezado es
         hermano de main, no hijo.
       */}
-      <main
-        id="contenido"
-        className="mx-auto max-w-app overflow-x-hidden px-4 pb-28 pt-8 sm:px-6 md:pb-20 md:pt-10 lg:px-10"
-        data-od-id="page-content"
-      >
         {children}
-      </main>
-      <AppFooter />
-      <MobileNav />
-    </div>
+      </ExperienceShell></Suspense>
   );
 }

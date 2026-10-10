@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
 import { paginasDelHtml } from "@/lib/leercapituloCodigo";
 import { esDesafioHtml } from "@/lib/desafioHtml";
 
@@ -69,8 +68,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
     }
 
-    const user = await getSessionUser();
-    if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+    // Leer es público; guardar el avance sigue exigiendo la sesión propia.
 
     const numero = ruta.split("/").filter(Boolean).pop() ?? "";
 

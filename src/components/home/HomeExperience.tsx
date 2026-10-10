@@ -6,6 +6,7 @@ import { DownloadSection } from "@/components/pwa/DownloadSection";
 import { TopSemanal } from "@/components/home/TopSemanal";
 import { ContinueReading } from "@/components/home/ContinueReading";
 import { HeroCarousel } from "@/components/discover/HeroCarousel";
+import { ReadingDiscover } from "./ReadingDiscover";
 
 interface Noticia {
   titulo: string; enlace: string; fecha: string | null; autor: string | null;
@@ -31,6 +32,8 @@ export function HomeExperience() {
   }, []);
 
   return <div className="od-home" data-od-id="home-page">
+    <nav className="od-tabs" aria-label="Descubrir lectura"><Link href="/lectura" aria-current="page">Descubrir</Link><Link href="/explorar">Todos los títulos</Link><Link href="/biblioteca?f=normal">Mi biblioteca</Link><Link href="/biblioteca?f=favoritos">Favoritos</Link></nav>
+    <form action="/explorar" className="od-discover-tools" role="search" aria-label="Buscar lectura"><input type="hidden" name="fuente" value="mangadex" /><input name="q" type="search" placeholder="Buscá tu próxima lectura en MangaDex…" aria-label="Buscar manga" /><button className="od-outline">Buscar →</button></form>
     <div className="od-fullbleed" data-od-id="home-hero">
       {/* La rotación se frena al leer o enfocar el héroe: no cambiar la noticia
           justo cuando alguien va a tocar el botón. HeroCarousel conserva esa regla. */}
@@ -42,6 +45,7 @@ export function HomeExperience() {
     </div>
     <ContinueReading />
     <TopSemanal />
+    <ReadingDiscover />
     <section className="od-home-access" data-od-id="home-library-access">
       <LibraryAccessCard eyebrow="Tu colección" title="Biblioteca de lectura" description="Manga, manhwa y manhua. Tus favoritos, novedades y progreso en un lugar." href="/biblioteca?f=normal" />
       <LibraryAccessCard eyebrow="Descubrir" title="Explorá tus fuentes" description="Encontrá tu próxima historia entre todos los catálogos integrados." href="/explorar" />

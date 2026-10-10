@@ -19,6 +19,7 @@ export function SaveExternalAnimeButton({ anime, onChange }: { anime: AnimeExter
   const [guardado, setGuardado] = useState<boolean | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sinSesion, setSinSesion] = useState(false);
 
   useEffect(() => {
     fetch("/api/anime/externo/biblioteca", { cache: "no-store" })
@@ -48,6 +49,7 @@ export function SaveExternalAnimeButton({ anime, onChange }: { anime: AnimeExter
             body: JSON.stringify(anime),
           });
       if (!res.ok) {
+        if (res.status === 401) { setSinSesion(true); return; }
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "No se pudo actualizar la biblioteca");
       }
@@ -60,6 +62,7 @@ export function SaveExternalAnimeButton({ anime, onChange }: { anime: AnimeExter
     }
   }
 
+  if (sinSesion) return <a href="/login" className="od-outline">Iniciá sesión para guardar en Mi lista</a>;
   return (
     <div className="space-y-1">
       <button

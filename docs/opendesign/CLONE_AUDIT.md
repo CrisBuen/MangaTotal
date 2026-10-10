@@ -41,3 +41,16 @@
   rutas Next existentes y el usuario pidió conservar el proyecto real.
 
 Resultado: avisos explicados, sin restos que impidan un despliegue de preview.
+
+## Revisión adicional · 10/10/2026
+
+La rama `codex/experiencia-lectura-anime` conserva la fuente autoalojada y el
+morado. El pie y el menú global no se renderizan. Se agrega una consulta
+opcional de arte a AniList, limitada al título visible y al CDN validado;
+no recibe URLs arbitrarias, credenciales ni bibliotecas privadas. Su fallo
+conserva la imagen original. No se añade telemetría ni vídeos precargados.
+
+Las entradas Lectura/Anime usan SVG de interfaz, no ilustraciones para
+suplantar portadas. Las carátulas y datos de catálogo son reales; las pruebas
+aisladas utilizan fixtures que no llegan a producción. Estado y comprobaciones
+actualizadas: [plan de la preview](../experiencia/PLAN.md).

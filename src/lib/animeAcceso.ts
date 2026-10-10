@@ -17,3 +17,10 @@ export async function animeAnimadoPermitido(
   }
   return animeEnabled;
 }
+
+/** Explorar/ver no crea datos de cuenta. Play conserva su activación explícita. */
+export async function animePublicoPermitido(user: { animeEnabled: boolean; animeTermsAcceptedAt?: Date | null } | null): Promise<boolean> {
+  if (user) return animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt);
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  return !isPlayStoreUserAgent(userAgent);
+}

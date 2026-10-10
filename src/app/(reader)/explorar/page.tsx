@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -109,29 +110,14 @@ interface Genre {
 type SeccionExplorar = "lectura" | "animada";
 type FuenteAnime = "jkanime" | "tioanime" | "hentaitv";
 
-function SelectorSecciones({
-  seccion,
-  animeHabilitado,
-  onChange,
-}: {
-  seccion: SeccionExplorar;
-  animeHabilitado: boolean;
-  onChange: (seccion: SeccionExplorar) => void;
-}) {
-  return (
-    <nav className="od-tabs od-section-tabs" aria-label="Secciones de Explorar">
-      <button aria-current={seccion === "lectura" ? "page" : undefined} onClick={() => onChange("lectura")}>▤ Sección de lectura</button>
-      {animeHabilitado && <button aria-current={seccion === "animada" ? "page" : undefined} onClick={() => onChange("animada")}>▷ Sección animada</button>}
-    </nav>
-  );
-}
-
 function MarcaGuardada({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return <span className="absolute left-2 top-2 z-10 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-ink shadow-sm" aria-label="En biblioteca">▣ En biblioteca</span>;
 }
 
 export default function ExplorarPage() {
+  const navigation = useSearchParams();
+  const seccion: SeccionExplorar = navigation.get("seccion") === "animada" ? "animada" : "lectura";
   const [guardadas, setGuardadas] = useState<ReferenciaBiblioteca[]>([]);
   useEffect(() => {
     let vigente = true;
@@ -161,7 +147,6 @@ export default function ExplorarPage() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [fuente, setFuente] = useState("mangadex");
-  const [seccion, setSeccion] = useState<SeccionExplorar>("lectura");
   const [restaurado, setRestaurado] = useState(false);
   const [animeFuente, setAnimeFuente] = useState<FuenteAnime>("jkanime");
   const [animeHabilitado, setAnimeHabilitado] = useState(false);
@@ -350,16 +335,15 @@ export default function ExplorarPage() {
     // La fuente adulta depende siempre de la preferencia comprobada por el
     // servidor. En Play tampoco se conserva un permiso de la edición local.
     const enAndroid = isAndroidApp();
-    if (!enAndroid) setAnimeHabilitado(true);
+    if (!isPlayStoreApp()) setAnimeHabilitado(true);
     const aplicar = (me: {
       anime_enabled?: boolean;
       show_adult_content?: boolean;
       play_store_app?: boolean;
     } | null) => {
       if (enAndroid) {
-        const habilitado = Boolean(me?.anime_enabled);
+        const habilitado = me ? Boolean(me.anime_enabled) : !isPlayStoreApp();
         setAnimeHabilitado(habilitado);
-        if (!habilitado) setSeccion("lectura");
       }
       setAnimeAdultoHabilitado(
         Boolean(me?.show_adult_content) && !me?.play_store_app && !isPlayStoreApp()
@@ -377,7 +361,7 @@ export default function ExplorarPage() {
       if (guardada) aplicar(guardada.value);
       try {
         const res = await fetchConLimiteAndroid("/api/auth/me", {}, 8_000);
-        if (!res.ok) return;
+        if (!res.ok) { if (res.status === 401) aplicar(null); return; }
         const me = (await res.json()) as {
           anime_enabled?: boolean;
           show_adult_content?: boolean;
@@ -578,13 +562,13 @@ export default function ExplorarPage() {
     const p = new URLSearchParams(window.location.search);
     const leer = (k: string) => p.get(k) || null;
 
-    if (leer("seccion") === "animada") setSeccion("animada");
     const fuenteAnime = leer("anime_fuente");
     if (fuenteAnime === "tioanime" || fuenteAnime === "hentaitv") setAnimeFuente(fuenteAnime);
     const f = leer("fuente");
     if (f) setFuente(f);
     const q = leer("q");
     if (q) setSearch(q);
+    setSelectedGenres(p.getAll("md_genre"));
 
     const pagina = Number(leer("p")) || 1;
     if (leer("md_order")) setOrder(leer("md_order")!);
@@ -651,6 +635,8 @@ export default function ExplorarPage() {
     poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
     poner("md_order", order === "latest" ? null : order);
     poner("md_lang", lang === "es" ? null : lang);
+    url.searchParams.delete("md_genre");
+    for (const genre of selectedGenres) url.searchParams.append("md_genre", genre);
     poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
     poner("oly_genero", olyGenero);
     poner("oly_estado", olyEstado);
@@ -669,7 +655,7 @@ export default function ExplorarPage() {
 
     window.history.replaceState(null, "", url.toString());
   }, [
-    restaurado, seccion, animeFuente, fuente, search, offset, order, lang,
+    restaurado, seccion, animeFuente, fuente, search, offset, order, lang, selectedGenres,
     olympusPage, olyOrden, olyGenero, olyEstado, olyTipo,
     tmoPage, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden,
     ikiPage, ikiTipo, ikiGenero, ikiOrden,
@@ -837,11 +823,7 @@ export default function ExplorarPage() {
       <div className="od-explore space-y-6">
         <h1 className="sr-only">Explorar anime</h1>
         <div className="od-explore-switcher">
-        <SelectorSecciones
-          seccion={seccion}
-          animeHabilitado={animeHabilitado}
-          onChange={setSeccion}
-        />
+        <span className="od-eyebrow">Anime · Descubrí tu próxima historia</span>
 
         <div className="od-source-switcher">
           <div className="flex flex-wrap items-center gap-2">
@@ -891,12 +873,6 @@ export default function ExplorarPage() {
         eyebrow="Catálogo externo"
         title="Explorar"
         description="Manga, manhwa y manhua de tus fuentes. Leé acá mismo y continuá donde quedaste."
-      />
-
-      <SelectorSecciones
-        seccion={seccion}
-        animeHabilitado={animeHabilitado}
-        onChange={setSeccion}
       />
 
       {/* fuente: cada grupo publica su propio catálogo */}

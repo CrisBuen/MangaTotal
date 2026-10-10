@@ -82,7 +82,9 @@ let activePage, activeRequests, activeErrors;
       await page.evaluate(() => document.fonts.ready);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, "La página no debe desbordarse");
       assert.equal(await page.evaluate(() => getComputedStyle(document.body).fontFamily.toLowerCase().includes("lato")), true, "Tipografía Lato autoalojada");
-      assert.equal(await page.locator('.od-slide[data-active="true"] .od-slide-poster').evaluate(img => getComputedStyle(img).objectFit), "scale-down", "No estirar una portada pequeña a todo el ancho");
+      assert.equal(await page.locator('.od-slide[data-active="true"] .od-slide-poster').evaluate(img => getComputedStyle(img).objectFit), "cover", "Composición inmersiva, nunca una miniatura flotante");
+      assert.equal(await page.locator('[data-od-id="site-footer"]').count(), 0);
+      assert.equal(await page.getByRole('button', { name: /Categorías/ }).count(), 0);
       const atStart = requests.filter(url => /^\/api\/anime\/jkanime\?/.test(url));
       assert.equal(atStart.length, 1, "No cargar todos los géneros al abrir");
       assert.equal(await page.getByText("Episodio 1 · 12:00", { exact: true }).count(), 1);
@@ -111,7 +113,8 @@ let activePage, activeRequests, activeErrors;
       await page.getByRole("button", { name: "Ver ficha de Historia QA 1", exact: true }).first().click();
       await page.keyboard.press("Escape");
       await page.getByRole("dialog").waitFor({ state: "hidden" });
-      await page.getByRole("link", { name: "Mi lista", exact: true }).click();
+      if (android) await page.locator('[data-od-id="mobile-nav"]').getByRole("link", { name: "Mi lista", exact: true }).click();
+      else await page.getByRole("link", { name: "Mi lista", exact: true }).first().click();
       await page.locator('[data-od-id="external-anime-library"] .biblioteca-tarjeta').first().waitFor();
       assert.equal(new URL(page.url()).pathname, "/explorar", "Mi lista permanece en Explorar");
       assert.equal(new URL(page.url()).searchParams.get("vista"), "milista");
@@ -162,8 +165,16 @@ let activePage, activeRequests, activeErrors;
       await page.getByRole("button", { name: "Ver ficha de Historia QA 1", exact: true }).first().waitFor();
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.waitForFunction(() => parseFloat(getComputedStyle(document.querySelector(".od-slide")).transitionDuration) <= 0.001);
-      for (const route of ["/", "/biblioteca", "/mas", "/login", "/registro", "/recuperar"]) {
+      for (const route of ["/", "/lectura", "/biblioteca", "/mas", "/login", "/registro", "/recuperar"]) {
         await page.goto(base + route);
+        if (route === "/") {
+          await page.getByRole('heading', { name: '¿Qué te apetece hoy?' }).waitFor();
+          assert.equal(await page.locator('[data-od-id="site-header"]').count(), 0);
+        }
+        if (route === "/lectura") {
+          await page.locator('.od-slide[data-active="true"] h1').waitFor();
+          if (android) assert.equal(await page.locator('.od-slide[data-active="true"]').evaluate(node => node.querySelector('h1').getBoundingClientRect().top >= node.querySelector('.od-slide-art').getBoundingClientRect().bottom), true, 'El título queda debajo de la imagen en Android');
+        }
         if (route === "/biblioteca") assert.equal(await page.getByRole("tab", { name: "Anime animado", exact: true }).count(), 0);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, "Desbordamiento en " + route);
         await page.screenshot({ path: path.join(output, variant.name + "-" + (route.slice(1) || "home") + ".png") });

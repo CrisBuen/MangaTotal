@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
 
 /**
  * Puente del servidor hacia la API de ZonaTMO (integrada con su permiso).
@@ -24,14 +23,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
   }
 
-  // El catálogo y la ficha se navegan como visitante; leer un capítulo no.
-  // Un capítulo es /single/manga/{serie}/{capitulo}, que son cinco tramos;
-  // /single/manga/{serie}/chapters también tiene cinco pero es la lista.
-  const tramos = ruta.split("?")[0].replace(/\/+$/, "").split("/");
-  if (ruta.startsWith("/single/") && tramos.length >= 5 && tramos[4] !== "chapters") {
-    const user = await getSessionUser();
-    if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  }
+  // Catálogo, ficha y lectura son públicos. El avance se escribe únicamente
+  // mediante los handlers privados de la cuenta; este puente sigue siendo GET.
 
   try {
     const res = await fetch(`${BASE}${ruta}`, {

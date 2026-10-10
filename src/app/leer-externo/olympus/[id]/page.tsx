@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
 import { getSessionUser } from "@/lib/auth";
 import { OLYMPUS_NOMBRE, paginas, urlSerieEnOlympus } from "@/lib/olympus";
@@ -10,7 +10,6 @@ export default async function LeerOlympusPage(props: {
   searchParams: Promise<{ slug?: string; tipo?: string; page?: string }>;
 }) {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
 
   const { id: raw } = await props.params;
   const { slug, tipo = "comic", page } = await props.searchParams;
@@ -34,7 +33,7 @@ export default async function LeerOlympusPage(props: {
       pages={capitulo.pages.map((url, i) => ({ pageNumber: i + 1, url, width: 0, height: 0 }))}
       prevChapter={capitulo.prev}
       nextChapter={capitulo.next}
-      initialMode={user.preferredReadingMode === "rtl" ? "rtl" : "cascade"}
+      initialMode={user?.preferredReadingMode === "rtl" ? "rtl" : "cascade"}
       initialPage={Number(page) || 1}
     />
   );

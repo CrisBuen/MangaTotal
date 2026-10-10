@@ -26,7 +26,6 @@ export default async function LeerExternoPage(props: {
   searchParams: Promise<{ page?: string }>;
 }) {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
 
   const { chapterId } = await props.params;
   const { page } = await props.searchParams;
@@ -128,7 +127,7 @@ export default async function LeerExternoPage(props: {
       pages={pages}
       prevChapter={prevChapter}
       nextChapter={nextChapter}
-      initialMode={user.preferredReadingMode === "rtl" ? "rtl" : "cascade"}
+      initialMode={user?.preferredReadingMode === "rtl" ? "rtl" : "cascade"}
       initialPage={Number(page) || 1}
     />
   );

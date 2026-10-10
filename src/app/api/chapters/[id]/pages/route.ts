@@ -6,7 +6,6 @@ import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 /** GET /api/chapters/:id/pages — páginas ordenadas por page_number. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const { id: idRaw } = await ctx.params;
   const id = parseInt(idRaw, 10);

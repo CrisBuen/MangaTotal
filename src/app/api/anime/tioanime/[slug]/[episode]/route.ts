@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { animeAnimadoPermitido } from "@/lib/animeAcceso";
+import { animePublicoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 import {
@@ -17,8 +17,7 @@ export async function GET(
   context: { params: Promise<{ slug: string; episode: string }> }
 ) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesion" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
+  if (!(await animePublicoPermitido(user))) {
     return NextResponse.json({ error: "La seccion animada esta desactivada en Android" }, { status: 403 });
   }
 
@@ -29,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
     }
     const reproduccion = await reproduccionTioanime(slug, episode, source);
-    return NextResponse.json(reproduccion, {
+    return NextResponse.json({ ...reproduccion, guest: !user }, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
   } catch (error) {

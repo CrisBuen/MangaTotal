@@ -32,6 +32,7 @@ interface SubtituloHentaitv {
 }
 
 interface Reproduccion {
+  guest?: boolean;
   external_id: string;
   slug: string;
   series_title: string;
@@ -144,7 +145,7 @@ export function ReproductorAnimeExterno({
     const info = dataRef.current;
     // load()/destroy() también emiten pause y timeupdate en cero. Hasta
     // restaurar el reloj no deben reemplazar el progreso que vino de la API.
-    if (!info || (!progresoListoRef.current && !apertura)) return;
+    if (!info || info.guest || (!progresoListoRef.current && !apertura)) return;
     const pos = Math.max(0, Math.round(position));
     const dur = Math.max(0, Math.round(total));
     lastSavedRef.current = pos;
@@ -195,7 +196,7 @@ export function ReproductorAnimeExterno({
 
         let inicio = Math.max(0, positionOverride ?? 0);
         let registrarApertura = false;
-        if (positionOverride === undefined) {
+        if (positionOverride === undefined && next.guest !== true) {
           const progressParams = new URLSearchParams({
             source,
             id: next.external_id,

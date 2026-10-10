@@ -7,10 +7,11 @@ const COOKIE_NAME = "lector_total_session";
 const TTL = 60 * 60 * 24 * 30;
 
 // Rutas visibles sin sesión: la biblioteca se puede navegar como visitante,
-// y desde el menú se inicia sesión o se registra. Leer capítulos, el perfil
-// y todo lo de admin siguen exigiendo cuenta.
+// y desde el menú se inicia sesión para guardar. Perfil, progreso, biblioteca
+// personal y administración siguen exigiendo cuenta.
 const PUBLIC_EXACT = new Set([
   "/",
+  "/lectura",
   "/biblioteca",
   "/explorar",
   "/aleatorio",
@@ -38,15 +39,15 @@ const PUBLIC_EXACT = new Set([
   "/api/announcements",
   "/api/tags",
   "/api/anime",
+  "/api/anime/arte",
 ]);
-// el catálogo externo se navega como visitante; leer capítulos exige sesión
+// Catálogos y lectura públicos; cada mutación valida la sesión en su handler.
 const PUBLIC_PREFIXES = [
   "/serie/",
   "/externo/",
   "/api/images/",
   "/api/series/",
   "/api/externo/series",
-  // el catálogo y sus filtros son públicos; el capítulo valida sesión por su cuenta
   // las noticias son públicas, como la página que las muestra
   "/api/noticias",
   "/api/externo/olympus",
@@ -58,6 +59,17 @@ const PUBLIC_PREFIXES = [
   // el top de la semana se ve en Inicio, que es pública
   "/api/top-semanal",
 ];
+
+// Solo los GET de lectura pública: las escrituras de progreso, biblioteca,
+// cuenta y administración siguen pasando por autenticación y su handler.
+function lecturaPublica(path: string, method: string): boolean {
+  if (method !== "GET" && method !== "HEAD") return false;
+  return path.startsWith("/leer/") || path.startsWith("/leer-externo/") ||
+    /^\/(explorar|anime)\/(jkanime|tioanime)\//.test(path) ||
+    /^\/api\/anime\/(jkanime|tioanime)(\/|$)/.test(path) ||
+    /^\/api\/chapters\/\d+\/pages$/.test(path) ||
+    path.startsWith("/api/externo/capitulos/") || path === "/api/externo/generos";
+}
 
 interface SessionData {
   userId?: number;
@@ -85,7 +97,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (
-    PUBLIC_EXACT.has(pathname) ||
+    PUBLIC_EXACT.has(pathname) || lecturaPublica(pathname, req.method) ||
     PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
     /^\/anime\/\d+$/.test(pathname) ||
     /^\/api\/anime\/\d+$/.test(pathname)

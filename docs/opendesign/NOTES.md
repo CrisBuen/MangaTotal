@@ -1,5 +1,16 @@
 # MangaTotal · adaptación integral de OpenDesign
 
+## Revisión vigente en preview · 10 de octubre de 2026
+
+El usuario solicitó corregir estabilidad, navegación y diseño en una rama
+nueva, sin volver a publicar en main todavía. Ver
+[plan, cambios, pruebas y límites](../experiencia/PLAN.md).
+El contenido siguiente documenta versiones anteriores, no autoriza publicar
+esta revisión. Ya no se muestra una portada reducida como solución final:
+el destacado vuelve a cubrir su área, con arte opcional de AniList cuando
+existe coincidencia exacta. El pie y menú global se retiraron y la entrada
+ahora separa Lectura/Anime, conservando datos y servicios existentes.
+
 ## Referencia y alcance
 
 HTML del usuario: `descubrir-streaming.html`, proyecto OpenDesign

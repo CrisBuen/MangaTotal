@@ -17,7 +17,6 @@ interface AtHome {
  */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
 
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) {

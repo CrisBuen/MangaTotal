@@ -1,5 +1,11 @@
 # Adaptación OpenDesign · verificación
 
+> Este informe conserva el historial de la adaptación inicial. La revisión
+> del 10/10/2026, todavía separada de main, está en
+> [Lectura y anime · preview](../experiencia/PLAN.md). Sustituye el tratamiento
+> de portada pequeña por destacado grande con arte opcional verificado, retira
+> el pie/menú global y agrega el selector y navegación por experiencia.
+
 ## Resultado y alcance
 
 Adaptación del HTML entregado a las rutas y datos reales de MangaTotal.

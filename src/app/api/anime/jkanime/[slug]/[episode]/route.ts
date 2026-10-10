@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { animeAnimadoPermitido } from "@/lib/animeAcceso";
+import { animePublicoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 import {
@@ -17,8 +17,7 @@ export async function GET(
   context: { params: Promise<{ slug: string; episode: string }> }
 ) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
+  if (!(await animePublicoPermitido(user))) {
     return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
 
@@ -59,7 +58,7 @@ export async function GET(
             },
           }
         : reproduccion;
-    return NextResponse.json(respuesta, {
+    return NextResponse.json({ ...respuesta, guest: !user }, {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
       },

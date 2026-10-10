@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { animeAnimadoPermitido } from "@/lib/animeAcceso";
+import { animePublicoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { ErrorJkanime, fichaJkanime } from "@/lib/jkanime";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
@@ -10,8 +10,7 @@ export const dynamic = "force-dynamic";
 /** Ficha y una página de episodios, sin incluir enlaces de servidores de video. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
+  if (!(await animePublicoPermitido(user))) {
     return NextResponse.json({ error: "La sección animada está desactivada en Android" }, { status: 403 });
   }
 

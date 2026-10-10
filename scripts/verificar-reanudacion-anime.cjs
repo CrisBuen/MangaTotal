@@ -35,6 +35,7 @@ function instalarPrueba(real) {
       if (real) return originalFetch("/reproduccion");
       const source = new URL(String(url), location.origin).searchParams.get("source") || "desu";
       return Response.json({
+        guest: params.has("guest"),
         external_id: "qa-serie", slug: "qa-serie", series_title: "Serie ficticia QA", cover_url: null,
         total_episodes: 12, episode_id: "qa-episodio", episode_number: "1", episode_title: "Episodio 1", poster_url: null,
         sources: [{ id: "desu", label: "Desu", kind: qa.kind }, { id: "magi", label: "Magi", kind: qa.kind }],
@@ -166,7 +167,8 @@ const hlsSimulado = `export default class Hls {
     page.on("pageerror", error => errores.push(error.message));
     const abrir = async query => {
       await page.goto(`http://127.0.0.1:${server.address().port}/${query || ""}`);
-      await page.waitForFunction(() => window.__qa?.gets > 0);
+      if (query?.includes("guest=1")) await page.waitForFunction(() => window.__qa?.preparations > 0);
+      else await page.waitForFunction(() => window.__qa?.gets > 0);
     };
     if (real) {
       await abrir();
@@ -234,6 +236,14 @@ const hlsSimulado = `export default class Hls {
       await page.waitForFunction(() => window.__qa.plays.length > 0);
       assert.equal(await page.locator("video").evaluate(video => video.currentTime), 0);
       console.log("OK episodio completado: repetición desde cero intencional");
+      await abrir("?guest=1");
+      await page.waitForFunction(() => window.__qa.preparations > 0);
+      assert.equal(await page.evaluate(() => window.__qa.gets), 0, "Invitado no consulta progreso privado");
+      await page.evaluate(() => window.__qa.ready());
+      await page.waitForFunction(() => window.__qa.plays.length > 0);
+      await page.evaluate(() => { window.__qa.avanzar(90); window.dispatchEvent(new Event("pagehide")); window.__qa.unmount(); });
+      assert.deepEqual(await page.evaluate(() => window.__qa.patches), [], "Invitado nunca escribe progreso");
+      console.log("OK invitado: reproduce sin consultar ni modificar progreso de cuenta");
       await abrir("?kind=embed");
       await page.locator("iframe").waitFor();
       await page.evaluate(() => { window.dispatchEvent(new Event("pagehide")); window.__qa.unmount(); });

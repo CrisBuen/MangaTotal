@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HeroCarousel } from "./HeroCarousel";
@@ -171,7 +172,10 @@ function AnimeSheet({ source, item, close, onLibraryChange }: { source: Source; 
 }
 
 export function AnimeDiscover({ source }: { source: Source }) {
-  const [initial] = useState(() => typeof window === "undefined" ? {} : Object.fromEntries(new URLSearchParams(location.search)));
+  // La barra móvil navega sin recargar: la vista debe seguir la URL, también
+  // con Atrás/Adelante. Los filtros internos del catálogo conservan su estado.
+  const params = useSearchParams();
+  const initial = Object.fromEntries(params);
   const directory = initial.vista === "catalogo";
   const myList = initial.vista === "milista";
   const historyView = initial.vista === "historial";
@@ -260,7 +264,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
         <input name="q" value={search} onChange={event => setSearch(event.target.value)} placeholder={`Buscar todas las series de ${title}…`} aria-label={`Buscar todas las series de ${title}`} type="search" />
         <button className="od-outline" type="submit">Buscar →</button>
       </form>
-      {recent?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={recent.slice(0, 5).map(item => ({ id: item.slug, title: item.title, image: item.cover_url, poster: true, backdrop: backdrop(source, item.cover_url), meta: [title, item.type, item.status].filter(Boolean).join(" · "), href: `/explorar/${source}/${item.slug}`, action: "Ver serie", extra: <button className="od-outline" onClick={() => setSelected(item)}>ⓘ Episodios y detalles</button> }))} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
+      {recent?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={recent.slice(0, 5).map(item => ({ id: item.slug, title: item.title, image: item.cover_url, poster: true, artworkTitle: item.title, backdrop: backdrop(source, item.cover_url), meta: [title, item.type, item.status].filter(Boolean).join(" · "), href: `/explorar/${source}/${item.slug}`, action: "Ver serie", extra: <button className="od-outline" onClick={() => setSelected(item)}>ⓘ Episodios y detalles</button> }))} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
       {error && <div className="od-message" role="alert"><p>{error}</p><button onClick={() => setAttempt(value => value + 1)}>Reintentar {title}</button></div>}
       {accountError && <div className="od-message">No se pudo consultar tu lista: {accountError} <button onClick={() => setAccountVersion(value => value + 1)}>Reintentar lista</button></div>}
       {continuing.length > 0 && <MediaRail title="Continuar viendo" wide href={historyUrl}>

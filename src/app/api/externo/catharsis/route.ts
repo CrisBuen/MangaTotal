@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
 import {
   catalogoCwServidor,
   normalizarCw,
@@ -87,8 +86,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Capítulo inválido" }, { status: 400 });
       }
 
-      const user = await getSessionUser();
-      if (!user) return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+      // El visitante puede leer; las rutas de biblioteca no cambian sus permisos.
 
       const archivos = await pedirCw<{ data: ArchivoCw[] }>(
         `/files?filter[folder][_eq]=${id}&fields=id,title,width,height&limit=-1`,

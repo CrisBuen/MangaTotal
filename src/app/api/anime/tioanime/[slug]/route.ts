@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { animeAnimadoPermitido } from "@/lib/animeAcceso";
+import { animePublicoPermitido } from "@/lib/animeAcceso";
 import { getSessionUser } from "@/lib/auth";
 import { ErrorTioanime, fichaTioanime } from "@/lib/tioanime";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
@@ -10,8 +10,7 @@ export const dynamic = "force-dynamic";
 /** Ficha y episodios de TioAnime, sin incluir enlaces de reproduccion. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Sin sesion" }, { status: 401 });
-  if (!(await animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt))) {
+  if (!(await animePublicoPermitido(user))) {
     return NextResponse.json({ error: "La seccion animada esta desactivada en Android" }, { status: 403 });
   }
 
