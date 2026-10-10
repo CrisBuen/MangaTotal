@@ -22,6 +22,7 @@ import {
 import { isPlayStoreApp } from "./appVersion";
 import { recuperarIdIkigai } from "./referenciasLectura";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "./androidCache";
+import { adultoDelEstadoIkigai, paginasDelEstadoIkigai } from "./ikigaiPaginas";
 
 export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
 const IKIGAI_IMAGENES = "https://image2.ikigaimangas.cloud";
@@ -364,29 +365,54 @@ export interface CapituloIkigai {
   fecha: string | null;
 }
 
+export interface FichaIkigai {
+  slug: string; title: string; cover_url: string | null; description: string | null;
+  generos: string[]; capitulos: CapituloIkigai[]; url_original: string; completa: boolean;
+}
+
+async function documentoIkigai(url: string, signal?: AbortSignal): Promise<Document> {
+  signal?.throwIfAborted();
+  if (!signal) return traerDocumento(url);
+  // El puente nativo termina su petición en curso, pero una cancelación ya no
+  // inicia las siguientes páginas ni deja la cola esperando al puente.
+  return new Promise((resolve, reject) => {
+    const cancelar = () => reject(new DOMException("Consulta cancelada", "AbortError"));
+    signal.addEventListener("abort", cancelar, { once: true });
+    traerDocumento(url).then(resolve, reject).finally(() => signal.removeEventListener("abort", cancelar));
+  });
+}
+
 /**
  * Ficha de una serie con TODOS sus capítulos.
  *
  * Su ficha muestra 24 capítulos por página (con el parámetro "pagina"), así
  * que se recorren todas hasta que dejan de aparecer capítulos nuevos.
  */
-async function serieIkigaiDeLaFuente(slug: string) {
+async function serieIkigaiDeLaFuente(slug: string, onPartial?: (ficha: FichaIkigai) => void, signal?: AbortSignal): Promise<FichaIkigai> {
+  if (!/^[\w-]{1,500}$/.test(slug)) throw new Error("Referencia de Ikigai inválida");
+  const url = `${IKIGAI_WEB}/series/${slug}/`;
+  const primera = await documentoIkigai(url, signal);
+  // El menú general también contiene enlaces a géneros. Solo el article de
+  // la ficha clasifica esta obra; no usar todo el documento como alternativa.
+  const ficha = primera.querySelector("h1")?.closest("article");
+  if (!ficha) throw new Error("Ikigai cambió el formato de la ficha");
+  const titulo = ficha.querySelector("h1")?.textContent?.trim() || "Sin título";
+  const enlacesGeneros = Array.from(ficha.querySelectorAll('a[href*="generos"]'));
+  const generos = [...new Set(enlacesGeneros.map(g => g.textContent?.trim() ?? "").filter(Boolean))];
+  if (isPlayStoreApp() && (generos.some(textoMarcaContenidoAdulto) || enlacesGeneros.some(g => {
+    const href = new URL(g.getAttribute("href") || "", IKIGAI_WEB);
+    return href.searchParams.getAll("generos[]").some(id => IKIGAI_GENEROS_ADULTOS.has(id));
+  }))) contenidoNoDisponible();
+  const portada = Array.from(ficha.querySelectorAll("img")).find(i => i.getAttribute("alt")?.trim() === titulo)?.getAttribute("src") ?? null;
+  const parrafos = Array.from(ficha.querySelectorAll("p")).map(p => p.textContent?.trim() ?? "").sort((a, b) => b.length - a.length);
+  const datos = { slug, title: titulo, cover_url: portada, description: parrafos[0] || null, generos, url_original: url };
   const capitulos: CapituloIkigai[] = [];
   const vistos = new Set<string>();
-  let primera: Document | null = null;
-
-  // el corte real es la página que no suma capítulos nuevos (más abajo);
-  // este número es solo una red por si su sitio empieza a repetirse
-  for (let pagina = 1; pagina <= 300; pagina++) {
-    const doc = await traerDocumento(
-      `${IKIGAI_WEB}/series/${slug}/${pagina > 1 ? `?pagina=${pagina}` : ""}`
-    );
-    if (!primera) primera = doc;
-
+  const agregar = (doc: Document) => {
     const antes = capitulos.length;
     for (const a of Array.from(doc.querySelectorAll('a[href^="/capitulo/"]'))) {
       const id = (a.getAttribute("href") ?? "").split("/capitulo/")[1]?.replace(/\/$/, "");
-      if (!id || vistos.has(id)) continue;
+      if (!id || !/^\d{1,20}$/.test(id) || vistos.has(id)) continue;
 
       // el número vive en el título de la tarjeta; el texto del enlace
       // completo mezcla los "me gusta", las visitas y la fecha
@@ -401,67 +427,68 @@ async function serieIkigaiDeLaFuente(slug: string) {
       });
     }
 
-    // si esta página no sumó nada, ya no quedan capítulos
-    if (capitulos.length === antes) break;
-  }
-
-  const doc = primera!;
-  const titulo = doc.querySelector("h1")?.textContent?.trim() ?? "Sin título";
-  const generos = Array.from(doc.querySelectorAll('a[href*="generos"]'))
-    .map((g) => g.textContent?.trim() ?? "")
-    .filter(Boolean)
-    .slice(0, 10);
-
-  if (isPlayStoreApp() && generos.some(textoMarcaContenidoAdulto)) {
-    contenidoNoDisponible();
-  }
-
-  // la portada es la imagen cuyo texto alternativo es el título de la serie
-  const portada =
-    Array.from(doc.querySelectorAll("img")).find(
-      (i) => (i.getAttribute("alt") ?? "").trim() === titulo
-    )?.getAttribute("src") ?? null;
-
-  const parrafos = Array.from(doc.querySelectorAll("p"))
-    .map((x) => x.textContent?.trim() ?? "")
-    .sort((a, b) => b.length - a.length);
-
-  return {
-    slug,
-    title: titulo,
-    cover_url: portada,
-    description: parrafos[0] && parrafos[0].length > 60 ? parrafos[0] : null,
-    generos,
-    // vienen del más nuevo al más viejo: se invierte para leer en orden
-    capitulos: capitulos.reverse(),
-    url_original: `${IKIGAI_WEB}/series/${slug}/`,
+    return capitulos.length - antes;
   };
+  const paginacion = (doc: Document) => Array.from(doc.querySelectorAll('a[href*="pagina="]')).flatMap(a => {
+    try {
+      const u = new URL(a.getAttribute("href") || "", url);
+      const n = Number(u.searchParams.get("pagina"));
+      return u.origin === IKIGAI_WEB && u.pathname === new URL(url).pathname && Number.isInteger(n) && n >= 1 && n <= 300 ? [n] : [];
+    } catch { return []; }
+  });
+  agregar(primera);
+  onPartial?.({ ...datos, capitulos: [...capitulos].reverse(), completa: false });
+  let ultima = Math.max(1, ...paginacion(primera));
+  if (ultima > 1) {
+    // Dos páginas como máximo en paralelo. Se agregan en orden, no según cuál
+    // llegue primero. También seguimos un paginador que solo muestre «siguiente».
+    for (let pagina = 2; pagina <= ultima;) {
+      const numeros = [pagina, pagina + 1].filter(n => n <= ultima);
+      const documentos = await Promise.all(numeros.map(n => documentoIkigai(`${url}?pagina=${n}`, signal)));
+      for (const doc of documentos) {
+        if (!agregar(doc)) throw new Error("Ikigai no entregó todos los capítulos. Reintentá la ficha.");
+        ultima = Math.max(ultima, ...paginacion(doc));
+      }
+      pagina += numeros.length;
+    }
+  } else if (capitulos.length >= 24) {
+    // Si cambian el paginador, conservamos el recorrido anterior: nunca dar
+    // por completa una obra larga usando solo sus primeros 24 capítulos.
+    for (let pagina = 2; pagina <= 300; pagina++) {
+      if (!agregar(await documentoIkigai(`${url}?pagina=${pagina}`, signal))) break;
+      if (pagina === 300) throw new Error("Ikigai no pudo completar la lista de capítulos");
+    }
+  }
+  return { ...datos, capitulos: capitulos.reverse(), completa: true };
 }
 
 /** La ficha puede recorrer decenas de páginas; se reutiliza al abrir el lector. */
 export async function serieIkigai(
   slug: string,
   fresco = false,
-  onCached?: (ficha: Awaited<ReturnType<typeof serieIkigaiDeLaFuente>>) => void
+  onCached?: (ficha: FichaIkigai) => void,
+  signal?: AbortSignal,
 ) {
-  if (typeof window === "undefined") return serieIkigaiDeLaFuente(slug);
-  const clave = `ikigai:ficha:v2:${isPlayStoreApp() ? "play" : "normal"}:${slug}`;
+  if (typeof window === "undefined") return serieIkigaiDeLaFuente(slug, onCached, signal);
+  // v3 descarta metadatos públicos con géneros del menú, no la biblioteca.
+  const clave = `ikigai:ficha:v3:${isPlayStoreApp() ? "play" : "normal"}:${slug}`;
   if (fresco) {
-    const ficha = await serieIkigaiDeLaFuente(slug);
+    const ficha = await serieIkigaiDeLaFuente(slug, onCached, signal);
     await guardarCacheAndroid(clave, ficha, { publicCache: true });
     return ficha;
   }
-  return cargarConCacheAndroid(clave, () => serieIkigaiDeLaFuente(slug), {
+  return cargarConCacheAndroid(clave, limite => serieIkigaiDeLaFuente(slug, onCached, signal ?? limite), {
     publicCache: true,
     freshForMs: 5 * 60_000,
     maxAgeMs: 24 * 60 * 60_000,
+    timeoutMs: 120_000,
     onCached,
   });
 }
 
 /** Rescata "hace 7 h" o "12/03/2026" del texto de la tarjeta. */
 function fechaDelTexto(texto: string): string | null {
-  const limpio = texto.replace(/s+/g, " ");
+  const limpio = texto.replace(/\s+/g, " ");
   return (
     limpio.match(/hace\s+[^,]{2,18}/i)?.[0]?.trim() ??
     limpio.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)?.[0] ??
@@ -496,9 +523,13 @@ export async function capituloIkigai(chapterId: string) {
   // dentro del documento del visor.
   if (isPlayStoreApp()) {
     const html = doc.documentElement?.innerHTML ?? "";
+    const clasificaciones = Array.from(doc.querySelectorAll('script[type="qwik/json"]'))
+      .map(s => adultoDelEstadoIkigai(s.textContent ?? "", chapterId));
+    const adulto = clasificaciones.includes(true);
+    const clasificado = clasificaciones.some(v => typeof v === "boolean");
     if (
-      /["']is_mature["']\s*:\s*true/i.test(html) ||
-      Array.from(IKIGAI_GENEROS_ADULTOS).some((id) => html.includes(id))
+      adulto || (!clasificado && (/["']is_mature["']\s*:\s*true/i.test(html) ||
+      Array.from(IKIGAI_GENEROS_ADULTOS).some((id) => html.includes(id))))
     ) {
       contenidoNoDisponible();
     }
@@ -509,6 +540,15 @@ export async function capituloIkigai(chapterId: string) {
     const clave = el.getAttribute("q:key");
     if (!clave || paginas.includes(clave)) continue;
     if (/^https?:\/\/.+\.(webp|jpg|jpeg|png)$/i.test(clave)) paginas.push(clave);
+  }
+
+  // Los visores nuevos ya no pintan los bloques de imagen en el SSR. Sus
+  // datos públicos contienen la lista ordenada del capítulo exacto.
+  if (!paginas.length) {
+    for (const estado of Array.from(doc.querySelectorAll('script[type="qwik/json"]'))) {
+      const lista = paginasDelEstadoIkigai(estado.textContent ?? "", chapterId);
+      if (lista.length) { paginas.push(...lista); break; }
+    }
   }
 
   return {

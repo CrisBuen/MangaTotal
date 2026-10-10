@@ -5,6 +5,16 @@
 Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
 serie y en cada capítulo.
 
+10/10/2026 (rama de preview experiencia-lectura-anime): el visor Qwik nuevo
+puede no pintar q:key con páginas en el SSR. ikigaiPaginas.ts lee únicamente
+el registro cuyo Long coincide con el capítulo solicitado y su array pages,
+resolviendo referencias base 36, sin ejecutar scripts ni barrer URLs globales.
+Algunos anuncios serializados traen escapes JS \\x3C: se normalizan a JSON.
+El transporte y los hosts permitidos no cambian. El camino q:key se conserva.
+Los géneros pertenecen al article de h1, NO al menú general. Las fichas largas
+se muestran desde la primera respuesta y completan su paginación de a dos.
+La caché pública pasa a v3; no se toca la biblioteca ni el progreso.
+
 22/09/2026: /capitulo/<id> redirige ahora también a
 visualikigai.cmpunjabrashancard.pk. Confirmado con HTTP 302 desde el
 dominio oficial en dos capítulos y HTTP 200 al seguir la redirección.
@@ -111,14 +121,16 @@ Todo lo que hay que ajustar está junto en src/lib/ikigai.ts:
 
   Ficha     -> /series/<slug>/
               título:     h1
-              portada:    la primera imagen del dominio ikigaimangas
-              sinopsis:   el párrafo más largo de la página
+              portada:    imagen del article de la obra, con título coincidente
+              sinopsis:   párrafo dentro del mismo article
+              géneros:    enlaces de género dentro del article, no del menú
               capítulos:  a[href^="/capitulo/"]
                           (se descartan "Primer Capítulo" y "Último
                            Capítulo", que son accesos rápidos repetidos)
 
   Capítulo  -> /capitulo/<id>/
-              páginas:    atributo q:key de cada bloque
+              páginas:    atributo q:key de cada bloque; si falta, estado
+                          Qwik del capítulo exacto (ikigaiPaginas.ts)
 
 Para comprobar un selector: abrí la página en Chrome, F12, y probá en la
 consola, por ejemplo:
@@ -133,4 +145,15 @@ RECORDATORIOS
 - La integración existe porque Ikigai Mangas dio su permiso. No sacar su
   nombre ni los enlaces a su sitio.
 - No se aloja nada: las imágenes se cargan desde sus servidores.
+
+Revisión de estabilidad en preview (10/10/2026): el fallback Qwik conserva
+los IDs Long como texto, resuelve referencias base36 sin eval y exige páginas
+del capítulo exacto y hosts permitidos. Play usa is_mature/high_risk de su
+serie; si no puede identificarla conserva la barrera anterior. No clasificar
+una obra por la lista global de géneros. La geometría de CascadeReader sigue
+intacta. Caché de imágenes solo en RAM: 24 MiB, 32 entradas, 90 segundos;
+tres descargas concurrentes, sin caché de vídeos ni almacenamiento persistente.
+Se probaron 14 páginas de un capítulo real y tiras de hasta 18.000 px sin
+solaparse, con transporte nativo simulado. Falta validar los binarios físicos.
+Detalle y scripts: docs/experiencia/PLAN.md.
 ===========================================================================

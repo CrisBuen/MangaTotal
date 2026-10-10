@@ -45,9 +45,12 @@ test("pausa y reanudación no vuelven a consultar las terminadas", async () => {
   await cola.ejecutarCola(() => j, x => { j = x; if (x.hechas.length === 2) j.estado = "pausado"; },
     async t => { vistas.push(t.external_id); return resultado("3"); }, new AbortController().signal);
   assert.equal(j.hechas.length, 2);
+  const terminadas = [...j.hechas];
   j = cola.leerTrabajo(JSON.stringify(j)); j.estado = "activo";
   await cola.ejecutarCola(() => j, x => { j = x; }, async t => { vistas.push(t.external_id); return resultado("3"); }, new AbortController().signal);
-  assert.equal(j.hechas.length, 4); assert.equal(new Set(vistas).size, 4); assert.equal(vistas.length, 4);
+  assert.equal(j.hechas.length, 4); assert.equal(new Set(vistas).size, 4);
+  // Una consulta todavía en vuelo al pausar puede repetirse; una guardada, no.
+  for (const clave of terminadas) assert.equal(vistas.filter(id => `mangadex-${id}` === clave).length, 1);
 });
 test("cerrar durante una consulta no marca como completado lo pendiente", async () => {
   let j = cola.trabajoNuevo("lectura", [tarea("a")]);
@@ -70,6 +73,23 @@ test("fallos aislados mantienen el último resultado bueno y permiten reintentar
   j.hechas = j.hechas.filter(k => !j.errores[k]); j.estado = "activo";
   await cola.ejecutarCola(() => j, x => { j = x; }, async () => resultado("4"), new AbortController().signal);
   assert.equal(Object.keys(j.errores).length, 0);
+});
+test("una consulta colgada no frena otras series y cincuenta fallos no cancelan la revisión", async () => {
+  let j = cola.trabajoNuevo("lectura", Array.from({ length: 60 }, (_, i) => tarea(String(i))));
+  let liberar;
+  const pendiente = new Promise(r => { liberar = r; });
+  const ejecucion = cola.ejecutarCola(() => j, x => { j = x; }, async t => {
+    if (t.external_id === "0") return pendiente;
+    if (Number(t.external_id) <= 50) throw Error("Fuente temporalmente caída");
+    return resultado("5");
+  }, new AbortController().signal);
+  await pausa();
+  assert.equal(j.hechas.length, 59, "las demás terminan sin esperar a la primera");
+  assert.equal(j.estado, "activo", "no anunciar final mientras queda una consulta");
+  liberar(resultado("4")); await ejecucion;
+  assert.equal(j.hechas.length, 60);
+  assert.equal(Object.keys(j.errores).length, 50);
+  assert.equal(j.estado, "terminado");
 });
 test("una respuesta de la cola anterior no modifica la nueva", async () => {
   let j = cola.trabajoNuevo("lectura", [tarea("a")]), resolver;

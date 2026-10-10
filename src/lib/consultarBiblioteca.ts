@@ -42,7 +42,7 @@ export async function consultarBiblioteca(tipo: TipoCola, t: TareaBiblioteca, si
   }
   if (t.source === "ikigai") {
     const { serieIkigai } = await import("./ikigai");
-    return resumirCapitulos((await serieIkigai(t.external_id)).capitulos, t.last_chapter_name);
+    return resumirCapitulos((await serieIkigai(t.external_id, true, undefined, signal)).capitulos, t.last_chapter_name);
   }
   if (t.source === "leercapitulo") {
     const { serieLc } = await import("./leercapitulo");

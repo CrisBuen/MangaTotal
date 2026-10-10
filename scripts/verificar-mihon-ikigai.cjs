@@ -151,6 +151,27 @@ test("Olympus conserva identidad antigua para no duplicar la biblioteca", async 
 });
 const imagen = "https://image3.ikigaimangas.cloud/series/1/2/0.webp";
 const webp = Buffer.from("RIFF0000WEBPcontenido");
+
+test("Qwik toma la lista ordenada del capítulo exacto, no portadas ni anuncios de otras obras", () => {
+  const { paginasDelEstadoIkigai } = cargar("src/lib/ikigaiPaginas.ts");
+  const id = "1135592572277784579";
+  const url = `https://image3.ikigaimangas.cloud/series/123/${id}/01.webp`;
+  const objs = [{ id: "1", pages: "2" }, "\u0018" + id, ["3", "4"], url, url.replace("01.webp", "02.webp"), "https://evil.example/01.webp"];
+  assert.deepEqual([...paginasDelEstadoIkigai(JSON.stringify({ objs }), id)], [url, url.replace("01.webp", "02.webp")]);
+  assert.equal(paginasDelEstadoIkigai(JSON.stringify({ objs }), "otro").length, 0);
+  objs[2] = ["3", "5"];
+  assert.equal(paginasDelEstadoIkigai(JSON.stringify({ objs }), id).length, 0);
+  assert.equal(paginasDelEstadoIkigai('{"objs":[]}', id).length, 0);
+});
+test("Qwik clasifica la obra exacta sin heredar géneros adultos del menú", () => {
+  const { adultoDelEstadoIkigai } = cargar("src/lib/ikigaiPaginas.ts");
+  const objs = [{ id: "1", pages: "2", series: "3" }, "\u0018" + chapterId, [], { is_mature: "4" }, false, { is_mature: "6" }, true];
+  assert.equal(adultoDelEstadoIkigai(JSON.stringify({ objs }), chapterId), false);
+  objs[4] = true;
+  assert.equal(adultoDelEstadoIkigai(JSON.stringify({ objs }), chapterId), true);
+  assert.equal(adultoDelEstadoIkigai(JSON.stringify({ objs }), "otra"), undefined);
+});
+
 test("imágenes viajan por puente Android, deduplicadas y máximo tres a la vez", async () => {
   let llamadas = 0, activas = 0, max = 0;
   const native = cargar("src/lib/imagenFuenteNativa.ts", {}, { window: { Capacitor: { Plugins: { Fuentes: {
@@ -161,9 +182,29 @@ test("imágenes viajan por puente Android, deduplicadas y máximo tres a la vez"
     },
   } } } }, fetch: () => assert.fail("No debe existir proxy web") });
   const p = native.cargarImagenNativa(imagen);
-  assert.equal(native.cargarImagenNativa(imagen), p);
+  const repetida = native.cargarImagenNativa(imagen);
   const otros = Array.from({ length: 7 }, (_, i) => native.cargarImagenNativa(imagen.replace("0.webp", (i + 1) + ".webp")));
-  await Promise.all([p, ...otros]); assert.equal(llamadas, 8); assert.equal(max, 3);
+  await Promise.all([p, repetida, ...otros]); assert.equal(llamadas, 8); assert.equal(max, 3);
+  assert.equal(await p, await repetida, "cada consumidor se cancela por separado pero comparte los bytes");
+  await native.cargarImagenNativa(imagen); assert.equal(llamadas, 8, "la vuelta inmediata usa memoria acotada");
+});
+
+test("salir del catálogo cancela su cola sin cancelar otro consumidor de la misma imagen", async () => {
+  const esperas = [], llamadas = [];
+  const native = cargar("src/lib/imagenFuenteNativa.ts", {}, { window: { Capacitor: { Plugins: { Fuentes: {
+    traerImagen: url => { llamadas.push(url.url); return new Promise(resolve => esperas.push(() => resolve({ data: webp.toString("base64") }))); },
+  } } } } });
+  const primeros = [1, 2, 3].map(n => native.cargarImagenNativa(imagen.replace("0.webp", n + ".webp")));
+  const c = new AbortController(), compartido = new AbortController();
+  const cancelada = native.cargarImagenNativa(imagen, { signal: c.signal });
+  const rechazo = assert.rejects(cancelada, { name: "AbortError" });
+  c.abort(); await rechazo;
+  const una = native.cargarImagenNativa(imagen.replace("0.webp", "4.webp"), { signal: compartido.signal });
+  const otra = native.cargarImagenNativa(imagen.replace("0.webp", "4.webp"));
+  const rechazoCompartido = assert.rejects(una, { name: "AbortError" }); compartido.abort(); await rechazoCompartido;
+  esperas.splice(0).forEach(r => r()); await Promise.all(primeros);
+  await new Promise(r => setTimeout(r, 0)); esperas.splice(0).forEach(r => r()); await otra;
+  assert.equal(llamadas.length, 4); assert.ok(!llamadas.includes(imagen));
 });
 test("puente Windows recibe binario; placeholder, URL ajena y navegador se rechazan", async () => {
   const native = cargar("src/lib/imagenFuenteNativa.ts", {}, { window: { __TAURI__: { core: { invoke: async (cmd) => {

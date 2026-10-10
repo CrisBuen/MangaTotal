@@ -170,17 +170,18 @@ test("La API de ficha pide los capítulos de la dirección resuelta", async () =
 });
 
 function documentoFicha(adulto = false) {
-  return {
-    querySelector: () => ({ textContent: "Obra" }),
+  const ficha = {
+    querySelector: () => ({ textContent: "Obra", closest: () => ficha }),
     querySelectorAll(selector) {
       if (selector === 'a[href^="/capitulo/"]') return [...ids].reverse().map((id) => ({
         getAttribute: () => "/capitulo/" + id + "/",
         querySelector: (s) => ({ textContent: s === "h3" ? "Capítulo " + (ids.indexOf(id) + 1) : "hace 1 d" }),
       }));
-      if (selector === 'a[href*="generos"]') return [{ textContent: adulto ? "+18" : "Fantasía" }];
+      if (selector === 'a[href*="generos"]') return [{ textContent: adulto ? "+18" : "Fantasía", getAttribute: () => "/series/?generos[]=1" }];
       return [];
     },
   };
+  return ficha;
 }
 const documentoCapitulo = {
   documentElement: { innerHTML: "" },

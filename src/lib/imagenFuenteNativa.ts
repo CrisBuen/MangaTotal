@@ -9,8 +9,40 @@ export function esImagenIkigai(src: string): boolean {
   } catch { return false; }
 }
 let activas = 0;
-const cola: (() => void)[] = [];
-const pendientes = new Map<string, Promise<Blob>>();
+interface PedidoImagen {
+  src: string; prioridad: number; consumidores: number; iniciado: boolean;
+  promesa: Promise<Blob>; resolver: (blob: Blob) => void; rechazar: (error: unknown) => void;
+}
+const cola: PedidoImagen[] = [];
+const pendientes = new Map<string, PedidoImagen>();
+// Solo memoria de esta ventana: no descarga una biblioteca entera ni persiste
+// páginas. Evita repetir la misma portada al pasar de Explorar a su ficha.
+const memoria = new Map<string, { blob: Blob; vence: number }>();
+let bytesEnMemoria = 0;
+function recordar(src: string, blob: Blob) {
+  const previo = memoria.get(src);
+  if (previo) bytesEnMemoria -= previo.blob.size;
+  memoria.delete(src);
+  memoria.set(src, { blob, vence: Date.now() + 90_000 }); bytesEnMemoria += blob.size;
+  while (bytesEnMemoria > 24 * 1024 * 1024 || memoria.size > 32) {
+    const primera = memoria.entries().next().value!;
+    bytesEnMemoria -= primera[1].blob.size; memoria.delete(primera[0]);
+  }
+}
+const cancelacion = () => Object.assign(new Error("Carga cancelada"), { name: "AbortError" });
+
+function avanzar() {
+  cola.sort((a, b) => b.prioridad - a.prioridad);
+  while (activas < 3 && cola.length) {
+    const pedido = cola.shift()!;
+    pedido.iniciado = true; activas++;
+    descargar(pedido.src).then(blob => {
+      recordar(pedido.src, blob); pedido.resolver(blob);
+    }, pedido.rechazar).finally(() => {
+      activas--; pendientes.delete(pedido.src); avanzar();
+    });
+  }
+}
 async function descargar(src: string): Promise<Blob> {
   if (!esImagenIkigai(src)) throw new Error("Imagen de fuente no permitida");
   type Nativo = {
@@ -47,18 +79,45 @@ async function descargar(src: string): Promise<Blob> {
   }
   return new Blob([bytes], { type: tipo });
 }
-/** Tres descargas simultáneas; los pedidos repetidos en curso comparten bytes. */
-export function cargarImagenNativa(src: string): Promise<Blob> {
-  const actual = pendientes.get(src);
-  if (actual) return actual;
-  const pedido = (async () => {
-    await new Promise<void>((resolve) => {
-      const iniciar = () => { activas++; resolve(); };
-      if (activas < 3) iniciar(); else cola.push(iniciar);
-    });
-    try { return await descargar(src); }
-    finally { activas--; cola.shift()?.(); pendientes.delete(src); }
-  })();
-  pendientes.set(src, pedido);
-  return pedido;
+/** Tres descargas; salir de una vista descarta su trabajo todavía no iniciado. */
+export function cargarImagenNativa(src: string, opciones: { signal?: AbortSignal; prioridad?: number } = {}): Promise<Blob> {
+  if (!esImagenIkigai(src)) return Promise.reject(new Error("Imagen de fuente no permitida"));
+  if (opciones.signal?.aborted) return Promise.reject(cancelacion());
+  const cache = memoria.get(src);
+  if (cache && cache.vence > Date.now()) {
+    memoria.delete(src); memoria.set(src, cache);
+    return Promise.resolve(cache.blob);
+  }
+  if (cache) { memoria.delete(src); bytesEnMemoria -= cache.blob.size; }
+  let pedido = pendientes.get(src);
+  if (!pedido) {
+    let resolver!: PedidoImagen["resolver"], rechazar!: PedidoImagen["rechazar"];
+    const promesa = new Promise<Blob>((ok, error) => { resolver = ok; rechazar = error; });
+    pedido = { src, promesa, resolver, rechazar, consumidores: 0, iniciado: false, prioridad: opciones.prioridad ?? 0 };
+    pendientes.set(src, pedido); cola.push(pedido);
+  }
+  const compartido = pedido;
+  compartido.consumidores++;
+  compartido.prioridad = Math.max(compartido.prioridad, opciones.prioridad ?? 0);
+  const respuesta = new Promise<Blob>((resolve, reject) => {
+    let terminado = false;
+    const terminar = () => {
+      if (terminado) return false;
+      terminado = true; compartido.consumidores--;
+      opciones.signal?.removeEventListener("abort", cancelar);
+      return true;
+    };
+    const cancelar = () => {
+      if (!terminar()) return;
+      reject(cancelacion());
+      if (!compartido.iniciado && compartido.consumidores === 0) {
+        cola.splice(cola.indexOf(compartido), 1); pendientes.delete(src);
+        compartido.rechazar(cancelacion());
+      }
+    };
+    opciones.signal?.addEventListener("abort", cancelar, { once: true });
+    compartido.promesa.then(blob => { if (terminar()) resolve(blob); }, error => { if (terminar()) reject(error); });
+  });
+  avanzar();
+  return respuesta;
 }

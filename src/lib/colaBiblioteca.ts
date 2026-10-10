@@ -55,7 +55,7 @@ export function pendientesBiblioteca(r: ResultadoBiblioteca | undefined, leido: 
   return r.ultimo === null ? null : Math.max(0, Math.round(Number(r.ultimo) - Math.max(0, punto)));
 }
 
-/** Guarda cada resultado antes de tomar otro lote; cerrar la app repite solo lo pendiente. */
+/** Dos trabajadores independientes: una fuente lenta no retiene el siguiente lote. */
 export async function ejecutarCola(
   leer: () => TrabajoBiblioteca | null,
   guardar: (j: TrabajoBiblioteca) => void,
@@ -64,12 +64,14 @@ export async function ejecutarCola(
   conectado: () => boolean = () => true,
 ): Promise<void> {
   const id = leer()?.id;
-  while (!signal.aborted && conectado()) {
-    const j = leer();
-    if (!j || j.id !== id || j.estado !== "activo") return;
-    const pendientes = j.tareas.filter(t => !j.hechas.includes(claveTarea(t))).slice(0, 2);
-    if (!pendientes.length) { guardar({ ...j, estado: "terminado", actualizado: Date.now() }); return; }
-    await Promise.all(pendientes.map(async t => {
+  const enCurso = new Set<string>();
+  const trabajar = async () => {
+    while (!signal.aborted && conectado()) {
+      const j = leer();
+      if (!j || j.id !== id || j.estado !== "activo") return;
+      const t = j.tareas.find(t => !j.hechas.includes(claveTarea(t)) && !enCurso.has(claveTarea(t)));
+      if (!t) return;
+      enCurso.add(claveTarea(t));
       let resultado: ResultadoBiblioteca | undefined, error: string | undefined;
       const controlador = new AbortController();
       const cancelar = () => controlador.abort();
@@ -98,6 +100,13 @@ export async function ejecutarCola(
         delete errores[clave];
       } else { errores[clave] = error ?? "Sin datos de la fuente"; }
       guardar({ ...actual, resultados, errores, hechas: [...new Set([...actual.hechas, clave])], actualizado: Date.now() });
-    }));
+      enCurso.delete(clave);
+    }
+  };
+  await Promise.all([trabajar(), trabajar()]);
+  const final = leer();
+  if (!signal.aborted && conectado() && final && final.id === id && final.estado === "activo" &&
+      final.tareas.every(t => final.hechas.includes(claveTarea(t)))) {
+    guardar({ ...final, estado: "terminado", actualizado: Date.now() });
   }
 }

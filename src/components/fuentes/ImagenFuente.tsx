@@ -13,11 +13,12 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
     useEffect(() => {
       if (!nativa || typeof src !== "string") return;
       let cancelado = false;
+      const controlador = new AbortController();
       let objeto: string | undefined;
       let observador: IntersectionObserver | undefined;
       const cargar = async () => {
         try {
-          const blob = await cargarImagenNativa(src);
+          const blob = await cargarImagenNativa(src, { signal: controlador.signal, prioridad: loading === "lazy" ? 0 : 1 });
           if (cancelado) return;
           objeto = URL.createObjectURL(blob);
           setCargada({ src, url: objeto });
@@ -31,12 +32,14 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
         }, { rootMargin: "1200px" });
         observador.observe(elemento.current);
       } else { void cargar(); }
-      return () => { cancelado = true; observador?.disconnect(); if (objeto) URL.revokeObjectURL(objeto); };
+      return () => { cancelado = true; controlador.abort(); observador?.disconnect(); if (objeto) URL.revokeObjectURL(objeto); };
     }, [src, nativa, loading, intento]);
     const resultado = cargada?.src === src ? cargada : null;
     return <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img {...props} ref={elemento} src={nativa ? resultado?.url : src} alt={alt} loading={loading}
+        aria-busy={nativa && !resultado?.url && !resultado?.error ? true : undefined}
+        style={{ ...props.style, ...(nativa && !resultado?.url ? { visibility: "hidden" } : {}) }}
         onError={nativa ? () => setCargada({ src: String(src), error: "No se pudo mostrar la imagen de Ikigai." }) : props.onError} />
       {nativa && resultado?.error && <span role="alert" className="relative z-20 block p-2 text-xs text-subtle">
         {resultado.error} <button type="button" className="underline" onClick={(e) => {

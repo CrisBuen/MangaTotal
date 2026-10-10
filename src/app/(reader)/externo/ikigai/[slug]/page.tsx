@@ -101,7 +101,7 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
               {ficha.title}
             </h1>
             <p className="mt-1 font-mono text-[13px] text-faint">
-              {ficha.capitulos.length} capítulos
+              {ficha.completa ? `${ficha.capitulos.length} capítulos` : "Cargando la lista completa de capítulos…"}
             </p>
           </div>
 
