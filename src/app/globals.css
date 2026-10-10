@@ -5,21 +5,21 @@
 :root {
   color-scheme: dark;
   /* La interfaz toma temperatura y contraste directamente del logo. */
-  --bg: #060608;
-  --surface: #0f0f12;
-  --surface-raised: #19191c;
+  --bg: #08090d;
+  --surface: #111319;
+  --surface-raised: #181b24;
   --surface-2: var(--surface-raised);
-  --surface-soft: #0b0b0d;
-  --fg: #f2eae1;
-  --muted: #a8a29b;
+  --surface-soft: #0d0e14;
+  --fg: #f5f6f8;
+  --muted: #9598a4;
   --fg-muted: var(--muted);
   --fg-faint: #78746e;
-  --border: #28282c;
-  --border-strong: #68686d;
-  --accent: #6b34a1;
-  --accent-hover: #7b46b4;
-  --accent-press: #591f8d;
-  --accent-fg: #b383ef;
+  --border: #202330;
+  --border-strong: #363c4f;
+  --accent: #6d32a8;
+  --accent-hover: #7d3cc0;
+  --accent-press: #5a258c;
+  --accent-fg: #ba95ec;
   --accent-soft: color-mix(in oklch, var(--accent) 18%, transparent);
   --accent-quiet: var(--accent-soft);
   --on-accent: #ffffff;

@@ -56,6 +56,8 @@ let activePage, activeRequests, activeErrors;
         if (p === "/api/auth/me") data = guest ? {} : { id: 999909, nickname: "QA", anime_enabled: true, anime_terms_accepted: true, show_adult_content: true };
         else if (p === "/api/noticias/externas") data = { noticias: fixtures.slice(0, 5).map(item => ({ titulo: item.title, enlace: "https://example.com/noticia/" + item.id, resumen: item.description, categoria: "Noticias", imagen: item.cover_url })) };
         else if (p === "/api/top-semanal") data = { series: fixtures.map(item => ({ titulo: item.title, portada: item.cover_url, href: "/externo/serie-qa", fuenteNombre: "MangaDex", fuente: "mangadex" })) };
+        else if (p === "/api/anime") data = { anime: [], last_page: 1 };
+        else if (p === "/api/aleatorio") data = { fuente: "mangadex", fuenteNombre: "MangaDex", titulo: "Historia QA", portada: fixtures[0].cover_url, href: "/externo/serie-qa", nota: null };
         else if (p === "/api/anime/externo/biblioteca") {
           if (req.method() === "PUT") { library = [{ ...JSON.parse(req.postData()), href: "/explorar/jkanime/serie-qa-0" }]; data = { ok: true }; }
           else if (req.method() === "DELETE") { library = []; data = { ok: true }; }
@@ -165,7 +167,7 @@ let activePage, activeRequests, activeErrors;
       await page.getByRole("button", { name: "Ver ficha de Historia QA 1", exact: true }).first().waitFor();
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.waitForFunction(() => parseFloat(getComputedStyle(document.querySelector(".od-slide")).transitionDuration) <= 0.001);
-      for (const route of ["/", "/lectura", "/biblioteca", "/mas", "/login", "/registro", "/recuperar"]) {
+      for (const route of ["/", "/lectura", "/lectura/descubrir", "/biblioteca", "/mas", "/login", "/registro", "/recuperar"]) {
         await page.goto(base + route);
         if (route === "/") {
           await page.getByRole('heading', { name: '¿Qué te apetece hoy?' }).waitFor();
@@ -173,11 +175,45 @@ let activePage, activeRequests, activeErrors;
         }
         if (route === "/lectura") {
           await page.locator('.od-slide[data-active="true"] h1').waitFor();
+          assert.equal(await page.locator('[data-od-id="reading-navigation"] a[aria-current="page"]').innerText(), "Inicio");
+          assert.equal(await page.locator('.od-reading-discover').count(), 0, "Descubrir ya no está mezclado con Inicio");
           if (android) assert.equal(await page.locator('.od-slide[data-active="true"]').evaluate(node => node.querySelector('h1').getBoundingClientRect().top >= node.querySelector('.od-slide-art').getBoundingClientRect().bottom), true, 'El título queda debajo de la imagen en Android');
+        }
+        if (route === "/lectura/descubrir") {
+          await page.locator('.od-reading-sources a').first().waitFor();
+          assert.equal(await page.locator('[data-od-id="reading-navigation"] a[aria-current="page"]').innerText(), "Descubrir");
+          assert.equal(await page.locator('[data-od-id="home-hero"]').count(), 0);
+          assert.equal(await page.locator('.od-reading-sources a').count(), 6, "Se conservan las fuentes de lectura");
+        }
+        if (["/lectura", "/lectura/descubrir", "/biblioteca", "/mas"].includes(route)) {
+          assert.deepEqual(await page.locator('[data-od-id="reading-navigation"] a').allTextContents(), ["Inicio", "Descubrir", "Todos los títulos", "Mi biblioteca", "Favoritos", "AniList", "Noticias", "Aleatorio"]);
+          assert.equal(await page.locator('[data-od-id="primary-navigation"]').count(), 0, "Sin menú superior duplicado");
+          assert.equal(await page.locator('[data-od-id="mobile-nav"]').count(), 0, "Lectura usa la misma barra en móvil");
+          assert.equal(await page.getByRole('link', { name: 'Más', exact: true }).isVisible(), true, "Más sigue disponible en el encabezado");
         }
         if (route === "/biblioteca") assert.equal(await page.getByRole("tab", { name: "Anime animado", exact: true }).count(), 0);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, "Desbordamiento en " + route);
-        await page.screenshot({ path: path.join(output, variant.name + "-" + (route.slice(1) || "home") + ".png") });
+        await page.screenshot({ path: path.join(output, variant.name + "-" + (route.slice(1).replaceAll("/", "-") || "home") + ".png") });
+      }
+      // Navegación SPA: no basta con comprobar href, Biblioteca debe cambiar
+      // el filtro sin recargar ni borrar la selección guardada.
+      await page.goto(base + "/biblioteca");
+      const readingNav = page.locator('[data-od-id="reading-navigation"]');
+      await page.getByRole('tab', { name: 'Normal', exact: true }).waitFor();
+      await readingNav.getByRole('link', { name: 'Favoritos', exact: true }).click();
+      await page.waitForFunction(() => document.querySelector('[role="tablist"][aria-label="Secciones de biblioteca"] [aria-selected="true"]')?.textContent === 'Favoritos');
+      assert.equal(await readingNav.locator('[aria-current="page"]').innerText(), 'Favoritos');
+      await page.goBack();
+      await page.waitForFunction(() => document.querySelector('[role="tablist"][aria-label="Secciones de biblioteca"] [aria-selected="true"]')?.textContent === 'Normal');
+      assert.equal(await readingNav.locator('[aria-current="page"]').innerText(), 'Mi biblioteca');
+      await page.goForward();
+      await page.waitForFunction(() => document.querySelector('[role="tablist"][aria-label="Secciones de biblioteca"] [aria-selected="true"]')?.textContent === 'Favoritos');
+      for (const [label, pathname] of [['Mi biblioteca', '/biblioteca'], ['Inicio', '/lectura'], ['Descubrir', '/lectura/descubrir'], ['Todos los títulos', '/explorar'], ['AniList', '/anime'], ['Noticias', '/noticias'], ['Aleatorio', '/aleatorio']]) {
+        await readingNav.getByRole('link', { name: label, exact: true }).click();
+        await page.waitForURL(url => url.pathname === pathname);
+        await page.waitForFunction(label => document.querySelector('[data-od-id="reading-navigation"] [aria-current="page"]')?.textContent === label, label);
+        assert.equal(await page.locator('[data-od-id="reading-navigation"]').count(), 1);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'Desbordamiento en ' + label);
       }
       if (variant.name === "web") {
         testBackdrops = true;

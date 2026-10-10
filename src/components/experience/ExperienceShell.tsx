@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { usePathname, useSearchParams } from "next/navigation";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { MobileNav } from "@/components/ui/MobileNav";
+import { ReadingNavigation } from "./ReadingNavigation";
+import { readingTab } from "@/lib/readingNavigation";
 
 export type ExperienceMode = "lectura" | "anime";
 export interface ExperienceUser { nickname: string; avatarPath: string | null; isAdmin: boolean; animeEnabled: boolean }
@@ -15,7 +17,7 @@ export function ExperienceShell({ user, animeEnabled, children }: { user: Experi
   const params = useSearchParams();
   const [previous, setPrevious] = useState<ExperienceMode>("lectura");
   const animeRoute = /^\/(explorar|anime)\/(jkanime|tioanime|hentaitv)(\/|$)/.test(path) || (path === "/explorar" && params.get("seccion") === "animada");
-  const readingRoute = path === "/lectura" || path === "/biblioteca" || path.startsWith("/externo/") || (path === "/explorar" && !animeRoute);
+  const readingRoute = readingTab(path, params) !== null;
   const mode = animeRoute ? "anime" : readingRoute ? "lectura" : previous;
   useEffect(() => {
     if (animeRoute || readingRoute) {
@@ -34,9 +36,10 @@ export function ExperienceShell({ user, animeEnabled, children }: { user: Experi
       {/* Se conserva la red contra desbordamiento; los lectores viven fuera
           del layout y mantienen su geometría propia de tiras largas. */}
       <main id="contenido" className={entry ? "od-entry-main" : "mx-auto max-w-app overflow-x-hidden px-4 pb-28 pt-8 sm:px-6 md:pb-20 md:pt-10 lg:px-10"} data-od-id={entry ? "entry-content" : "page-content"}>
+        {!entry && mode === "lectura" && <ReadingNavigation />}
         {children}
       </main>
-      {!entry && <MobileNav />}
+      {!entry && mode === "anime" && <MobileNav />}
     </div>
   </ExperienceContext.Provider>;
 }

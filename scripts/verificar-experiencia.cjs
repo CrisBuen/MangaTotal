@@ -19,7 +19,7 @@ test("arte: solo obra exacta, no temporadas parecidas, ambigüedad ni contenido 
 test("invitados: GET públicos, cuentas y escrituras conservan autenticación", async () => {
   const { middleware } = load("src/middleware.ts", { "@/lib/requestSecurity": { origenPermitido: () => true } });
   const request = (p, method = "GET", ua = "Mozilla/5.0") => ({ method, headers: new Headers({ "user-agent": ua }), cookies: { get: () => undefined }, nextUrl: Object.assign(new URL("https://example.test" + p), { clone() { return new URL(this.href); } }) });
-  for (const p of ["/lectura", "/leer/1", "/leer-externo/ikigai/1", "/explorar/jkanime/obra/1", "/api/anime/jkanime", "/api/anime/tioanime/obra/1", "/api/anime/arte", "/api/externo/capitulos/id"]) {
+  for (const p of ["/lectura", "/lectura/descubrir", "/leer/1", "/leer-externo/ikigai/1", "/explorar/jkanime/obra/1", "/api/anime/jkanime", "/api/anime/tioanime/obra/1", "/api/anime/arte", "/api/externo/capitulos/id"]) {
     const r = await middleware(request(p)); assert.equal(r.headers.get("x-middleware-next"), "1", p);
   }
   for (const p of ["/api/externo/biblioteca", "/api/anime/externo/progreso", "/api/anime/externo/biblioteca", "/api/admin/users"]) {
@@ -27,6 +27,24 @@ test("invitados: GET públicos, cuentas y escrituras conservan autenticación", 
   }
   assert.equal((await middleware(request("/api/anime/jkanime", "POST"))).status, 401);
   assert.equal((await middleware(request("/api/admin/users", "GET", "MangaTotalApp/24 MangaTotalChannel/play"))).status, 404);
+});
+
+test("lectura: ocho destinos únicos y selección por URL sin confundir Inicio y Descubrir", () => {
+  const { READING_TABS, readingTab } = load("src/lib/readingNavigation.ts");
+  assert.equal(READING_TABS.map(t => t.label).join("/"), "Inicio/Descubrir/Todos los títulos/Mi biblioteca/Favoritos/AniList/Noticias/Aleatorio");
+  assert.equal(new Set(READING_TABS.map(t => t.href)).size, 8);
+  for (const tab of READING_TABS) {
+    const url = new URL(tab.href, "https://example.test");
+    assert.equal(readingTab(url.pathname, url.searchParams), tab.id);
+  }
+  const params = search => new URLSearchParams(search);
+  assert.equal(readingTab("/biblioteca", params("f=adult")), "biblioteca");
+  assert.equal(readingTab("/biblioteca", params("s=animelist&f=favoritos")), "biblioteca");
+  assert.equal(readingTab("/explorar", params("seccion=animada")), null);
+  assert.equal(readingTab("/anime/jkanime/serie", params("")), null);
+  assert.equal(readingTab("/anime/123", params("")), "anilist");
+  assert.equal(readingTab("/anime/mi-lista", params("")), "anilist");
+  assert.equal(readingTab("/externo/ikigai/obra", params("")), "catalogo");
 });
 test("activar anime en Play y preferencias Android no se eluden con la navegación", async () => {
   let ua = "Mozilla/5.0";

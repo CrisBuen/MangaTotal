@@ -5,7 +5,6 @@ import Link from "next/link";
 import { buttonStyles } from "./Button";
 import { HeaderNavLink } from "./HeaderNavLink";
 import { LogoutButton } from "./LogoutButton";
-import { RandomSeriesButton } from "./RandomSeriesButton";
 import { UserAvatar } from "./UserAvatar";
 import { useExperience } from "@/components/experience/ExperienceShell";
 
@@ -34,16 +33,6 @@ export function AppHeader({
 }) {
   const experience = useExperience();
   const watching = mode !== "admin" && experience.mode === "anime";
-  const links =
-    mode === "admin"
-      ? adminLinks
-      : watching ? [] : [
-          { href: "/lectura", label: "Inicio", exact: true },
-          { href: "/biblioteca", label: "Biblioteca", exact: true },
-          { href: "/explorar", label: "Explorar" },
-          { href: "/anime", label: "AniList" },
-          { href: "/noticias", label: "Noticias" },
-        ];
 
   return (
     <header
@@ -79,23 +68,21 @@ export function AppHeader({
           </span>
         </Link>
 
-        <nav
-          className={`min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap ${mode === "admin" ? "flex" : "hidden md:flex"}`}
-          data-od-id={mode === "admin" ? "admin-navigation" : "primary-navigation"}
-          aria-label={mode === "admin" ? "Navegación de administración" : "Navegación principal"}
+        {mode === "admin" && <nav
+          className="flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap"
+          data-od-id="admin-navigation"
+          aria-label="Navegación de administración"
         >
-          {links.map((link) => (
+          {adminLinks.map((link) => (
             <HeaderNavLink
               key={link.href}
               href={link.href}
               exact={link.exact}
-              className={mode !== "admin" && link.href === "/noticias" ? "hidden xl:inline-flex" : ""}
             >
               {link.label}
             </HeaderNavLink>
           ))}
-          {mode !== "admin" && !watching && <RandomSeriesButton />}
-        </nav>
+        </nav>}
 
         <div className="ml-auto flex min-h-11 items-center gap-1.5" data-od-id="account-actions">
           {mode !== "admin" && <Link href="/?elegir=1" className="od-switch-world" aria-label="Cambiar entre lectura y anime">⇄ <span>Cambiar sección</span></Link>}
@@ -105,7 +92,7 @@ export function AppHeader({
               className={buttonStyles({
                 variant: "secondary",
                 size: "sm",
-                className: "hidden md:inline-flex",
+                className: watching ? "hidden md:inline-flex" : "inline-flex",
               })}
               data-od-id="more-link"
             >

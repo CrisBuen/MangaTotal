@@ -12,6 +12,7 @@ const TTL = 60 * 60 * 24 * 30;
 const PUBLIC_EXACT = new Set([
   "/",
   "/lectura",
+  "/lectura/descubrir",
   "/biblioteca",
   "/explorar",
   "/aleatorio",

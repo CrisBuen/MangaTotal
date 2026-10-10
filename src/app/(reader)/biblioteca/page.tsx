@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
 import { useEffect, useRef, useState } from "react";
 import { buttonStyles } from "@/components/ui/Button";
@@ -61,6 +61,7 @@ type Filter = "normal" | "adult" | "favoritos";
 
 export default function BibliotecaPage() {
   const router = useRouter();
+  const urlParams = useSearchParams();
   const [me, setMe] = useState<Me | null>(null);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [filter, setFilter] = useState<Filter>("normal");
@@ -163,6 +164,17 @@ export default function BibliotecaPage() {
     if (urlSearch) setSearch(urlSearch);
     setRestored(true);
   }, [router]);
+
+  // La barra común cambia Mi biblioteca/Favoritos sin desmontar esta página.
+  // También se restaura Atrás/Adelante; no se toca la colección ni su progreso.
+  useEffect(() => {
+    if (!restored) return;
+    const section = urlParams.get("s");
+    setSeccion(section === "animadas" || section === "animelist" ? "animelist" : "lectura");
+    const nextFilter = urlParams.get("f");
+    setFilter(nextFilter === "adult" || nextFilter === "favoritos" ? nextFilter : "normal");
+    setSearch(urlParams.get("q") ?? "");
+  }, [urlParams, restored]);
 
   // reflejar el estado en la URL (replaceState: no ensucia el historial)
   useEffect(() => {

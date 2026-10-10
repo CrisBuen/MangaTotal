@@ -78,7 +78,7 @@ const variantes = ["web", "windows", "android-local", "android-play"];
       visitas = 0;
       await page.getByRole("button", { name: /Actualizar todo/ }).click();
       await page.waitForFunction(() => Object.keys(localStorage).some(k => k.endsWith(":lectura") && k.includes("biblioteca-cola") && JSON.parse(localStorage.getItem(k)).hechas.length >= 2));
-      await page.getByRole("link", { name: "Explorar", exact: true }).first().click();
+      await page.locator('[data-od-id="reading-navigation"]').getByRole("link", { name: "Todos los títulos", exact: true }).click();
       await page.waitForURL("**/explorar**");
       await page.waitForFunction(() => Object.keys(localStorage).some(k => k.endsWith(":lectura") && k.includes("biblioteca-cola") && JSON.parse(localStorage.getItem(k)).estado === "terminado"));
       assert.equal((await cola()).hechas.length, 12);
