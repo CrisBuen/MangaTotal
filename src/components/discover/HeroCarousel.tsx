@@ -23,6 +23,7 @@ export interface HeroItem {
 
 function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
   const [wideUrl, setWideUrl] = useState<string | null>(() => {
+    if (!item.poster && item.image) return item.image;
     if (item.backdrop && (item.backdrop.includes("/banner/") || item.backdrop.includes("/fondos/"))) {
       return item.backdrop;
     }
@@ -48,14 +49,15 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
     return () => controller.abort();
   }, [item.artworkTitle, active]);
 
-  const banner = item.backdrop || art?.banner;
+  // Si no es un póster vertical (ej. noticias en Inicio), item.image ya es la imagen panorámica completa
+  const banner = item.backdrop || art?.banner || (!item.poster ? item.image : null);
   const wide = Boolean(banner && unavailableUrl !== banner);
   const posterCover = (!coverFailed && (art?.cover || item.image)) || null;
 
   return (
     <>
-      {/* Fondo ambiental teatral para cuando solo hay póster vertical o mientras carga el arte */}
-      {posterCover && (!wide || !wideUrl) && (
+      {/* Fondo ambiental teatral solo para cuando es un póster vertical y no hay banner panorámico */}
+      {item.poster && posterCover && (!wide || !wideUrl) && (
         <div className="od-ambient-backdrop" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -68,7 +70,7 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
         </div>
       )}
 
-      {/* Banner panorámico oficial Full HD de los estudios (AniList / Fuente verificada) */}
+      {/* Banner panorámico completo (Noticias de inicio, fondos verificados o arte panorámico oficial Full HD) */}
       {banner && unavailableUrl !== banner && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -76,7 +78,7 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
           className="od-slide-art"
           src={banner}
           alt=""
-          style={{ opacity: wideUrl === banner ? 1 : 0 }}
+          style={{ opacity: wideUrl === banner || (!item.poster && banner) ? 1 : 0 }}
           referrerPolicy="no-referrer"
           fetchPriority={active ? "high" : "low"}
           decoding="async"
@@ -86,9 +88,9 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
           }}
           onLoad={event => {
             const { naturalWidth: width, naturalHeight: height } = event.currentTarget;
-            if (width >= 600 && height >= 160 && width / height >= 1.2) {
+            if (width >= 400 && height >= 160 && width / height >= 1.1) {
               setWideUrl(banner);
-            } else {
+            } else if (item.poster) {
               setUnavailableUrl(banner);
               setWideUrl(null);
             }
@@ -96,8 +98,8 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
         />
       )}
 
-      {/* Si no hay banner panorámico, mostramos el póster de forma nítida en el lateral derecho */}
-      {!wide && posterCover && (
+      {/* Si es un ítem de tipo póster vertical (anime sin arte horizontal), mostramos el póster nítido a la derecha */}
+      {item.poster && !wide && posterCover && (
         <div className="od-hero-poster-container" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
