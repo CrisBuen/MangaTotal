@@ -50,12 +50,19 @@ async function request<T>(url: string, signal?: AbortSignal): Promise<T> {
 }
 
 function Poster({ item, onPreview, saved = false }: { item: Series; onPreview: (item: Series) => void; saved?: boolean }) {
-  return <button className="od-media-card" onClick={() => onPreview(item)} aria-label={`Ver ficha de ${item.title}`}>
-    <span className="od-media-thumb">
+  return <button className={`od-media-card text-left ${saved ? "opacity-60" : ""}`} onClick={() => onPreview(item)} aria-label={`Ver ficha de ${item.title}`}>
+    <span className="od-media-thumb relative">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {item.cover_url ? <img src={item.cover_url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" /> : <span className="od-no-cover">Sin portada</span>}
       <span className="od-media-play" aria-hidden="true">▶</span>
-      {saved && <span className="od-saved-badge">✓ En tu lista</span>}
+      {saved && (
+        <span
+          className="absolute left-2 top-2 z-10 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-ink shadow-sm"
+          aria-label="En biblioteca"
+        >
+          ▣ En biblioteca
+        </span>
+      )}
     </span>
     <span className="od-media-title">{item.title}</span>
     <span className="od-media-meta">{[item.type, item.status].filter(Boolean).join(" · ") || "Serie animada"}</span>
@@ -63,9 +70,9 @@ function Poster({ item, onPreview, saved = false }: { item: Series; onPreview: (
 }
 
 /** Un riel fuera de pantalla no bloquea el catálogo ni dispara todos los géneros. */
-function LazyRail({ title, source, query, load, onPreview, saved }: {
+function LazyRail({ title, source, query, load, onPreview, isSaved }: {
   title: string; source: Source; query: string;
-  load: (query: string) => Promise<Catalog>; onPreview: (item: Series) => void; saved: Set<string>;
+  load: (query: string) => Promise<Catalog>; onPreview: (item: Series) => void; isSaved: (item: Series) => boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -89,7 +96,7 @@ function LazyRail({ title, source, query, load, onPreview, saved }: {
   }, [visible, load, query, attempt]);
   return <div ref={root} className="od-lazy-rail">
     <MediaRail title={title} href={catalogUrl(source, Object.fromEntries(new URLSearchParams(query)))}>
-      {data?.series.map(item => <Poster key={item.slug} item={item} saved={saved.has(item.slug)} onPreview={onPreview} />)}
+      {data?.series.map(item => <Poster key={item.slug} item={item} saved={isSaved(item)} onPreview={onPreview} />)}
       {!data && !error && Array.from({ length: 8 }, (_, i) => <div key={i} className="od-card-skeleton" aria-hidden="true" />)}
     </MediaRail>
     {error && <div className="od-message" role="status"><p>{error}</p><button onClick={() => setAttempt(value => value + 1)}>Reintentar {title}</button></div>}
@@ -230,8 +237,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
     load("page=1").then(data => { if (active) setRecent(data.series); }).catch(err => { if (active) setError(err.name === "AbortError" ? "La fuente tardó demasiado. Reintentá la carga." : err.message); });
     return () => { active = false; };
   }, [load, directory, personalView, attempt]);
-  useEffect(() => {
-    if (directory || personalView) return;
+  const cargarBiblioteca = useCallback(() => {
     const controller = new AbortController();
     setAccountError("");
     Promise.all([
@@ -249,7 +255,19 @@ export function AnimeDiscover({ source }: { source: Source }) {
       else setAccountError(err.message);
     });
     return () => controller.abort();
-  }, [source, directory, personalView, accountVersion]);
+  }, [source]);
+
+  useEffect(() => {
+    if (directory || personalView) return;
+    const cancelar = cargarBiblioteca();
+    window.addEventListener("focus", cargarBiblioteca);
+    window.addEventListener("pageshow", cargarBiblioteca);
+    return () => {
+      cancelar();
+      window.removeEventListener("focus", cargarBiblioteca);
+      window.removeEventListener("pageshow", cargarBiblioteca);
+    };
+  }, [source, directory, personalView, accountVersion, cargarBiblioteca]);
 
   // Cargamos animes aleatorios de la temporada actual desde AniList con arte oficial verificado
   useEffect(() => {
@@ -321,7 +339,21 @@ export function AnimeDiscover({ source }: { source: Source }) {
     return () => controller.abort();
   }, [source, directory, personalView, recent]);
 
-  const savedSlugs = new Set(library.map(entry => entry.slug));
+  const isItemSaved = useCallback(
+    (item: Series) => {
+      const itemSlug = (item.slug || "").toLowerCase().trim();
+      const itemTitle = (item.title || "").toLowerCase().trim();
+      return library.some((entry) => {
+        const entrySlug = (entry.slug || "").toLowerCase().trim();
+        const entryExt = (entry.external_id || "").toLowerCase().trim();
+        const entryTitle = (entry.title || "").toLowerCase().trim();
+        if (itemSlug && (entrySlug === itemSlug || entryExt === itemSlug)) return true;
+        if (itemTitle && entryTitle && entryTitle === itemTitle) return true;
+        return false;
+      });
+    },
+    [library]
+  );
   const continuing = historyItems.filter(entry => !entry.completed && entry.resume_href);
   const title = SOURCE_NAMES[source];
   const genre = (id: string) => source === "tioanime" ? TIO_GENRES[id] ?? id : id;
@@ -376,12 +408,12 @@ export function AnimeDiscover({ source }: { source: Source }) {
           <span className="od-media-meta">Episodio {item.last_episode_number} · {Math.floor(item.last_position_seconds / 60)}:{String(Math.floor(item.last_position_seconds % 60)).padStart(2, "0")}</span>
         </div>)}
       </MediaRail>}
-      {recent && <MediaRail title={`Novedades de ${title}`} href={catalogUrl(source)}>{recent.map(item => <Poster key={item.slug} item={item} onPreview={setSelected} saved={savedSlugs.has(item.slug)} />)}</MediaRail>}
+      {recent && <MediaRail title={`Novedades de ${title}`} href={catalogUrl(source)}>{recent.map(item => <Poster key={item.slug} item={item} onPreview={setSelected} saved={isItemSaved(item)} />)}</MediaRail>}
       <section className="od-genres" aria-labelledby="od-genres-title"><h2 id="od-genres-title">¿Qué te gustaría ver?</h2><p>Elegí un género y explorá su catálogo completo.</p><div className="od-genre-grid">{DISCOVER_GENRES.map(([id, label]) => <a key={id} href={catalogUrl(source, { genre: genre(id) })}>{label}<span aria-hidden="true">↗</span></a>)}</div></section>
-      {recent && source === "jkanime" && <LazyRail title="Populares en JKAnime" source={source} query="sort=popularidad" load={load} onPreview={setSelected} saved={savedSlugs} />}
-      {recent && <LazyRail title="En emisión" source={source} query={`status=${source === "jkanime" ? "emision" : "1"}`} load={load} onPreview={setSelected} saved={savedSlugs} />}
+      {recent && source === "jkanime" && <LazyRail title="Populares en JKAnime" source={source} query="sort=popularidad" load={load} onPreview={setSelected} isSaved={isItemSaved} />}
+      {recent && <LazyRail title="En emisión" source={source} query={`status=${source === "jkanime" ? "emision" : "1"}`} load={load} onPreview={setSelected} isSaved={isItemSaved} />}
       {library.length > 0 && <MediaRail title="Tu lista" href={listUrl}>{library.map(item => <Poster key={item.external_id} item={item} saved onPreview={setSelected} />)}</MediaRail>}
-      {recent && [["accion", "Acción sin pausa"], ["fantasia", "Mundos de fantasía"], ["romance", "Historias de romance"], ["comedia", "Un momento de comedia"], ["sci-fi", "Ciencia ficción"]].map(([id, label]) => <LazyRail key={id} title={label} source={source} query={`genre=${genre(id)}`} load={load} onPreview={setSelected} saved={savedSlugs} />)}
+      {recent && [["accion", "Acción sin pausa"], ["fantasia", "Mundos de fantasía"], ["romance", "Historias de romance"], ["comedia", "Un momento de comedia"], ["sci-fi", "Ciencia ficción"]].map(([id, label]) => <LazyRail key={id} title={label} source={source} query={`genre=${genre(id)}`} load={load} onPreview={setSelected} isSaved={isItemSaved} />)}
       <div className="od-catalog-cta"><h2>Hay mucho más por descubrir</h2><p>Todos los títulos, filtros por género y episodios disponibles en {title}.</p><a href={catalogUrl(source)} className="od-primary">Explorar catálogo completo →</a></div>
       <p className="od-source-credit">Catálogo, fichas y episodios de <a href={source === "jkanime" ? "https://jkanime.net/" : "https://tioanime.com/"} target="_blank" rel="noopener noreferrer">{title} ↗</a>, con su permiso. Disponibilidad según la fuente.</p>
     </>}

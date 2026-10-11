@@ -48,6 +48,33 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [guardadas, setGuardadas] = useState<{ slug?: string | null; external_id: string; title?: string }[]>([]);
+  const reloadBiblioteca = useCallback(() => {
+    let vigente = true;
+    fetch("/api/anime/externo/biblioteca", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (vigente && Array.isArray(data)) {
+          setGuardadas(data.filter((e: any) => e.source === "tioanime"));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const cancelar = reloadBiblioteca();
+    window.addEventListener("focus", reloadBiblioteca);
+    window.addEventListener("pageshow", reloadBiblioteca);
+    return () => {
+      cancelar();
+      window.removeEventListener("focus", reloadBiblioteca);
+      window.removeEventListener("pageshow", reloadBiblioteca);
+    };
+  }, [reloadBiblioteca]);
+
   const fresh = useRef(false);
   const requestId = useRef(0);
   const lastFilters = useRef(JSON.stringify([genres, search, sort, status, types, yearFrom, yearTo]));
@@ -251,20 +278,36 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
         </Surface>
       ) : (
         <div className="od-catalog-grid grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {series.map((anime) => (
-            <Link key={anime.slug} prefetch={false} href={`/explorar/tioanime/${anime.slug}`} className="od-catalog-card group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-              <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
-                {anime.cover_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={anime.cover_url} alt={anime.title} className="h-full w-full object-cover transition duration-500" loading="lazy" referrerPolicy="no-referrer" />
-                ) : <div className="grid h-full place-items-center text-[13px] text-subtle">Sin portada</div>}
-              </div>
-              <div className="px-1 pt-4">
-                <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">{anime.title}</h3>
-                <p className="mt-1 font-mono text-[13px] text-faint">TioAnime</p>
-              </div>
-            </Link>
-          ))}
+          {series.map((anime) => {
+            const estaGuardada = guardadas.some(
+              (g) =>
+                (g.slug && g.slug.toLowerCase() === anime.slug.toLowerCase()) ||
+                (g.external_id && g.external_id.toLowerCase() === anime.slug.toLowerCase()) ||
+                (g.title && anime.title && g.title.toLowerCase() === anime.title.toLowerCase())
+            );
+            return (
+              <Link key={anime.slug} prefetch={false} href={`/explorar/tioanime/${anime.slug}`} className={`od-catalog-card group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${estaGuardada ? "opacity-60" : ""}`}>
+                <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                  {estaGuardada && (
+                    <span
+                      className="absolute left-2 top-2 z-10 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-ink shadow-sm"
+                      aria-label="En biblioteca"
+                    >
+                      ▣ En biblioteca
+                    </span>
+                  )}
+                  {anime.cover_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={anime.cover_url} alt={anime.title} className="h-full w-full object-cover transition duration-500" loading="lazy" referrerPolicy="no-referrer" />
+                  ) : <div className="grid h-full place-items-center text-[13px] text-subtle">Sin portada</div>}
+                </div>
+                <div className="px-1 pt-4">
+                  <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">{anime.title}</h3>
+                  <p className="mt-1 font-mono text-[13px] text-faint">TioAnime</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
 

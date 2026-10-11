@@ -2,13 +2,20 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MediaRail } from "@/components/discover/MediaRail";
 import { Chip } from "@/components/ui/Chip";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
+import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 import { LC_HABILITADA, LC_LISTAS, catalogoLc } from "@/lib/leercapitulo";
 import { TMO_TIPOS, catalogoTmo, popularesTmo } from "@/lib/zonatmo";
 import { catalogoCw, imagenCw } from "@/lib/catharsis";
+import {
+  IKIGAI_GENEROS,
+  IKIGAI_TIPOS,
+  catalogoIkigai,
+  ikigaiDisponible,
+} from "@/lib/ikigai";
 
 type Genre = { id: string; name: string };
 type CardItem = {
@@ -17,6 +24,7 @@ type CardItem = {
   cover_url: string | null;
   href: string;
   meta?: string;
+  tipo?: string | null;
 };
 
 const LABELS: Record<string, string> = {
@@ -93,23 +101,6 @@ const CW_ORDENES = [
   { id: "nombre", name: "Catálogo A–Z" },
 ];
 
-const IKIGAI_TOP_GENEROS = [
-  { id: "accion", name: "Acción" },
-  { id: "aventura", name: "Aventura" },
-  { id: "fantasia", name: "Fantasía" },
-  { id: "romance", name: "Romance" },
-  { id: "comedia", name: "Comedia" },
-  { id: "drama", name: "Drama" },
-  { id: "isekai", name: "Isekai" },
-  { id: "sobrenatural", name: "Sobrenatural" },
-];
-
-const IKIGAI_TOP_TIPOS = [
-  { id: "manhwa", name: "Manhwa" },
-  { id: "manhua", name: "Manhua" },
-  { id: "manga", name: "Manga" },
-  { id: "novela", name: "Novela" },
-];
 
 function UniversalRail({
   title,
@@ -117,12 +108,14 @@ function UniversalRail({
   loader,
   fetchUrl,
   mapResponse,
+  isSaved,
 }: {
   title: string;
   href: string;
   loader?: (signal: AbortSignal) => Promise<CardItem[]>;
   fetchUrl?: string;
   mapResponse?: (data: any) => CardItem[];
+  isSaved?: (item: CardItem) => boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -189,35 +182,57 @@ function UniversalRail({
   return (
     <div ref={root} className="od-lazy-rail">
       <MediaRail title={title} href={href}>
-        {items?.map((item) => (
-          <Link className="od-media-card" key={item.id} href={item.href} prefetch={false}>
-            <span className="od-media-thumb">
-              {item.cover_url ? (
-                <ImagenFuente
-                  src={item.cover_url}
-                  alt={item.title}
-                  className="h-full w-full object-cover transition duration-300"
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <span className="od-no-cover">Sin portada</span>
-              )}
-              <span className="od-media-play" aria-hidden="true">↗</span>
-            </span>
-            <span className="od-media-title">{item.title}</span>
-            {item.meta && <span className="od-media-meta">{item.meta}</span>}
-          </Link>
-        ))}
-        {!items && !failed && Array.from({ length: 7 }, (_, i) => (
-          <div className="od-card-skeleton" key={i} aria-hidden="true" />
-        ))}
+        {items?.map((item) => {
+          const estaGuardada = Boolean(isSaved?.(item));
+          return (
+            <Link
+              className={`od-media-card group relative ${estaGuardada ? "opacity-60" : ""}`}
+              key={item.id}
+              href={item.href}
+              prefetch={false}
+            >
+              <span className="od-media-thumb relative">
+                {estaGuardada && (
+                  <span
+                    className="absolute left-2 top-2 z-10 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-ink shadow-sm"
+                    aria-label="En biblioteca"
+                  >
+                    ▣ En biblioteca
+                  </span>
+                )}
+                {item.cover_url ? (
+                  <ImagenFuente
+                    src={item.cover_url}
+                    alt={item.title}
+                    className="h-full w-full object-cover transition duration-300"
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="od-no-cover">Sin portada</span>
+                )}
+                <span className="od-media-play" aria-hidden="true">
+                  ↗
+                </span>
+              </span>
+              <span className="od-media-title">{item.title}</span>
+              {item.meta && <span className="od-media-meta">{item.meta}</span>}
+            </Link>
+          );
+        })}
+        {!items &&
+          !failed &&
+          Array.from({ length: 7 }, (_, i) => (
+            <div className="od-card-skeleton" key={i} aria-hidden="true" />
+          ))}
       </MediaRail>
       {failed && (
         <p className="od-message" role="status">
           No se pudo conectar con esta fuente temporalmente.{" "}
-          <button type="button" onClick={() => setAttempt((n) => n + 1)}>Reintentar {title}</button>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)}>
+            Reintentar {title}
+          </button>
         </p>
       )}
     </div>
@@ -231,6 +246,36 @@ export function ReadingDiscover() {
   const [fuente, setFuente] = useState<string>("mangadex");
   const [genres, setGenres] = useState<Genre[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [guardadas, setGuardadas] = useState<ReferenciaBiblioteca[]>([]);
+  const [ikigaiActivo, setIkigaiActivo] = useState(false);
+
+  useEffect(() => {
+    setIkigaiActivo(ikigaiDisponible());
+  }, []);
+
+  useEffect(() => {
+    let vigente = true;
+    const cargar = async () => {
+      const res = await fetch("/api/externo/biblioteca", { cache: "no-store" }).catch(() => null);
+      if (!res?.ok || !vigente) return;
+      const datos: ReferenciaBiblioteca[] = await res.json().catch(() => []);
+      if (vigente && Array.isArray(datos)) setGuardadas(datos);
+    };
+    void cargar();
+    window.addEventListener("focus", cargar);
+    window.addEventListener("pageshow", cargar);
+    return () => {
+      vigente = false;
+      window.removeEventListener("focus", cargar);
+      window.removeEventListener("pageshow", cargar);
+    };
+  }, []);
+
+  const guardada = useCallback(
+    (source: string, id: string, tipo?: string | null) =>
+      Boolean(buscarReferenciaBiblioteca(guardadas, source, id, tipo)),
+    [guardadas]
+  );
 
   useEffect(() => {
     if (urlFuente && urlFuente !== fuente) {
@@ -350,6 +395,7 @@ export function ReadingDiscover() {
             title="Novedades en español · MangaDex"
             href="/explorar?fuente=mangadex&md_order=latest"
             fetchUrl="/api/externo/series?lang=es&order=latest"
+            isSaved={(item) => guardada("mangadex", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
@@ -365,6 +411,7 @@ export function ReadingDiscover() {
             title="Más populares · MangaDex"
             href="/explorar?fuente=mangadex&md_order=popular"
             fetchUrl="/api/externo/series?lang=es&order=popular"
+            isSaved={(item) => guardada("mangadex", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
@@ -380,6 +427,7 @@ export function ReadingDiscover() {
             title="Mejor valoradas · MangaDex"
             href="/explorar?fuente=mangadex&md_order=rating"
             fetchUrl="/api/externo/series?lang=es&order=rating"
+            isSaved={(item) => guardada("mangadex", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
@@ -401,6 +449,7 @@ export function ReadingDiscover() {
                   title={`${name} · MangaDex`}
                   href={`/explorar?fuente=mangadex&md_genre=${encodeURIComponent(g.id)}`}
                   fetchUrl={`/api/externo/series?lang=es&order=popular&tag=${encodeURIComponent(g.id)}`}
+                  isSaved={(item) => guardada("mangadex", item.id)}
                   mapResponse={(data) =>
                     (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                       id: item.id,
@@ -452,12 +501,14 @@ export function ReadingDiscover() {
             title="Nuevos lanzamientos · Olympus"
             href="/explorar?fuente=olympus&oly_orden=novedades"
             fetchUrl="/api/externo/olympus/series?orden=novedades"
+            isSaved={(item) => guardada("olympus", item.id, item.tipo)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: String(item.id || item.slug),
+                id: String(item.slug || item.id),
                 title: item.title,
                 cover_url: item.cover_url,
                 href: `/externo/olympus/${item.slug}`,
+                tipo: item.type,
                 meta: item.ultimos?.length ? `Cap. ${item.ultimos[0].name}` : item.chapter_count !== null ? `${item.chapter_count} caps.` : "Lanzamiento",
               }))
             }
@@ -467,12 +518,14 @@ export function ReadingDiscover() {
             title="Populares · Olympus"
             href="/explorar?fuente=olympus&oly_orden=populares"
             fetchUrl="/api/externo/olympus/series?orden=populares"
+            isSaved={(item) => guardada("olympus", item.id, item.tipo)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: String(item.id || item.slug),
+                id: String(item.slug || item.id),
                 title: item.title,
                 cover_url: item.cover_url,
                 href: `/externo/olympus/${item.slug}`,
+                tipo: item.type,
                 meta: item.status || item.type || "Popular",
               }))
             }
@@ -482,12 +535,14 @@ export function ReadingDiscover() {
             title="Más vistas · Olympus"
             href="/explorar?fuente=olympus&oly_orden=vistas"
             fetchUrl="/api/externo/olympus/series?orden=vistas"
+            isSaved={(item) => guardada("olympus", item.id, item.tipo)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: String(item.id || item.slug),
+                id: String(item.slug || item.id),
                 title: item.title,
                 cover_url: item.cover_url,
                 href: `/externo/olympus/${item.slug}`,
+                tipo: item.type,
                 meta: item.chapter_count !== null ? `${item.chapter_count} caps.` : "Más leída",
               }))
             }
@@ -497,12 +552,14 @@ export function ReadingDiscover() {
             title="Más capítulos · Olympus"
             href="/explorar?fuente=olympus&oly_orden=capitulos"
             fetchUrl="/api/externo/olympus/series?orden=capitulos"
+            isSaved={(item) => guardada("olympus", item.id, item.tipo)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: String(item.id || item.slug),
+                id: String(item.slug || item.id),
                 title: item.title,
                 cover_url: item.cover_url,
                 href: `/externo/olympus/${item.slug}`,
+                tipo: item.type,
                 meta: item.chapter_count !== null ? `${item.chapter_count} caps.` : item.type || "Manhwa",
               }))
             }
@@ -512,12 +569,14 @@ export function ReadingDiscover() {
             title="Isekai y Sistema · Olympus"
             href="/explorar?fuente=olympus&oly_genero=42"
             fetchUrl="/api/externo/olympus/series?genero=42"
+            isSaved={(item) => guardada("olympus", item.id, item.tipo)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: String(item.id || item.slug),
+                id: String(item.slug || item.id),
                 title: item.title,
                 cover_url: item.cover_url,
                 href: `/externo/olympus/${item.slug}`,
+                tipo: item.type,
                 meta: item.chapter_count !== null ? `${item.chapter_count} caps.` : "Isekai",
               }))
             }
@@ -527,12 +586,14 @@ export function ReadingDiscover() {
             title="Murim y Acción · Olympus"
             href="/explorar?fuente=olympus&oly_genero=21"
             fetchUrl="/api/externo/olympus/series?genero=21"
+            isSaved={(item) => guardada("olympus", item.id, item.tipo)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: String(item.id || item.slug),
+                id: String(item.slug || item.id),
                 title: item.title,
                 cover_url: item.cover_url,
                 href: `/externo/olympus/${item.slug}`,
+                tipo: item.type,
                 meta: item.chapter_count !== null ? `${item.chapter_count} caps.` : "Murim",
               }))
             }
@@ -575,6 +636,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Populares de la semana · ZonaTMO"
             href="/explorar?fuente=tmo"
+            isSaved={(item) => guardada("tmo", item.id, item.tipo)}
             loader={async () => {
               const res = await popularesTmo("week");
               return res.map((s) => ({
@@ -582,6 +644,7 @@ export function ReadingDiscover() {
                 title: s.title,
                 cover_url: s.cover_url,
                 href: `/externo/tmo/${s.tipo}/${s.id}/${s.slug}`,
+                tipo: s.tipo,
                 meta: "Popular de la semana",
               }));
             }}
@@ -590,6 +653,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Novedades y recién agregados · ZonaTMO"
             href="/explorar?fuente=tmo"
+            isSaved={(item) => guardada("tmo", item.id, item.tipo)}
             loader={async () => {
               const res = await catalogoTmo(1, { orden: "latest" });
               return res.series.map((s) => ({
@@ -597,6 +661,7 @@ export function ReadingDiscover() {
                 title: s.title,
                 cover_url: s.cover_url,
                 href: `/externo/tmo/${s.tipo}/${s.id}/${s.slug}`,
+                tipo: s.tipo,
                 meta: "Recién agregado",
               }));
             }}
@@ -605,6 +670,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Top del mes · ZonaTMO"
             href="/explorar?fuente=tmo"
+            isSaved={(item) => guardada("tmo", item.id, item.tipo)}
             loader={async () => {
               const res = await popularesTmo("month");
               return res.map((s) => ({
@@ -612,6 +678,7 @@ export function ReadingDiscover() {
                 title: s.title,
                 cover_url: s.cover_url,
                 href: `/externo/tmo/${s.tipo}/${s.id}/${s.slug}`,
+                tipo: s.tipo,
                 meta: "Top del mes",
               }));
             }}
@@ -620,6 +687,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Manhwas y Webtoons · ZonaTMO"
             href="/explorar?fuente=tmo&tmo_tipo=87"
+            isSaved={(item) => guardada("tmo", item.id, item.tipo)}
             loader={async () => {
               const res = await catalogoTmo(1, { tipo: "87" });
               return res.series.map((s) => ({
@@ -627,6 +695,7 @@ export function ReadingDiscover() {
                 title: s.title,
                 cover_url: s.cover_url,
                 href: `/externo/tmo/${s.tipo}/${s.id}/${s.slug}`,
+                tipo: s.tipo,
                 meta: "Manhwa",
               }));
             }}
@@ -635,6 +704,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Mangas destacados · ZonaTMO"
             href="/explorar?fuente=tmo&tmo_tipo=14"
+            isSaved={(item) => guardada("tmo", item.id, item.tipo)}
             loader={async () => {
               const res = await catalogoTmo(1, { tipo: "14" });
               return res.series.map((s) => ({
@@ -642,6 +712,7 @@ export function ReadingDiscover() {
                 title: s.title,
                 cover_url: s.cover_url,
                 href: `/externo/tmo/${s.tipo}/${s.id}/${s.slug}`,
+                tipo: s.tipo,
                 meta: "Manga",
               }));
             }}
@@ -684,6 +755,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Últimas actualizaciones · LeerCapítulo"
             href="/explorar?fuente=leercapitulo"
+            isSaved={(item) => guardada("leercapitulo", item.id)}
             loader={async () => {
               const res = await catalogoLc(1, {});
               return res.series.map((s) => ({
@@ -699,6 +771,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Tendencias de lectura · LeerCapítulo"
             href="/explorar?fuente=leercapitulo&lc_lista=tendencias"
+            isSaved={(item) => guardada("leercapitulo", item.id)}
             loader={async () => {
               const res = await catalogoLc(1, { lista: "tendencias" });
               return res.series.map((s) => ({
@@ -714,6 +787,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Acción y Aventura · LeerCapítulo"
             href="/explorar?fuente=leercapitulo&lc_genero=accion"
+            isSaved={(item) => guardada("leercapitulo", item.id)}
             loader={async () => {
               const res = await catalogoLc(1, { genero: "accion" });
               return res.series.map((s) => ({
@@ -729,6 +803,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Romance y Drama · LeerCapítulo"
             href="/explorar?fuente=leercapitulo&lc_genero=romance"
+            isSaved={(item) => guardada("leercapitulo", item.id)}
             loader={async () => {
               const res = await catalogoLc(1, { genero: "romance" });
               return res.series.map((s) => ({
@@ -744,6 +819,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Fantasía e Isekai · LeerCapítulo"
             href="/explorar?fuente=leercapitulo&lc_genero=fantasia"
+            isSaved={(item) => guardada("leercapitulo", item.id)}
             loader={async () => {
               const res = await catalogoLc(1, { genero: "fantasia" });
               return res.series.map((s) => ({
@@ -783,6 +859,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Novedades de Catharsis World"
             href="/explorar?fuente=catharsis&cw_orden=novedades"
+            isSaved={(item) => guardada("catharsis", item.id)}
             loader={async () => {
               const res = await catalogoCw({ orden: "novedades", pagina: 1 });
               return res.series.map((s) => ({
@@ -798,6 +875,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Historias con más capítulos · Catharsis"
             href="/explorar?fuente=catharsis&cw_orden=capitulos"
+            isSaved={(item) => guardada("catharsis", item.id)}
             loader={async () => {
               const res = await catalogoCw({ orden: "capitulos", pagina: 1 });
               return res.series.map((s) => ({
@@ -813,6 +891,7 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Catálogo completo A–Z · Catharsis"
             href="/explorar?fuente=catharsis&cw_orden=nombre"
+            isSaved={(item) => guardada("catharsis", item.id)}
             loader={async () => {
               const res = await catalogoCw({ orden: "nombre", pagina: 1 });
               return res.series.map((s) => ({
@@ -828,15 +907,22 @@ export function ReadingDiscover() {
       )}
 
       {/* ============================================================== */}
+      {/* ============================================================== */}
       {/* 6. IKIGAI MANGAS */}
       {/* ============================================================== */}
       {fuente === "ikigai" && (
         <>
           <section className="od-genres" aria-labelledby="iki-genres">
-            <h2 id="iki-genres">Formatos y géneros de Ikigai Mangas</h2>
-            <p>Explorá por formato o temáticas principales de Ikigai.</p>
+            <h2 id="iki-genres">Formatos y categorías de Ikigai Mangas</h2>
+            <p>Explorá por formato, orden o temáticas principales del catálogo de Ikigai.</p>
             <div className="od-genre-grid">
-              {IKIGAI_TOP_TIPOS.map((t) => (
+              <Link href="/explorar?fuente=ikigai&iki_orden=recientes" prefetch={false}>
+                Recién agregadas <span aria-hidden="true">↗</span>
+              </Link>
+              <Link href="/explorar?fuente=ikigai&iki_orden=populares" prefetch={false}>
+                Populares <span aria-hidden="true">↗</span>
+              </Link>
+              {IKIGAI_TIPOS.map((t) => (
                 <Link
                   key={t.id}
                   href={`/explorar?fuente=ikigai&iki_tipo=${t.id}`}
@@ -846,7 +932,7 @@ export function ReadingDiscover() {
                   <span aria-hidden="true">↗</span>
                 </Link>
               ))}
-              {IKIGAI_TOP_GENEROS.map((g) => (
+              {IKIGAI_GENEROS.filter((g) => !["906409527934582787", "906409351272792067"].includes(g.id)).map((g) => (
                 <Link
                   key={g.id}
                   href={`/explorar?fuente=ikigai&iki_genero=${g.id}`}
@@ -859,20 +945,143 @@ export function ReadingDiscover() {
             </div>
           </section>
 
-          <div className="od-message">
-            <h3 className="font-bold text-ink">Ikigai Mangas</h3>
-            <p className="mt-1 text-sm text-subtle">
-              Para proteger su servidor de centros de datos, Ikigai funciona mediante el puente nativo en las aplicaciones de Windows y Android.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link href="/explorar?fuente=ikigai" className="od-primary">
-                Abrir catálogo completo de Ikigai →
-              </Link>
-              <Link href="/explorar?fuente=ikigai&iki_tipo=manhwa" className="od-outline">
-                Ver Manhwas de Ikigai →
-              </Link>
+          {ikigaiActivo ? (
+            <>
+              <UniversalRail
+                title="Recién agregadas · Ikigai"
+                href="/explorar?fuente=ikigai&iki_orden=recientes"
+                isSaved={(item) => guardada("ikigai", item.id, item.tipo)}
+                loader={async () => {
+                  const res = await catalogoIkigai(1, { orden: "recientes" });
+                  return res.series.map((s) => ({
+                    id: s.slug,
+                    title: s.title,
+                    cover_url: s.cover_url,
+                    href: `/externo/ikigai/${s.slug}`,
+                    tipo: s.tipo,
+                    meta: s.tipo || "Recién agregada",
+                  }));
+                }}
+              />
+
+              <UniversalRail
+                title="Más populares · Ikigai"
+                href="/explorar?fuente=ikigai&iki_orden=populares"
+                isSaved={(item) => guardada("ikigai", item.id, item.tipo)}
+                loader={async () => {
+                  const res = await catalogoIkigai(1, { orden: "populares" });
+                  return res.series.map((s) => ({
+                    id: s.slug,
+                    title: s.title,
+                    cover_url: s.cover_url,
+                    href: `/externo/ikigai/${s.slug}`,
+                    tipo: s.tipo,
+                    meta: s.tipo || "Popular",
+                  }));
+                }}
+              />
+
+              <UniversalRail
+                title="Cómics y Manhwas · Ikigai"
+                href="/explorar?fuente=ikigai&iki_tipo=comic"
+                isSaved={(item) => guardada("ikigai", item.id, item.tipo)}
+                loader={async () => {
+                  const res = await catalogoIkigai(1, { tipo: "comic" });
+                  return res.series.map((s) => ({
+                    id: s.slug,
+                    title: s.title,
+                    cover_url: s.cover_url,
+                    href: `/externo/ikigai/${s.slug}`,
+                    tipo: s.tipo,
+                    meta: "Cómic",
+                  }));
+                }}
+              />
+
+              <UniversalRail
+                title="Mangas · Ikigai"
+                href="/explorar?fuente=ikigai&iki_tipo=manga"
+                isSaved={(item) => guardada("ikigai", item.id, item.tipo)}
+                loader={async () => {
+                  const res = await catalogoIkigai(1, { tipo: "manga" });
+                  return res.series.map((s) => ({
+                    id: s.slug,
+                    title: s.title,
+                    cover_url: s.cover_url,
+                    href: `/externo/ikigai/${s.slug}`,
+                    tipo: s.tipo,
+                    meta: "Manga",
+                  }));
+                }}
+              />
+
+              <UniversalRail
+                title="Acción y Aventura · Ikigai"
+                href="/explorar?fuente=ikigai&iki_genero=906397904327999491"
+                isSaved={(item) => guardada("ikigai", item.id, item.tipo)}
+                loader={async () => {
+                  const res = await catalogoIkigai(1, { genero: "906397904327999491" });
+                  return res.series.map((s) => ({
+                    id: s.slug,
+                    title: s.title,
+                    cover_url: s.cover_url,
+                    href: `/externo/ikigai/${s.slug}`,
+                    tipo: s.tipo,
+                    meta: "Acción",
+                  }));
+                }}
+              />
+
+              <UniversalRail
+                title="Fantasía · Ikigai"
+                href="/explorar?fuente=ikigai&iki_genero=906397894348570627"
+                isSaved={(item) => guardada("ikigai", item.id, item.tipo)}
+                loader={async () => {
+                  const res = await catalogoIkigai(1, { genero: "906397894348570627" });
+                  return res.series.map((s) => ({
+                    id: s.slug,
+                    title: s.title,
+                    cover_url: s.cover_url,
+                    href: `/externo/ikigai/${s.slug}`,
+                    tipo: s.tipo,
+                    meta: "Fantasía",
+                  }));
+                }}
+              />
+
+              <UniversalRail
+                title="Romance y Drama · Ikigai"
+                href="/explorar?fuente=ikigai&iki_genero=906397894527549443"
+                isSaved={(item) => guardada("ikigai", item.id, item.tipo)}
+                loader={async () => {
+                  const res = await catalogoIkigai(1, { genero: "906397894527549443" });
+                  return res.series.map((s) => ({
+                    id: s.slug,
+                    title: s.title,
+                    cover_url: s.cover_url,
+                    href: `/externo/ikigai/${s.slug}`,
+                    tipo: s.tipo,
+                    meta: "Romance",
+                  }));
+                }}
+              />
+            </>
+          ) : (
+            <div className="od-message">
+              <h3 className="font-bold text-ink">Ikigai Mangas</h3>
+              <p className="mt-1 text-sm text-subtle">
+                Para proteger su servidor de centros de datos, Ikigai funciona mediante el puente nativo en las aplicaciones de Windows y Android.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link href="/explorar?fuente=ikigai" className="od-primary">
+                  Abrir catálogo completo de Ikigai →
+                </Link>
+                <Link href="/explorar?fuente=ikigai&iki_tipo=comic" className="od-outline">
+                  Ver Cómics y Manhwas de Ikigai →
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 
