@@ -13,7 +13,6 @@ import { FavoritoBiblioteca, MenuBiblioteca, grillaBiblioteca, useOpcionesBiblio
 import { fechaBiblioteca, ordenarBiblioteca, serieFinalizada } from "@/lib/opcionesBiblioteca";
 import { pendientesBiblioteca } from "@/lib/colaBiblioteca";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
-import { SeccionHistorial } from "@/components/library/SeccionHistorial";
 import {
   borrarCachePrivadaAndroid,
   cargarConCacheAndroid,
@@ -619,11 +618,9 @@ export default function BibliotecaPage() {
             </section>
           ) : (
             <>
-              {/* Continuar leyendo e historial reciente arriba de la colección para acceso rápido sin scroll infinito */}
-              {loggedIn && filter === "normal" && (
-                <div className="space-y-6">
-                  {hayQueContinuar && (
-                    <section data-od-id="continue-reading">
+              {/* Continuar leyendo arriba de la colección para acceso rápido sin scroll infinito */}
+              {loggedIn && filter === "normal" && hayQueContinuar && (
+                <section data-od-id="continue-reading" className="mb-6">
                       <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
                         <div>
                           <span className="od-eyebrow">Progreso</span>
@@ -736,10 +733,6 @@ export default function BibliotecaPage() {
                       </div>
                     </section>
                   )}
-
-                  <SeccionHistorial tipo="normal" alAbrir={abrirDesdeBiblioteca} />
-                </div>
-              )}
 
               {/* 2. Colección guardada (el centro de Mi Biblioteca) */}
               <section data-od-id="library-external">

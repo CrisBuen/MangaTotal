@@ -314,32 +314,47 @@ export async function capitulos(slug: string, fresco = false) {
  * OJO: el HTML del lector devuelve marcadores de posición (/cp/cp-N.jpg)
  * en vez de las imágenes reales; hay que usar este endpoint.
  */
-export async function paginas(chapterId: number, tipo: string, slug: string) {
+export async function paginas(chapterId: number, tipo: string = "comic", slug: string = "") {
   interface RespuestaCapitulo {
     chapter: { id: number; name: string; title: string | null; pages: string[] };
     prev_chapter: { id: number; name: string } | null;
     next_chapter: { id: number; name: string } | null;
+    comic?: { id: number; slug: string; name: string };
   }
 
   // esta respuesta llega en la raíz, sin el envoltorio "data" del resto
+  const slugLimpio = slug.replace(/^(comic|novel)-/, "").trim();
   const consultar = (s: string) => olympusFetch<RespuestaCapitulo & { data?: RespuestaCapitulo }>(
-    `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(s)}/${chapterId}`, 600
+    `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(s || "serie")}/${chapterId}`, 600
   );
-  let slugVigente = slug;
+  let slugVigente = slugLimpio;
   let data;
   try {
-    data = await consultar(slug);
+    data = await consultar(slugVigente);
   } catch (err) {
     if (!(err instanceof ErrorHttpOlympus) || err.status !== 404) throw err;
-    const ficha = await serie(slug, tipo);
-    // No sustituir un capítulo eliminado ni cambiar de cómic a novela.
-    if (ficha.slug === slug || ficha.type !== tipo) throw err;
-    slugVigente = ficha.slug;
-    data = await consultar(slugVigente);
+    if (slugLimpio) {
+      try {
+        const ficha = await serie(slugLimpio, tipo);
+        // No sustituir un capítulo eliminado ni cambiar de cómic a novela.
+        if (ficha.slug !== slugLimpio && ficha.type === tipo) {
+          slugVigente = ficha.slug;
+          data = await consultar(slugVigente);
+        } else {
+          // Si el slug no cambió, Olympus identifica el capítulo directamente por id
+          data = await consultar("serie");
+        }
+      } catch {
+        data = await consultar("serie");
+      }
+    } else {
+      data = await consultar("serie");
+    }
   }
 
   const d = data.data ?? data;
   if (!d?.chapter) throw new Error("Olympus no devolvió el capítulo");
+  const slugFinal = d.comic?.slug || slugVigente;
   return {
     id: d.chapter.id,
     name: d.chapter.name,
@@ -347,7 +362,8 @@ export async function paginas(chapterId: number, tipo: string, slug: string) {
     pages: (d.chapter.pages ?? []).filter((u) => u.startsWith("http")),
     prev: d.prev_chapter ? { id: d.prev_chapter.id, name: d.prev_chapter.name } : null,
     next: d.next_chapter ? { id: d.next_chapter.id, name: d.next_chapter.name } : null,
-    url_original: urlCapituloEnOlympus(chapterId, tipo, slugVigente),
+    url_original: urlCapituloEnOlympus(chapterId, tipo, slugFinal),
+    slug: slugFinal,
   };
 }
 

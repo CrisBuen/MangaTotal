@@ -219,7 +219,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
                     last_chapter_name: String(c.name),
                   })
                 }
-                href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   String(c.id) === progreso.ultimoId,
                   capituloLeido(progreso, String(c.id), c.name)

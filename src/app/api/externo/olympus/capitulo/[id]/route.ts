@@ -6,10 +6,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const { id: raw } = await ctx.params;
   const id = parseInt(raw, 10);
-  const slug = req.nextUrl.searchParams.get("slug")?.trim();
+  const slug = req.nextUrl.searchParams.get("slug")?.trim() || "";
   const tipo = req.nextUrl.searchParams.get("tipo")?.trim() || "comic";
 
-  if (!Number.isInteger(id) || !slug) {
+  if (!Number.isInteger(id)) {
     return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
 
