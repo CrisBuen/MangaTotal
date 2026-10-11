@@ -37,7 +37,7 @@ export function ReadingNavigation() {
   }, [active]);
 
   return (
-    <nav ref={nav} className="od-tabs od-reading-navigation" aria-label="Sección de lectura" data-od-id="reading-navigation">
+    <nav ref={nav} className="od-tabs od-reading-navigation hidden md:flex" aria-label="Sección de lectura" data-od-id="reading-navigation">
       {READING_TABS.map(tab => {
         let href: string = tab.href;
         if (tab.id === "descubrir" && fuente && fuente !== "mangadex") {

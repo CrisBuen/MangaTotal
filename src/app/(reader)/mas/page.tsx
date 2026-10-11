@@ -19,37 +19,51 @@ const SECCIONES: {
     label: string;
     descripcion: string;
     icono: string;
-    soloAndroid?: boolean;
   }[];
 }[] = [
   {
-    titulo: "Descubrir",
+    titulo: "Descubrir y novedades",
     entradas: [
       {
-        href: "/fuentes",
-        label: "Fuentes",
-        descripcion: "Tus series guardadas, organizadas por fuente",
-        icono: "M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z",
+        href: "/noticias",
+        label: "Noticias",
+        descripcion: "Anuncios, actualidad y novedades del mundo del anime y manga",
+        icono: "M4 4h16v16H4zm2 3v2h12V7zm0 4v2h12v-2zm0 4v2h8v-2z",
       },
       {
         href: "/aleatorio",
         label: "Aleatorio",
-        descripcion: "Una serie al azar de cualquiera de las fuentes",
+        descripcion: "Descubrí una serie al azar de cualquiera de los catálogos",
         icono: "M12 2 4 6v6c0 5 3.4 9.4 8 10 4.6-.6 8-5 8-10V6zm0 5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0 6c1.7 0 3 1.3 3 3H9c0-1.7 1.3-3 3-3z",
-        soloAndroid: true,
       },
       {
-        href: "/noticias",
-        label: "Noticias",
-        descripcion: "Anuncios y novedades de MangaTotal",
-        icono: "M4 4h16v16H4zm2 3v2h12V7zm0 4v2h12v-2zm0 4v2h8v-2z",
-        soloAndroid: true,
+        href: "/anime",
+        label: "AniList",
+        descripcion: "Catálogo general, base de datos y tendencias globales de anime",
+        icono: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm5 3v8l7-4z",
+      },
+      {
+        href: "/fuentes",
+        label: "Fuentes de lectura",
+        descripcion: "Tus series guardadas organizadas por cada fuente integrada",
+        icono: "M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z",
       },
       {
         href: "/estadisticas",
         label: "Estadísticas",
-        descripcion: "Lo que llevás leído y guardado",
+        descripcion: "Lo que llevás leído, visto y guardado en tu cuenta",
         icono: "M4 20V10h3v10zm6.5 0V4h3v16zM17 20v-6h3v6z",
+      },
+    ],
+  },
+  {
+    titulo: "Experiencia",
+    entradas: [
+      {
+        href: "/?elegir=1",
+        label: "Cambiar sección (Lectura / Anime)",
+        descripcion: "Alterná entre el mundo de lectura de mangas y animación",
+        icono: "M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z",
       },
     ],
   },
@@ -118,9 +132,7 @@ export default function MasPage() {
             {seccion.titulo}
           </h2>
           <Surface className="divide-y divide-line p-0">
-            {seccion.entradas
-              .filter((entrada) => android || !entrada.soloAndroid)
-              .map((e) => (
+            {seccion.entradas.map((e) => (
               <Link
                 key={e.href}
                 href={e.href}

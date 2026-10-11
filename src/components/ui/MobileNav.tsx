@@ -11,7 +11,7 @@ import { useExperience } from "@/components/experience/ExperienceShell";
  * Respeta la barra de gestos del sistema con safe-area.
  */
 
-const ITEMS = [
+const LECTURA_ITEMS = [
   {
     href: "/lectura",
     label: "Inicio",
@@ -19,26 +19,53 @@ const ITEMS = [
     icon: "M12 3 2 12h3v8h6v-5h2v5h6v-8h3z",
   },
   {
-    href: "/biblioteca",
+    href: "/lectura/descubrir",
+    label: "Descubrir",
+    icon: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm2.5 5.5l-2 5.5-5.5 2 2-5.5 5.5-2z",
+  },
+  {
+    href: "/biblioteca?f=normal",
     label: "Biblioteca",
-    icon: "M4 4h6v16H4zM12 4h3v16h-3zM17 4h3v16h-3z",
+    icon: "M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z",
   },
   {
     href: "/explorar",
-    label: "Explorar",
-    icon: "M11 3a8 8 0 1 0 4.9 14.3l4.4 4.4 1.4-1.4-4.4-4.4A8 8 0 0 0 11 3zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12z",
+    label: "Catálogo",
+    icon: "M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z",
   },
   {
-    href: "/anime",
-    label: "AniList",
-    icon: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm5 3v8l7-4z",
-  },
-  {
-    // en el teléfono la barra solo da para cinco: Perfil, Ajustes,
-    // Noticias y Aleatorio viven dentro de Más
     href: "/mas",
     label: "Más",
-    icon: "M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
+    icon: "M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z",
+  },
+];
+
+const ANIME_ITEMS = [
+  {
+    href: "/explorar?seccion=animada",
+    label: "Descubrir",
+    exact: true,
+    icon: "M12 3 2 12h3v8h6v-5h2v5h6v-8h3z",
+  },
+  {
+    href: "/explorar?seccion=animada&vista=catalogo",
+    label: "Catálogo",
+    icon: "M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z",
+  },
+  {
+    href: "/explorar?seccion=animada&vista=milista",
+    label: "Mi lista",
+    icon: "M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z",
+  },
+  {
+    href: "/explorar?seccion=animada&vista=catalogo&status=emision",
+    label: "En emisión",
+    icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z",
+  },
+  {
+    href: "/mas",
+    label: "Más",
+    icon: "M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z",
   },
 ];
 
@@ -46,48 +73,76 @@ export function MobileNav() {
   const pathname = usePathname();
   const params = useSearchParams();
   const { mode } = useExperience();
+
+  const isAnime = mode === "anime";
   const animeSource = params.get("anime_fuente");
   const sourceSuffix = animeSource === "tioanime" || animeSource === "jkanime" ? `&anime_fuente=${animeSource}` : "";
-  const items = mode === "anime" ? [
-    { ...ITEMS[0], href: "/explorar?seccion=animada" + sourceSuffix, label: "Inicio" },
-    { ...ITEMS[1], href: "/explorar?seccion=animada&vista=milista" + sourceSuffix, label: "Mi lista" },
-    { ...ITEMS[2], href: "/explorar?seccion=animada&vista=catalogo" + sourceSuffix, label: "Catálogo" },
-    { ...ITEMS[3], href: "/lectura", label: "Lectura", icon: ITEMS[1].icon },
-    ITEMS[4],
-  ] : ITEMS;
+
+  const items = isAnime
+    ? ANIME_ITEMS.map(it => it.href.includes("?") ? { ...it, href: it.href + sourceSuffix } : it)
+    : LECTURA_ITEMS;
+
+  const currentVista = params.get("vista") || null;
+  const currentSeccion = params.get("seccion") || null;
+  const currentStatus = params.get("status") || null;
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-panel md:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-[rgba(255,255,255,0.08)] bg-[#090b10]/95 backdrop-blur-md md:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="Navegación principal"
       data-od-id="mobile-nav"
     >
-      <ul className="mx-auto flex max-w-md items-stretch">
+      <ul className="mx-auto flex max-w-md items-stretch justify-around">
         {items.map((item) => {
-          const target = item.href.split("?")[0];
-          const view = new URLSearchParams(item.href.split("?")[1]).get("vista");
-          const active = item.href.includes("?") ? pathname === target && (params.get("vista") || null) === view : item.exact ? pathname === target : pathname.startsWith(target);
+          const itemUrl = new URL(item.href, "http://localhost");
+          const itemPath = itemUrl.pathname;
+          const itemVista = itemUrl.searchParams.get("vista") || null;
+          const itemStatus = itemUrl.searchParams.get("status") || null;
+
+          let active = false;
+          if (item.href === "/mas") {
+            active = pathname === "/mas" || pathname === "/perfil" || pathname === "/ajustes" || pathname === "/noticias" || pathname === "/aleatorio";
+          } else if (isAnime) {
+            if (itemStatus) {
+              active = currentStatus === itemStatus;
+            } else if (itemVista) {
+              active = currentVista === itemVista && !currentStatus;
+            } else if (item.exact) {
+              active = pathname === "/explorar" && currentSeccion === "animada" && !currentVista && !currentStatus;
+            }
+          } else {
+            if (item.exact) {
+              active = pathname === "/lectura" || pathname === "/";
+            } else if (itemPath === "/biblioteca") {
+              active = pathname === "/biblioteca" || pathname === "/fuentes";
+            } else if (itemPath === "/lectura/descubrir") {
+              active = pathname === "/lectura/descubrir";
+            } else if (itemPath === "/explorar") {
+              active = pathname === "/explorar" && currentSeccion !== "animada";
+            } else {
+              active = pathname === itemPath;
+            }
+          }
+
           return (
-            <li key={item.href} className="flex-1">
+            <li key={item.label} className="flex-1">
               <Link
                 href={item.href}
-                // las cinco pestañas se traen por adelantado: son pocas y
-                // es lo que hace que la barra de abajo responda al toque
                 prefetch
                 aria-current={active ? "page" : undefined}
-                className={`relative flex min-h-[3.75rem] flex-col items-center justify-center gap-1 transition-colors ${
-                  active ? "text-accent-ink" : "text-faint"
+                className={`relative flex min-h-[3.6rem] flex-col items-center justify-center gap-1 transition-colors ${
+                  active ? "text-[var(--accent-fg)] font-bold" : "text-[#8a92a6] hover:text-[#e0e4ef]"
                 }`}
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
                   <path d={item.icon} />
                 </svg>
-                <span className="text-[11px] font-medium">
+                <span className="text-[10.5px] tracking-tight">
                   {item.label}
                 </span>
                 {active && (
-                  <span className="absolute top-0 h-0.5 w-10 bg-accent-ink" aria-hidden="true" />
+                  <span className="absolute top-0 h-0.5 w-8 rounded-full bg-[var(--accent-fg)]" aria-hidden="true" />
                 )}
               </Link>
             </li>

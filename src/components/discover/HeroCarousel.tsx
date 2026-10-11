@@ -98,7 +98,7 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
         />
       )}
 
-      {/* Si es un ítem de tipo póster vertical (anime sin arte horizontal), mostramos el póster nítido a la derecha */}
+      {/* Si es un ítem de tipo póster vertical (anime sin arte horizontal), mostramos el póster nítido a la derecha en desktop */}
       {item.poster && !wide && posterCover && (
         <div className="od-hero-poster-container" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -112,6 +112,19 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
             onError={() => setCoverFailed(true)}
           />
         </div>
+      )}
+
+      {/* En móvil, si no hay banner horizontal disponible, el póster vertical sirve de fondo inmersivo */}
+      {item.poster && posterCover && (!wide || !wideUrl) && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className="od-slide-poster-mobile md:hidden"
+          src={posterCover}
+          alt=""
+          referrerPolicy="no-referrer"
+          fetchPriority={active ? "high" : "low"}
+          decoding="async"
+        />
       )}
 
       {art?.credit && (

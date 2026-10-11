@@ -39,7 +39,7 @@ export function ExperienceShell({ user, animeEnabled, children }: { user: Experi
         {!entry && mode === "lectura" && <ReadingNavigation />}
         {children}
       </main>
-      {!entry && mode === "anime" && <MobileNav />}
+      {!entry && <MobileNav />}
     </div>
   </ExperienceContext.Provider>;
 }

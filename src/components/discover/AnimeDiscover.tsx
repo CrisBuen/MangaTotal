@@ -344,7 +344,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
         }))
       : null);
   return <div className="od-discover" data-od-id="anime-discover">
-    <nav className="od-tabs" aria-label="Descubrir anime">
+    <nav className="od-tabs hidden md:flex" aria-label="Descubrir anime">
       <a aria-current={!directory && !personalView ? "page" : undefined} href={`/explorar?seccion=animada&anime_fuente=${source}`}>Descubrir</a>
       <a aria-current={directory && (!initial.sort || initial.sort === "recent") && !initial.status ? "page" : undefined} href={catalogUrl(source)}>Todos los títulos</a>
       {source === "jkanime" && <a aria-current={directory && initial.sort === "popularidad" ? "page" : undefined} href={catalogUrl(source, { sort: "popularidad" })}>Populares</a>}

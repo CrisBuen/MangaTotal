@@ -92,7 +92,7 @@ export function AppHeader({
               className={buttonStyles({
                 variant: "secondary",
                 size: "sm",
-                className: watching ? "hidden md:inline-flex" : "inline-flex",
+                className: "hidden md:inline-flex",
               })}
               data-od-id="more-link"
             >
@@ -111,7 +111,7 @@ export function AppHeader({
               {mode !== "admin" && (
                 <Link
                   href="/perfil"
-                  className="flex min-h-11 items-center gap-2 rounded-md px-1 text-sm text-subtle transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
+                  className="hidden md:flex min-h-11 items-center gap-2 rounded-md px-1 text-sm text-subtle transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
                   aria-label={`Abrir perfil de ${user.nickname}`}
                 >
                   <span className="hidden max-w-28 truncate xl:block">{user.nickname}</span>
@@ -133,7 +133,9 @@ export function AppHeader({
                   {user.nickname}
                 </span>
               )}
-              <LogoutButton />
+              <div className="hidden md:inline-flex">
+                <LogoutButton />
+              </div>
             </>
           ) : (
             <>
