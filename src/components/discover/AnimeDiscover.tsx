@@ -298,7 +298,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
             image: anime.cover_url,
             backdrop: anime.banner_url,
             artworkTitle: anime.title,
-            poster: !anime.banner_url,
+            poster: true,
             description: anime.description,
             badges: ["TEMPORADA ACTUAL", anime.format ? anime.format.toUpperCase() : "TV"],
             meta: genresEs || [SOURCE_NAMES[source], anime.format, anime.status].filter(Boolean).join(" · "),
@@ -356,12 +356,12 @@ export function AnimeDiscover({ source }: { source: Source }) {
       <div className="mb-5 flex justify-end"><a className="od-outline" href={historyView ? listUrl : historyUrl}>{historyView ? "← Volver a Mi lista" : "Ver historial"}</a></div>
       <MiLista busqueda={initial.q ?? ""} soloGuardados={myList} soloHistorial={historyView} />
     </> : directory ? <>{source === "jkanime" ? <JkanimeCatalog initial={initial} /> : <TioanimeCatalog initial={initial} />}</> : <>
-      <form className="od-discover-tools" action="/explorar" role="search" aria-label={`Buscar en ${title}`}>
+      {heroItems?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={heroItems} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
+      <form className="od-discover-tools mt-4 md:mt-6" action="/explorar" role="search" aria-label={`Buscar en ${title}`}>
         <input type="hidden" name="seccion" value="animada" /><input type="hidden" name="anime_fuente" value={source} /><input type="hidden" name="vista" value="catalogo" />
         <input name="q" value={search} onChange={event => setSearch(event.target.value)} placeholder={`Buscar todas las series de ${title}…`} aria-label={`Buscar todas las series de ${title}`} type="search" />
         <button className="od-outline" type="submit">Buscar →</button>
       </form>
-      {heroItems?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={heroItems} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
       {error && <div className="od-message" role="alert"><p>{error}</p><button onClick={() => setAttempt(value => value + 1)}>Reintentar {title}</button></div>}
       {accountError && <div className="od-message">No se pudo consultar tu lista: {accountError} <button onClick={() => setAccountVersion(value => value + 1)}>Reintentar lista</button></div>}
       {continuing.length > 0 && <MediaRail title="Continuar viendo" wide href={historyUrl}>

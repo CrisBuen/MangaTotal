@@ -56,12 +56,12 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
 
   return (
     <>
-      {/* Fondo ambiental teatral solo para cuando es un póster vertical y no hay banner panorámico */}
-      {item.poster && posterCover && (!wide || !wideUrl) && (
+      {/* Fondo ambiental teatral para móvil y desktop */}
+      {((item.poster && posterCover) || (!item.poster && banner)) && (
         <div className="od-ambient-backdrop" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={posterCover}
+            src={item.poster && posterCover ? posterCover : banner!}
             alt=""
             className="od-ambient-img"
             decoding="async"
@@ -70,12 +70,26 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
         </div>
       )}
 
-      {/* Banner panorámico completo (Noticias de inicio, fondos verificados o arte panorámico oficial Full HD) */}
+      {/* En móvil para anime: la portada vertical (2:3) llena el héroe sin recortar personajes estilo Crunchyroll */}
+      {item.poster && posterCover && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={`mobile-${posterCover}`}
+          className="od-slide-poster-mobile md:hidden"
+          src={posterCover}
+          alt=""
+          referrerPolicy="no-referrer"
+          fetchPriority={active ? "high" : "low"}
+          decoding="async"
+        />
+      )}
+
+      {/* Banner panorámico completo: en desktop para anime y en ambos para noticias de lectura */}
       {banner && unavailableUrl !== banner && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={banner}
-          className="od-slide-art"
+          className={`od-slide-art ${item.poster && posterCover ? "hidden md:block" : ""}`}
           src={banner}
           alt=""
           style={{ opacity: wideUrl === banner || (!item.poster && banner) ? 1 : 0 }}
@@ -112,19 +126,6 @@ function HeroArtwork({ item, active }: { item: HeroItem; active: boolean }) {
             onError={() => setCoverFailed(true)}
           />
         </div>
-      )}
-
-      {/* En móvil, si no hay banner horizontal disponible, el póster vertical sirve de fondo inmersivo */}
-      {item.poster && posterCover && (!wide || !wideUrl) && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className="od-slide-poster-mobile md:hidden"
-          src={posterCover}
-          alt=""
-          referrerPolicy="no-referrer"
-          fetchPriority={active ? "high" : "low"}
-          decoding="async"
-        />
       )}
 
       {art?.credit && (
@@ -164,7 +165,7 @@ export function HeroCarousel({ items, heading = "h1" }: { items: HeroItem[]; hea
       onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
       onFocusCapture={() => setInteracting(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}>
       {items.map((item, i) => (
-        <div key={item.id} className="od-slide" data-active={i === current} data-image={Boolean(item.image || item.backdrop)} data-poster={Boolean(item.poster && !item.backdrop)} aria-hidden={i !== current} inert={i !== current}>
+        <div key={item.id} className="od-slide" data-active={i === current} data-image={Boolean(item.image || item.backdrop)} data-poster={Boolean(item.poster)} aria-hidden={i !== current} inert={i !== current}>
           {/* No descargar las portadas enormes antes del primer cuadro visible. */}
           {(item.image || item.backdrop) && (i === current || i === (current + 1) % items.length || i === (current + items.length - 1) % items.length) && (
             <HeroArtwork item={item} active={i === current} />

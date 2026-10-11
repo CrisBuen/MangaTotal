@@ -293,11 +293,11 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
 @media(max-width:768px) {
   :root { --od-cols: 2.8; --od-wide-cols: 1.35; }
 
-  /* Héroe inmersivo y cinematográfico estilo Crunchyroll */
+  /* Héroe en celular: altura proporcional para que no sobrepase la pantalla y se vean las secciones inferiores */
   .od-hero {
     position: relative;
-    height: clamp(480px, 78vh, 620px);
-    min-height: 480px;
+    height: clamp(430px, 64vh, 520px);
+    min-height: 430px;
     overflow: hidden;
     background: #08090d;
   }
@@ -314,28 +314,72 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
     pointer-events: auto;
     z-index: 2;
   }
-  .od-slide-art,
-  .od-slide-poster,
-  .od-slide-poster-mobile {
+
+  /* Para ANIME (póster vertical 2:3 estilo Crunchyroll): ocupa el lienzo vertical con personajes centrados */
+  .od-slide[data-poster="true"] .od-slide-poster-mobile {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center 20%;
+    object-position: center 12%;
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
     z-index: 1;
   }
-  .od-slide-scrim {
+  .od-slide[data-poster="true"] .od-slide-scrim {
     position: absolute;
     inset: 0;
     height: 100% !important;
-    background: linear-gradient(0deg, #08090d 0%, #08090df5 28%, #08090dc0 52%, rgba(8, 9, 13, 0.35) 75%, transparent 100%) !important;
+    background: linear-gradient(0deg, #08090d 0%, #08090df2 26%, #08090dc0 48%, rgba(8, 9, 13, 0.3) 70%, transparent 100%) !important;
     pointer-events: none;
     z-index: 2;
   }
+
+  /* Para NOTICIAS (arte panorámico 16:9): en móvil se ubica en la parte superior completa sin recortar los laterales */
+  .od-slide[data-poster="false"] .od-ambient-backdrop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+    display: block !important;
+  }
+  .od-slide[data-poster="false"] .od-ambient-img {
+    width: 120%;
+    height: 120%;
+    margin: -10%;
+    object-fit: cover;
+    filter: blur(36px) brightness(0.28);
+    transform: scale(1.1);
+  }
+  .od-slide[data-poster="false"] .od-slide-art {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: min(58vw, 250px);
+    object-fit: cover;
+    object-position: center 25%;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 1;
+    mask-image: linear-gradient(180deg, #000 65%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, #000 65%, transparent 100%);
+  }
+  .od-slide[data-poster="false"] .od-slide-scrim {
+    position: absolute;
+    inset: 0;
+    height: 100% !important;
+    background: linear-gradient(0deg, #08090d 0%, #08090df5 45%, rgba(8, 9, 13, 0.6) 65%, transparent 100%) !important;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Contenido del héroe en móvil: colocado en la parte inferior sobre el degradado */
   .od-slide-content {
     position: absolute;
     bottom: 0;
@@ -343,7 +387,7 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
     right: 0;
     height: auto;
     max-width: 100%;
-    padding: 0 16px 20px 16px;
+    padding: 0 16px 36px 16px;
     margin-top: 0;
     z-index: 3;
     display: flex;
@@ -352,10 +396,10 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
   }
   .od-slide-content h1,
   .od-slide-content h2 {
-    font-size: clamp(24px, 6.8vw, 32px);
-    line-height: 1.12;
-    margin-bottom: 6px;
-    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.85);
+    font-size: clamp(21px, 6vw, 28px);
+    line-height: 1.14;
+    margin-bottom: 5px;
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.9);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -363,24 +407,24 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
   }
   .od-hero-badges {
     gap: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .od-hero-badge {
-    padding: 3px 8px;
-    font-size: 10px;
+    padding: 2.5px 7px;
+    font-size: 9.5px;
     font-weight: 800;
     border-radius: 4px;
   }
   .od-hero-meta {
-    font-size: 12.5px;
+    font-size: 12px;
     gap: 6px;
-    margin-top: 4px;
+    margin-top: 3px;
     color: #b4bac8;
   }
   .od-hero-description {
-    font-size: 13px;
-    line-height: 1.5;
-    margin-top: 8px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    margin-top: 6px;
     color: #cfd5e2;
     max-width: 100%;
     display: -webkit-box;
@@ -392,42 +436,50 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 16px;
+    margin-top: 13px;
     width: 100%;
   }
   .od-hero-primary {
     flex: 1;
-    min-height: 46px;
+    min-height: 44px;
     border-radius: 9999px;
     justify-content: center;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 800;
-    letter-spacing: .04em;
+    letter-spacing: .03em;
     box-shadow: 0 4px 16px rgba(109, 50, 168, 0.45);
   }
   .od-hero-actions .od-outline {
-    min-height: 46px;
-    min-width: 46px;
+    min-height: 44px;
+    min-width: 44px;
     padding: 0 14px;
     border-radius: 9999px;
     justify-content: center;
+    font-size: 13px;
   }
+
+  /* Indicadores de rotación (guiones) fijados en la base del héroe */
   .od-dots {
-    position: static;
-    margin: 14px 0 0;
-    justify-content: center;
-    gap: 6px;
+    position: absolute !important;
+    bottom: 10px !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    z-index: 10 !important;
   }
   .od-dot {
-    width: 20px;
-    height: 18px;
+    width: 18px;
+    height: 16px;
   }
   .od-dot::after {
     height: 3px;
     border-radius: 2px;
   }
   .od-dot[aria-pressed="true"] {
-    width: 32px;
+    width: 30px;
   }
   .od-dot[aria-pressed="true"]::after {
     height: 3.5px;
@@ -435,7 +487,6 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
   .od-pause,
   .od-hero-arrow,
   .od-rail-arrow,
-  .od-ambient-backdrop,
   .od-hero-poster-container {
     display: none !important;
   }
