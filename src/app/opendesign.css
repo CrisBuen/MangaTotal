@@ -293,6 +293,23 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
 @media(max-width:768px) {
   :root { --od-cols: 2.8; --od-wide-cols: 1.35; }
 
+  /* Encabezado compacto estilo Crunchyroll en móvil y Android */
+  [data-od-id="site-header"], [data-od-id="admin-header"] {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+  [data-od-id="site-header"] > div, [data-od-id="admin-header"] > div {
+    min-height: 44px !important;
+    padding-inline: 12px !important;
+    padding-top: max(4px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: 4px !important;
+  }
+  .od-switch-world {
+    min-width: 32px !important;
+    min-height: 32px !important;
+    font-size: 15px !important;
+    padding: 0 4px !important;
+  }
+
   /* Héroe en celular: altura proporcional para que no sobrepase la pantalla y se vean las secciones inferiores */
   .od-hero {
     position: relative;

@@ -35,7 +35,7 @@ export function ExperienceShell({ user, animeEnabled, children }: { user: Experi
       {!entry && <AppHeader user={user} />}
       {/* Se conserva la red contra desbordamiento; los lectores viven fuera
           del layout y mantienen su geometría propia de tiras largas. */}
-      <main id="contenido" className={entry ? "od-entry-main" : "mx-auto max-w-app overflow-x-hidden px-4 pb-28 pt-8 sm:px-6 md:pb-20 md:pt-10 lg:px-10"} data-od-id={entry ? "entry-content" : "page-content"}>
+      <main id="contenido" className={entry ? "od-entry-main" : "mx-auto max-w-app overflow-x-hidden px-3.5 pb-24 pt-3 sm:px-6 sm:pb-28 sm:pt-6 md:pb-20 md:pt-10 lg:px-10"} data-od-id={entry ? "entry-content" : "page-content"}>
         {!entry && mode === "lectura" && <ReadingNavigation />}
         {children}
       </main>

@@ -39,11 +39,11 @@ export function AppHeader({
       className="sticky top-0 z-40 border-b border-line bg-panel"
       data-od-id={mode === "admin" ? "admin-header" : "site-header"}
     >
-      <div className="mx-auto flex min-h-16 max-w-app items-center gap-x-3 px-4 sm:px-6 lg:gap-x-5 lg:px-10"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="mx-auto flex min-h-12 max-w-app items-center gap-x-2 px-3 sm:min-h-16 sm:gap-x-3 sm:px-6 lg:gap-x-5 lg:px-10"
+        style={{ paddingTop: "max(4px, env(safe-area-inset-top, 0px))" }}>
         <Link
           href={mode === "admin" ? "/admin" : watching ? "/explorar?seccion=animada" : "/lectura"}
-          className="group flex min-h-11 shrink-0 items-center gap-2 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
+          className="group flex min-h-9 shrink-0 items-center gap-1.5 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink sm:min-h-11 sm:gap-2"
           data-od-id="brand-link"
           aria-label={mode === "admin" ? "MangaTotal, administración" : "MangaTotal, biblioteca"}
         >
@@ -54,10 +54,10 @@ export function AppHeader({
             height={34}
             priority
             unoptimized
-            className="h-[34px] w-[34px] shrink-0 object-contain"
+            className="h-6 w-6 shrink-0 object-contain sm:h-[34px] sm:w-[34px]"
           />
           <span className="leading-none">
-            <span className="block font-display text-lg font-bold tracking-[-0.025em] text-ink lg:text-xl">
+            <span className="block font-display text-[15px] font-bold tracking-[-0.025em] text-ink sm:text-lg lg:text-xl">
               MangaTotal
             </span>
             {mode === "admin" && (
@@ -84,7 +84,7 @@ export function AppHeader({
           ))}
         </nav>}
 
-        <div className="ml-auto flex min-h-11 items-center gap-1.5" data-od-id="account-actions">
+        <div className="ml-auto flex min-h-9 sm:min-h-11 items-center gap-1 sm:gap-1.5" data-od-id="account-actions">
           {mode !== "admin" && <Link href="/?elegir=1" className="od-switch-world" aria-label="Cambiar entre lectura y anime">⇄ <span>Cambiar sección</span></Link>}
           {mode !== "admin" && (
             <Link
