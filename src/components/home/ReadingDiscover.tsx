@@ -321,31 +321,6 @@ export function ReadingDiscover() {
         </button>
       </form>
 
-      {/* Tarjetas interactivas de fuentes: cambiar fuente sin salir de Descubrir */}
-      <section aria-labelledby="reading-sources-title">
-        <p className="od-eyebrow">TUS FUENTES DE SIEMPRE</p>
-        <h2 id="reading-sources-title">Elegí dónde descubrir</h2>
-        <div className="od-reading-sources">
-          {fuentesLista.map(([id, name, description]) => {
-            const isActive = fuente === id;
-            return (
-              <button
-                type="button"
-                key={id}
-                onClick={() => cambiarFuente(id)}
-                className={`od-reading-source-card ${isActive ? "active" : ""}`}
-                aria-pressed={isActive}
-              >
-                <span className="text-lg font-bold text-ink">{name}</span>
-                <small className="text-xs text-subtle">{description}</small>
-                <span className="od-source-badge">
-                  {isActive ? "✓ Fuente activa" : "Seleccionar"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
 
       {/* ============================================================== */}
       {/* 1. MANGADEX */}
