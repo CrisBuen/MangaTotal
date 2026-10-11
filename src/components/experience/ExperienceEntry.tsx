@@ -43,12 +43,49 @@ export function ExperienceEntry() {
         <p className="od-entry-description">Dos mundos. Una misma colección.</p>
         <div className="od-worlds">
           <button className="od-world reading" onClick={() => enter("/lectura")} disabled={entering}>
-            <span className="od-world-art" aria-hidden="true"><svg viewBox="0 0 240 160"><path d="M30 33q45-17 90 9 45-26 90-9v100q-45-17-90 9-45-26-90-9z"/><path d="M120 42v100M49 61q26-8 49 5M49 81q26-8 49 5M49 101q26-8 49 5M142 66q23-13 49-5M142 86q23-13 49-5"/></svg></span>
-            <span className="od-eyebrow">Manga · Manhwa · Manhua</span><h2>Lectura</h2><p>Explorá las fuentes, abrí un capítulo y seguí tu historia.</p><span className="od-world-action">Entrar a lectura <span aria-hidden="true">→</span></span>
+            <span className="od-world-art" aria-hidden="true">
+              <Image
+                src="/branding/welcome-lectura.jpg"
+                alt=""
+                width={480}
+                height={320}
+                priority
+                className="od-world-img"
+              />
+            </span>
+            <span className="od-eyebrow">Manga · Manhwa · Manhua</span>
+            <h2>Lectura</h2>
+            <p>Explorá las fuentes, abrí un capítulo y seguí tu historia.</p>
+            <span className="od-world-action">
+              Entrar a lectura <span aria-hidden="true">→</span>
+            </span>
           </button>
-          <button className="od-world watching" onClick={() => enter(animeEnabled ? "/explorar?seccion=animada" : user ? "/ajustes" : "/login")} disabled={entering}>
-            <span className="od-world-art" aria-hidden="true"><svg viewBox="0 0 240 160"><rect x="28" y="26" width="184" height="108" rx="10"/><path d="m102 55 44 25-44 25zM78 147h84"/></svg></span>
-            <span className="od-eyebrow">Series · Episodios · Mi lista</span><h2>Anime</h2><p>{animeEnabled ? "Descubrí series y volvé al episodio donde te quedaste." : "Activá la sección animada desde los ajustes de tu cuenta."}</p><span className="od-world-action">{animeEnabled ? "Entrar a anime" : "Configurar acceso"} <span aria-hidden="true">→</span></span>
+          <button
+            className="od-world watching"
+            onClick={() => enter(animeEnabled ? "/explorar?seccion=animada" : user ? "/ajustes" : "/login")}
+            disabled={entering}
+          >
+            <span className="od-world-art" aria-hidden="true">
+              <Image
+                src="/branding/welcome-anime.jpg"
+                alt=""
+                width={480}
+                height={320}
+                priority
+                className="od-world-img"
+              />
+            </span>
+            <span className="od-eyebrow">Series · Episodios · Mi lista</span>
+            <h2>Anime</h2>
+            <p>
+              {animeEnabled
+                ? "Descubrí series y volvé al episodio donde te quedaste."
+                : "Activá la sección animada desde los ajustes de tu cuenta."}
+            </p>
+            <span className="od-world-action">
+              {animeEnabled ? "Entrar a anime" : "Configurar acceso"}{" "}
+              <span aria-hidden="true">→</span>
+            </span>
           </button>
         </div>
         {!user ? <p className="od-entry-note">Explorá como invitado. Para guardar y sincronizar, <Link href="/login">iniciá sesión</Link> o <Link href="/registro">creá tu cuenta</Link>.</p> : <div className="od-entry-account"><button onClick={() => setSelected(false)}>← Volver a mi cuenta</button><LogoutButton label="Cerrar sesión" /></div>}

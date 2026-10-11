@@ -37,7 +37,9 @@ body { line-height: 1.5; }
 .od-worlds { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 38px 0 28px; }
 .od-world { text-align: left; border: 1px solid rgba(255, 255, 255, 0.08); padding: 28px; border-radius: 12px; background: linear-gradient(160deg, #151722 0%, #0d0e14 100%); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35); transition: transform .22s cubic-bezier(0.16, 1, 0.3, 1), border-color .22s, box-shadow .22s; }
 .od-world:hover,.od-world:focus-visible { border-color: rgba(186, 149, 236, 0.45); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(109, 50, 168, 0.2); }
-.od-world-art { display: block; height: 150px; margin-bottom: 22px; background: radial-gradient(ellipse, rgba(109, 50, 168, 0.18), transparent 70%); }
+.od-world-art { position: relative; display: block; width: 100%; height: 185px; margin-bottom: 22px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); background: #0d0f17; }
+.od-world-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
+.od-world:hover .od-world-img,.od-world:focus-visible .od-world-img { transform: scale(1.03); }
 .od-world-art svg { width: 100%; height: 100%; fill: rgba(109, 50, 168, 0.05); stroke: #9d78d6; stroke-width: 1.75; }
 .od-world h2 { font-size: 32px; margin: 8px 0; }
 .od-world p { color: var(--muted); font-size: 15px; min-height: 46px; }
@@ -52,16 +54,17 @@ body { line-height: 1.5; }
 .od-switch-world { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 8px; color: var(--accent-fg); font-size: 13px; }
 @media (max-width: 1023px) { .od-switch-world span { display: none; } }
 @media (max-width: 600px) {
-  .od-entry { padding-left: 20px; padding-right: 20px; }
-  .od-entry-panel { padding: 40px 0; }
-  .od-worlds { grid-template-columns: 1fr; gap: 16px; margin: 26px 0; }
-  .od-world { padding: 22px; position: relative; overflow: hidden; }
-  .od-world-art { position: absolute; right: -16px; top: 24px; width: 145px; height: 100px; opacity: .3; }
-  .od-world h2 { font-size: 28px; }
-  .od-world p { max-width: 85%; min-height: 0; }
+  .od-entry { padding-left: 18px; padding-right: 18px; }
+  .od-entry-panel { padding: 32px 0; }
+  .od-worlds { grid-template-columns: 1fr; gap: 18px; margin: 24px 0; }
+  .od-world { padding: 18px; border-radius: 12px; }
+  .od-world-art { position: relative; right: auto; top: auto; width: 100%; height: 155px; opacity: 1; margin-bottom: 14px; border-radius: 8px; }
+  .od-world h2 { font-size: 26px; margin: 6px 0; }
+  .od-world p { max-width: 100%; min-height: 0; font-size: 14px; }
+  .od-world-action { margin-top: 18px; font-size: 14px; }
   .od-entry-note { font-size: 13px; line-height: 1.7; }
 }
-@media (prefers-reduced-motion: reduce) { .od-entry-panel,.od-world,.od-entry-avatar { transition: none; transform: none !important; } }
+@media (prefers-reduced-motion: reduce) { .od-entry-panel,.od-world,.od-world-img,.od-entry-avatar { transition: none; transform: none !important; } }
 .od-home > * + * { margin-top: 36px; }
 .od-reading-discover > * + * { margin-top: 42px; }
 .od-reading-discover h2 { font-size: 24px; margin: 8px 0 20px; }
