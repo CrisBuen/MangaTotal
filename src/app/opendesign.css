@@ -160,37 +160,46 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
 .od-footer-note { width: 100%; padding-top: 20px; border-top: 1px solid var(--border); }
 
 /* Héroe: fundido del arte 500 ms; texto saliente/entrante en dos fases. */
-.od-hero { position: relative; height: clamp(420px,44vw,620px); overflow: hidden; background: var(--bg); }
+.od-hero { position: relative; height: clamp(460px,48vw,640px); overflow: hidden; background: #08090d; }
 .od-slide { position: absolute; inset: 0; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
 .od-slide[data-active="true"] { opacity: 1; pointer-events: auto; }
-.od-slide-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% 30%; }
+.od-slide-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: right 25%; }
 .od-slide-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 65% 28%; }
 .od-art-credit { position: absolute; right: var(--od-pad); bottom: 12px; z-index: 2; font-size: 10px; color: #ddd; background: #0009; padding: 3px 7px; border-radius: 3px; }
 .od-slide-poster[hidden] { display: none; }
 .od-artwash { position: absolute; inset: 0; background: radial-gradient(ellipse at 80% 40%,var(--accent-soft),transparent 65%); }
-.od-slide-scrim { position: absolute; inset: 0; background: linear-gradient(90deg,#000f 0%,#000d 26%,#0005 56%,#0000 78%),linear-gradient(0deg,#000 0%,#0000 34%); }
-.od-slide-content { position: relative; height: 100%; max-width: min(560px,72%); padding: 0 0 clamp(76px,10vh,104px) var(--od-pad); display: flex; flex-direction: column; justify-content: flex-end; opacity: 0; transition: opacity .18s ease; }
+.od-ambient-backdrop { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+.od-ambient-img { width: 110%; height: 110%; margin: -5%; object-fit: cover; filter: blur(48px) brightness(0.22); transform: scale(1.1); pointer-events: none; }
+.od-hero-poster-container { position: absolute; top: 0; right: clamp(24px, 8vw, 120px); bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 1; pointer-events: none; }
+.od-hero-poster-card { height: clamp(280px, 32vw, 440px); aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.od-slide-scrim { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(90deg, #08090df2 0%, #08090de0 28%, #08090d99 52%, #08090d26 76%, transparent 100%), linear-gradient(0deg, #08090d 0%, rgba(8,9,13,0.85) 12%, transparent 40%), linear-gradient(180deg, rgba(8,9,13,0.5) 0%, transparent 20%); }
+.od-slide-content { position: relative; z-index: 3; height: 100%; max-width: min(620px,75%); padding: 0 0 clamp(76px,10vh,108px) max(var(--od-pad),52px); display: flex; flex-direction: column; justify-content: flex-end; opacity: 0; transition: opacity .18s ease; }
 .od-slide[data-active="true"] .od-slide-content { opacity: 1; transition: opacity .34s ease .22s; }
-.od-slide-content h1,.od-slide-content h2 { font-size: clamp(30px,4.4vw,52px); line-height: 1.03; letter-spacing: -.025em; }
-.od-hero-meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; font-size: 13px; color: var(--muted); }
-.od-hero-description { margin-top: 14px; font-size: 14px; line-height: 1.6; color: #d2d2d2; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.od-hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 24px; }
-.od-primary,.od-outline { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 10px 22px; border-radius: 6px; font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; transition: background .18s, border-color .18s, color .18s, box-shadow .18s; }
+.od-hero-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.od-hero-badge { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #fff; background: rgba(109, 50, 168, 0.4); border: 1px solid rgba(186, 149, 236, 0.5); border-radius: 4px; backdrop-filter: blur(8px); }
+.od-slide-content h1,.od-slide-content h2 { font-size: clamp(28px,4vw,48px); line-height: 1.08; letter-spacing: -.025em; text-shadow: 0 2px 14px rgba(0,0,0,0.7); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.od-hero-meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; font-size: 13.5px; font-weight: 500; color: #a8b0c2; }
+.od-hero-description { margin-top: 12px; font-size: 14px; line-height: 1.6; color: #c8ceda; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-width: 580px; }
+.od-hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 22px; }
+.od-hero-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 16px rgba(109, 50, 168, 0.4); }
+.od-hero-primary:hover { background: var(--accent-hover); box-shadow: 0 6px 20px rgba(109, 50, 168, 0.6); transform: translateY(-1px); }
+.od-btn-play { font-size: 12px; margin-right: 2px; }
+.od-primary,.od-outline { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 10px 22px; border-radius: 6px; font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; transition: background .18s, border-color .18s, color .18s, box-shadow .18s, transform .18s; }
 .od-primary { background: var(--accent); color: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
 .od-primary:hover { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(109, 50, 168, 0.35); }
 .od-outline { border: 1px solid rgba(255, 255, 255, 0.16); color: #e2e4ea; background: rgba(255, 255, 255, 0.04); }
 .od-outline:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.28); color: #fff; }
-.od-dots { position: absolute; left: var(--od-pad); bottom: 22px; display: flex; gap: 7px; z-index: 3; align-items: center; }
-.od-dot { width: 26px; height: 44px; display: grid; align-items: center; }
-.od-dot::after { content: ""; height: 4px; background: #5a5a5a; border-radius: 2px; transition: background .2s; }
-.od-dot[aria-pressed="true"] { width: 34px; }
-.od-dot[aria-pressed="true"]::after { background: var(--accent-fg); }
+.od-dots { position: absolute; left: max(var(--od-pad), 52px); bottom: 22px; display: flex; gap: 8px; z-index: 4; align-items: center; }
+.od-dot { width: 26px; height: 24px; display: grid; align-items: center; background: transparent; border: none; padding: 0; cursor: pointer; }
+.od-dot::after { content: ""; height: 3.5px; width: 100%; background: rgba(255, 255, 255, 0.32); border-radius: 2px; transition: all .2s; }
+.od-dot:hover::after { background: rgba(255, 255, 255, 0.6); }
+.od-dot[aria-pressed="true"] { width: 42px; }
+.od-dot[aria-pressed="true"]::after { background: var(--accent-fg); height: 4px; box-shadow: 0 0 10px rgba(186, 149, 236, 0.5); }
 .od-pause { width: 44px; height: 44px; font-size: 15px; }
 .od-hero-arrow { position: absolute; top: 0; bottom: 0; width: 44px; z-index: 3; opacity: 0; transition: opacity .2s; font-size: 30px; background: linear-gradient(90deg,#0007,#0000); }
 .od-hero-arrow.next { right: 0; background: linear-gradient(270deg,#0007,#0000); }
 .od-hero-arrow.prev { left: 0; }
 .od-hero:hover .od-hero-arrow,.od-hero-arrow:focus-visible { opacity: 1; }
-.od-slide-content { padding-left: max(var(--od-pad),52px); }
 
 /* Los rieles usan scroll nativo suave; sin librerías, listeners de rueda ni
    animaciones que bloqueen gestos de Android. */
@@ -305,6 +314,7 @@ h1,h2,h3 { font-weight: 900; letter-spacing: -.01em; }
   .od-hero-description { -webkit-line-clamp: 3; }
   .od-dots { position: static; margin: 0 var(--od-pad); }
   .od-hero-arrow,.od-rail-arrow { display: none; }
+  .od-ambient-backdrop, .od-hero-poster-container { display: none; }
 }
 @media(max-width:600px) { :root { --od-cols:3.2;--od-wide-cols:1.6; } }
 @media(max-width:430px) { :root { --od-cols:2.3;--od-wide-cols:1.15; } }

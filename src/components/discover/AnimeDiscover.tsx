@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HeroCarousel } from "./HeroCarousel";
+import { HeroCarousel, type HeroItem } from "./HeroCarousel";
 import { MediaRail } from "./MediaRail";
 import { DISCOVER_GENRES } from "./DiscoverMenu";
 import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
@@ -23,6 +23,13 @@ type Progress = { episode_number: string; position_seconds: number; duration_sec
 type Detail = FichaJkanime | FichaTioanime;
 const SOURCE_NAMES = { jkanime: "JKAnime", tioanime: "TioAnime" };
 const TIO_GENRES: Record<string, string> = { "sci-fi": "ciencia-ficcion", "cosas-de-la-vida": "recuentos-de-la-vida", thriller: "suspenso" };
+const ANILIST_GENRES_ES: Record<string, string> = {
+  Action: "Acción", Adventure: "Aventura", Comedy: "Comedia", Drama: "Drama",
+  Ecchi: "Ecchi", Fantasy: "Fantasía", Horror: "Terror", "Mahou Shoujo": "Chicas mágicas",
+  Mecha: "Mecha", Music: "Música", Mystery: "Misterio", Psychological: "Psicológico",
+  Romance: "Romance", "Sci-Fi": "Ciencia ficción", "Slice of Life": "Recuentos de la vida",
+  Sports: "Deportes", Supernatural: "Sobrenatural", Thriller: "Suspenso",
+};
 
 function backdrop(source: Source, cover: string | null) {
   if (source !== "tioanime" || !cover) return null;
@@ -189,6 +196,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
   const [accountError, setAccountError] = useState("");
   const [accountVersion, setAccountVersion] = useState(0);
   const [selected, setSelected] = useState<Series | null>(null);
+  const [seasonalHeroes, setSeasonalHeroes] = useState<HeroItem[] | null>(null);
   useEffect(() => {
     // El gesto Atrás cierra la ficha; Adelante restaura esa misma ficha sin
     // agregar otra entrada. Al reproducir se reemplaza solo la entrada modal.
@@ -242,10 +250,99 @@ export function AnimeDiscover({ source }: { source: Source }) {
     });
     return () => controller.abort();
   }, [source, directory, personalView, accountVersion]);
+
+  // Cargamos animes aleatorios de la temporada actual desde AniList con arte oficial verificado
+  useEffect(() => {
+    if (directory || personalView) return;
+    const controller = new AbortController();
+    fetch("/api/anime?season=actual&sort=trending", { signal: controller.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (controller.signal.aborted || !data?.anime?.length) return;
+        type AniCard = {
+          id: number;
+          title: string;
+          cover_url: string | null;
+          banner_url: string | null;
+          description: string | null;
+          format: string | null;
+          status: string | null;
+          genres?: string[];
+        };
+        const list: AniCard[] = data.anime;
+        // Priorizamos animes de la temporada en emisión que cuenten con arte oficial de estudio
+        const conBanner = list.filter(a => Boolean(a.banner_url));
+        const pool = conBanner.length >= 4 ? conBanner : list;
+        // Barajamos aleatoriamente para que en cada recarga/visita no se repitan de forma estática
+        const aleatorios = [...pool].sort(() => Math.random() - 0.5).slice(0, 6);
+
+        const items: HeroItem[] = aleatorios.map(anime => {
+          const matchingRecent = recent?.find(r =>
+            r.title.toLowerCase().trim() === anime.title.toLowerCase().trim() ||
+            r.title.toLowerCase().includes(anime.title.toLowerCase()) ||
+            anime.title.toLowerCase().includes(r.title.toLowerCase())
+          );
+
+          const targetHref = matchingRecent
+            ? `/explorar/${source}/${matchingRecent.slug}`
+            : `/explorar?seccion=animada&anime_fuente=${source}&vista=catalogo&q=${encodeURIComponent(anime.title)}`;
+
+          const genresEs = (anime.genres ?? [])
+            .slice(0, 3)
+            .map(g => ANILIST_GENRES_ES[g] ?? g)
+            .join(" · ");
+
+          return {
+            id: `seasonal-${anime.id}`,
+            title: anime.title,
+            image: anime.cover_url,
+            backdrop: anime.banner_url,
+            artworkTitle: anime.title,
+            poster: !anime.banner_url,
+            description: anime.description,
+            badges: ["TEMPORADA ACTUAL", anime.format ? anime.format.toUpperCase() : "TV"],
+            meta: genresEs || [SOURCE_NAMES[source], anime.format, anime.status].filter(Boolean).join(" · "),
+            href: targetHref,
+            action: "Ver serie",
+            extra: matchingRecent ? (
+              <button className="od-outline" onClick={() => setSelected(matchingRecent)}>
+                ⓘ Episodios y detalles
+              </button>
+            ) : (
+              <Link className="od-outline" href={targetHref} prefetch={false}>
+                Buscar en {SOURCE_NAMES[source]} →
+              </Link>
+            ),
+          };
+        });
+        setSeasonalHeroes(items);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [source, directory, personalView, recent]);
+
   const savedSlugs = new Set(library.map(entry => entry.slug));
   const continuing = historyItems.filter(entry => !entry.completed && entry.resume_href);
   const title = SOURCE_NAMES[source];
   const genre = (id: string) => source === "tioanime" ? TIO_GENRES[id] ?? id : id;
+
+  const heroItems: HeroItem[] | null = (seasonalHeroes && seasonalHeroes.length > 0)
+    ? seasonalHeroes
+    : (recent?.length
+      ? recent.slice(0, 5).map(item => ({
+          id: item.slug,
+          title: item.title,
+          image: item.cover_url,
+          poster: true,
+          artworkTitle: item.title,
+          backdrop: backdrop(source, item.cover_url),
+          badges: ["RECIÉN SALIDO", item.type?.toUpperCase() ?? "SERIE"],
+          meta: [title, item.type, item.status].filter(Boolean).join(" · "),
+          href: `/explorar/${source}/${item.slug}`,
+          action: "Ver serie",
+          extra: <button className="od-outline" onClick={() => setSelected(item)}>ⓘ Episodios y detalles</button>,
+        }))
+      : null);
   return <div className="od-discover" data-od-id="anime-discover">
     <nav className="od-tabs" aria-label="Descubrir anime">
       <a aria-current={!directory && !personalView ? "page" : undefined} href={`/explorar?seccion=animada&anime_fuente=${source}`}>Descubrir</a>
@@ -264,7 +361,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
         <input name="q" value={search} onChange={event => setSearch(event.target.value)} placeholder={`Buscar todas las series de ${title}…`} aria-label={`Buscar todas las series de ${title}`} type="search" />
         <button className="od-outline" type="submit">Buscar →</button>
       </form>
-      {recent?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={recent.slice(0, 5).map(item => ({ id: item.slug, title: item.title, image: item.cover_url, poster: true, artworkTitle: item.title, backdrop: backdrop(source, item.cover_url), meta: [title, item.type, item.status].filter(Boolean).join(" · "), href: `/explorar/${source}/${item.slug}`, action: "Ver serie", extra: <button className="od-outline" onClick={() => setSelected(item)}>ⓘ Episodios y detalles</button> }))} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
+      {heroItems?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={heroItems} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
       {error && <div className="od-message" role="alert"><p>{error}</p><button onClick={() => setAttempt(value => value + 1)}>Reintentar {title}</button></div>}
       {accountError && <div className="od-message">No se pudo consultar tu lista: {accountError} <button onClick={() => setAccountVersion(value => value + 1)}>Reintentar lista</button></div>}
       {continuing.length > 0 && <MediaRail title="Continuar viendo" wide href={historyUrl}>

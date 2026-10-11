@@ -115,6 +115,8 @@ export function publicAnimeCard(m: AniMedia) {
     id: m.id,
     title: aniTitle(m),
     cover_url: m.coverImage?.extraLarge ?? m.coverImage?.large ?? null,
+    banner_url: m.bannerImage ?? null,
+    description: cleanDescription(m.description),
     format: m.format ? (FORMAT_ES[m.format] ?? m.format) : null,
     status: m.status ? (STATUS_ES[m.status] ?? m.status) : null,
     episodes: m.episodes,
@@ -133,10 +135,8 @@ export function publicAnimeDetail(m: AniMedia) {
 
   return {
     ...publicAnimeCard(m),
-    description: cleanDescription(m.description),
     native_title: m.title.native,
     romaji_title: m.title.romaji,
-    banner_url: m.bannerImage,
     duration: m.duration,
     season:
       m.season && m.seasonYear ? `${SEASON_ES[m.season] ?? m.season} ${m.seasonYear}` : null,
@@ -159,6 +159,7 @@ export function publicAnimeDetail(m: AniMedia) {
 export const MEDIA_CARD_FIELDS = `
   id
   title { romaji english native }
+  description
   episodes
   status
   format
@@ -169,4 +170,5 @@ export const MEDIA_CARD_FIELDS = `
   genres
   isAdult
   coverImage { large extraLarge }
+  bannerImage
 `;
