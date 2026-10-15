@@ -423,7 +423,12 @@ async function serieIkigaiDeLaFuente(slug: string, onPartial?: (ficha: FichaIkig
       capitulos.push({
         id,
         numero: titulo.replace(/^Cap[íi]tulo\s*/i, "").trim() || null,
-        fecha: a.querySelector("time")?.textContent?.trim() ?? fechaDelTexto(a.textContent ?? ""),
+        fecha:
+          (typeof a.querySelector("time")?.getAttribute === "function"
+            ? a.querySelector("time")?.getAttribute("datetime")?.trim()
+            : null) ||
+          a.querySelector("time")?.textContent?.trim() ||
+          fechaDelTexto(a.textContent ?? ""),
       });
     }
 

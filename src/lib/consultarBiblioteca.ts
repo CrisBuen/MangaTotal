@@ -1,15 +1,94 @@
 import { type ResultadoBiblioteca, type TareaBiblioteca, type TipoCola, tareaValida } from "./colaBiblioteca";
 import { isPlayStoreApp } from "./appVersion";
 
-interface Capitulo { numero?: string | number | null; number?: string | number | null; name?: string | null; fecha?: string | null; published_at?: string | null; }
+interface Capitulo {
+  numero?: string | number | null;
+  number?: string | number | null;
+  name?: string | number | null;
+  fecha?: string | number | null;
+  published_at?: string | number | null;
+  release_date?: string | number | null;
+  chosen?: { published_at?: string | number | null };
+}
+
+export function parsearFechaCapitulo(f?: string | number | null): number | null {
+  if (f === null || f === undefined) return null;
+  if (typeof f === "number") {
+    return Number.isFinite(f) && f > 0 ? f : null;
+  }
+  const texto = String(f).trim();
+  if (!texto) return null;
+
+  if (/^\d{12,14}$/.test(texto)) {
+    const n = Number(texto);
+    if (Number.isFinite(n)) return n;
+  }
+
+  // 1. ISO standard o formato YYYY-MM-DD
+  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(texto)) {
+    const t = Date.parse(texto.replace(/\//g, "-"));
+    if (Number.isFinite(t)) return t;
+  }
+
+  // 2. Formato DD/MM/YYYY o DD-MM-YYYY
+  const mFecha = texto.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (mFecha) {
+    const dia = Number(mFecha[1]);
+    const mes = Number(mFecha[2]) - 1;
+    let anio = Number(mFecha[3]);
+    if (anio < 100) anio += 2000;
+    const hora = mFecha[4] ? Number(mFecha[4]) : 0;
+    const min = mFecha[5] ? Number(mFecha[5]) : 0;
+    const seg = mFecha[6] ? Number(mFecha[6]) : 0;
+    const d = new Date(anio, mes, dia, hora, min, seg);
+    const t = d.getTime();
+    if (Number.isFinite(t)) return t;
+  }
+
+  // 3. Relativas en español ("hace X horas", "hace X días", "ayer", etc.)
+  const ahora = Date.now();
+  if (/^(hoy|reci[eé]n|ahora|hace un momento)$/i.test(texto)) return ahora;
+  if (/^ayer$/i.test(texto)) return ahora - 86_400_000;
+
+  const mRel = texto.match(/hace\s+(\d+)\s*(s(?:eg(?:undos?)?)?|m(?:in(?:utos?)?)?|h(?:oras?)?|d(?:[ií]as?)?|sem(?:anas?)?|mes(?:es)?|a(?:[ñn]os?)?)\b/i);
+  if (mRel) {
+    const cantidad = Number(mRel[1]);
+    const unidad = mRel[2].toLowerCase();
+    if (unidad.startsWith("s") && !unidad.startsWith("sem")) return ahora - cantidad * 1000;
+    if (unidad.startsWith("m") && !unidad.startsWith("mes")) return ahora - cantidad * 60_000;
+    if (unidad.startsWith("h")) return ahora - cantidad * 3_600_000;
+    if (unidad.startsWith("d")) return ahora - cantidad * 86_400_000;
+    if (unidad.startsWith("sem")) return ahora - cantidad * 7 * 86_400_000;
+    if (unidad.startsWith("mes")) return ahora - cantidad * 30 * 86_400_000;
+    if (unidad.startsWith("a")) return ahora - cantidad * 365 * 86_400_000;
+  }
+
+  // 4. Fallback directo a Date.parse
+  const direct = Date.parse(texto);
+  return Number.isFinite(direct) ? direct : null;
+}
+
 export function resumirCapitulos(lista: Capitulo[], leido: string | null, estado?: string | null): ResultadoBiblioteca {
   const numeros = [...new Set(lista.map(c => c.numero ?? c.number ?? c.name).filter(n => n !== null && n !== undefined && String(n).trim() !== "").map(Number).filter(Number.isFinite))];
-  const fechas = lista.map(c => c.published_at ?? c.fecha).filter((f): f is string => !!f && /^\d{4}-\d{2}-\d{2}/.test(f)).map(Date.parse).filter(Number.isFinite);
+  const fechas = lista
+    .map(c => c.published_at ?? c.fecha ?? c.release_date ?? c.chosen?.published_at)
+    .map(parsearFechaCapitulo)
+    .filter((f): f is number => typeof f === "number" && Number.isFinite(f));
+  let maxFecha: number | null = null;
+  for (const f of fechas) {
+    if (maxFecha === null || f > maxFecha) maxFecha = f;
+  }
   const punto = leido !== null && leido.trim() !== "" ? Number(leido) : -1;
-  return { ultimo: numeros.length ? String(Math.max(...numeros)) : null, total: numeros.length || lista.length,
+  return {
+    ultimo: numeros.length ? String(Math.max(...numeros)) : null,
+    total: numeros.length || lista.length,
     ...(numeros.length <= 10000 ? { numeros } : {}),
     sinLeer: Number.isFinite(punto) ? numeros.filter(n => n > punto).length : 0,
-    estado, publicado: fechas.length ? Math.max(...fechas) : null, comprobado: Date.now(), obtenido: Date.now() };
+    estado,
+    publicado: maxFecha,
+    comprobado: Date.now(),
+    obtenido: Date.now(),
+  };
 }
 async function json(url: string, signal: AbortSignal) {
   const r = await fetch(url, { cache: "no-store", signal });

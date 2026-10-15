@@ -161,6 +161,31 @@ test("pendientes descendentes ponen primero las novedades y NaN queda al final",
   ];
   assert.equal(opciones.ordenarBiblioteca(datos, { ...opciones.opcionesIniciales, orden: "pendientes", descendente: true }, x => x).map(x => x.clave).join(","), "cuarenta,ocho,invalido");
 });
+test("resumirCapitulos extrae y parsea fechas de capítulos (ISO, relativas y MangaDex chosen)", () => {
+  const { resumirCapitulos, parsearFechaCapitulo } = modulo("consultarBiblioteca");
+  assert.ok(parsearFechaCapitulo("2026-10-14T20:00:00Z") > 0);
+  assert.ok(parsearFechaCapitulo("hace 2 horas") > 0);
+  assert.ok(parsearFechaCapitulo("14/10/2026") > 0);
+
+  const caps = [
+    { numero: "1", fecha: "2026-01-01" },
+    { numero: "2", chosen: { published_at: "2026-05-01" } },
+    { numero: "3", fecha: "hace 2 horas" },
+  ];
+  const r = resumirCapitulos(caps, "1");
+  assert.equal(r.ultimo, "3");
+  assert.ok(r.publicado > Date.parse("2026-05-01"));
+});
+test("orden por capítulo más reciente prioriza la serie con fecha de capítulo más nueva", () => {
+  const ahora = Date.now();
+  const datos = [
+    { clave: "antigua", titulo: "Serie con 500 caps viejos", reciente: ahora - 86400000 * 30, empezado: true, favorito: true, completado: false },
+    { clave: "recien", titulo: "Serie con cap 2 hace 2 horas", reciente: ahora - 7200000, empezado: true, favorito: true, completado: false },
+    { clave: "ayer", titulo: "Serie con cap 10 ayer", reciente: ahora - 86400000, empezado: true, favorito: true, completado: false },
+  ];
+  const res = opciones.ordenarBiblioteca(datos, { ...opciones.opcionesIniciales, orden: "reciente", descendente: true }, x => x);
+  assert.deepEqual(res.map(x => x.clave), ["recien", "ayer", "antigua"]);
+});
 test("preferencias corruptas no rompen el menú", () => {
   assert.equal(opciones.leerOpciones("{").vista, "comoda");
   assert.equal(opciones.leerOpciones('{"vista":"script","orden":"bad","filtros":["bad"]}').filtros.length, 0);
