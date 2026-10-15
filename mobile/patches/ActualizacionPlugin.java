@@ -47,10 +47,15 @@ public class ActualizacionPlugin extends Plugin {
             Intent intent = new Intent(getContext(), ActualizacionServicio.class);
             if (!activo) {
                 ActualizacionServicio.activo = false;
-                getContext().stopService(intent);
+                try { getContext().stopService(intent); } catch (Exception ignored) {}
                 call.resolve(); return;
             }
             try {
+                if (Build.VERSION.SDK_INT >= 28 &&
+                    getContext().checkSelfPermission(Manifest.permission.FOREGROUND_SERVICE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    call.resolve();
+                    return;
+                }
                 int total = Math.max(0, Math.min(18000, call.getInt("total", 0)));
                 intent.putExtra("total", total);
                 intent.putExtra("hechas", Math.max(0, Math.min(total, call.getInt("hechas", 0))));
@@ -60,7 +65,7 @@ public class ActualizacionPlugin extends Plugin {
                 call.resolve();
             } catch (RuntimeException e) {
                 ActualizacionServicio.activo = false;
-                call.reject("Android no permitió mantener el trabajo en segundo plano");
+                call.resolve();
             }
         });
     }

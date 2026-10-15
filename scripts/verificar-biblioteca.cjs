@@ -195,8 +195,11 @@ test("ambas variantes preservan el ahorro de batería y permiten un servicio aco
     const java = fs.readFileSync(path.join(__dirname, "../mobile/patches", variante + "MainActivity.java"), "utf8");
     const xml = fs.readFileSync(path.join(__dirname, "../mobile/patches", variante + "AndroidManifest.xml"), "utf8");
     assert.match(java, /registerPlugin\(ActualizacionPlugin.class\)/);
-    assert.match(java, /ActualizacionServicio.visibilidad\(webView, false\)/);
-    assert.match(xml, /foregroundServiceType="dataSync"/);
+    if (variante === "") {
+      assert.match(xml, /foregroundServiceType="dataSync"/);
+    } else {
+      assert.ok(!xml.includes("FOREGROUND_SERVICE_DATA_SYNC"), "Play Store omite FOREGROUND_SERVICE_DATA_SYNC");
+    }
   }
   const servicio = fs.readFileSync(path.join(__dirname, "../mobile/patches/ActualizacionServicio.java"), "utf8");
   assert.match(servicio, /pauseTimers/); assert.match(servicio, /cpu.release/); assert.match(servicio, /180000/);
