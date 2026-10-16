@@ -24,18 +24,21 @@ export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json([]);
 
-  const tipo = req.nextUrl.searchParams.get("tipo") === "adult" ? "adult" : "normal";
+  const param = req.nextUrl.searchParams.get("tipo");
+  const tipo = param === "all" ? "all" : param === "adult" ? "adult" : "normal";
+
+  const filtroTipo =
+    tipo === "all"
+      ? {}
+      : tipo === "adult"
+        ? { OR: [{ type: "adult" }, { source: "ehentai" }] }
+        : { AND: [{ OR: [{ type: null }, { type: { not: "adult" } }] }, { source: { not: "ehentai" } }] };
 
   const historial = await db.externalSeries.findMany({
     where: {
       userId: user.id,
       saved: false,
-      // Las fuentes externas actuales pertenecen al catálogo normal. En
-      // PostgreSQL, NOT(type = 'adult') también excluye NULL; Ikigai no manda
-      // type y esas lecturas quedaban guardadas pero invisibles en el historial.
-      ...(tipo === "adult"
-        ? { type: "adult" }
-        : { OR: [{ type: null }, { type: { not: "adult" } }] }),
+      ...filtroTipo,
     },
     orderBy: { updatedAt: "desc" },
     take: 60,
@@ -74,6 +77,10 @@ export async function POST(req: NextRequest) {
 
   if (!esFuenteExterna(source) || !externalId || !title) {
     return NextResponse.json({ error: "Faltan datos de la serie" }, { status: 400 });
+  }
+
+  if (source === "ehentai") {
+    body.type = "adult";
   }
 
   externalId = await resolverIdBiblioteca(user.id, source, externalId, body.type);

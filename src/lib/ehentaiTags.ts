@@ -1,0 +1,184 @@
+/**
+ * Catálogo de etiquetas (tags) populares y frecuentes de E-Hentai organizadas por categorías.
+ * Permite autocompletado, búsqueda en vivo y filtrado directo.
+ */
+
+export interface EhentaiTag {
+  tag: string;
+  label: string;
+  categoria: "parodia" | "femenino" | "masculino" | "tematica" | "personaje";
+}
+
+export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
+  // Parodias / Obras populares
+  { tag: "parody:original", label: "Original", categoria: "parodia" },
+  { tag: "parody:fate grand order", label: "Fate/Grand Order", categoria: "parodia" },
+  { tag: "parody:blue archive", label: "Blue Archive", categoria: "parodia" },
+  { tag: "parody:genshin impact", label: "Genshin Impact", categoria: "parodia" },
+  { tag: "parody:honkai star rail", label: "Honkai: Star Rail", categoria: "parodia" },
+  { tag: "parody:touhou project", label: "Touhou Project", categoria: "parodia" },
+  { tag: "parody:kantai collection", label: "Kantai Collection", categoria: "parodia" },
+  { tag: "parody:the idolmaster", label: "The Idolmaster", categoria: "parodia" },
+  { tag: "parody:azur lane", label: "Azur Lane", categoria: "parodia" },
+  { tag: "parody:hololive", label: "Hololive", categoria: "parodia" },
+  { tag: "parody:evangelion", label: "Evangelion", categoria: "parodia" },
+  { tag: "parody:code geass", label: "Code Geass", categoria: "parodia" },
+  { tag: "parody:pokemon", label: "Pokémon", categoria: "parodia" },
+  { tag: "parody:naruto", label: "Naruto", categoria: "parodia" },
+  { tag: "parody:one piece", label: "One Piece", categoria: "parodia" },
+  { tag: "parody:bleach", label: "Bleach", categoria: "parodia" },
+  { tag: "parody:dragon ball", label: "Dragon Ball", categoria: "parodia" },
+  { tag: "parody:sword art online", label: "Sword Art Online", categoria: "parodia" },
+  { tag: "parody:kimetsu no yaiba", label: "Demon Slayer", categoria: "parodia" },
+  { tag: "parody:boku no hero academia", label: "My Hero Academia", categoria: "parodia" },
+  { tag: "parody:jujutsu kaisen", label: "Jujutsu Kaisen", categoria: "parodia" },
+  { tag: "parody:spy x family", label: "Spy x Family", categoria: "parodia" },
+  { tag: "parody:chainsaw man", label: "Chainsaw Man", categoria: "parodia" },
+  { tag: "parody:sono bisque doll wa koi wo suru", label: "My Dress-Up Darling", categoria: "parodia" },
+  { tag: "parody:oshi no ko", label: "Oshi no Ko", categoria: "parodia" },
+  { tag: "parody:bocchi the rock", label: "Bocchi the Rock!", categoria: "parodia" },
+  { tag: "parody:nier automata", label: "NieR:Automata", categoria: "parodia" },
+
+  // Femenino
+  { tag: "female:big breasts", label: "Pechos grandes", categoria: "femenino" },
+  { tag: "female:huge breasts", label: "Pechos gigantes", categoria: "femenino" },
+  { tag: "female:small breasts", label: "Pechos pequeños", categoria: "femenino" },
+  { tag: "female:schoolgirl uniform", label: "Uniforme escolar", categoria: "femenino" },
+  { tag: "female:sole female", label: "Mujer única", categoria: "femenino" },
+  { tag: "female:stockings", label: "Medias / Pantimedias", categoria: "femenino" },
+  { tag: "female:milf", label: "MILF", categoria: "femenino" },
+  { tag: "female:maid", label: "Sirvienta (Maid)", categoria: "femenino" },
+  { tag: "female:swimsuit", label: "Traje de baño", categoria: "femenino" },
+  { tag: "female:bikini", label: "Bikini", categoria: "femenino" },
+  { tag: "female:glasses", label: "Lentes / Anteojos", categoria: "femenino" },
+  { tag: "female:nakadashi", label: "Nakadashi", categoria: "femenino" },
+  { tag: "female:blowjob", label: "Oral (Blowjob)", categoria: "femenino" },
+  { tag: "female:paizuri", label: "Paizuri", categoria: "femenino" },
+  { tag: "female:ahegao", label: "Ahegao", categoria: "femenino" },
+  { tag: "female:bondage", label: "Bondage", categoria: "femenino" },
+  { tag: "female:yuri", label: "Yuri", categoria: "femenino" },
+  { tag: "female:femdom", label: "Femdom", categoria: "femenino" },
+  { tag: "female:lingerie", label: "Lencería", categoria: "femenino" },
+  { tag: "female:cheating", label: "Infidelidad (Netorare/NTR)", categoria: "femenino" },
+  { tag: "female:collar", label: "Collar", categoria: "femenino" },
+  { tag: "female:dark skin", label: "Piel morena", categoria: "femenino" },
+  { tag: "female:elf", label: "Elfa", categoria: "femenino" },
+  { tag: "female:bunnygirl", label: "Chica conejo (Bunnygirl)", categoria: "femenino" },
+  { tag: "female:catgirl", label: "Chica gato (Nekomimi)", categoria: "femenino" },
+  { tag: "female:twintails", label: "Coletas (Twintails)", categoria: "femenino" },
+  { tag: "female:ponytail", label: "Cola de caballo (Ponytail)", categoria: "femenino" },
+  { tag: "female:mind break", label: "Mind Break", categoria: "femenino" },
+  { tag: "female:teacher", label: "Profesora", categoria: "femenino" },
+  { tag: "female:nurse", label: "Enfermera", categoria: "femenino" },
+  { tag: "female:defloration", label: "Primera vez (Defloration)", categoria: "femenino" },
+  { tag: "female:gyaru", label: "Gyaru", categoria: "femenino" },
+  { tag: "female:tanlines", label: "Líneas de bronceado", categoria: "femenino" },
+  { tag: "female:tomboy", label: "Tomboy", categoria: "femenino" },
+  { tag: "female:sweating", label: "Sudor", categoria: "femenino" },
+  { tag: "female:drunk", label: "Ebria", categoria: "femenino" },
+  { tag: "female:sleeping", label: "Dormida", categoria: "femenino" },
+  { tag: "female:x-ray", label: "Rayos X", categoria: "femenino" },
+  { tag: "female:glasses", label: "Anteojos / Lentes", categoria: "femenino" },
+  { tag: "female:gothic lolita", label: "Gothic Lolita", categoria: "femenino" },
+  { tag: "female:dark skin", label: "Piel oscura / Gyaru", categoria: "femenino" },
+  { tag: "female:school swimwear", label: "Traje escolar (Sukumizu)", categoria: "femenino" },
+  { tag: "female:cheerleader", label: "Porrista (Cheerleader)", categoria: "femenino" },
+  { tag: "female:tall girl", label: "Chica alta", categoria: "femenino" },
+  { tag: "female:muscle", label: "Musculosa", categoria: "femenino" },
+  { tag: "female:kemonomimi", label: "Orejas de animal (Kemonomimi)", categoria: "femenino" },
+  { tag: "female:fox girl", label: "Chica zorro (Kitsunemimi)", categoria: "femenino" },
+  { tag: "female:wolf girl", label: "Chica lobo", categoria: "femenino" },
+  { tag: "female:monster girl", label: "Chica monstruo", categoria: "femenino" },
+  { tag: "female:demon girl", label: "Chica demonio (Súcubo)", categoria: "femenino" },
+  { tag: "female:vampire", label: "Vampiresa", categoria: "femenino" },
+  { tag: "female:idol", label: "Idol", categoria: "femenino" },
+  { tag: "female:kogal", label: "Kogal", categoria: "femenino" },
+  { tag: "female:kunoichi", label: "Ninja / Kunoichi", categoria: "femenino" },
+  { tag: "female:miko", label: "Sacerdotisa (Miko)", categoria: "femenino" },
+  { tag: "female:nun", label: "Monja", categoria: "femenino" },
+  { tag: "female:office lady", label: "Oficinista (OL)", categoria: "femenino" },
+  { tag: "female:waitress", label: "Camarera / Mesera", categoria: "femenino" },
+  { tag: "female:policewoman", label: "Policía", categoria: "femenino" },
+  { tag: "female:blindfold", label: "Ojos vendados", categoria: "femenino" },
+  { tag: "female:gag", label: "Mordaza", categoria: "femenino" },
+  { tag: "female:shibari", label: "Shibari", categoria: "femenino" },
+  { tag: "female:hypnosis", label: "Hipnosis", categoria: "femenino" },
+  { tag: "female:exhibitionism", label: "Exhibicionismo", categoria: "femenino" },
+  { tag: "female:voyeurism", label: "Voyeurismo", categoria: "femenino" },
+  { tag: "female:masturbation", label: "Masturbación", categoria: "femenino" },
+  { tag: "female:fingering", label: "Dedos (Fingering)", categoria: "femenino" },
+  { tag: "female:cunnilingus", label: "Oral femenino (Cunnilingus)", categoria: "femenino" },
+  { tag: "female:deepthroat", label: "Garganta profunda", categoria: "femenino" },
+  { tag: "female:facesitting", label: "Facesitting", categoria: "femenino" },
+  { tag: "female:footjob", label: "Pies (Footjob)", categoria: "femenino" },
+  { tag: "female:anal", label: "Anal", categoria: "femenino" },
+  { tag: "female:double penetration", label: "Doble penetración", categoria: "femenino" },
+  { tag: "female:tribadism", label: "Tijeras (Yuri)", categoria: "femenino" },
+  { tag: "female:group", label: "Grupo femenino", categoria: "femenino" },
+  { tag: "female:threesome", label: "Trío (FFF / MFF)", categoria: "femenino" },
+  { tag: "female:lactation", label: "Lactancia", categoria: "femenino" },
+  { tag: "female:pregnant", label: "Embarazo", categoria: "femenino" },
+  { tag: "female:cosplay", label: "Cosplay", categoria: "femenino" },
+  { tag: "female:glasses", label: "Lentes", categoria: "femenino" },
+  { tag: "female:eyepatch", label: "Parche en el ojo", categoria: "femenino" },
+  { tag: "female:apron", label: "Delantal desnudo", categoria: "femenino" },
+  { tag: "female:kimono", label: "Kimono / Yukata", categoria: "femenino" },
+
+  // Masculino
+  { tag: "male:sole male", label: "Hombre único", categoria: "masculino" },
+  { tag: "male:shotacon", label: "Shotacon", categoria: "masculino" },
+  { tag: "male:yaoi", label: "Yaoi / BL", categoria: "masculino" },
+  { tag: "male:dilf", label: "DILF / Maduro", categoria: "masculino" },
+  { tag: "male:crossdressing", label: "Crossdressing / Femboy", categoria: "masculino" },
+  { tag: "male:tomgirl", label: "Tomgirl", categoria: "masculino" },
+  { tag: "male:monster", label: "Monstruo", categoria: "masculino" },
+  { tag: "male:tentacles", label: "Tentáculos", categoria: "masculino" },
+  { tag: "male:teacher", label: "Profesor", categoria: "masculino" },
+  { tag: "male:blindfold", label: "Venda en los ojos", categoria: "masculino" },
+  { tag: "male:gangbang", label: "Gangbang masculino", categoria: "masculino" },
+  { tag: "male:ugly bastard", label: "Ugly Bastard", categoria: "masculino" },
+  { tag: "male:old man", label: "Anciano", categoria: "masculino" },
+  { tag: "male:muscle", label: "Músculos", categoria: "masculino" },
+  { tag: "male:glasses", label: "Hombre con lentes", categoria: "masculino" },
+
+  // Temáticas generales
+  { tag: "full color", label: "A todo color (Full Color)", categoria: "tematica" },
+  { tag: "uncensored", label: "Sin censura", categoria: "tematica" },
+  { tag: "tankoubon", label: "Tomo recopilatorio (Tankoubon)", categoria: "tematica" },
+  { tag: "anthology", label: "Antología", categoria: "tematica" },
+  { tag: "story arc", label: "Arco argumental", categoria: "tematica" },
+  { tag: "webtoon", label: "Webtoon / Manhwa", categoria: "tematica" },
+  { tag: "vanilla", label: "Romance dulce (Vanilla)", categoria: "tematica" },
+  { tag: "harem", label: "Harén", categoria: "tematica" },
+  { tag: "incest", label: "Incesto", categoria: "tematica" },
+  { tag: "cosplay", label: "Cosplay real", categoria: "tematica" },
+  { tag: "mosaic censorship", label: "Censura con mosaico", categoria: "tematica" },
+  { tag: "netorare", label: "Netorare (NTR)", categoria: "tematica" },
+  { tag: "mind control", label: "Control mental", categoria: "tematica" },
+  { tag: "time stop", label: "Detener el tiempo", categoria: "tematica" },
+  { tag: "gender bender", label: "Cambio de sexo", categoria: "tematica" },
+  { tag: "body swap", label: "Intercambio de cuerpos", categoria: "tematica" },
+  { tag: "drugs", label: "Afrodisíacos / Drogas", categoria: "tematica" },
+  { tag: "corruption", label: "Corrupción", categoria: "tematica" },
+  { tag: "blackmail", label: "Chantaje", categoria: "tematica" },
+  { tag: "cheating", label: "Infidelidad", categoria: "tematica" },
+  { tag: "dark skin", label: "Piel morena", categoria: "tematica" },
+  { tag: "fantasy", label: "Fantasía / Isekai", categoria: "tematica" },
+  { tag: "schoolboy uniform", label: "Uniforme masculino", categoria: "tematica" },
+];
+
+/**
+ * Busca etiquetas que coincidan con el término ingresado.
+ * Si no se ingresa término, devuelve la lista completa.
+ */
+export function buscarEtiquetasEhentai(termino: string): EhentaiTag[] {
+  const q = termino.trim().toLowerCase();
+  if (!q) return EHENTAI_POPULAR_TAGS;
+
+  return EHENTAI_POPULAR_TAGS.filter(
+    (t) =>
+      t.tag.toLowerCase().includes(q) ||
+      t.label.toLowerCase().includes(q)
+  );
+}
+

@@ -60,6 +60,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Faltan datos de la serie" }, { status: 400 });
   }
 
+  if (source === "ehentai") {
+    body.type = "adult";
+  }
+
   externalId = await resolverIdBiblioteca(user.id, source, externalId, body.type);
   const llave = { userId_source_externalId: { userId: user.id, source, externalId } };
 

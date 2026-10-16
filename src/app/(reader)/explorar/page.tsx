@@ -42,6 +42,25 @@ import {
   popularesTmo,
   type SerieTmo,
 } from "@/lib/zonatmo";
+import {
+  EHENTAI_CATEGORIAS,
+  EHENTAI_IDIOMAS,
+  type SerieEhentai,
+} from "@/lib/ehentai";
+import {
+  buscarEtiquetasEhentai,
+  type EhentaiTag,
+} from "@/lib/ehentaiTags";
+
+function decodificarHtml(texto: string): string {
+  return texto
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#39;/g, "'");
+}
 
 // Leer manga no debe descargar también los tres catálogos de anime.
 const cargandoAnime = () => <p role="status" className="py-12 text-center text-subtle">Cargando catálogo de anime...</p>;
@@ -180,6 +199,15 @@ export default function ExplorarPage() {
   const [lcPaginable, setLcPaginable] = useState(false);
   const [lcLista, setLcLista] = useState("");
 
+  const [ehGalleries, setEhGalleries] = useState<SerieEhentai[] | null>(null);
+  const [ehPage, setEhPage] = useState(1);
+  const [ehHayMas, setEhHayMas] = useState(false);
+  const [ehCat, setEhCat] = useState("todos");
+  const [ehLang, setEhLang] = useState("todos");
+  const [ehTag, setEhTag] = useState<string | null>(null);
+  const [ehModalTags, setEhModalTags] = useState(false);
+  const [ehTagBusqueda, setEhTagBusqueda] = useState("");
+
   // Botón de actualizar: vuelve a pedir SOLO lo que está en pantalla, y
   // saltea la caché para que aparezcan los capítulos recién subidos.
   const [recarga, setRecarga] = useState(0);
@@ -256,9 +284,19 @@ export default function ExplorarPage() {
     };
   }, [cargarCw, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
+  const prevCwFiltros = useRef<string | null>(null);
   useEffect(() => {
-    setCwPage(1);
-  }, [search, fuente, cwOrden]);
+    if (!restaurado) return;
+    const clave = JSON.stringify({ search, cwOrden });
+    if (prevCwFiltros.current === null) {
+      prevCwFiltros.current = clave;
+      return;
+    }
+    if (prevCwFiltros.current !== clave) {
+      prevCwFiltros.current = clave;
+      setCwPage(1);
+    }
+  }, [restaurado, search, cwOrden]);
 
   const cargarLc = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("leercapitulo", solicitud)) return;
@@ -317,9 +355,19 @@ export default function ExplorarPage() {
     };
   }, [cargarLc, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
+  const prevLcFiltros = useRef<string | null>(null);
   useEffect(() => {
-    setLcPage(1);
-  }, [search, fuente, lcGenero, lcInicial, lcLista]);
+    if (!restaurado) return;
+    const clave = JSON.stringify({ search, lcGenero, lcInicial, lcLista });
+    if (prevLcFiltros.current === null) {
+      prevLcFiltros.current = clave;
+      return;
+    }
+    if (prevLcFiltros.current !== clave) {
+      prevLcFiltros.current = clave;
+      setLcPage(1);
+    }
+  }, [restaurado, search, lcGenero, lcInicial, lcLista]);
 
   const refrescar = useCallback(() => {
     pedirFresco.current = true;
@@ -456,9 +504,19 @@ export default function ExplorarPage() {
     };
   }, [cargarTmo, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
+  const prevTmoFiltros = useRef<string | null>(null);
   useEffect(() => {
-    setTmoPage(1);
-  }, [search, fuente, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden]);
+    if (!restaurado) return;
+    const clave = JSON.stringify({ search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden });
+    if (prevTmoFiltros.current === null) {
+      prevTmoFiltros.current = clave;
+      return;
+    }
+    if (prevTmoFiltros.current !== clave) {
+      prevTmoFiltros.current = clave;
+      setTmoPage(1);
+    }
+  }, [restaurado, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden]);
 
   const [iki, setIki] = useState<SerieIkigai[] | null>(null);
   const [ikiPage, setIkiPage] = useState(1);
@@ -513,9 +571,19 @@ export default function ExplorarPage() {
     };
   }, [cargarIki, search, fuente, nuevaSolicitud, cancelarSolicitud]);
 
+  const prevIkiFiltros = useRef<string | null>(null);
   useEffect(() => {
-    setIkiPage(1);
-  }, [search, fuente, ikiTipo, ikiGenero, ikiOrden]);
+    if (!restaurado) return;
+    const clave = JSON.stringify({ search, ikiTipo, ikiGenero, ikiOrden });
+    if (prevIkiFiltros.current === null) {
+      prevIkiFiltros.current = clave;
+      return;
+    }
+    if (prevIkiFiltros.current !== clave) {
+      prevIkiFiltros.current = clave;
+      setIkiPage(1);
+    }
+  }, [restaurado, search, ikiTipo, ikiGenero, ikiOrden]);
 
   const [olyOpciones, setOlyOpciones] = useState<{
     generos: { id: number; name: string }[];
@@ -573,6 +641,10 @@ export default function ExplorarPage() {
     const pagina = Number(leer("p")) || 1;
     if (leer("md_order")) setOrder(leer("md_order")!);
     if (leer("md_lang")) setLang(leer("md_lang")!);
+    const st = p.getAll("md_status");
+    if (st.length > 0) setStatus(st);
+    const or = p.getAll("md_origin");
+    if (or.length > 0) setOrigin(or);
     if (f === "mangadex" && pagina > 1) setOffset((pagina - 1) * 24);
 
     if (leer("oly_orden")) setOlyOrden(leer("oly_orden")!);
@@ -600,6 +672,14 @@ export default function ExplorarPage() {
 
     if (leer("cw_orden")) setCwOrden(leer("cw_orden")! as OrdenCw);
     if (f === "catharsis") setCwPage(pagina);
+
+    const ehCatUrl = leer("eh_cat");
+    if (ehCatUrl) setEhCat(ehCatUrl);
+    const ehLangUrl = leer("eh_lang");
+    if (ehLangUrl) setEhLang(ehLangUrl);
+    const ehTagUrl = leer("eh_tag");
+    if (ehTagUrl) setEhTag(ehTagUrl);
+    if (f === "ehentai") setEhPage(pagina);
 
     setRestaurado(true);
   }, []);
@@ -629,7 +709,9 @@ export default function ExplorarPage() {
               ? lcPage
               : fuente === "catharsis"
                 ? cwPage
-                : Math.floor(offset / 24) + 1;
+                : fuente === "ehentai"
+                  ? ehPage
+                  : Math.floor(offset / 24) + 1;
     poner("p", pagina > 1 ? pagina : null);
 
     poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
@@ -637,6 +719,11 @@ export default function ExplorarPage() {
     poner("md_lang", lang === "es" ? null : lang);
     url.searchParams.delete("md_genre");
     for (const genre of selectedGenres) url.searchParams.append("md_genre", genre);
+    url.searchParams.delete("md_status");
+    for (const s of status) url.searchParams.append("md_status", s);
+    url.searchParams.delete("md_origin");
+    for (const o of origin) url.searchParams.append("md_origin", o);
+
     poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
     poner("oly_genero", olyGenero);
     poner("oly_estado", olyEstado);
@@ -653,14 +740,19 @@ export default function ExplorarPage() {
     poner("lc_inicial", lcInicial);
     poner("lc_lista", lcLista || null);
 
+    poner("eh_cat", ehCat === "todos" ? null : ehCat);
+    poner("eh_lang", ehLang === "todos" ? null : ehLang);
+    poner("eh_tag", ehTag);
+
     window.history.replaceState(null, "", url.toString());
   }, [
-    restaurado, seccion, animeFuente, fuente, search, offset, order, lang, selectedGenres,
+    restaurado, seccion, animeFuente, fuente, search, offset, order, lang, selectedGenres, origin, status,
     olympusPage, olyOrden, olyGenero, olyEstado, olyTipo,
     tmoPage, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden,
     ikiPage, ikiTipo, ikiGenero, ikiOrden,
     lcPage, lcGenero, lcInicial, lcLista,
     cwPage, cwOrden,
+    ehPage, ehCat, ehLang, ehTag,
   ]);
 
   const load = useCallback(async (solicitud: number) => {
@@ -781,14 +873,115 @@ export default function ExplorarPage() {
     };
   }, [cargarOlympus, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
+  const prevOlyFiltros = useRef<string | null>(null);
   useEffect(() => {
-    setOlympusPage(1);
-  }, [search, fuente, olyOrden, olyGenero, olyEstado, olyTipo]);
+    if (!restaurado) return;
+    const clave = JSON.stringify({ search, olyOrden, olyGenero, olyEstado, olyTipo });
+    if (prevOlyFiltros.current === null) {
+      prevOlyFiltros.current = clave;
+      return;
+    }
+    if (prevOlyFiltros.current !== clave) {
+      prevOlyFiltros.current = clave;
+      setOlympusPage(1);
+    }
+  }, [restaurado, search, olyOrden, olyGenero, olyEstado, olyTipo]);
 
-  // cambiar cualquier filtro vuelve a la primera página
+  // cambiar cualquier filtro vuelve a la primera página solo si se modificó interactivamente
+  const prevMdFiltros = useRef<string | null>(null);
   useEffect(() => {
-    setOffset(0);
-  }, [lang, search, order, status, selectedGenres, origin]);
+    if (!restaurado) return;
+    const clave = JSON.stringify({ lang, search, order, status, selectedGenres, origin });
+    if (prevMdFiltros.current === null) {
+      prevMdFiltros.current = clave;
+      return;
+    }
+    if (prevMdFiltros.current !== clave) {
+      prevMdFiltros.current = clave;
+      setOffset(0);
+    }
+  }, [restaurado, lang, search, order, status, selectedGenres, origin]);
+
+  const cargarEh = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("ehentai", solicitud)) return;
+    setError(false);
+    const fresco = pedirFresco.current;
+    try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("q", search.trim());
+      if (ehCat && ehCat !== "todos") params.set("cat", ehCat);
+      if (ehLang && ehLang !== "todos") params.set("lang", ehLang);
+      if (ehTag && ehTag.trim()) params.set("tag", ehTag.trim());
+      if (ehPage > 1) params.set("page", String(ehPage - 1));
+
+      const r = await cargarConCacheAndroid<{ series: SerieEhentai[]; hayMas: boolean }>(
+        `explorar:ehentai:${ehPage}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`,
+        async (signal) => {
+          const res = await fetch(`/api/externo/ehentai?${params.toString()}`, {
+            cache: fresco ? "no-store" : "default",
+            signal,
+          });
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => null);
+            throw new Error(errJson?.error || "Error al cargar E-Hentai");
+          }
+          return res.json();
+        },
+        {
+          force: fresco,
+          freshForMs: 15 * 60 * 1000,
+          onCached: (guardado) => {
+            if (!solicitudVigente("ehentai", solicitud)) return;
+            setEhGalleries(guardado.series);
+            setEhHayMas(guardado.hayMas);
+          },
+        }
+      );
+      if (!solicitudVigente("ehentai", solicitud)) return;
+      setEhGalleries(r.series);
+      setEhHayMas(r.hayMas);
+    } catch (err) {
+      if (!solicitudVigente("ehentai", solicitud)) return;
+      setError(true);
+      setErrorDetalle(err instanceof Error ? err.message : null);
+      setEhGalleries([]);
+    } finally {
+      if (!solicitudVigente("ehentai", solicitud)) return;
+      pedirFresco.current = false;
+      setRefrescando(false);
+    }
+  }, [ehPage, search, ehCat, ehLang, ehTag, recarga, solicitudVigente]);
+
+  useEffect(() => {
+    if (fuente !== "ehentai" || !animeAdultoHabilitado) return;
+    const solicitud = nuevaSolicitud("ehentai");
+    if (!pedirFresco.current) setEhGalleries(null);
+    const t = setTimeout(() => void cargarEh(solicitud), search ? 400 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("ehentai", solicitud);
+    };
+  }, [cargarEh, search, fuente, animeAdultoHabilitado, nuevaSolicitud, cancelarSolicitud]);
+
+  const prevEhFiltros = useRef<string | null>(null);
+  useEffect(() => {
+    if (!restaurado) return;
+    const clave = JSON.stringify({ search, ehCat, ehLang, ehTag });
+    if (prevEhFiltros.current === null) {
+      prevEhFiltros.current = clave;
+      return;
+    }
+    if (prevEhFiltros.current !== clave) {
+      prevEhFiltros.current = clave;
+      setEhPage(1);
+    }
+  }, [restaurado, search, ehCat, ehLang, ehTag]);
+
+  useEffect(() => {
+    if (fuente === "ehentai" && !animeAdultoHabilitado) {
+      setFuente("mangadex");
+    }
+  }, [animeAdultoHabilitado, fuente]);
 
   function toggleIn(list: string[], value: string, set: (v: string[]) => void) {
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -900,6 +1093,20 @@ export default function ExplorarPage() {
           </Chip>
         ))}
           </div>
+          {animeAdultoHabilitado && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 font-mono text-[11px] font-medium text-faint">
+                Fuente +18
+              </span>
+              <Chip
+                type="button"
+                onClick={() => cambiarFuente("ehentai")}
+                selected={fuente === "ehentai"}
+              >
+                E-Hentai (+18)
+              </Chip>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1028,6 +1235,55 @@ export default function ExplorarPage() {
               </option>
             ))}
           </select>
+        )}
+
+        {fuente === "ehentai" && (
+          <>
+            <select
+              value={ehCat}
+              onChange={(e) => setEhCat(e.target.value)}
+              className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
+            >
+              <option value="todos">Todas las categorías</option>
+              {EHENTAI_CATEGORIAS.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={ehLang}
+              onChange={(e) => setEhLang(e.target.value)}
+              className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
+            >
+              {EHENTAI_IDIOMAS.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => setEhModalTags(true)}
+              className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
+                ehTag
+                  ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                  : "border-line-strong text-subtle hover:border-ink hover:text-ink"
+              }`}
+            >
+              {ehTag ? `🏷️ Tag: ${ehTag}` : "🏷️ Etiquetas (+100)"}
+            </button>
+            {ehTag && (
+              <button
+                onClick={() => setEhTag(null)}
+                className="text-xs font-semibold text-danger hover:underline"
+                title="Quitar filtro de etiqueta"
+              >
+                ✕ Quitar tag
+              </button>
+            )}
+          </>
         )}
 
         {(fuente === "tmo" || fuente === "ikigai" || fuente === "leercapitulo") && (
@@ -1766,8 +2022,197 @@ export default function ExplorarPage() {
         )
       )}
 
+      {fuente === "ehentai" && (
+        ehGalleries === null ? (
+          <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
+            Cargando catálogo de E-Hentai...
+          </p>
+        ) : ehGalleries.length === 0 && !error ? (
+          <Surface className="p-12 text-center">
+            <p className="text-lg font-bold text-ink">Sin resultados</p>
+            <p className="mt-1 text-sm text-subtle">Probá con otro término, categoría o etiqueta.</p>
+          </Surface>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              {ehGalleries.map((s) => (
+                <Link
+                  key={`${s.gid}-${s.token}`}
+                  href={`/externo/ehentai/${s.gid}/${s.token}`}
+                  prefetch={false}
+                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("ehentai", s.gid, "adult") ? "opacity-60" : ""}`}
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                    <MarcaGuardada visible={guardada("ehentai", s.gid, "adult")} />
+                    {s.thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={s.thumb}
+                        alt={s.title}
+                        className="h-full w-full object-cover transition duration-500"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
+                        Sin portada
+                      </div>
+                    )}
+                    <span className="absolute left-2.5 top-2.5 rounded-md border border-danger bg-[color-mix(in_oklch,var(--bg)_82%,transparent)] px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-danger">
+                      +18
+                    </span>
+                    {s.filecount > 0 && (
+                      <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink">
+                        {s.filecount} págs.
+                      </span>
+                    )}
+                  </div>
+                  <div className="px-1 pt-3">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
+                      {decodificarHtml(s.title)}
+                    </h3>
+                    <p className="mt-1 font-mono text-[12px] text-faint">
+                      {[s.category, s.uploader].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-8">
+              <button
+                disabled={ehPage <= 1}
+                onClick={() => setEhPage((p) => Math.max(1, p - 1))}
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
+              >
+                ← Anterior
+              </button>
+              <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
+                Página {ehPage}
+              </span>
+              <button
+                disabled={!ehHayMas}
+                onClick={() => setEhPage((p) => p + 1)}
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </>
+        )
+      )}
+
+      {ehModalTags && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setEhModalTags(false)}
+        >
+          <div
+            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-line bg-panel shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabecera del modal */}
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <div>
+                <h3 className="text-base font-bold text-ink">Etiquetas de E-Hentai</h3>
+                <p className="text-xs text-subtle">Filtrá por tag o escribí cualquier etiqueta específica</p>
+              </div>
+              <button
+                onClick={() => setEhModalTags(false)}
+                className="rounded-md p-1.5 text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Barra de búsqueda de tags */}
+            <div className="border-b border-line p-4 space-y-2">
+              <input
+                type="text"
+                value={ehTagBusqueda}
+                onChange={(e) => setEhTagBusqueda(e.target.value)}
+                placeholder="Buscar o escribir etiqueta (ej: female:maid, milf, schoolgirl, original)..."
+                className={`w-full ${fieldControlClass}`}
+                autoFocus
+              />
+              {ehTagBusqueda.trim() && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-subtle">
+                    ¿No está en la lista rápida? Podés buscarla directamente:
+                  </span>
+                  <button
+                    onClick={() => {
+                      setEhTag(ehTagBusqueda.trim());
+                      setEhModalTags(false);
+                    }}
+                    className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
+                  >
+                    Filtrar por "{ehTagBusqueda.trim()}"
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Lista de tags con scroll */}
+            <div className="overflow-y-auto p-5 space-y-4">
+              {ehTag && (
+                <div className="flex items-center justify-between rounded-lg border border-line bg-[var(--surface-raised)] p-3">
+                  <span className="text-xs text-ink">
+                    Etiqueta activa: <strong className="font-mono text-accent-ink">{ehTag}</strong>
+                  </span>
+                  <button
+                    onClick={() => {
+                      setEhTag(null);
+                      setEhModalTags(false);
+                    }}
+                    className="text-xs font-semibold text-danger hover:underline"
+                  >
+                    ✕ Quitar etiqueta
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                {buscarEtiquetasEhentai(ehTagBusqueda).map((t) => (
+                  <button
+                    key={t.tag}
+                    onClick={() => {
+                      setEhTag(t.tag);
+                      setEhModalTags(false);
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
+                      ehTag === t.tag
+                        ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                        : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                    }`}
+                  >
+                    <span className="block font-medium">{t.label}</span>
+                    <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pie del modal */}
+            <div className="flex justify-end border-t border-line px-5 py-3">
+              <button
+                onClick={() => setEhModalTags(false)}
+                className="rounded-md border border-line px-4 py-1.5 text-xs font-medium text-subtle hover:border-line-strong hover:text-ink"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
-        Catálogo y capítulos provistos por MangaDex y sus grupos de scanlation
+        {fuente === "ehentai"
+          ? "Catálogo y galerías provistos por E-Hentai"
+          : "Catálogo y capítulos provistos por MangaDex y sus grupos de scanlation"}
       </p>
     </div>
   );

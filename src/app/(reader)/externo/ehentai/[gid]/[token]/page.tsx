@@ -6,8 +6,20 @@ import { VolverFuente } from "@/components/library/VolverFuente";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { Surface } from "@/components/ui/Surface";
-import { Chip } from "@/components/ui/Chip";
+import { anotarHistorial } from "@/components/library/historial";
 import type { FichaEhentai } from "@/lib/ehentai";
+
+function decodificarHtml(texto: string): string {
+  return texto
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&nbsp;/g, " ");
+}
 
 export default function SerieEhentaiPage(props: {
   params: Promise<{ gid: string; token: string }>;
@@ -53,10 +65,10 @@ export default function SerieEhentaiPage(props: {
       <Surface className="mx-auto max-w-2xl p-10 text-center my-12">
         <p className="text-lg font-bold text-ink">{error}</p>
         <VolverFuente
-          href="/lectura/descubrir?fuente=ehentai"
-          className="mt-4 inline-block text-sm text-accent-ink hover:underline"
+          href="/explorar?fuente=ehentai"
+          className="mt-4 inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink hover:underline"
         >
-          Volver a E-Hentai
+          ← Volver a Explorar
         </VolverFuente>
       </Surface>
     );
@@ -70,110 +82,117 @@ export default function SerieEhentaiPage(props: {
     );
   }
 
+  const tituloLimpio = decodificarHtml(ficha.title);
   const serieGuardable = {
     source: "ehentai" as const,
     external_id: `${gid}/${token}`,
-    title: ficha.title,
+    title: tituloLimpio,
     cover_url: ficha.thumb,
-    type: ficha.category,
+    type: "adult",
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+    <div className="space-y-10">
       <VolverFuente
-        href="/lectura/descubrir?fuente=ehentai"
-        className="inline-flex items-center gap-1.5 font-mono text-xs text-subtle transition hover:text-ink"
+        href="/explorar?fuente=ehentai"
+        className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
-        ← Volver a Descubrir
+        ← Explorar
       </VolverFuente>
 
-      {/* Ficha principal */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-start">
-        {ficha.thumb && (
-          <div className="w-48 shrink-0 overflow-hidden rounded-[10px] border border-line shadow-md mx-auto md:mx-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={ficha.thumb}
-              alt={ficha.title}
-              className="h-auto w-full object-cover"
-              loading="eager"
-            />
-          </div>
-        )}
-
-        <div className="min-w-0 flex-1 space-y-4 text-center md:text-left">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-              <span className="rounded bg-accent/15 px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink uppercase">
-                {ficha.category}
-              </span>
-              <span className="font-mono text-xs text-subtle">
-                {ficha.filecount} páginas
-              </span>
-            </div>
-            <h1 className="font-display text-2xl font-bold tracking-tight text-ink md:text-3xl">
-              {ficha.title}
-            </h1>
-            {ficha.title_jpn && (
-              <p className="font-sans text-sm text-subtle">{ficha.title_jpn}</p>
+      {/* Estructura oficial idéntica al resto de fuentes */}
+      <div className="flex flex-col gap-8 sm:flex-row">
+        <div className="w-44 shrink-0 overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] sm:w-52">
+          <div className="aspect-[2/3]">
+            {ficha.thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={ficha.thumb}
+                alt={tituloLimpio}
+                className="h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-5xl text-subtle">📖</div>
             )}
           </div>
+        </div>
 
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-3xl font-bold leading-[1.05] tracking-[-0.03em] text-ink sm:text-4xl">
+              {tituloLimpio}
+            </h1>
+            <span className="rounded-full border border-danger px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.1em] text-danger">
+              +18
+            </span>
+          </div>
+
+          <p className="mb-3 font-mono text-[11px] tracking-[0.06em] text-subtle">
+            Externo · E-Hentai · {ficha.category} · {ficha.filecount} páginas
+            {ficha.uploader ? ` · Subido por ${ficha.uploader}` : ""}
+          </p>
+
+          {/* Etiquetas interactivas que buscan en catálogo al hacer click */}
+          {ficha.tags && ficha.tags.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {ficha.tags.map((t) => (
+                <Link
+                  key={t}
+                  href={`/explorar?fuente=ehentai&eh_tag=${encodeURIComponent(t)}`}
+                  className="rounded-full border border-line bg-[var(--surface-raised)] px-2.5 py-0.5 text-[12px] text-subtle transition hover:border-accent hover:text-accent-ink"
+                  title={`Filtrar por "${t}" en el catálogo`}
+                >
+                  {t}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {ficha.title_jpn && (
+            <p className="mb-4 font-sans text-sm text-subtle italic">
+              {decodificarHtml(ficha.title_jpn)}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
             <Link
+              onClick={() =>
+                void anotarHistorial({
+                  ...serieGuardable,
+                  last_chapter_id: "1",
+                  last_chapter_name: "Capítulo Completo",
+                })
+              }
               href={`/leer-externo/ehentai/${gid}/${token}`}
-              className="rounded-md bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90 shadow-sm"
+              className="rounded-md bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
             >
               Empezar a leer
             </Link>
             <SaveExternalButton serie={serieGuardable} />
           </div>
-
-          {/* Etiquetas */}
-          {ficha.tags && ficha.tags.length > 0 && (
-            <div className="pt-2">
-              <p className="mb-2 font-mono text-[11px] font-medium text-faint">
-                Etiquetas
-              </p>
-              <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
-                {ficha.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-md border border-line bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[11px] text-subtle"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Subido por y fecha */}
-          <div className="pt-2 font-mono text-[11px] text-faint">
-            {ficha.uploader && <span>Subido por: {ficha.uploader} · </span>}
-            {ficha.posted && (
-              <span>
-                {new Date(ficha.posted).toLocaleDateString("es-AR", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Sección de Capítulos */}
-      <section className="space-y-4 pt-4">
-        <h2 className="font-display text-2xl font-bold tracking-[-0.03em] text-ink">
-          Capítulos
-        </h2>
+      {/* Sección de Capítulos con el botón de descarga y diseño estándar */}
+      <section>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-2xl font-bold tracking-[-0.03em] text-ink">
+            Capítulos
+          </h2>
+        </div>
 
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line bg-panel">
           <li>
             <div className="flex items-center gap-3 px-5 py-4 transition hover:bg-[var(--surface-raised)]">
               <Link
+                onClick={() =>
+                  void anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: "1",
+                    last_chapter_name: "Capítulo Completo",
+                  })
+                }
                 href={`/leer-externo/ehentai/${gid}/${token}`}
                 className="min-w-0 flex-1"
               >
@@ -188,12 +207,19 @@ export default function SerieEhentaiPage(props: {
               {/* Botón de descarga local */}
               <BotonDescargaCapitulo
                 fuente="E-Hentai"
-                serieNombre={ficha.title}
+                serieNombre={tituloLimpio}
                 capituloNombre="Capítulo Completo"
                 obtenerPaginas={obtenerPaginas}
               />
 
               <Link
+                onClick={() =>
+                  void anotarHistorial({
+                    ...serieGuardable,
+                    last_chapter_id: "1",
+                    last_chapter_name: "Capítulo Completo",
+                  })
+                }
                 href={`/leer-externo/ehentai/${gid}/${token}`}
                 className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
               >

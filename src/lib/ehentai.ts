@@ -83,13 +83,14 @@ export async function catalogoEhentai(opciones: {
   busqueda?: string;
   categoria?: string;
   idioma?: string;
+  tag?: string;
   pagina?: number;
 }): Promise<CatalogoEhentai> {
   if (isPlayStoreApp()) {
     throw new Error("Fuente no disponible en esta edición");
   }
 
-  const { busqueda = "", categoria = "todos", idioma = "todos", pagina = 0 } = opciones;
+  const { busqueda = "", categoria = "todos", idioma = "todos", tag = "", pagina = 0 } = opciones;
 
   const url = new URL(EHENTAI_WEB);
   if (pagina > 0) {
@@ -104,6 +105,11 @@ export async function catalogoEhentai(opciones: {
   const partesBusqueda: string[] = [];
   if (busqueda.trim()) {
     partesBusqueda.push(busqueda.trim());
+  }
+
+  if (tag && tag.trim()) {
+    const tagLimpio = tag.trim().includes(" ") ? `"${tag.trim()}$"` : `${tag.trim()}$`;
+    partesBusqueda.push(tagLimpio);
   }
 
   if (idioma && idioma !== "todos") {

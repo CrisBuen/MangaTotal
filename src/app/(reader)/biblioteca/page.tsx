@@ -61,6 +61,7 @@ interface EntradaHistorial {
   external_id: string;
   title: string;
   cover_url: string | null;
+  type?: string | null;
   last_chapter_name: string | null;
   last_page_number?: number | null;
   href: string;
@@ -76,6 +77,7 @@ const NOMBRE_FUENTE: Record<string, string> = {
   ikigai: "Ikigai",
   leercapitulo: "LeerCapítulo",
   catharsis: "Catharsis",
+  ehentai: "E-Hentai",
 };
 
 type Filter = "normal" | "adult" | "favoritos" | "historial";
@@ -106,7 +108,7 @@ export default function BibliotecaPage() {
       const data = await cargarConCacheAndroid<EntradaHistorial[]>(
         "biblioteca:historial",
         async (signal) => {
-          const r = await fetch("/api/externo/historial", { signal });
+          const r = await fetch("/api/externo/historial?tipo=all", { signal });
           if (!r.ok) throw new Error("historial");
           return r.json();
         },
@@ -273,7 +275,7 @@ export default function BibliotecaPage() {
   }
 
   // primero las que tienen capítulos sin leer, de mayor a menor
-  const esAdulta = (g: SerieGuardada) => /^(adult|\+18|hentai)$/i.test(g.type ?? "");
+  const esAdulta = (g: SerieGuardada) => g.source === "ehentai" || /^(adult|\+18|hentai)$/i.test(g.type ?? "");
   const guardadasVisibles = guardadas.filter((g) =>
     filter === "favoritos"
       ? opciones.favoritos.includes(claveDe(g))
@@ -308,14 +310,24 @@ export default function BibliotecaPage() {
   const continuesVisible =
     filter === "favoritos"
       ? continues.filter((c) => c.series.is_favorite)
-      : continues.filter((c) => c.series.type === filter);
+      : filter === "adult"
+        ? continues.filter((c) => c.series.type === "adult")
+        : continues.filter((c) => c.series.type !== "adult");
 
   const externasEmpezadas = guardadasVisibles.filter((g) => g.last_chapter_name);
 
   const hayQueContinuar = continuesVisible.length + externasEmpezadas.length > 0;
 
   const busquedaNormalizada = search.trim().toLocaleLowerCase("es");
-  const historialFiltrado = historial.filter((e) =>
+  const esHistorialAdulto = (e: EntradaHistorial) => e.source === "ehentai" || /^(adult|\+18|hentai)$/i.test(e.type ?? "");
+  const historialVisibles =
+    filter === "adult"
+      ? historial.filter(esHistorialAdulto)
+      : filter === "normal"
+        ? historial.filter((e) => !esHistorialAdulto(e))
+        : historial;
+
+  const historialFiltrado = historialVisibles.filter((e) =>
     busquedaNormalizada ? e.title.toLocaleLowerCase("es").includes(busquedaNormalizada) : true
   );
   const guardadasEmpezadasFiltradas = externasEmpezadas.filter((g) =>
@@ -619,13 +631,13 @@ export default function BibliotecaPage() {
           ) : (
             <>
               {/* Continuar leyendo arriba de la colección para acceso rápido sin scroll infinito */}
-              {loggedIn && filter === "normal" && hayQueContinuar && (
+              {loggedIn && (filter === "normal" || filter === "adult") && hayQueContinuar && (
                 <section data-od-id="continue-reading" className="mb-6">
                       <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
                         <div>
                           <span className="od-eyebrow">Progreso</span>
                           <h2 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
-                            Continuar leyendo
+                            Continuar leyendo{filter === "adult" ? " (+18)" : ""}
                           </h2>
                         </div>
                       </div>

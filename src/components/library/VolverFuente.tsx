@@ -9,9 +9,27 @@ type Props = { href: string; className?: string; children: ReactNode };
 function Enlace(props: Props) {
   const params = useSearchParams();
   const regreso = regresoFuente(params.get("bibliotecaFuente"));
-  return <Link {...props} href={regreso ?? props.href} replace={Boolean(regreso)}>
-    {regreso ? "← Series de esta fuente" : props.children}
-  </Link>;
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (regreso) return;
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      if (document.referrer && document.referrer.includes(window.location.host)) {
+        e.preventDefault();
+        window.history.back();
+      }
+    }
+  };
+
+  return (
+    <Link
+      {...props}
+      href={regreso ?? props.href}
+      replace={Boolean(regreso)}
+      onClick={handleClick}
+    >
+      {regreso ? "← Series de esta fuente" : props.children}
+    </Link>
+  );
 }
 
 /** Solo altera el regreso cuando la ficha se abrió desde Más → Fuentes. */

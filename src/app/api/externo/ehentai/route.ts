@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const busqueda = searchParams.get("q") ?? "";
   const categoria = searchParams.get("cat") ?? "todos";
   const idioma = searchParams.get("lang") ?? "todos";
+  const tag = searchParams.get("tag") ?? "";
   const pagina = Math.max(0, parseInt(searchParams.get("page") ?? "0", 10) || 0);
 
   try {
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
       busqueda,
       categoria,
       idioma,
+      tag,
       pagina,
     });
     return NextResponse.json(resultado);
