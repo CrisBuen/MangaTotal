@@ -43,3 +43,6 @@ desktop/src-tauri/gen/
 # app Android (Capacitor)
 mobile/node_modules/
 mobile/android/
+mobile/*.bak/
+mobile/android.capacitor6.bak/
+

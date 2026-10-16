@@ -16,6 +16,8 @@ import {
   catalogoIkigai,
   ikigaiDisponible,
 } from "@/lib/ikigai";
+import { isPlayStoreApp } from "@/lib/appVersion";
+import { EHENTAI_CATEGORIAS, EHENTAI_IDIOMAS, type SerieEhentai } from "@/lib/ehentai";
 
 type Genre = { id: string; name: string };
 type CardItem = {
@@ -40,6 +42,7 @@ const SOURCE_DETAILS: Record<string, { name: string; desc: string; searchPlaceho
   leercapitulo: { name: "LeerCapítulo", desc: "Novedades de lectura", searchPlaceholder: "Buscá en LeerCapítulo…" },
   catharsis: { name: "Catharsis", desc: "Historias de su catálogo", searchPlaceholder: "Buscá en Catharsis…" },
   ikigai: { name: "Ikigai Mangas", desc: "Lectura desde Windows y Android", searchPlaceholder: "Buscá en Ikigai…" },
+  ehentai: { name: "E-Hentai", desc: "Galerías y doujinshis +18", searchPlaceholder: "Buscá en E-Hentai (título, artista, cosplay…)" },
 };
 
 const OLYMPUS_TOP_GENEROS = [
@@ -248,6 +251,26 @@ export function ReadingDiscover() {
   const [searchQuery, setSearchQuery] = useState("");
   const [guardadas, setGuardadas] = useState<ReferenciaBiblioteca[]>([]);
   const [ikigaiActivo, setIkigaiActivo] = useState(false);
+  const [adultoHabilitado, setAdultoHabilitado] = useState(false);
+  const [ehCat, setEhCat] = useState("todos");
+  const [ehLang, setEhLang] = useState("spanish");
+  const [ehGalleries, setEhGalleries] = useState<SerieEhentai[] | null>(null);
+  const [ehCargando, setEhCargando] = useState(false);
+  const [ehPagina, setEhPagina] = useState(0);
+  const [ehHayMas, setEhHayMas] = useState(false);
+  const [ehError, setEhError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isPlayStoreApp()) return;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => {
+        if (me && Boolean(me.show_adult_content) && !me.play_store_app && !isPlayStoreApp()) {
+          setAdultoHabilitado(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setIkigaiActivo(ikigaiDisponible());
@@ -299,8 +322,44 @@ export function ReadingDiscover() {
     return () => controller.abort();
   }, []);
 
+  // Carga de galerías en tiempo real para E-Hentai
+  useEffect(() => {
+    if (fuente !== "ehentai" || !adultoHabilitado) return;
+    const controller = new AbortController();
+    setEhCargando(true);
+    setEhError(null);
+    const qs = new URLSearchParams();
+    if (searchQuery.trim()) qs.set("q", searchQuery.trim());
+    if (ehCat && ehCat !== "todos") qs.set("cat", ehCat);
+    if (ehLang && ehLang !== "todos") qs.set("lang", ehLang);
+    if (ehPagina > 0) qs.set("page", String(ehPagina));
+
+    fetch(`/api/externo/ehentai?${qs.toString()}`, { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || `Error ${r.status}`);
+        }
+        return r.json();
+      })
+      .then((data) => {
+        setEhGalleries(data.series || []);
+        setEhHayMas(Boolean(data.hayMas));
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          setEhError(err instanceof Error ? err.message : "Error al cargar E-Hentai");
+          setEhGalleries([]);
+        }
+      })
+      .finally(() => setEhCargando(false));
+
+    return () => controller.abort();
+  }, [fuente, adultoHabilitado, ehCat, ehLang, ehPagina, searchQuery]);
+
   const cambiarFuente = (nueva: string) => {
     if (nueva === fuente) return;
+    if (nueva === "ehentai" && !adultoHabilitado) return;
     setFuente(nueva);
     try {
       sessionStorage.setItem("mangatotal:fuente-lectura", nueva);
@@ -326,7 +385,7 @@ export function ReadingDiscover() {
       {/* Selector superior idéntico a la experiencia animada */}
       <div className="od-explore-switcher">
         <span className="od-eyebrow">Lectura · Descubrí tu próxima historia</span>
-        <div className="od-source-switcher">
+        <div className="od-source-switcher space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 font-mono text-[11px] font-medium text-faint">
               Fuente
@@ -342,6 +401,21 @@ export function ReadingDiscover() {
               </Chip>
             ))}
           </div>
+
+          {adultoHabilitado && (
+            <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-line/40">
+              <span className="mr-1 font-mono text-[11px] font-medium text-faint">
+                Fuentes +18
+              </span>
+              <Chip
+                type="button"
+                onClick={() => cambiarFuente("ehentai")}
+                selected={fuente === "ehentai"}
+              >
+                E-Hentai
+              </Chip>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1083,6 +1157,181 @@ export function ReadingDiscover() {
             </div>
           )}
         </>
+      )}
+
+      {/* ============================================================== */}
+      {/* 7. E-HENTAI (+18) */}
+      {/* ============================================================== */}
+      {fuente === "ehentai" && adultoHabilitado && (
+        <section className="space-y-6">
+          {/* Barra de filtros: Idioma y Categorías */}
+          <div className="flex flex-col gap-4 rounded-xl border border-line bg-panel p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-accent-ink uppercase tracking-wider">
+                  E-Hentai Galleries
+                </span>
+                <span className="rounded bg-accent/15 px-2 py-0.5 font-mono text-[10px] text-accent-ink font-semibold">
+                  +18
+                </span>
+              </div>
+
+              {/* Selector de idioma en tiempo real */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="eh-lang-select" className="font-mono text-xs text-subtle">
+                  Idioma:
+                </label>
+                <select
+                  id="eh-lang-select"
+                  value={ehLang}
+                  onChange={(e) => {
+                    setEhLang(e.target.value);
+                    setEhPagina(0);
+                  }}
+                  className="rounded-md border border-line bg-[var(--surface-raised)] px-2.5 py-1 font-mono text-xs text-ink focus:border-accent focus:outline-none"
+                >
+                  {EHENTAI_IDIOMAS.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Categorías de E-Hentai */}
+            <div>
+              <p className="mb-2 font-mono text-[11px] font-medium text-faint">
+                Categorías
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <Chip
+                  type="button"
+                  onClick={() => {
+                    setEhCat("todos");
+                    setEhPagina(0);
+                  }}
+                  selected={ehCat === "todos"}
+                >
+                  Todas
+                </Chip>
+                {EHENTAI_CATEGORIAS.map((c) => (
+                  <Chip
+                    type="button"
+                    key={c.id}
+                    onClick={() => {
+                      setEhCat(c.id);
+                      setEhPagina(0);
+                    }}
+                    selected={ehCat === c.id}
+                  >
+                    {c.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Estado de carga / error / listado */}
+          {ehError && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center text-sm text-red-300">
+              {ehError}
+            </div>
+          )}
+
+          {ehCargando && (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {Array.from({ length: 10 }, (_, i) => (
+                <div className="od-card-skeleton aspect-[2/3]" key={i} />
+              ))}
+            </div>
+          )}
+
+          {!ehCargando && ehGalleries && ehGalleries.length === 0 && !ehError && (
+            <div className="rounded-xl border border-line bg-panel p-12 text-center text-subtle font-mono text-sm">
+              No se encontraron galerías con los filtros seleccionados.
+            </div>
+          )}
+
+          {!ehCargando && ehGalleries && ehGalleries.length > 0 && (
+            <>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {ehGalleries.map((g) => {
+                  const estaGuardada = guardada("ehentai", `${g.gid}/${g.token}`);
+                  return (
+                    <Link
+                      key={`${g.gid}-${g.token}`}
+                      href={`/externo/ehentai/${g.gid}/${g.token}`}
+                      className={`group flex flex-col space-y-2 rounded-[10px] border border-line bg-panel p-2.5 transition hover:border-accent hover:shadow-md ${
+                        estaGuardada ? "opacity-60" : ""
+                      }`}
+                    >
+                      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-neutral-900">
+                        {estaGuardada && (
+                          <span className="absolute left-2 top-2 z-10 rounded-md border border-line bg-panel px-1.5 py-0.5 text-[10px] font-semibold text-ink shadow-sm">
+                            ▣ En biblioteca
+                          </span>
+                        )}
+                        {g.thumb ? (
+                          <ImagenFuente
+                            src={g.thumb}
+                            alt={g.title}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-xs text-subtle">
+                            Sin portada
+                          </div>
+                        )}
+                        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/75 px-1.5 py-0.5 font-mono text-[10px] text-white">
+                          {g.filecount} págs
+                        </span>
+                        <span className="absolute top-1.5 left-1.5 rounded bg-accent/90 px-1.5 py-0.5 font-mono text-[9px] font-bold text-[var(--on-accent)] uppercase">
+                          {g.category}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-xs font-semibold text-ink group-hover:text-accent-ink transition">
+                          {g.title}
+                        </p>
+                        {g.uploader && (
+                          <p className="mt-1 truncate font-mono text-[10px] text-faint">
+                            {g.uploader}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* Paginación */}
+              <div className="flex items-center justify-center gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEhPagina((p) => Math.max(0, p - 1))}
+                  disabled={ehPagina === 0 || ehCargando}
+                  className="rounded-md border border-line px-4 py-2 font-mono text-xs font-bold text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-40"
+                >
+                  ← Página anterior
+                </button>
+                <span className="font-mono text-xs text-subtle">
+                  Página {ehPagina + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEhPagina((p) => p + 1)}
+                  disabled={!ehHayMas || ehCargando}
+                  className="rounded-md border border-line px-4 py-2 font-mono text-xs font-bold text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-40"
+                >
+                  Página siguiente →
+                </button>
+              </div>
+            </>
+          )}
+        </section>
       )}
 
       {/* Botón de llamada a la acción para la fuente actual */}

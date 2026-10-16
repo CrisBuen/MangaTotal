@@ -1,0 +1,39 @@
+E-HENTAI — CONTRATO DE INTEGRACION Y CAMBIO DE DOMINIO
+======================================================
+
+Estado: integrado con soporte para lectura y catalogo (+18).
+Dominio oficial: https://e-hentai.org
+
+QUE CONSUME MANGATOTAL
+----------------------
+
+- Catalogo y busqueda avanzada por parametros GET:
+  https://e-hentai.org/?f_cats={bitmask}&f_search={query}+language:{idioma}
+- Desafio de advertencia para mayores omitido con cabecera `Cookie: nw=1`.
+- Ficha de galeria y metadatos con la API JSON oficial `gdata`:
+  POST https://api.e-hentai.org/api.php con payload JSON { method: "gdata", gidlist: [[gid, token]], namespace: 1 }
+- URLs de las paginas leidas desde el HTML de la galeria (.gdtm / .gdtl a href).
+- Resolucion de la imagen directa leyendo la etiqueta <img id="img"> de cada pagina del lector.
+- Las imagenes se sirven desde la red distribuida Hath (*.hath.network:* / *.ehgt.org).
+
+ACCESO ADULTO Y GOOGLE PLAY STORE
+---------------------------------
+
+- La fuente SOLO aparece cuando el usuario tiene activado "Mostrar contenido +18" en Ajustes -> Seguridad y Privacidad.
+- Todas sus rutas de API (/api/externo/ehentai/...) comprueban `contenidoAdultoPermitido()`.
+- La edicion Google Play Store (detectada via User-Agent con `isPlayStoreApp()`) NUNCA muestra ni sirve catalogo, galeria o paginas de E-Hentai. Responde 404 de inmediato para proteger la publicacion.
+
+DESCARGA LOCAL DE CAPITULOS
+---------------------------
+
+- La descarga se ejecuta 100% del lado del cliente sin pasar por almacenamiento ni base de datos de MangaTotal / R2.
+- En PC: utiliza la File System Access API para guardar directamente en MangaTotal/descargas/{fuente}/{serie}/{capitulo}/{001.ext}, o paquete ZIP con la misma estructura como respaldo.
+- En Android: se apoya en el puente nativo `FuentesPlugin.guardarCapitulo` guardando en la carpeta publica Descargas (Download/MangaTotal/descargas/...).
+- Mantiene calidad FullHD original sin compresion.
+
+SI CAMBIA EL DOMINIO O LA API
+-----------------------------
+
+1. Cambiar `EHENTAI_BASE` o `EHENTAI_API` en `src/lib/ehentai.ts`.
+2. Si cambian los hosts de los nodos de imagen Hath, actualizar la lista blanca `ALLOWED_HOSTS` en `src/app/api/externo/imagen/route.ts`.
+3. Comprobar catalogo, filtros de categoria, selector de idioma, ficha de galeria y lector.

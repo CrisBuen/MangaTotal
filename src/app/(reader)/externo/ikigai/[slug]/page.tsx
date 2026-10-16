@@ -10,7 +10,8 @@ import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
-import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai } from "@/lib/ikigai";
+import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai, lecturaIkigai } from "@/lib/ikigai";
+import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 
 type Ficha = Awaited<ReturnType<typeof serieIkigai>>;
 
@@ -159,36 +160,39 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line">
           {capitulos.map((c) => (
             <li key={c.id}>
-              <Link
-                onClick={async (event) => {
-                  const registro = {
-                    ...serieGuardable,
-                    last_chapter_id: String(c.id),
-                    last_chapter_name: String(c.numero ?? c.id),
-                  };
-                  if (
-                    event.metaKey ||
-                    event.ctrlKey ||
-                    event.shiftKey ||
-                    event.altKey ||
-                    event.button !== 0
-                  ) {
-                    void anotarHistorial(registro);
-                    return;
-                  }
-
-                  event.preventDefault();
-                  const destino = event.currentTarget.getAttribute("href")!;
-                  await anotarHistorial(registro);
-                  router.push(destino);
-                }}
-                href={`/leer-externo/ikigai/${c.id}?slug=${slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+              <div
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.id === progreso.ultimoId,
                   capituloLeido(progreso, String(c.id), c.numero)
                 )}`}
               >
-                <div className="min-w-0 flex-1">
+                <Link
+                  onClick={async (event) => {
+                    const registro = {
+                      ...serieGuardable,
+                      last_chapter_id: String(c.id),
+                      last_chapter_name: String(c.numero ?? c.id),
+                    };
+
+                    if (
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey ||
+                      event.button !== 0
+                    ) {
+                      void anotarHistorial(registro);
+                      return;
+                    }
+
+                    event.preventDefault();
+                    const destino = event.currentTarget.getAttribute("href")!;
+                    await anotarHistorial(registro);
+                    router.push(destino);
+                  }}
+                  href={`/leer-externo/ikigai/${c.id}?slug=${slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  className="min-w-0 flex-1"
+                >
                   <p className="truncate text-sm font-semibold text-ink">
                     Capítulo {c.numero ?? "?"}
                     {c.id === progreso.ultimoId && (
@@ -202,11 +206,48 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
                       {c.fecha}
                     </p>
                   )}
-                </div>
-                <span className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
+                </Link>
+
+                <BotonDescargaCapitulo
+                  fuente="Ikigai"
+                  serieNombre={ficha.title}
+                  capituloNombre={`Capítulo ${c.numero ?? c.id}`}
+                  obtenerPaginas={async () => {
+                    const res = await lecturaIkigai(c.id, slug);
+                    return res.cap.paginas || [];
+                  }}
+                />
+
+                <Link
+                  onClick={async (event) => {
+                    const registro = {
+                      ...serieGuardable,
+                      last_chapter_id: String(c.id),
+                      last_chapter_name: String(c.numero ?? c.id),
+                    };
+
+                    if (
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey ||
+                      event.button !== 0
+                    ) {
+                      void anotarHistorial(registro);
+                      return;
+                    }
+
+                    event.preventDefault();
+                    const destino = event.currentTarget.getAttribute("href")!;
+                    await anotarHistorial(registro);
+                    router.push(destino);
+                  }}
+                  href={`/leer-externo/ikigai/${c.id}?slug=${slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
+                >
                   Leer →
-                </span>
-              </Link>
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

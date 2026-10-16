@@ -13,6 +13,7 @@ export const FUENTES_EXTERNAS = [
   "ikigai",
   "leercapitulo",
   "catharsis",
+  "ehentai",
 ] as const;
 
 export type FuenteExterna = (typeof FUENTES_EXTERNAS)[number];
@@ -28,6 +29,7 @@ export function fichaHref(source: string, externalId: string, slug: string | nul
   if (source === "tmo") return `/externo/tmo/${externalId}`;
   if (source === "leercapitulo") return `/externo/leercapitulo/${externalId}`;
   if (source === "catharsis") return `/externo/catharsis/${externalId}`;
+  if (source === "ehentai") return `/externo/ehentai/${externalId}`;
   return `/externo/${externalId}`;
 }
 
@@ -73,6 +75,9 @@ export function capituloHref(
   if (source === "catharsis") {
     // Catharsis identifica serie y capítulo con el mismo tipo de código
     return con(`/leer-externo/catharsis/${chapterId}`, `serie=${externalId}`);
+  }
+  if (source === "ehentai") {
+    return con(`/leer-externo/ehentai/${chapterId}`);
   }
   return con(`/leer-externo/${chapterId}`);
 }

@@ -55,6 +55,7 @@ const PUBLIC_PREFIXES = [
   "/api/externo/tmo",
   "/api/externo/leercapitulo",
   "/api/externo/catharsis",
+  "/api/externo/ehentai",
   // la ruleta sortea entre los catálogos, que son públicos
   "/api/aleatorio",
   // el top de la semana se ve en Inicio, que es pública

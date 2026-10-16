@@ -10,6 +10,7 @@ import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 
 interface SerieOlympus {
   id: number;
@@ -211,21 +212,23 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line">
           {capitulosOrdenados.map((c) => (
             <li key={c.id}>
-              <Link
-                onClick={() =>
-                  anotarHistorial({
-                    ...serieGuardable,
-                    last_chapter_id: String(c.id),
-                    last_chapter_name: String(c.name),
-                  })
-                }
-                href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+              <div
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   String(c.id) === progreso.ultimoId,
                   capituloLeido(progreso, String(c.id), c.name)
                 )}`}
               >
-                <div className="min-w-0 flex-1">
+                <Link
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(c.id),
+                      last_chapter_name: String(c.name),
+                    })
+                  }
+                  href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  className="min-w-0 flex-1"
+                >
                   <p className="truncate text-sm font-semibold text-ink">
                     Capítulo {c.name}
                     {String(c.id) === progreso.ultimoId && (
@@ -242,11 +245,36 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
                       year: "numeric",
                     })}
                   </p>
-                </div>
-                <span className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
+                </Link>
+
+                <BotonDescargaCapitulo
+                  fuente="Olympus"
+                  serieNombre={serie.title}
+                  capituloNombre={`Capítulo ${c.name}`}
+                  obtenerPaginas={async () => {
+                    const res = await fetch(
+                      `/api/externo/olympus/capitulo/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}`
+                    );
+                    if (!res.ok) throw new Error("No se pudieron cargar las páginas");
+                    const data = await res.json();
+                    return data.pages || [];
+                  }}
+                />
+
+                <Link
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(c.id),
+                      last_chapter_name: String(c.name),
+                    })
+                  }
+                  href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
+                >
                   Leer →
-                </span>
-              </Link>
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

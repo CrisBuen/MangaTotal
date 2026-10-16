@@ -8,6 +8,7 @@ import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from 
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { use, useCallback, useEffect, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
+import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 
 interface ExternalSeries {
   id: string;
@@ -289,6 +290,18 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
                         {entry.versions.length} versiones {isOpen ? "▲" : "▼"}
                       </button>
                     )}
+
+                    <BotonDescargaCapitulo
+                      fuente="MangaDex"
+                      serieNombre={series.title}
+                      capituloNombre={label}
+                      obtenerPaginas={async () => {
+                        const res = await fetch(`/api/externo/capitulos/${c.id}`);
+                        if (!res.ok) throw new Error("No se pudieron cargar las páginas");
+                        const data = await res.json();
+                        return (data.pages || []).map((p: { url: string }) => p.url);
+                      }}
+                    />
 
                     <Link
                       onClick={() =>

@@ -368,6 +368,100 @@ public class FuentesPlugin extends Plugin {
         return estado == 301 || estado == 302 || estado == 303 || estado == 307 || estado == 308;
     }
 
+    /**
+     * Guarda localmente un capítulo descargado en la carpeta MangaTotal/descargas/{fuente}/{serie}/{capitulo}
+     * dentro de Descargas públicas de Android (accesible desde cualquier explorador de archivos).
+     */
+    @PluginMethod
+    public void guardarCapitulo(final PluginCall call) {
+        final String fuente = call.getString("fuente", "MangaTotal");
+        final String serie = call.getString("serie", "Serie");
+        final String capitulo = call.getString("capitulo", "Capitulo");
+        final com.getcapacitor.JSArray archivos = call.getArray("archivos");
+
+        if (archivos == null || archivos.length() == 0) {
+            call.reject("No hay archivos para guardar");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo);
+                int guardados = 0;
+
+                android.content.ContentResolver resolver = getContext().getContentResolver();
+
+                for (int i = 0; i < archivos.length(); i++) {
+                    org.json.JSONObject obj = archivos.getJSONObject(i);
+                    String nombre = obj.optString("nombre", String.format(Locale.ROOT, "%03d.jpg", i + 1));
+                    String dataB64 = obj.optString("dataBase64", "");
+                    if (dataB64.isEmpty()) continue;
+
+                    byte[] bytes = android.util.Base64.decode(dataB64, android.util.Base64.DEFAULT);
+
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        android.content.ContentValues values = new android.content.ContentValues();
+                        values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
+                        values.put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeDe(nombre));
+                        values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, subRuta);
+
+                        android.net.Uri uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                        if (uri != null) {
+                            try (OutputStream out = resolver.openOutputStream(uri)) {
+                                if (out != null) {
+                                    out.write(bytes);
+                                    guardados++;
+                                }
+                            }
+                        }
+                    } else {
+                        java.io.File dir = new java.io.File(
+                            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                            "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
+                        );
+                        if (!dir.exists()) dir.mkdirs();
+                        java.io.File destino = new java.io.File(dir, nombre);
+                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destino)) {
+                            fos.write(bytes);
+                            guardados++;
+                        }
+                    }
+                }
+
+                final int totalGuardados = guardados;
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        android.widget.Toast.makeText(
+                            getContext(),
+                            "Guardado en Descargas/MangaTotal/descargas (" + totalGuardados + " páginas)",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show();
+                    });
+                }
+
+                JSObject salida = new JSObject();
+                salida.put("ok", true);
+                salida.put("guardados", totalGuardados);
+                salida.put("ruta", subRuta);
+                call.resolve(salida);
+            } catch (Exception e) {
+                call.reject(mensaje(e));
+            }
+        }).start();
+    }
+
+    private static String limpiarCarpeta(String texto) {
+        if (texto == null) return "manga";
+        return texto.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+    }
+
+    private static String mimeDe(String nombre) {
+        if (nombre.endsWith(".webp")) return "image/webp";
+        if (nombre.endsWith(".png")) return "image/png";
+        if (nombre.endsWith(".gif")) return "image/gif";
+        return "image/jpeg";
+    }
+
     /** Sin conexión el mensaje del sistema viene vacío, y así no se entiende. */
     private static String mensaje(Exception e) {
         String texto = e.getMessage();

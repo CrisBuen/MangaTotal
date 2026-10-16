@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUser } from "@/lib/auth";
+import { contenidoAdultoPermitido } from "@/lib/contentAccess";
+
 /**
- * GET /api/externo/imagen?u=<url> — respaldo para las páginas de MangaDex.
- * Normalmente el navegador las descarga directo de MangaDex@Home; si algo
- * del lado del cliente bloquea ese dominio (extensiones, escudos, DNS),
- * el lector reintenta por acá y la lectura no se corta.
+ * GET /api/externo/imagen?u=<url> — respaldo y descarga directa para las páginas
+ * de fuentes de lectura integradas (MangaDex, Olympus, ZonaTMO, LeerCapítulo,
+ * Catharsis, Ikigai y E-Hentai).
  *
- * Solo acepta hosts oficiales de MangaDex, nunca una URL arbitraria.
+ * Retransmite los bytes de la imagen original sin comprimir ni almacenar en R2/Vercel.
  */
-const ALLOWED_HOSTS = /(^|\.)(mangadex\.network|mangadex\.org)$/;
+const ALLOWED_HOSTS =
+  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.com|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$/;
+
+const ADULT_HOSTS = /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org)$/;
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("u");
@@ -25,8 +30,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Host no permitido" }, { status: 400 });
   }
 
+  // Protección para contenido +18
+  if (ADULT_HOSTS.test(url.hostname)) {
+    const user = await getSessionUser();
+    const permitido = await contenidoAdultoPermitido(user);
+    if (!permitido) {
+      return NextResponse.json({ error: "Contenido no permitido en esta edición" }, { status: 403 });
+    }
+  }
+
+  const upstreamHeaders: Record<string, string> = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  };
+
+  if (/hath\.network|e-hentai\.org/.test(url.hostname)) {
+    upstreamHeaders["Cookie"] = "nw=1";
+    upstreamHeaders["Referer"] = "https://e-hentai.org/";
+  } else if (/leercapitulo/.test(url.hostname)) {
+    upstreamHeaders["Referer"] = "https://www.leercapitulo.co/";
+  } else if (/zonatmo|visortmo|tumangaonline/.test(url.hostname)) {
+    upstreamHeaders["Referer"] = "https://visortmo.com/";
+  } else if (/ikigai/.test(url.hostname)) {
+    upstreamHeaders["Referer"] = "https://visorikigai.gettocaboca.com/";
+    upstreamHeaders["Sec-Fetch-Mode"] = "cors";
+  }
+
   const upstream = await fetch(url, {
-    headers: { "User-Agent": "MangaTotal/1.0 (www.mangatotal.com)" },
+    headers: upstreamHeaders,
     next: { revalidate: 3600 },
   }).catch(() => null);
 
@@ -37,8 +68,21 @@ export async function GET(req: NextRequest) {
   return new NextResponse(upstream.body, {
     headers: {
       "Content-Type": upstream.headers.get("content-type") ?? "image/jpeg",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
       // las páginas de un capítulo publicado no cambian
       "Cache-Control": "public, max-age=86400, immutable",
+    },
+  });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
     },
   });
 }

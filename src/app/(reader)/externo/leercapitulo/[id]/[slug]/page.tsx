@@ -8,8 +8,9 @@ import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
-import { LC_NOMBRE, serieLc } from "@/lib/leercapitulo";
+import { LC_NOMBRE, serieLc, paginasLc } from "@/lib/leercapitulo";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
+import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 
 type Ficha = Awaited<ReturnType<typeof serieLc>>;
 
@@ -172,32 +173,58 @@ export default function SerieLcPage(props: {
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line">
           {capitulos.map((c) => (
             <li key={c.id}>
-              <Link
-                onClick={() =>
-                  anotarHistorial({
-                    ...serieGuardable,
-                    last_chapter_id: String(c.numero),
-                    last_chapter_name: String(c.numero),
-                  })
-                }
-                href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
+              <div
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.numero === progreso.ultimoId,
                   capituloLeido(progreso, String(c.numero), c.numero)
                 )}`}
               >
-                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
-                  {c.titulo ?? `Capítulo ${c.numero}`}
-                  {c.numero === progreso.ultimoId && (
-                    <span className="ml-2 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
-                      vas por acá
-                    </span>
-                  )}
-                </p>
-                <span className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
+                <Link
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(c.numero),
+                      last_chapter_name: String(c.numero),
+                    })
+                  }
+                  href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
+                  className="min-w-0 flex-1"
+                >
+                  <p className="truncate text-sm font-semibold text-ink">
+                    {c.titulo ?? `Capítulo ${c.numero}`}
+                    {c.numero === progreso.ultimoId && (
+                      <span className="ml-2 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
+                        vas por acá
+                      </span>
+                    )}
+                  </p>
+                </Link>
+
+                <BotonDescargaCapitulo
+                  fuente="LeerCapítulo"
+                  serieNombre={ficha.title}
+                  capituloNombre={`Capítulo ${c.numero ?? c.id}`}
+                  obtenerPaginas={async () => {
+                    const num = c.numero ?? c.id;
+                    const cap = await paginasLc(ficha.id, ficha.slug, num);
+                    return cap.paginas || [];
+                  }}
+                />
+
+                <Link
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(c.numero),
+                      last_chapter_name: String(c.numero),
+                    })
+                  }
+                  href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
+                  className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
+                >
                   Leer →
-                </span>
-              </Link>
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

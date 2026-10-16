@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 
 export interface SerieExternaGuardable {
-  source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis";
+  source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis" | "ehentai";
   external_id: string;
   slug?: string | null;
   title: string;

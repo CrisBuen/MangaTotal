@@ -1,0 +1,106 @@
+"use client";
+
+import { use, useEffect, useState, useCallback } from "react";
+import { OlympusReader } from "@/components/reader/OlympusReader";
+import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
+import type { FichaEhentai } from "@/lib/ehentai";
+
+export default function LeerEhentaiPage(props: {
+  params: Promise<{ gid: string; token: string }>;
+}) {
+  const { gid, token } = use(props.params);
+  const [ficha, setFicha] = useState<FichaEhentai | null>(null);
+  const [paginas, setPaginas] = useState<string[]>([]);
+  const [error, setError] = useState<unknown>(null);
+  const [cargando, setCargando] = useState(true);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    setError(null);
+    try {
+      const [resFicha, resPaginas] = await Promise.all([
+        fetch(`/api/externo/ehentai/${gid}/${token}`),
+        fetch(`/api/externo/ehentai/${gid}/${token}/paginas`),
+      ]);
+
+      if (!resFicha.ok) {
+        if (resFicha.status === 403) {
+          throw new Error("Contenido +18 no disponible en esta edición.");
+        }
+        throw new Error("No se pudo cargar la información de la galería");
+      }
+      if (!resPaginas.ok) {
+        throw new Error("No se pudieron cargar las páginas de la galería");
+      }
+
+      const dataFicha = await resFicha.json();
+      const dataPaginas = await resPaginas.json();
+
+      if (!dataPaginas.paginas || dataPaginas.paginas.length === 0) {
+        throw new Error("Esta galería no contiene páginas");
+      }
+
+      setFicha(dataFicha);
+      setPaginas(dataPaginas.paginas);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setCargando(false);
+    }
+  }, [gid, token]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  const volverA = `/externo/ehentai/${gid}/${token}`;
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-24">
+        <AvisoFuente
+          error={error}
+          volverA={volverA}
+          volverTexto="Volver a la galería"
+          onReintentar={cargar}
+        />
+      </div>
+    );
+  }
+
+  if (cargando || !ficha) {
+    return (
+      <p className="py-24 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
+        Cargando lector de E-Hentai...
+      </p>
+    );
+  }
+
+  return (
+    <OlympusReader
+      chapter={{
+        id: `${gid}/${token}`,
+        name: "Capítulo Completo",
+        urlOriginal: ficha.url_original,
+      }}
+      serie={{
+        slug: `${gid}/${token}`,
+        tipo: "ehentai",
+        urlOriginal: ficha.url_original,
+      }}
+      grupo="E-Hentai"
+      source="ehentai"
+      hrefVolver={volverA}
+      hrefCapitulo={() => volverA}
+      pages={paginas.map((url, i) => ({
+        pageNumber: i + 1,
+        url,
+        width: 0,
+        height: 0,
+      }))}
+      prevChapter={null}
+      nextChapter={null}
+      initialMode="cascade"
+    />
+  );
+}

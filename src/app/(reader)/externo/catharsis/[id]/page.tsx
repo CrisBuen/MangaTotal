@@ -9,6 +9,7 @@ import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { CW_NOMBRE, CW_WEB, imagenCw, serieCw, type FichaCw } from "@/lib/catharsis";
+import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 
 /**
  * Ficha de una serie de Catharsis World.
@@ -169,30 +170,46 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
             Esta serie todavía no tiene capítulos publicados.
           </p>
         ) : (
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-10">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
             {capitulos.map((c) => {
               const esActual = c.id === progreso.ultimoId;
               const esLeido = capituloLeido(progreso, String(c.id), c.numero);
 
               return (
-                <Link
+                <div
                   key={c.id}
-                  onClick={() =>
-                    anotarHistorial({
-                      ...serieGuardable,
-                      last_chapter_id: String(c.id),
-                      last_chapter_name: String(c.etiqueta),
-                    })
-                  }
-                  href={hrefCapitulo(c.id)}
-                  title={`Capítulo ${c.etiqueta}`}
-                  className={`flex min-h-11 items-center justify-center rounded-md border border-line bg-panel px-2 text-sm font-bold tabular-nums text-ink transition hover:border-line-strong hover:text-accent-ink ${estiloCapitulo(
+                  className={`group relative flex min-h-11 items-center justify-between rounded-md border border-line bg-panel px-2 text-sm font-bold tabular-nums transition hover:border-line-strong ${estiloCapitulo(
                     esActual,
                     esLeido
                   )}`}
                 >
-                  {c.etiqueta}
-                </Link>
+                  <Link
+                    onClick={() =>
+                      anotarHistorial({
+                        ...serieGuardable,
+                        last_chapter_id: String(c.id),
+                        last_chapter_name: String(c.etiqueta),
+                      })
+                    }
+                    href={hrefCapitulo(c.id)}
+                    title={`Capítulo ${c.etiqueta}`}
+                    className="flex-1 text-center truncate hover:text-accent-ink transition"
+                  >
+                    {c.etiqueta}
+                  </Link>
+
+                  <BotonDescargaCapitulo
+                    fuente="Catharsis"
+                    serieNombre={ficha.nombre}
+                    capituloNombre={`Capítulo ${c.etiqueta}`}
+                    className="!h-6 !w-6 scale-90 opacity-70 group-hover:opacity-100"
+                    obtenerPaginas={async () => {
+                      const { paginasCw, imagenCw } = await import("@/lib/catharsis");
+                      const cap = await paginasCw(c.id);
+                      return cap.paginas.map((p) => imagenCw(p.id));
+                    }}
+                  />
+                </div>
               );
             })}
           </div>

@@ -15,7 +15,7 @@ export interface TrabajoBiblioteca {
   estado: "activo" | "pausado" | "terminado"; actualizado: number;
 }
 export const claveTarea = (t: Pick<TareaBiblioteca, "source" | "external_id">) => `${t.source}-${t.external_id}`;
-const fuentes = new Set(["mangadex", "olympus", "tmo", "ikigai", "leercapitulo", "catharsis", "jkanime", "tioanime", "hentaitv", "anilist"]);
+const fuentes = new Set(["mangadex", "olympus", "tmo", "ikigai", "leercapitulo", "catharsis", "ehentai", "jkanime", "tioanime", "hentaitv", "anilist"]);
 export function tareaValida(t: TareaBiblioteca): boolean {
   return !!t && fuentes.has(t.source) && typeof t.external_id === "string" &&
     t.external_id.length > 0 && t.external_id.length <= 500 && !/[?#\\\u0000-\u001f]/.test(t.external_id) &&

@@ -62,9 +62,11 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
-        webView.setDownloadListener(
-            (url, userAgent, contentDisposition, mimeType, contentLength) -> descargarActualizacion(url)
-        );
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
+            if (esUrlActualizacion(url)) {
+                descargarActualizacion(url);
+            }
+        });
 
         receptorDescarga = new BroadcastReceiver() {
             @Override
@@ -91,7 +93,6 @@ public class MainActivity extends BridgeActivity {
     /** Descarga el APK con el gestor del sistema, mostrando el progreso. */
     private void descargarActualizacion(String url) {
         if (!esUrlActualizacion(url)) {
-            avisar("Se bloqueó una descarga que no pertenece a MangaTotal");
             return;
         }
 

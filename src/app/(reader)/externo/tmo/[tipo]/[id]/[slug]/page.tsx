@@ -8,8 +8,9 @@ import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
-import { TMO_NOMBRE, serieTmo } from "@/lib/zonatmo";
+import { TMO_NOMBRE, serieTmo, capituloTmo } from "@/lib/zonatmo";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
+import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 
 type Ficha = Awaited<ReturnType<typeof serieTmo>>;
 
@@ -167,21 +168,23 @@ export default function SerieTmoPage(props: {
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line">
           {capitulos.map((c) => (
             <li key={c.id}>
-              <Link
-                onClick={() =>
-                  anotarHistorial({
-                    ...serieGuardable,
-                    last_chapter_id: String(c.id),
-                    last_chapter_name: String(c.numero ?? c.id),
-                  })
-                }
-                href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+              <div
                 className={`flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--surface-raised)] ${estiloCapitulo(
                   c.id === progreso.ultimoId,
                   capituloLeido(progreso, String(c.id), c.numero)
                 )}`}
               >
-                <div className="min-w-0 flex-1">
+                <Link
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(c.id),
+                      last_chapter_name: String(c.numero ?? c.id),
+                    })
+                  }
+                  href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  className="min-w-0 flex-1"
+                >
                   <p className="truncate text-sm font-semibold text-ink">
                     Capítulo {c.numero ?? "?"}
                     {c.id === progreso.ultimoId && (
@@ -195,11 +198,32 @@ export default function SerieTmoPage(props: {
                       {[c.grupo, c.fecha?.slice(0, 10)].filter(Boolean).join(" · ")}
                     </p>
                   )}
-                </div>
-                <span className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
+                </Link>
+
+                <BotonDescargaCapitulo
+                  fuente="ZonaTMO"
+                  serieNombre={ficha.title}
+                  capituloNombre={`Capítulo ${c.numero ?? c.id}`}
+                  obtenerPaginas={async () => {
+                    const cap = await capituloTmo(ficha.slug, c.id);
+                    return cap.paginas || [];
+                  }}
+                />
+
+                <Link
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(c.id),
+                      last_chapter_name: String(c.numero ?? c.id),
+                    })
+                  }
+                  href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
+                >
                   Leer →
-                </span>
-              </Link>
+                </Link>
+              </div>
             </li>
           ))}
         </ul>
