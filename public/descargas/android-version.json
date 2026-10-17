@@ -1,16 +1,16 @@
 {
-  "versionCode": 24,
-  "versionName": "1.9.11",
-  "date": "2026-09-22",
+  "versionCode": 25,
+  "versionName": "1.9.12",
+  "date": "2026-10-17",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "E58FA2746476574EABB143131693A95D458EF4367E5864D664141284FDDD5C02",
+  "sha256": "73BF63817EBA13F1A15AC9ED24C5998F27E8BF932F2F0870FB520F0024340C08",
   "sizeMb": 4.1,
   "changes": [
-    "Corrige páginas JPEG que Ikigai publica con nombre WebP",
-    "Obtiene los capítulos de LeerCapítulo desde el dispositivo en las apps",
-    "Permite el nuevo dominio oficial al que redirige el lector de Ikigai",
-    "Detecta las verificaciones de LeerCapítulo aunque respondan HTTP 200",
-    "Evita esperas largas del servidor de respaldo en Android"
+    "Descarga local de capítulos en alta resolución organizada por carpetas",
+    "Permisos de almacenamiento interno y carpeta local de descargas en Android",
+    "Soporte completo para fuentes externas y E-Hentai con selector de idiomas y tags interactivos",
+    "Historial y biblioteca con separación de contenido +18 y guardado de página leída",
+    "Reproductor optimizado para HentaiTV con menú compacto de calidad y subtítulos sincronizados"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

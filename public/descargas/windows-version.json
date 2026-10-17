@@ -1,14 +1,14 @@
 {
-  "versionCode": 13,
-  "versionName": "1.12",
-  "date": "2026-09-22",
+  "versionCode": 14,
+  "versionName": "1.13",
+  "date": "2026-10-17",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "C9CBC3A7C75F72F9EECFA1EAF75D1CBFF4AD45E8606178BC06006B33C9693FA7",
+  "sha256": "63927E6AECFBEBDCB5941C8C5CAA5BD926F1CD4570521DEB9C7B13780DCF76C5",
   "sizeMb": 2.6,
   "changes": [
-    "Corrige páginas JPEG que Ikigai publica con nombre WebP",
-    "Obtiene los capítulos de LeerCapítulo desde el dispositivo en las apps",
-    "Permite el nuevo dominio oficial del visor de Ikigai y corrige el error de dirección",
-    "Detecta las verificaciones de LeerCapítulo aunque respondan HTTP 200"
+    "Descarga local de capítulos en resolución original organizada por carpetas",
+    "Soporte para fuentes +18 con selector de idiomas y filtrado dinámico de tags",
+    "Separación en biblioteca e historial de contenido +18 con guardado de página leída",
+    "Reproductor optimizado para HentaiTV con menú de calidad y subtítulos sincronizados"
   ]
 }
