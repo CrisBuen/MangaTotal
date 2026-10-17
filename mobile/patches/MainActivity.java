@@ -65,6 +65,12 @@ public class MainActivity extends BridgeActivity {
         webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
             if (esUrlActualizacion(url)) {
                 descargarActualizacion(url);
+            } else if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception ignorado) {}
             }
         });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { descargarCapituloLocal, type ProgresoDescarga } from "@/lib/descargaCapitulo";
+import { descargarCapituloLocal, prepararCarpetaDestinoPC, type ProgresoDescarga } from "@/lib/descargaCapitulo";
 
 interface BotonDescargaCapituloProps {
   fuente: string;
@@ -28,6 +28,15 @@ export function BotonDescargaCapitulo({
       e.stopPropagation();
 
       if (estado === "descargando") return;
+
+      try {
+        // En PC, solicitar la carpeta de destino directamente durante el gesto de clic
+        await prepararCarpetaDestinoPC();
+      } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes("cancelada por el usuario")) {
+          return;
+        }
+      }
 
       setEstado("descargando");
       setErrorMensaje(null);

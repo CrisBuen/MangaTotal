@@ -32,32 +32,50 @@ function extensionDesdeBlob(blob: Blob, url: string): string {
 }
 
 /**
- * Descarga una imagen en su calidad máxima FullHD original.
- * Primero intenta descarga directa del CDN original; si el navegador la bloquea por CORS,
+ * Descarga una imagen en su calidad máxima FullHD original con reintentos automáticos.
+ * Primero intenta descarga directa del CDN original; si falla por CORS o protección,
  * recurre a /api/externo/imagen que retransmite el flujo binario idéntico sin comprimir.
  */
 export async function descargarBlobOriginal(url: string, signal?: AbortSignal): Promise<Blob> {
-  // 1. Intento directo cliente -> servidor de la fuente
-  try {
-    const resDirecta = await fetch(url, {
-      mode: "cors",
-      signal,
-    });
-    if (resDirecta.ok) {
-      const blob = await resDirecta.blob();
-      if (blob.size > 1000) return blob;
+  let ultimoError: unknown = null;
+
+  for (let intento = 0; intento < 3; intento++) {
+    if (signal?.aborted) throw new Error("Descarga cancelada");
+    try {
+      // 1. Intento directo del cliente
+      if (intento === 0) {
+        try {
+          const resDirecta = await fetch(url, {
+            mode: "cors",
+            signal,
+          });
+          if (resDirecta.ok) {
+            const blob = await resDirecta.blob();
+            if (blob.size > 1000) return blob;
+          }
+        } catch {
+          // Bloqueado por CORS o referer: usar canal de streaming proxy
+        }
+      }
+
+      // 2. Respaldo streaming idéntico (sin compresión ni paso por almacenamiento R2)
+      const proxyUrl = `/api/externo/imagen?u=${encodeURIComponent(url)}`;
+      const resProxy = await fetch(proxyUrl, { signal });
+      if (resProxy.ok) {
+        const blob = await resProxy.blob();
+        if (blob.size > 200) return blob;
+      }
+      ultimoError = new Error(`Error al descargar página (${resProxy.status})`);
+    } catch (err) {
+      ultimoError = err;
     }
-  } catch {
-    // Si CORS o escudos bloquean la petición directa, pasa al canal de respaldo
+
+    if (signal?.aborted) throw new Error("Descarga cancelada");
+    // Esperar brevemente antes de reintentar si falló una página aislada
+    await new Promise((r) => setTimeout(r, 600 * (intento + 1)));
   }
 
-  // 2. Respaldo streaming idéntico (sin compresión ni paso por almacenamiento R2)
-  const proxyUrl = `/api/externo/imagen?u=${encodeURIComponent(url)}`;
-  const resProxy = await fetch(proxyUrl, { signal });
-  if (!resProxy.ok) {
-    throw new Error(`No se pudo descargar la página (${resProxy.status})`);
-  }
-  return resProxy.blob();
+  throw ultimoError instanceof Error ? ultimoError : new Error("No se pudo descargar la página");
 }
 
 export interface ProgresoDescarga {
@@ -67,8 +85,31 @@ export interface ProgresoDescarga {
   porcentaje: number;
 }
 
-// Manija de carpeta guardada en memoria durante la sesión para no pedir permisos a cada capítulo
+// Manija de carpeta guardada en memoria durante la sesión en PC para no pedir permiso a cada capítulo
 let manijaCarpetaRaiz: FileSystemDirectoryHandle | null = null;
+
+/**
+ * En PC (Chrome, Edge), pide la carpeta de destino durante el gesto del usuario
+ * para cumplir las reglas de seguridad de File System Access API.
+ */
+export async function prepararCarpetaDestinoPC(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as {
+    showDirectoryPicker?: (opciones?: { mode?: string }) => Promise<FileSystemDirectoryHandle>;
+  };
+  if (typeof w.showDirectoryPicker !== "function") return false;
+  if (manijaCarpetaRaiz) return true;
+
+  try {
+    manijaCarpetaRaiz = await w.showDirectoryPicker({ mode: "readwrite" });
+    return true;
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Descarga cancelada por el usuario");
+    }
+    return false;
+  }
+}
 
 /**
  * Convierte un Blob en base64 para enviarlo a través del puente nativo de Capacitor en Android.
@@ -87,12 +128,25 @@ function blobABase64(blob: Blob): Promise<string> {
 }
 
 interface PluginFuentesDescarga {
+  guardarArchivo?: (opciones: {
+    fuente: string;
+    serie: string;
+    capitulo: string;
+    nombre: string;
+    dataBase64: string;
+  }) => Promise<{ ok: boolean }>;
   guardarCapitulo?: (opciones: {
     fuente: string;
     serie: string;
     capitulo: string;
     archivos: { nombre: string; dataBase64: string }[];
   }) => Promise<{ ok: boolean; guardados: number; ruta: string }>;
+  avisarDescargaCompletada?: (opciones: {
+    fuente: string;
+    serie: string;
+    capitulo: string;
+    total: number;
+  }) => Promise<void>;
 }
 
 function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
@@ -104,11 +158,11 @@ function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
     };
   }).Capacitor;
   if (!c) return null;
-  if (c.Plugins?.Fuentes?.guardarCapitulo) return c.Plugins.Fuentes as Required<PluginFuentesDescarga>;
+  if (c.Plugins?.Fuentes) return c.Plugins.Fuentes as Required<PluginFuentesDescarga>;
   if (typeof c.registerPlugin === "function") {
     try {
       const p = c.registerPlugin("Fuentes");
-      if (p?.guardarCapitulo) return p as Required<PluginFuentesDescarga>;
+      if (p) return p as Required<PluginFuentesDescarga>;
     } catch {}
   }
   return null;
@@ -117,6 +171,7 @@ function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
 /**
  * Guarda los archivos en Android a través del puente nativo en:
  * Download/MangaTotal/descargas/{fuente}/{serie}/{capitulo}/{nombre}
+ * Procesando archivo por archivo para no saturar memoria RAM ni límites del IPC nativo.
  */
 async function guardarConAndroid(
   fuente: string,
@@ -126,32 +181,59 @@ async function guardarConAndroid(
   onProgreso?: (p: ProgresoDescarga) => void
 ): Promise<boolean> {
   const plugin = pluginFuentesAndroid();
-  if (!plugin?.guardarCapitulo) return false;
+  if (!plugin) return false;
 
   const total = archivos.length;
-  const archivosB64: { nombre: string; dataBase64: string }[] = [];
 
-  for (let i = 0; i < total; i++) {
-    const { nombre, blob } = archivos[i];
-    const dataBase64 = await blobABase64(blob);
-    archivosB64.push({ nombre, dataBase64 });
+  if (plugin.guardarArchivo) {
+    for (let i = 0; i < total; i++) {
+      const { nombre, blob } = archivos[i];
+      const dataBase64 = await blobABase64(blob);
+      await plugin.guardarArchivo({ fuente, serie, capitulo, nombre, dataBase64 });
 
-    onProgreso?.({
-      fase: "guardando",
-      actual: i + 1,
-      total,
-      porcentaje: 85 + Math.round(((i + 1) / total) * 15),
-    });
+      onProgreso?.({
+        fase: "guardando",
+        actual: i + 1,
+        total,
+        porcentaje: 85 + Math.round(((i + 1) / total) * 15),
+      });
+    }
+
+    if (plugin.avisarDescargaCompletada) {
+      void plugin.avisarDescargaCompletada({ fuente, serie, capitulo, total });
+    }
+    return true;
   }
 
-  await plugin.guardarCapitulo({
-    fuente,
-    serie,
-    capitulo,
-    archivos: archivosB64,
-  });
+  if (plugin.guardarCapitulo) {
+    // Si la versión nativa aún solo tiene guardarCapitulo, enviar en micro-lotes de 5 para no saturar
+    const LOTE = 5;
+    for (let i = 0; i < total; i += LOTE) {
+      const lote = archivos.slice(i, i + LOTE);
+      const loteB64 = await Promise.all(
+        lote.map(async ({ nombre, blob }) => ({
+          nombre,
+          dataBase64: await blobABase64(blob),
+        }))
+      );
+      await plugin.guardarCapitulo({
+        fuente,
+        serie,
+        capitulo,
+        archivos: loteB64,
+      });
 
-  return true;
+      onProgreso?.({
+        fase: "guardando",
+        actual: Math.min(i + LOTE, total),
+        total,
+        porcentaje: 85 + Math.round((Math.min(i + LOTE, total) / total) * 15),
+      });
+    }
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -166,18 +248,19 @@ async function guardarConFileSystemAccess(
   archivos: { nombre: string; blob: Blob }[],
   onProgreso?: (p: ProgresoDescarga) => void
 ): Promise<boolean> {
-  const w = window as unknown as {
-    showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
-  };
-  if (typeof w.showDirectoryPicker !== "function") {
-    return false;
+  if (!manijaCarpetaRaiz) {
+    const w = window as unknown as {
+      showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+    };
+    if (typeof w.showDirectoryPicker !== "function") return false;
+    try {
+      manijaCarpetaRaiz = await w.showDirectoryPicker();
+    } catch {
+      return false;
+    }
   }
 
   try {
-    if (!manijaCarpetaRaiz) {
-      manijaCarpetaRaiz = await w.showDirectoryPicker();
-    }
-
     let dRaiz = manijaCarpetaRaiz;
     if (dRaiz.name.toLowerCase() !== "mangatotal") {
       try {
@@ -203,13 +286,12 @@ async function guardarConFileSystemAccess(
         fase: "guardando",
         actual: i + 1,
         total,
-        porcentaje: Math.round(((i + 1) / total) * 100),
+        porcentaje: 85 + Math.round(((i + 1) / total) * 15),
       });
     }
 
     return true;
   } catch (err: unknown) {
-    // Si el usuario canceló el selector de carpetas o revocó permisos, limpiar caché y devolver false
     manijaCarpetaRaiz = null;
     if (err instanceof Error && err.name === "AbortError") {
       throw err;
@@ -247,7 +329,7 @@ async function guardarComoZip(
 
   const contenido = await zip.generateAsync({
     type: "blob",
-    compression: "STORE", // Sin comprimir para conservar calidad máxima FullHD instantánea
+    compression: "STORE", // Sin comprimir para velocidad máxima instantánea y cero degradación
   });
 
   const url = URL.createObjectURL(contenido);
@@ -267,9 +349,9 @@ async function guardarComoZip(
  * Flujo completo de descarga local de un capítulo:
  * 1. Pide la lista de URLs de las páginas a la fuente.
  * 2. Descarga todas las imágenes en paralelo con calidad completa FullHD.
- * 3. En PC con File System Access: pide permiso de carpeta y guarda los archivos en
- *    MangaTotal/descargas/{fuente}/{serie}/{capítulo}/...
- * 4. En Android o fallback: descarga el archivo organizado respetando las carpetas.
+ * 3. En Android nativo: guarda mediante puente seguro en Download/MangaTotal/descargas/...
+ * 4. En PC con File System Access: guarda en la carpeta local elegida por el usuario.
+ * 5. Fallback universal: genera el paquete ZIP organizado por carpetas.
  */
 export async function descargarCapituloLocal(opciones: {
   fuente: string;
@@ -336,7 +418,7 @@ export async function descargarCapituloLocal(opciones: {
     porcentaje: 85,
   });
 
-  // 1. En Android nativo: guardar directamente en la carpeta pública de descargas
+  // 1. En Android nativo: guardar directamente en la carpeta de descargas
   let guardado = false;
   try {
     guardado = await guardarConAndroid(fuente, serie, capitulo, archivos, onProgreso);
@@ -344,7 +426,7 @@ export async function descargarCapituloLocal(opciones: {
     console.warn("No se pudo guardar mediante puente nativo de Android:", err);
   }
 
-  // 2. En PC con File System Access API (Chrome, Edge, Opera): selector de carpeta directo
+  // 2. En PC con File System Access API (Chrome, Edge, Opera)
   if (!guardado) {
     try {
       guardado = await guardarConFileSystemAccess(fuente, serie, capitulo, archivos, onProgreso);

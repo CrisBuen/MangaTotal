@@ -369,6 +369,103 @@ public class FuentesPlugin extends Plugin {
     }
 
     /**
+     * Guarda un archivo individual en la carpeta pública Download/MangaTotal/descargas/{fuente}/{serie}/{capitulo}/{nombre}.
+     * Permite streaming ligero página por página sin saturar la memoria RAM del teléfono ni el puente IPC de Capacitor.
+     */
+    @PluginMethod
+    public void guardarArchivo(final PluginCall call) {
+        final String fuente = call.getString("fuente", "MangaTotal");
+        final String serie = call.getString("serie", "Serie");
+        final String capitulo = call.getString("capitulo", "Capitulo");
+        final String nombre = call.getString("nombre", "001.jpg");
+        final String dataB64 = call.getString("dataBase64", "");
+
+        if (dataB64 == null || dataB64.isEmpty()) {
+            call.reject("Sin datos de archivo");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                byte[] bytes = android.util.Base64.decode(dataB64, android.util.Base64.DEFAULT);
+                String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
+                boolean guardado = false;
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    try {
+                        android.content.ContentResolver resolver = getContext().getContentResolver();
+                        android.content.ContentValues values = new android.content.ContentValues();
+                        values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
+                        values.put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeDe(nombre));
+                        values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, subRuta);
+
+                        android.net.Uri uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                        if (uri != null) {
+                            try (OutputStream out = resolver.openOutputStream(uri)) {
+                                if (out != null) {
+                                    out.write(bytes);
+                                    guardado = true;
+                                }
+                            }
+                        }
+                    } catch (Exception ignorado) {}
+                }
+
+                if (!guardado) {
+                    try {
+                        java.io.File dir = new java.io.File(
+                            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                            "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
+                        );
+                        if (!dir.exists()) dir.mkdirs();
+                        java.io.File destino = new java.io.File(dir, nombre);
+                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destino)) {
+                            fos.write(bytes);
+                            guardado = true;
+                        }
+                    } catch (Exception ignorado) {}
+                }
+
+                if (!guardado) {
+                    java.io.File dirApp = new java.io.File(
+                        getContext().getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS),
+                        "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
+                    );
+                    if (!dirApp.exists()) dirApp.mkdirs();
+                    java.io.File destinoApp = new java.io.File(dirApp, nombre);
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destinoApp)) {
+                        fos.write(bytes);
+                        guardado = true;
+                    }
+                }
+
+                JSObject salida = new JSObject();
+                salida.put("ok", guardado);
+                call.resolve(salida);
+            } catch (Exception e) {
+                call.reject(mensaje(e));
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void avisarDescargaCompletada(final PluginCall call) {
+        final String serie = call.getString("serie", "Manga");
+        final String capitulo = call.getString("capitulo", "Capítulo");
+        final int total = call.getInt("total", 0);
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                android.widget.Toast.makeText(
+                    getContext(),
+                    "Capítulo guardado (" + total + " págs.) en Descargas/MangaTotal",
+                    android.widget.Toast.LENGTH_LONG
+                ).show();
+            });
+        }
+        call.resolve();
+    }
+
+    /**
      * Guarda localmente un capítulo descargado en la carpeta MangaTotal/descargas/{fuente}/{serie}/{capitulo}
      * dentro de Descargas públicas de Android (accesible desde cualquier explorador de archivos).
      */
@@ -386,7 +483,7 @@ public class FuentesPlugin extends Plugin {
 
         new Thread(() -> {
             try {
-                String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo);
+                String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
                 int guardados = 0;
 
                 android.content.ContentResolver resolver = getContext().getContentResolver();
@@ -399,29 +496,49 @@ public class FuentesPlugin extends Plugin {
 
                     byte[] bytes = android.util.Base64.decode(dataB64, android.util.Base64.DEFAULT);
 
+                    boolean escrito = false;
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        android.content.ContentValues values = new android.content.ContentValues();
-                        values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
-                        values.put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeDe(nombre));
-                        values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, subRuta);
+                        try {
+                            android.content.ContentValues values = new android.content.ContentValues();
+                            values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
+                            values.put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeDe(nombre));
+                            values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, subRuta);
 
-                        android.net.Uri uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                        if (uri != null) {
-                            try (OutputStream out = resolver.openOutputStream(uri)) {
-                                if (out != null) {
-                                    out.write(bytes);
-                                    guardados++;
+                            android.net.Uri uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                            if (uri != null) {
+                                try (OutputStream out = resolver.openOutputStream(uri)) {
+                                    if (out != null) {
+                                        out.write(bytes);
+                                        guardados++;
+                                        escrito = true;
+                                    }
                                 }
                             }
-                        }
-                    } else {
-                        java.io.File dir = new java.io.File(
-                            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                        } catch (Exception ignorado) {}
+                    }
+                    if (!escrito) {
+                        try {
+                            java.io.File dir = new java.io.File(
+                                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                                "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
+                            );
+                            if (!dir.exists()) dir.mkdirs();
+                            java.io.File destino = new java.io.File(dir, nombre);
+                            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destino)) {
+                                fos.write(bytes);
+                                guardados++;
+                                escrito = true;
+                            }
+                        } catch (Exception ignorado) {}
+                    }
+                    if (!escrito) {
+                        java.io.File dirApp = new java.io.File(
+                            getContext().getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS),
                             "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
                         );
-                        if (!dir.exists()) dir.mkdirs();
-                        java.io.File destino = new java.io.File(dir, nombre);
-                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destino)) {
+                        if (!dirApp.exists()) dirApp.mkdirs();
+                        java.io.File destinoApp = new java.io.File(dirApp, nombre);
+                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destinoApp)) {
                             fos.write(bytes);
                             guardados++;
                         }

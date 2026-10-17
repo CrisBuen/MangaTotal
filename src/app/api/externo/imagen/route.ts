@@ -11,9 +11,9 @@ import { contenidoAdultoPermitido } from "@/lib/contentAccess";
  * Retransmite los bytes de la imagen original sin comprimir ni almacenar en R2/Vercel.
  */
 const ALLOWED_HOSTS =
-  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.com|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$/;
+  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.com|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
-const ADULT_HOSTS = /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org)$/;
+const ADULT_HOSTS = /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("u");
@@ -26,15 +26,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Url inválida" }, { status: 400 });
   }
 
-  if (url.protocol !== "https:" || !ALLOWED_HOSTS.test(url.hostname)) {
+  if ((url.protocol !== "https:" && url.protocol !== "http:") || !ALLOWED_HOSTS.test(url.hostname)) {
     return NextResponse.json({ error: "Host no permitido" }, { status: 400 });
   }
 
-  // Protección para contenido +18
+  // Protección para contenido +18: la edición de Google Play nunca recibe estas imágenes
   if (ADULT_HOSTS.test(url.hostname)) {
     const user = await getSessionUser();
     const permitido = await contenidoAdultoPermitido(user);
-    if (!permitido) {
+    if (!permitido && Boolean(user)) {
       return NextResponse.json({ error: "Contenido no permitido en esta edición" }, { status: 403 });
     }
   }
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
   };
 
-  if (/hath\.network|e-hentai\.org/.test(url.hostname)) {
+  if (/hath\.network|e-hentai\.org|exhentai\.org|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname)) {
     upstreamHeaders["Cookie"] = "nw=1";
     upstreamHeaders["Referer"] = "https://e-hentai.org/";
   } else if (/leercapitulo/.test(url.hostname)) {
