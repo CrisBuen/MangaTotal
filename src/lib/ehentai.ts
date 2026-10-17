@@ -294,39 +294,35 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
   const totalPaginas = ficha.filecount;
   if (totalPaginas <= 0) return [];
 
-  // 2. Extraer todos los viewer links recorriendo las subpáginas de la galería (?p=0, ?p=1...)
-  // Cada subpágina contiene normalmente 20 enlaces (o 40).
-  const viewerLinks: string[] = [];
+  // 2. Extraer todos los viewer links recorriendo las subpáginas de la galería (?p=0, ?p=1...) en paralelo
   const paginasIndice = Math.ceil(totalPaginas / 20);
+  const indices = Array.from({ length: paginasIndice }, (_, i) => i);
+  const viewerLinks = new Array<string>(totalPaginas);
 
-  // Pedir subpáginas en lotes de 3 concurrentes
-  for (let p = 0; p < paginasIndice; p += 3) {
-    const lotes = [p, p + 1, p + 2].filter((i) => i < paginasIndice);
-    const resultados = await Promise.all(
-      lotes.map(async (indice) => {
-        const url = `${EHENTAI_WEB}/g/${gid}/${token}/?p=${indice}`;
-        const res = await fetch(url, {
-          headers: {
-            Cookie: "nw=1",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          },
-        });
-        if (!res.ok) return [];
-        const html = await res.text();
-        const matches = [
-          ...html.matchAll(
-            new RegExp(`https:\\/\\/e-hentai\\.org\\/s\\/([a-f0-9]+)\\/${gid}-(\\d+)`, "g")
-          ),
-        ];
-        return matches.map((m) => ({ url: m[0], num: parseInt(m[2], 10) }));
-      })
-    );
+  const resLotes = await Promise.all(
+    indices.map(async (indice) => {
+      const url = `${EHENTAI_WEB}/g/${gid}/${token}/?p=${indice}`;
+      const res = await fetch(url, {
+        headers: {
+          Cookie: "nw=1",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        },
+      });
+      if (!res.ok) return [];
+      const html = await res.text();
+      const matches = [
+        ...html.matchAll(
+          new RegExp(`https:\\/\\/e-hentai\\.org\\/s\\/([a-f0-9]+)\\/${gid}-(\\d+)`, "g")
+        ),
+      ];
+      return matches.map((m) => ({ url: m[0], num: parseInt(m[2], 10) }));
+    })
+  );
 
-    for (const res of resultados) {
-      for (const item of res) {
-        viewerLinks[item.num - 1] = item.url;
-      }
+  for (const items of resLotes) {
+    for (const item of items) {
+      viewerLinks[item.num - 1] = item.url;
     }
   }
 
@@ -335,10 +331,9 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
     throw new Error("No se pudieron obtener las páginas de la galería");
   }
 
-  // 3. Resolver las imágenes finales desde los enlaces de visualización
-  // Se ejecutan con concurrencia controlada (máximo 8 simultáneas) para rapidez extrema sin saturar
+  // 3. Resolver las imágenes finales desde los enlaces de visualización con concurrencia de 25
   const imagenesResueltas = new Array<string>(linksValidos.length);
-  const limite = 8;
+  const CONCURRENCIA = 25;
   let cursor = 0;
 
   async function procesarSiguiente(): Promise<void> {
@@ -366,8 +361,9 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
     }
   }
 
-  const trabajadores = Array.from({ length: Math.min(limite, linksValidos.length) }, () =>
-    procesarSiguiente()
+  const trabajadores = Array.from(
+    { length: Math.min(CONCURRENCIA, linksValidos.length) },
+    () => procesarSiguiente()
   );
   await Promise.all(trabajadores);
 
@@ -375,7 +371,7 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
   if (paginasFinales.length > 0) {
     paginasCache.set(claveCache, {
       paginas: paginasFinales,
-      vence: Date.now() + 60 * 60 * 1000, // 1 hora
+      vence: Date.now() + 2 * 60 * 60 * 1000, // 2 horas
     });
   }
 

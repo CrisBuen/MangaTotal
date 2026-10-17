@@ -51,11 +51,11 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // el puente de fuentes tiene que existir antes de que arranque la web
         registerPlugin(FuentesPlugin.class);
         registerPlugin(PantallaPlugin.class);
         registerPlugin(ActualizacionPlugin.class);
         super.onCreate(savedInstanceState);
+        FuentesPlugin.asegurarCarpetasMangaTotal(this);
 
         WebView webView = webViewPrincipal();
         if (webView == null) {
@@ -277,6 +277,12 @@ public class MainActivity extends BridgeActivity {
         super.onStart();
         WebView webView = webViewPrincipal();
         ActualizacionServicio.visibilidad(webView, true);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        FuentesPlugin.asegurarCarpetasMangaTotal(this);
     }
 
     @Override

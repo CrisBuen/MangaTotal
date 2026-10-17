@@ -128,6 +128,11 @@ function blobABase64(blob: Blob): Promise<string> {
 }
 
 interface PluginFuentesDescarga {
+  verificarYPedirPermisosAlmacenamiento?: () => Promise<{
+    concedido: boolean;
+    abrioAjustes?: boolean;
+    ruta?: string;
+  }>;
   guardarArchivo?: (opciones: {
     fuente: string;
     serie: string;
@@ -149,7 +154,7 @@ interface PluginFuentesDescarga {
   }) => Promise<void>;
 }
 
-function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
+export function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
   if (typeof window === "undefined") return null;
   const c = (window as unknown as {
     Capacitor?: {
@@ -166,6 +171,52 @@ function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
     } catch {}
   }
   return null;
+}
+
+const CLAVE_DESCARGAS = "mangatotal_descargas_locales_v1";
+
+/** Comprueba si el capítulo ya se descargó localmente en este dispositivo */
+export function esCapituloDescargado(fuente: string, serie: string, capitulo: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(CLAVE_DESCARGAS);
+    if (!raw) return false;
+    const lista = JSON.parse(raw) as string[];
+    const id = `${limpiarNombreArchivo(fuente)}::${limpiarNombreArchivo(serie)}::${limpiarNombreArchivo(capitulo)}`;
+    return lista.includes(id);
+  } catch {
+    return false;
+  }
+}
+
+/** Registra el capítulo descargado para mostrar el estado en la interfaz */
+export function marcarCapituloDescargado(fuente: string, serie: string, capitulo: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(CLAVE_DESCARGAS);
+    const lista: string[] = raw ? JSON.parse(raw) : [];
+    const id = `${limpiarNombreArchivo(fuente)}::${limpiarNombreArchivo(serie)}::${limpiarNombreArchivo(capitulo)}`;
+    if (!lista.includes(id)) {
+      lista.push(id);
+      localStorage.setItem(CLAVE_DESCARGAS, JSON.stringify(lista));
+    }
+  } catch {}
+}
+
+/** En Android, comprueba y pide el permiso de almacenamiento para la carpeta MangaTotal estilo Mihon */
+export async function asegurarPermisosAlmacenamientoAndroid(): Promise<boolean> {
+  const plugin = pluginFuentesAndroid();
+  if (!plugin?.verificarYPedirPermisosAlmacenamiento) return true;
+  try {
+    const res = await plugin.verificarYPedirPermisosAlmacenamiento();
+    if (!res.concedido && res.abrioAjustes) {
+      throw new Error("Permiso de almacenamiento necesario: activa 'Acceso a todos los archivos' en Ajustes");
+    }
+    return res.concedido;
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("Permiso de almacenamiento")) throw err;
+    return true;
+  }
 }
 
 /**
@@ -441,6 +492,8 @@ export async function descargarCapituloLocal(opciones: {
   if (!guardado) {
     await guardarComoZip(fuente, serie, capitulo, archivos, onProgreso);
   }
+
+  marcarCapituloDescargado(fuente, serie, capitulo);
 
   onProgreso?.({
     fase: "completado",

@@ -13,6 +13,14 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import android.content.Context;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.Settings;
+import java.io.File;
+import java.io.FileOutputStream;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -369,7 +377,69 @@ public class FuentesPlugin extends Plugin {
     }
 
     /**
-     * Guarda un archivo individual en la carpeta pública Download/MangaTotal/descargas/{fuente}/{serie}/{capitulo}/{nombre}.
+    /**
+     * Asegura la creación de la estructura de carpetas estilo Mihon en la raíz de almacenamiento:
+     * /storage/emulated/0/MangaTotal/
+     *   ├── descargas/
+     *   ├── backups/
+     *   └── local/
+     */
+    public static void asegurarCarpetasMangaTotal(Context context) {
+        try {
+            File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
+            if (!raiz.exists()) raiz.mkdirs();
+
+            File descargas = new File(raiz, "descargas");
+            if (!descargas.exists()) descargas.mkdirs();
+
+            File backups = new File(raiz, "backups");
+            if (!backups.exists()) backups.mkdirs();
+
+            File local = new File(raiz, "local");
+            if (!local.exists()) local.mkdirs();
+        } catch (Exception ignorado) {}
+    }
+
+    /**
+     * Comprueba y solicita permisos de almacenamiento (MANAGE_EXTERNAL_STORAGE en Android 11+).
+     * Si no está concedido, abre la pantalla de ajustes del sistema para permitir "Acceso a todos los archivos".
+     */
+    @PluginMethod
+    public void verificarYPedirPermisosAlmacenamiento(final PluginCall call) {
+        boolean concedido = false;
+        boolean abrioAjustes = false;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            concedido = Environment.isExternalStorageManager();
+            if (!concedido && getActivity() != null) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                    getActivity().startActivity(intent);
+                    abrioAjustes = true;
+                } catch (Exception e) {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                        getActivity().startActivity(intent);
+                        abrioAjustes = true;
+                    } catch (Exception ignorado) {}
+                }
+            }
+        } else {
+            concedido = true;
+        }
+
+        asegurarCarpetasMangaTotal(getContext());
+
+        JSObject salida = new JSObject();
+        salida.put("concedido", concedido);
+        salida.put("abrioAjustes", abrioAjustes);
+        salida.put("ruta", new File(Environment.getExternalStorageDirectory(), "MangaTotal").getAbsolutePath());
+        call.resolve(salida);
+    }
+
+    /**
+     * Guarda un archivo individual directamente en MangaTotal/descargas/{fuente}/{serie}/{capitulo}/{nombre}.
      * Permite streaming ligero página por página sin saturar la memoria RAM del teléfono ni el puente IPC de Capacitor.
      */
     @PluginMethod
@@ -388,11 +458,35 @@ public class FuentesPlugin extends Plugin {
         new Thread(() -> {
             try {
                 byte[] bytes = android.util.Base64.decode(dataB64, android.util.Base64.DEFAULT);
-                String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
                 boolean guardado = false;
 
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                // 1. Guardado directo estilo Mihon en /storage/emulated/0/MangaTotal/descargas/...
+                try {
+                    File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
+                    if (!raiz.exists()) raiz.mkdirs();
+                    File descargas = new File(raiz, "descargas");
+                    if (!descargas.exists()) descargas.mkdirs();
+                    File backups = new File(raiz, "backups");
+                    if (!backups.exists()) backups.mkdirs();
+                    File local = new File(raiz, "local");
+                    if (!local.exists()) local.mkdirs();
+
+                    File dirCap = new File(descargas, limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo));
+                    if (!dirCap.exists()) dirCap.mkdirs();
+
+                    File destino = new File(dirCap, nombre);
+                    try (FileOutputStream fos = new FileOutputStream(destino)) {
+                        fos.write(bytes);
+                        guardado = true;
+                    }
+                } catch (Exception eDirecto) {
+                    // Si el sistema no permite escritura directa, continuar con las alternativas
+                }
+
+                // 2. Mediastore en Download/MangaTotal/descargas/
+                if (!guardado && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     try {
+                        String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
                         android.content.ContentResolver resolver = getContext().getContentResolver();
                         android.content.ContentValues values = new android.content.ContentValues();
                         values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
@@ -411,29 +505,31 @@ public class FuentesPlugin extends Plugin {
                     } catch (Exception ignorado) {}
                 }
 
+                // 3. Carpeta pública de Descargas de Android
                 if (!guardado) {
                     try {
-                        java.io.File dir = new java.io.File(
-                            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                        File dir = new File(
+                            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                             "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
                         );
                         if (!dir.exists()) dir.mkdirs();
-                        java.io.File destino = new java.io.File(dir, nombre);
-                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destino)) {
+                        File destino = new File(dir, nombre);
+                        try (FileOutputStream fos = new FileOutputStream(destino)) {
                             fos.write(bytes);
                             guardado = true;
                         }
                     } catch (Exception ignorado) {}
                 }
 
+                // 4. Fallback en carpeta de la app
                 if (!guardado) {
-                    java.io.File dirApp = new java.io.File(
-                        getContext().getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS),
+                    File dirApp = new File(
+                        getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
                         "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
                     );
                     if (!dirApp.exists()) dirApp.mkdirs();
-                    java.io.File destinoApp = new java.io.File(dirApp, nombre);
-                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destinoApp)) {
+                    File destinoApp = new File(dirApp, nombre);
+                    try (FileOutputStream fos = new FileOutputStream(destinoApp)) {
                         fos.write(bytes);
                         guardado = true;
                     }
@@ -457,7 +553,7 @@ public class FuentesPlugin extends Plugin {
             getActivity().runOnUiThread(() -> {
                 android.widget.Toast.makeText(
                     getContext(),
-                    "Capítulo guardado (" + total + " págs.) en Descargas/MangaTotal",
+                    "Capítulo guardado (" + total + " págs.) en MangaTotal/descargas",
                     android.widget.Toast.LENGTH_LONG
                 ).show();
             });
@@ -467,7 +563,6 @@ public class FuentesPlugin extends Plugin {
 
     /**
      * Guarda localmente un capítulo descargado en la carpeta MangaTotal/descargas/{fuente}/{serie}/{capitulo}
-     * dentro de Descargas públicas de Android (accesible desde cualquier explorador de archivos).
      */
     @PluginMethod
     public void guardarCapitulo(final PluginCall call) {
@@ -483,10 +578,19 @@ public class FuentesPlugin extends Plugin {
 
         new Thread(() -> {
             try {
-                String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
                 int guardados = 0;
 
-                android.content.ContentResolver resolver = getContext().getContentResolver();
+                File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
+                if (!raiz.exists()) raiz.mkdirs();
+                File descargas = new File(raiz, "descargas");
+                if (!descargas.exists()) descargas.mkdirs();
+                File backups = new File(raiz, "backups");
+                if (!backups.exists()) backups.mkdirs();
+                File local = new File(raiz, "local");
+                if (!local.exists()) local.mkdirs();
+
+                File dirCap = new File(descargas, limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo));
+                if (!dirCap.exists()) dirCap.mkdirs();
 
                 for (int i = 0; i < archivos.length(); i++) {
                     org.json.JSONObject obj = archivos.getJSONObject(i);
@@ -497,8 +601,19 @@ public class FuentesPlugin extends Plugin {
                     byte[] bytes = android.util.Base64.decode(dataB64, android.util.Base64.DEFAULT);
 
                     boolean escrito = false;
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    try {
+                        File destino = new File(dirCap, nombre);
+                        try (FileOutputStream fos = new FileOutputStream(destino)) {
+                            fos.write(bytes);
+                            guardados++;
+                            escrito = true;
+                        }
+                    } catch (Exception ignorado) {}
+
+                    if (!escrito && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         try {
+                            String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
+                            android.content.ContentResolver resolver = getContext().getContentResolver();
                             android.content.ContentValues values = new android.content.ContentValues();
                             values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
                             values.put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeDe(nombre));
@@ -516,33 +631,6 @@ public class FuentesPlugin extends Plugin {
                             }
                         } catch (Exception ignorado) {}
                     }
-                    if (!escrito) {
-                        try {
-                            java.io.File dir = new java.io.File(
-                                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
-                                "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
-                            );
-                            if (!dir.exists()) dir.mkdirs();
-                            java.io.File destino = new java.io.File(dir, nombre);
-                            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destino)) {
-                                fos.write(bytes);
-                                guardados++;
-                                escrito = true;
-                            }
-                        } catch (Exception ignorado) {}
-                    }
-                    if (!escrito) {
-                        java.io.File dirApp = new java.io.File(
-                            getContext().getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS),
-                            "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
-                        );
-                        if (!dirApp.exists()) dirApp.mkdirs();
-                        java.io.File destinoApp = new java.io.File(dirApp, nombre);
-                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destinoApp)) {
-                            fos.write(bytes);
-                            guardados++;
-                        }
-                    }
                 }
 
                 final int totalGuardados = guardados;
@@ -550,7 +638,7 @@ public class FuentesPlugin extends Plugin {
                     getActivity().runOnUiThread(() -> {
                         android.widget.Toast.makeText(
                             getContext(),
-                            "Guardado en Descargas/MangaTotal/descargas (" + totalGuardados + " páginas)",
+                            "Guardado en MangaTotal/descargas (" + totalGuardados + " páginas)",
                             android.widget.Toast.LENGTH_LONG
                         ).show();
                     });
@@ -559,7 +647,7 @@ public class FuentesPlugin extends Plugin {
                 JSObject salida = new JSObject();
                 salida.put("ok", true);
                 salida.put("guardados", totalGuardados);
-                salida.put("ruta", subRuta);
+                salida.put("ruta", dirCap.getAbsolutePath());
                 call.resolve(salida);
             } catch (Exception e) {
                 call.reject(mensaje(e));

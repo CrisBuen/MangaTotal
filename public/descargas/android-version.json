@@ -1,16 +1,15 @@
 {
-  "versionCode": 25,
-  "versionName": "1.9.12",
+  "versionCode": 26,
+  "versionName": "1.9.13",
   "date": "2026-10-17",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "73BF63817EBA13F1A15AC9ED24C5998F27E8BF932F2F0870FB520F0024340C08",
+  "sha256": "3AB68CBD946ADBEDB0220115DA4D42D92B79E1AF72057FEB95B3A18E96EDBAA6",
   "sizeMb": 4.1,
   "changes": [
-    "Descarga local de capítulos en alta resolución organizada por carpetas",
-    "Permisos de almacenamiento interno y carpeta local de descargas en Android",
-    "Soporte completo para fuentes externas y E-Hentai con selector de idiomas y tags interactivos",
-    "Historial y biblioteca con separación de contenido +18 y guardado de página leída",
-    "Reproductor optimizado para HentaiTV con menú compacto de calidad y subtítulos sincronizados"
+    "Crea la estructura de carpetas MangaTotal (descargas, backups, local) en la raíz del almacenamiento estilo Mihon",
+    "Permiso de acceso a todos los archivos y guardado local directo en /storage/emulated/0/MangaTotal",
+    "Descargas y resolución ultrarrápida de galerías y páginas de E-Hentai",
+    "Indicador visual de progreso en porcentaje y estado persistente de capítulos descargados"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
