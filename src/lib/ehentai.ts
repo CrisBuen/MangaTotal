@@ -61,6 +61,8 @@ export interface CatalogoEhentai {
   series: SerieEhentai[];
   pagina: number;
   hayMas: boolean;
+  nextCursor?: string | null;
+  prevCursor?: string | null;
 }
 
 /**
@@ -85,15 +87,32 @@ export async function catalogoEhentai(opciones: {
   idioma?: string;
   tag?: string;
   pagina?: number;
+  next?: string;
+  prev?: string;
+  fresco?: boolean;
 }): Promise<CatalogoEhentai> {
   if (isPlayStoreApp()) {
     throw new Error("Fuente no disponible en esta edición");
   }
 
-  const { busqueda = "", categoria = "todos", idioma = "todos", tag = "", pagina = 0 } = opciones;
+  const {
+    busqueda = "",
+    categoria = "todos",
+    idioma = "todos",
+    tag = "",
+    pagina = 0,
+    next,
+    prev,
+    fresco = false,
+  } = opciones;
 
   const url = new URL(EHENTAI_WEB);
-  if (pagina > 0) {
+  // E-Hentai usa paginación basada en cursor (next=<gid> / prev=<gid>) en su índice principal.
+  if (next) {
+    url.searchParams.set("next", next);
+  } else if (prev) {
+    url.searchParams.set("prev", prev);
+  } else if (pagina > 0) {
     url.searchParams.set("page", String(pagina));
   }
 
@@ -129,7 +148,7 @@ export async function catalogoEhentai(opciones: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     },
-    next: { revalidate: 120 },
+    ...(fresco ? { cache: "no-store" } : { next: { revalidate: 30 } }),
   });
 
   if (!res.ok) {
@@ -176,13 +195,33 @@ export async function catalogoEhentai(opciones: {
     });
   }
 
-  // Detectar si hay más páginas mediante la barra de paginación
-  const hayMas = html.includes(`page=${pagina + 1}`) || html.includes(`onclick="return false">`);
+  // Ordenar estrictamente de más nuevo a más viejo por fecha / GID cronológico descendente.
+  series.sort((a, b) => {
+    const diff = (parseInt(b.gid, 10) || 0) - (parseInt(a.gid, 10) || 0);
+    if (diff !== 0) return diff;
+    if (a.posted && b.posted) return b.posted.localeCompare(a.posted);
+    return 0;
+  });
+
+  // Extraer enlaces cursor de la barra de navegación (#unext / #dnext y #uprev / #dprev).
+  // E-Hentai usa etiquetas <a id="unext" href="...?next=12345">Next ></a> cuando hay siguiente página,
+  // y <span id="unext"> o sin href cuando se llega al final.
+  const nextHref = html.match(/<a[^>]*id="[ud]next"[^>]*href="([^"]+)"/i)?.[1];
+  const nextMatch = nextHref ? nextHref.match(/[?&](?:amp;)?next=(\d+)/i) : null;
+  const nextCursor = nextMatch ? nextMatch[1] : null;
+
+  const prevHref = html.match(/<a[^>]*id="[ud]prev"[^>]*href="([^"]+)"/i)?.[1];
+  const prevMatch = prevHref ? prevHref.match(/[?&](?:amp;)?prev=(\d+)/i) : null;
+  const prevCursor = prevMatch ? prevMatch[1] : null;
+
+  const hayMas = Boolean(nextCursor) || html.includes(`page=${pagina + 1}`);
 
   return {
     series,
     pagina,
     hayMas,
+    nextCursor,
+    prevCursor,
   };
 }
 

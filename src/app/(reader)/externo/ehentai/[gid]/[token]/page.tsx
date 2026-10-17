@@ -160,7 +160,7 @@ export default function SerieEhentaiPage(props: {
               onClick={() =>
                 void anotarHistorial({
                   ...serieGuardable,
-                  last_chapter_id: "1",
+                  last_chapter_id: `${gid}/${token}`,
                   last_chapter_name: "Capítulo Completo",
                 })
               }
@@ -189,7 +189,7 @@ export default function SerieEhentaiPage(props: {
                 onClick={() =>
                   void anotarHistorial({
                     ...serieGuardable,
-                    last_chapter_id: "1",
+                    last_chapter_id: `${gid}/${token}`,
                     last_chapter_name: "Capítulo Completo",
                   })
                 }
@@ -216,7 +216,7 @@ export default function SerieEhentaiPage(props: {
                 onClick={() =>
                   void anotarHistorial({
                     ...serieGuardable,
-                    last_chapter_id: "1",
+                    last_chapter_id: `${gid}/${token}`,
                     last_chapter_name: "Capítulo Completo",
                   })
                 }

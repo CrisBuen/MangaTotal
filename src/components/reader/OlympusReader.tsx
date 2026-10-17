@@ -38,6 +38,7 @@ export function OlympusReader({
   initialMode,
   initialPage = 1,
   source = "olympus",
+  externalId,
   hrefVolver,
   hrefCapitulo,
 }: {
@@ -50,6 +51,8 @@ export function OlympusReader({
   initialMode: ReadingMode;
   /** Página por la que iba la lectura, para retomarla donde quedó. */
   initialPage?: number;
+  /** Identificador externo exacto si difiere de serie.slug */
+  externalId?: string;
   /** Fuente, para guardar el progreso en la biblioteca. */
   source?: "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis" | "ehentai";
   /** Enlaces propios de la fuente; por defecto, los de Olympus. */
@@ -69,7 +72,7 @@ export function OlympusReader({
 
   useProgresoExterno({
     source,
-    externalId: serie.slug,
+    externalId: externalId ?? serie.slug,
     chapterId: String(chapter.id),
     chapterName: chapter.name,
     pageNumber: currentPage,

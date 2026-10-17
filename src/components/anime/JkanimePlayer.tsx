@@ -80,6 +80,54 @@ function pistaSubtituloHentaitvPermitida(url: string): boolean {
   }
 }
 
+interface CueSubtitulo {
+  start: number;
+  end: number;
+  text: string;
+}
+
+function parseVttTime(str: string): number {
+  const s = str.replace(",", ".");
+  const parts = s.split(":");
+  if (parts.length === 3) {
+    return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+  }
+  if (parts.length === 2) {
+    return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+  }
+  return parseFloat(s) || 0;
+}
+
+function parseWebVTT(vttText: string): CueSubtitulo[] {
+  const lines = vttText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const cues: CueSubtitulo[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const timeLine = lines[i];
+    const match = timeLine.match(/((?:\d+:)?\d+:\d+(?:\.\d+)?)\s*-->\s*((?:\d+:)?\d+:\d+(?:\.\d+)?)/);
+    if (match) {
+      const start = parseVttTime(match[1]);
+      const end = parseVttTime(match[2]);
+      i++;
+      const textLines: string[] = [];
+      while (i < lines.length && lines[i].trim() !== "") {
+        textLines.push(lines[i].trim());
+        i++;
+      }
+      if (textLines.length > 0) {
+        cues.push({
+          start,
+          end,
+          text: textLines.join("\n").replace(/<[^>]+>/g, ""),
+        });
+      }
+    } else {
+      i++;
+    }
+  }
+  return cues;
+}
+
 function soporteVp9Hentaitv(): boolean {
   return (
     typeof MediaSource !== "undefined" &&
@@ -137,6 +185,9 @@ export function ReproductorAnimeExterno({
   const [calidadHentaitv, setCalidadHentaitv] = useState(-1);
   const [subtitulosHentaitv, setSubtitulosHentaitv] = useState<SubtituloHentaitv[]>([]);
   const [subtituloHentaitv, setSubtituloHentaitv] = useState("off");
+  const [ajustesHentaitvVisible, setAjustesHentaitvVisible] = useState(false);
+  const [cueActiva, setCueActiva] = useState("");
+  const cuesHentaitvRef = useRef<CueSubtitulo[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [androidPlayer, setAndroidPlayer] = useState(false);
@@ -182,6 +233,9 @@ export function ReproductorAnimeExterno({
       setCalidadHentaitv(-1);
       setSubtitulosHentaitv([]);
       setSubtituloHentaitv("off");
+      setAjustesHentaitvVisible(false);
+      setCueActiva("");
+      cuesHentaitvRef.current = [];
       try {
         const params = new URLSearchParams();
         if (sourceId) params.set("source", sourceId);
@@ -349,16 +403,25 @@ export function ReproductorAnimeExterno({
                   : level.name || `${Math.round(level.bitrate / 1000)} kbps`,
             }))
           );
-          setSubtitulosHentaitv(
-            manifestData.subtitleTracks
-              .filter((track) => pistaSubtituloHentaitvPermitida(track.url))
-              .map((track, index) => ({
-                id: String(index),
-                label: track.name || track.lang || `Subtítulo ${index + 1}`,
-                lang: track.lang || "und",
-                url: track.url,
-              }))
+          const pistas = manifestData.subtitleTracks
+            .filter((track) => pistaSubtituloHentaitvPermitida(track.url))
+            .map((track, index) => ({
+              id: String(index),
+              label: track.name || track.lang || `Subtítulo ${index + 1}`,
+              lang: track.lang || "und",
+              url: track.url,
+            }));
+          setSubtitulosHentaitv(pistas);
+
+          const pistaEsp = pistas.find(
+            (p) =>
+              p.lang.toLowerCase().startsWith("es") ||
+              p.label.toLowerCase().includes("spanish") ||
+              p.label.toLowerCase().includes("español")
           );
+          if (pistaEsp) {
+            void activarSubtituloHentaitv(pistaEsp.id, pistas);
+          }
         }
       });
       hls.on(Hls.Events.ERROR, (_event, details) => {
@@ -408,17 +471,7 @@ export function ReproductorAnimeExterno({
     };
   }, [data, guardarProgreso, source, startPosition]);
 
-  useEffect(() => {
-    if (source !== "hentaitv") return;
-    const video = videoRef.current;
-    if (!video) return;
-    video
-      .querySelectorAll<HTMLTrackElement>("track[data-hentaitv-subtitle-id]")
-      .forEach((track) => {
-        track.track.mode =
-          track.dataset.hentaitvSubtitleId === subtituloHentaitv ? "showing" : "disabled";
-      });
-  }, [source, subtituloHentaitv, subtitulosHentaitv]);
+
 
   useEffect(() => {
     const nativa = pantallaCompletaEsTotal();
@@ -516,6 +569,12 @@ export function ReproductorAnimeExterno({
     video.currentTime = value;
     currentRef.current = value;
     setCurrentTime(value);
+    if (cuesHentaitvRef.current.length > 0) {
+      const activas = cuesHentaitvRef.current.filter(
+        (c) => c.start <= value && value <= c.end
+      );
+      setCueActiva(activas.length > 0 ? activas.map((c) => c.text).join("\n") : "");
+    }
     mostrarControles();
   };
 
@@ -536,9 +595,41 @@ export function ReproductorAnimeExterno({
     mostrarControles();
   };
 
+  const activarSubtituloHentaitv = useCallback(
+    async (id: string, lista = subtitulosHentaitv) => {
+      setSubtituloHentaitv(id);
+      if (id === "off") {
+        cuesHentaitvRef.current = [];
+        setCueActiva("");
+        return;
+      }
+      const sub = lista.find((s) => s.id === id);
+      if (!sub) return;
+      try {
+        // Pedir vía proxy seguro para evitar bloqueo CORS y desfase en Android WebView
+        let res = await fetch(`/api/anime/hentaitv/subtitulo?url=${encodeURIComponent(sub.url)}`);
+        if (!res.ok) {
+          res = await fetch(sub.url);
+        }
+        if (res.ok) {
+          const text = await res.text();
+          const cues = parseWebVTT(text);
+          cuesHentaitvRef.current = cues;
+          const pos = currentRef.current;
+          const activas = cues.filter((c) => c.start <= pos && pos <= c.end);
+          setCueActiva(activas.length > 0 ? activas.map((c) => c.text).join("\n") : "");
+        }
+      } catch {
+        cuesHentaitvRef.current = [];
+        setCueActiva("");
+      }
+    },
+    [subtitulosHentaitv]
+  );
+
   const cambiarSubtituloHentaitv = (value: string) => {
     if (source !== "hentaitv") return;
-    setSubtituloHentaitv(value);
+    void activarSubtituloHentaitv(value);
     mostrarControles();
   };
 
@@ -622,6 +713,15 @@ export function ReproductorAnimeExterno({
               const total = event.currentTarget.duration;
               currentRef.current = position;
               durationRef.current = Number.isFinite(total) ? total : 0;
+
+              if (source === "hentaitv" && cuesHentaitvRef.current.length > 0) {
+                const activas = cuesHentaitvRef.current.filter(
+                  (c) => position >= c.start && position <= c.end
+                );
+                const texto = activas.length > 0 ? activas.map((c) => c.text).join("\n") : "";
+                setCueActiva((prev) => (prev !== texto ? texto : prev));
+              }
+
               const ahora = performance.now();
               // El WebView no necesita redibujar el reproductor cuatro veces
               // por segundo. Los refs conservan precisión para progreso/salida.
@@ -639,19 +739,26 @@ export function ReproductorAnimeExterno({
               guardarProgreso(durationRef.current, durationRef.current);
               setControlsVisible(true);
             }}
+          />
+        )}
+
+        {/* Subtítulos sincronizados con el audio/video sin desfase ni fallos de capas en Android y PC */}
+        {source === "hentaitv" && cueActiva && (
+          <div
+            className={`pointer-events-none absolute inset-x-4 z-30 flex justify-center text-center transition-all duration-150 ${
+              controlsVisible ? "bottom-24 sm:bottom-28" : "bottom-6 sm:bottom-10"
+            }`}
           >
-            {source === "hentaitv" &&
-              subtitulosHentaitv.map((subtitulo) => (
-                <track
-                  key={subtitulo.id}
-                  data-hentaitv-subtitle-id={subtitulo.id}
-                  kind="subtitles"
-                  src={subtitulo.url}
-                  srcLang={subtitulo.lang}
-                  label={subtitulo.label}
-                />
-              ))}
-          </video>
+            <span
+              className="inline-block max-w-2xl rounded-md bg-black/85 px-4 py-1.5 font-sans text-sm sm:text-base md:text-lg font-bold text-white shadow-2xl backdrop-blur-sm leading-snug tracking-wide border border-white/10"
+              style={{
+                textShadow: "0 2px 4px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1)",
+                whiteSpace: "pre-line",
+              }}
+            >
+              {cueActiva}
+            </span>
+          </div>
         )}
 
         {data?.playback.kind === "embed" && (
@@ -764,115 +871,157 @@ export function ReproductorAnimeExterno({
               className="h-1.5 w-full cursor-pointer accent-[var(--accent)]"
               aria-label="Progreso del episodio"
             />
-            <div className="mt-3 flex items-center gap-3">
-              {!androidPlayer && (
-                <>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {!androidPlayer && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={alternarPlay}
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-lg hover:border-line-strong"
+                      aria-label={playing ? "Pausar" : "Reproducir"}
+                    >
+                      {playing ? "Ⅱ" : "▶"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={alternarMute}
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-base hover:border-line-strong"
+                      aria-label={muted ? "Activar sonido" : "Silenciar"}
+                    >
+                      {muted ? "×" : "♪"}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={muted ? 0 : volume}
+                      onChange={(event) => cambiarVolumen(Number(event.target.value))}
+                      className="hidden w-24 accent-[var(--accent)] sm:block"
+                      aria-label="Volumen"
+                    />
+                  </>
+                )}
+                <span className="font-mono text-[11px] tabular-nums text-white/75">
+                  {reloj(currentTime)} / {reloj(duration)}
+                </span>
+              </div>
+
+              {source === "hentaitv" && (
+                <div className="relative">
                   <button
                     type="button"
-                    onClick={alternarPlay}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-lg hover:border-line-strong"
-                    aria-label={playing ? "Pausar" : "Reproducir"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAjustesHentaitvVisible((prev) => !prev);
+                    }}
+                    className={`grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-full border text-sm sm:text-base transition ${
+                      ajustesHentaitvVisible
+                        ? "border-accent bg-accent text-black font-bold"
+                        : "border-white/25 bg-black/60 text-white/80 hover:border-line-strong hover:text-white"
+                    }`}
+                    title="Ajustes (calidad y subtítulos)"
+                    aria-label="Ajustes de calidad y subtítulos"
                   >
-                    {playing ? "Ⅱ" : "▶"}
+                    ⚙
                   </button>
-                  <button
-                    type="button"
-                    onClick={alternarMute}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-base hover:border-line-strong"
-                    aria-label={muted ? "Activar sonido" : "Silenciar"}
-                  >
-                    {muted ? "×" : "♪"}
-                  </button>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={muted ? 0 : volume}
-                    onChange={(event) => cambiarVolumen(Number(event.target.value))}
-                    className="hidden w-24 accent-[var(--accent)] sm:block"
-                    aria-label="Volumen"
-                  />
-                </>
+
+                  {ajustesHentaitvVisible && (
+                    <div
+                      className="absolute bottom-full right-0 mb-3 w-64 sm:w-72 rounded-xl border border-white/20 bg-black/95 p-4 shadow-2xl backdrop-blur-md z-50 animate-in fade-in zoom-in-95 duration-150"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
+                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-white">
+                          Ajustes
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAjustesHentaitvVisible(false)}
+                          className="text-white/60 hover:text-white text-xs px-1"
+                          aria-label="Cerrar ajustes"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/60">
+                            Subtítulos
+                          </label>
+                          <select
+                            value={subtituloHentaitv}
+                            onChange={(event) => cambiarSubtituloHentaitv(event.target.value)}
+                            className="h-9 w-full rounded-lg border border-white/20 bg-white/5 px-2.5 font-mono text-xs font-semibold text-white outline-none focus:border-accent"
+                            aria-label="Subtítulos de HentaiTV"
+                          >
+                            <option value="off" className="bg-black text-white">Desactivados</option>
+                            {subtitulosHentaitv.map((subtitulo) => (
+                              <option key={subtitulo.id} value={subtitulo.id} className="bg-black text-white">
+                                {subtitulo.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/60">
+                            Calidad
+                          </label>
+                          <select
+                            value={calidadHentaitv}
+                            onChange={(event) => cambiarCalidadHentaitv(Number(event.target.value))}
+                            className="h-9 w-full rounded-lg border border-white/20 bg-white/5 px-2.5 font-mono text-xs font-semibold text-white outline-none focus:border-accent"
+                            aria-label="Calidad de HentaiTV"
+                          >
+                            <option value={-1} className="bg-black text-white">Automática</option>
+                            {calidadesHentaitv.map((calidad) => (
+                              <option key={calidad.id} value={calidad.id} className="bg-black text-white">
+                                {calidad.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
-              <span className={`font-mono text-[11px] tabular-nums text-white/75 ${androidPlayer ? "ml-auto" : ""}`}>
-                {reloj(currentTime)} / {reloj(duration)}
-              </span>
             </div>
           </>
         )}
 
-        {source === "hentaitv" && esNativo && (
-          <div
-            className="mt-3 flex flex-wrap items-end gap-3 border-t border-white/15 pt-3"
-            data-od-id="hentaitv-playback-options"
-          >
-            <label className="min-w-40 flex-1 sm:max-w-64">
-              <span className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/50">
-                Subtítulos
+        {!androidPlayer && source !== "hentaitv" && (data?.sources.length ?? 0) > 1 && (
+          <div className="mt-3 border-t border-white/15 pt-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="shrink-0 font-mono text-[11px] font-bold tracking-[0.06em] text-white/45">
+                Fuentes
               </span>
-              <select
-                value={subtituloHentaitv}
-                onChange={(event) => cambiarSubtituloHentaitv(event.target.value)}
-                className="min-h-10 w-full rounded-md border border-white/20 bg-black px-3 font-mono text-[11px] font-bold text-white outline-none focus:border-accent"
-                aria-label="Subtítulos de HentaiTV"
-              >
-                <option value="off">Desactivados</option>
-                {subtitulosHentaitv.map((subtitulo) => (
-                  <option key={subtitulo.id} value={subtitulo.id}>
-                    {subtitulo.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="min-w-36 flex-1 sm:max-w-52">
-              <span className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white/50">
-                Calidad
-              </span>
-              <select
-                value={calidadHentaitv}
-                onChange={(event) => cambiarCalidadHentaitv(Number(event.target.value))}
-                className="min-h-10 w-full rounded-md border border-white/20 bg-black px-3 font-mono text-[11px] font-bold text-white outline-none focus:border-accent"
-                aria-label="Calidad de HentaiTV"
-              >
-                <option value={-1}>Automática</option>
-                {calidadesHentaitv.map((calidad) => (
-                  <option key={calidad.id} value={calidad.id}>
-                    {calidad.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              {data?.sources.map((source) => (
+                <button
+                  key={source.id}
+                  type="button"
+                  onClick={() => void cambiarFuente(source)}
+                  className={`min-h-10 shrink-0 rounded-md border px-4 font-mono text-[11px] font-bold tracking-[0.08em] transition ${
+                    source.id === data.selected_source
+                      ? "border-accent bg-accent text-black"
+                      : "border-white/20 bg-white/5 text-white hover:border-line-strong"
+                  }`}
+                >
+                  {source.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 font-mono text-[11px] tracking-[0.1em] text-white/40">
+              Reproducción provista por {sourceName} · MangaTotal no aloja el video
+            </p>
           </div>
         )}
-
-        {!androidPlayer && <div className="mt-3 border-t border-white/15 pt-3">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <span className="shrink-0 font-mono text-[11px] font-bold tracking-[0.06em] text-white/45">
-              Fuentes
-            </span>
-            {data?.sources.map((source) => (
-              <button
-                key={source.id}
-                type="button"
-                onClick={() => void cambiarFuente(source)}
-                className={`min-h-10 shrink-0 rounded-md border px-4 font-mono text-[11px] font-bold tracking-[0.08em] transition ${
-                  source.id === data.selected_source
-                    ? "border-accent bg-accent text-black"
-                    : "border-white/20 bg-white/5 text-white hover:border-line-strong"
-                }`}
-              >
-                {source.label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 font-mono text-[11px] tracking-[0.1em] text-white/40">
-            Reproducción provista por {sourceName} · MangaTotal no aloja el video
-          </p>
-        </div>}
       </div>
 
-      {androidPlayer && sourcesVisible && (
+      {androidPlayer && sourcesVisible && source !== "hentaitv" && (data?.sources.length ?? 0) > 1 && (
         <div
           className="absolute inset-x-0 bottom-0 z-50 border-t border-white/20 bg-black/95 px-4 pt-5"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
@@ -904,7 +1053,7 @@ export function ReproductorAnimeExterno({
         </div>
       )}
 
-      {!controlsVisible && !sourcesVisible && (
+      {!controlsVisible && !sourcesVisible && source !== "hentaitv" && (data?.sources.length ?? 0) > 1 && (
         <button
           type="button"
           onClick={androidPlayer ? mostrarFuentesAndroid : mostrarControles}

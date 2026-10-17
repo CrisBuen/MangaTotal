@@ -13,7 +13,12 @@ function Enlace(props: Props) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (regreso) return;
     if (typeof window !== "undefined" && window.history.length > 1) {
-      if (document.referrer && document.referrer.includes(window.location.host)) {
+      if (
+        document.referrer &&
+        document.referrer.includes(window.location.host) &&
+        !document.referrer.includes("/leer-externo/") &&
+        !document.referrer.includes("/leer/")
+      ) {
         e.preventDefault();
         window.history.back();
       }

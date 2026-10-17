@@ -20,6 +20,7 @@ export async function anotarHistorial(serie: {
   type?: string | null;
   last_chapter_id?: string | null;
   last_chapter_name?: string | null;
+  last_page_number?: number | null;
 }): Promise<void> {
   if (!serie.title || !serie.external_id) return;
 

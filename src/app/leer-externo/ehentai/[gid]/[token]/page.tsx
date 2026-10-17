@@ -1,14 +1,17 @@
 "use client";
 
-import { use, useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import type { FichaEhentai } from "@/lib/ehentai";
 
-export default function LeerEhentaiPage(props: {
+function LectorEhentaiContenido(props: {
   params: Promise<{ gid: string; token: string }>;
 }) {
   const { gid, token } = use(props.params);
+  const searchParams = useSearchParams();
+  const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? searchParams.get("p") ?? "1", 10) || 1);
   const [ficha, setFicha] = useState<FichaEhentai | null>(null);
   const [paginas, setPaginas] = useState<string[]>([]);
   const [error, setError] = useState<unknown>(null);
@@ -90,6 +93,8 @@ export default function LeerEhentaiPage(props: {
       }}
       grupo="E-Hentai"
       source="ehentai"
+      externalId={gid}
+      initialPage={initialPage}
       hrefVolver={volverA}
       hrefCapitulo={() => volverA}
       pages={paginas.map((url, i) => ({
@@ -102,5 +107,15 @@ export default function LeerEhentaiPage(props: {
       nextChapter={null}
       initialMode="cascade"
     />
+  );
+}
+
+export default function LeerEhentaiPage(props: {
+  params: Promise<{ gid: string; token: string }>;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <LectorEhentaiContenido {...props} />
+    </Suspense>
   );
 }

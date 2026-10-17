@@ -528,7 +528,18 @@ export default function BibliotecaPage() {
                                   {h.title}
                                 </h3>
                                 <p className="mt-1 font-mono text-[12px] text-faint sm:text-[13px]">
-                                  {h.last_chapter_name ? `Cap. ${h.last_chapter_name}` : "Empezado"}
+                                  {[
+                                    h.last_chapter_name && h.last_chapter_name !== "Capítulo Completo"
+                                      ? `Cap. ${h.last_chapter_name}`
+                                      : h.source === "ehentai"
+                                        ? "Completo"
+                                        : (h.last_chapter_name || "Empezado"),
+                                    h.last_page_number && h.last_page_number > 0
+                                      ? `pág. ${h.last_page_number}`
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
                                 </p>
                               </div>
                             </Link>

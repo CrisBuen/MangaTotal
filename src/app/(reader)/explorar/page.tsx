@@ -170,6 +170,7 @@ export default function ExplorarPage() {
   const [animeFuente, setAnimeFuente] = useState<FuenteAnime>("jkanime");
   const [animeHabilitado, setAnimeHabilitado] = useState(false);
   const [animeAdultoHabilitado, setAnimeAdultoHabilitado] = useState(false);
+  const [adultoComprobado, setAdultoComprobado] = useState(false);
   const lecturaActiva = restaurado && !(seccion === "animada" && animeHabilitado);
   const [olympus, setOlympus] = useState<SerieOlympus[] | null>(null);
   const [olympusPage, setOlympusPage] = useState(1);
@@ -207,6 +208,8 @@ export default function ExplorarPage() {
   const [ehTag, setEhTag] = useState<string | null>(null);
   const [ehModalTags, setEhModalTags] = useState(false);
   const [ehTagBusqueda, setEhTagBusqueda] = useState("");
+  const ehCursors = useRef<Record<number, string | null>>({ 1: null });
+  const [ehNextCursor, setEhNextCursor] = useState<string | null>(null);
 
   // Botón de actualizar: vuelve a pedir SOLO lo que está en pantalla, y
   // saltea la caché para que aparezcan los capítulos recién subidos.
@@ -396,6 +399,7 @@ export default function ExplorarPage() {
       setAnimeAdultoHabilitado(
         Boolean(me?.show_adult_content) && !me?.play_store_app && !isPlayStoreApp()
       );
+      setAdultoComprobado(true);
     };
     void (async () => {
       const guardada = await leerCacheAndroid<{
@@ -419,15 +423,16 @@ export default function ExplorarPage() {
         await guardarCacheAndroid("sesion:me", me, { privateData: true });
       } catch {
         // Con mala señal se conserva la preferencia comprobada anteriormente.
+        setAdultoComprobado(true);
       }
     })();
   }, []);
 
   useEffect(() => {
-    if (animeFuente === "hentaitv" && !animeAdultoHabilitado) {
+    if (adultoComprobado && animeFuente === "hentaitv" && !animeAdultoHabilitado) {
       setAnimeFuente("jkanime");
     }
-  }, [animeAdultoHabilitado, animeFuente]);
+  }, [adultoComprobado, animeAdultoHabilitado, animeFuente]);
   const [tmo, setTmo] = useState<SerieTmo[] | null>(null);
   const [tmoPage, setTmoPage] = useState(1);
   const [tmoMas, setTmoMas] = useState(false);
@@ -679,7 +684,14 @@ export default function ExplorarPage() {
     if (ehLangUrl) setEhLang(ehLangUrl);
     const ehTagUrl = leer("eh_tag");
     if (ehTagUrl) setEhTag(ehTagUrl);
-    if (f === "ehentai") setEhPage(pagina);
+    const ehNextUrl = leer("eh_next");
+    if (f === "ehentai") {
+      setEhPage(pagina);
+      if (pagina > 1 && ehNextUrl) {
+        ehCursors.current[pagina] = ehNextUrl;
+        setEhNextCursor(ehNextUrl);
+      }
+    }
 
     setRestaurado(true);
   }, []);
@@ -743,6 +755,7 @@ export default function ExplorarPage() {
     poner("eh_cat", ehCat === "todos" ? null : ehCat);
     poner("eh_lang", ehLang === "todos" ? null : ehLang);
     poner("eh_tag", ehTag);
+    poner("eh_next", ehPage > 1 ? (ehNextCursor || ehCursors.current[ehPage] || null) : null);
 
     window.history.replaceState(null, "", url.toString());
   }, [
@@ -752,7 +765,7 @@ export default function ExplorarPage() {
     ikiPage, ikiTipo, ikiGenero, ikiOrden,
     lcPage, lcGenero, lcInicial, lcLista,
     cwPage, cwOrden,
-    ehPage, ehCat, ehLang, ehTag,
+    ehPage, ehCat, ehLang, ehTag, ehNextCursor,
   ]);
 
   const load = useCallback(async (solicitud: number) => {
@@ -907,15 +920,30 @@ export default function ExplorarPage() {
     setError(false);
     const fresco = pedirFresco.current;
     try {
+      const cursorActual = ehCursors.current[ehPage] ?? null;
+      if (ehPage > 1 && !cursorActual) {
+        setEhNextCursor(null);
+        setEhPage(1);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (search.trim()) params.set("q", search.trim());
       if (ehCat && ehCat !== "todos") params.set("cat", ehCat);
       if (ehLang && ehLang !== "todos") params.set("lang", ehLang);
       if (ehTag && ehTag.trim()) params.set("tag", ehTag.trim());
-      if (ehPage > 1) params.set("page", String(ehPage - 1));
+      if (cursorActual) params.set("next", cursorActual);
+      if (fresco) params.set("fresco", "1");
 
-      const r = await cargarConCacheAndroid<{ series: SerieEhentai[]; hayMas: boolean }>(
-        `explorar:ehentai:${ehPage}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`,
+      const cacheKey = `explorar:ehentai:${ehPage}:${cursorActual ?? "inicio"}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`;
+
+      const r = await cargarConCacheAndroid<{
+        series: SerieEhentai[];
+        hayMas: boolean;
+        nextCursor?: string | null;
+        prevCursor?: string | null;
+      }>(
+        cacheKey,
         async (signal) => {
           const res = await fetch(`/api/externo/ehentai?${params.toString()}`, {
             cache: fresco ? "no-store" : "default",
@@ -929,15 +957,21 @@ export default function ExplorarPage() {
         },
         {
           force: fresco,
-          freshForMs: 15 * 60 * 1000,
+          freshForMs: 30 * 1000,
           onCached: (guardado) => {
             if (!solicitudVigente("ehentai", solicitud)) return;
+            if (guardado.nextCursor) {
+              ehCursors.current[ehPage + 1] = guardado.nextCursor;
+            }
             setEhGalleries(guardado.series);
             setEhHayMas(guardado.hayMas);
           },
         }
       );
       if (!solicitudVigente("ehentai", solicitud)) return;
+      if (r.nextCursor) {
+        ehCursors.current[ehPage + 1] = r.nextCursor;
+      }
       setEhGalleries(r.series);
       setEhHayMas(r.hayMas);
     } catch (err) {
@@ -973,15 +1007,17 @@ export default function ExplorarPage() {
     }
     if (prevEhFiltros.current !== clave) {
       prevEhFiltros.current = clave;
+      ehCursors.current = { 1: null };
+      setEhNextCursor(null);
       setEhPage(1);
     }
   }, [restaurado, search, ehCat, ehLang, ehTag]);
 
   useEffect(() => {
-    if (fuente === "ehentai" && !animeAdultoHabilitado) {
+    if (adultoComprobado && fuente === "ehentai" && !animeAdultoHabilitado) {
       setFuente("mangadex");
     }
-  }, [animeAdultoHabilitado, fuente]);
+  }, [adultoComprobado, animeAdultoHabilitado, fuente]);
 
   function toggleIn(list: string[], value: string, set: (v: string[]) => void) {
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -2082,7 +2118,11 @@ export default function ExplorarPage() {
             <div className="flex items-center justify-center gap-3 pt-8">
               <button
                 disabled={ehPage <= 1}
-                onClick={() => setEhPage((p) => Math.max(1, p - 1))}
+                onClick={() => {
+                  const ant = Math.max(1, ehPage - 1);
+                  setEhNextCursor(ehCursors.current[ant] ?? null);
+                  setEhPage(ant);
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 ← Anterior
@@ -2092,7 +2132,11 @@ export default function ExplorarPage() {
               </span>
               <button
                 disabled={!ehHayMas}
-                onClick={() => setEhPage((p) => p + 1)}
+                onClick={() => {
+                  const sig = ehPage + 1;
+                  setEhNextCursor(ehCursors.current[sig] ?? null);
+                  setEhPage(sig);
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Siguiente →

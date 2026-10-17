@@ -176,24 +176,36 @@ async function descriptorBusquedaIkigai() {
   }
 
   const codigoBusqueda = await traerTexto(IKIGAI_WEB + "/build/" + moduloBusqueda);
-  const dependencia = codigoBusqueda.match(
-    /import\{g as [A-Za-z_$][\w$]*\}from"\.\/([^"]+\.js)"/
-  )?.[1];
+  const fnMatch = codigoBusqueda.match(/await\s+([A-Za-z0-9_$]+)\s*\(\)\.then\(\s*\w+\s*=>\s*\{[^\}]*seriesList/);
+  const nombreFn = fnMatch?.[1];
+
+  const importMatch = nombreFn
+    ? codigoBusqueda.match(new RegExp(`import\\s*\\{[^}]*\\b([A-Za-z0-9_$]+)\\s+as\\s+${escaparRegex(nombreFn)}\\b[^}]*\\}\\s*from\\s*"\\.\\/([^"]+\\.js)"`))
+    : null;
+  const nombreExportado = importMatch?.[1] || codigoBusqueda.match(/import\{([A-Za-z0-9_$]+)\s+as\s+[A-Za-z0-9_$]+\}from"\.\/([^"]+\.js)"/)?.[1] || "g";
+  const dependencia = importMatch?.[2] || codigoBusqueda.match(/import\{[A-Za-z0-9_$]+\s+as\s+[A-Za-z0-9_$]+\}from"\.\/([^"]+\.js)"/)?.[1];
   if (!dependencia || !/^[A-Za-z0-9_-]+\.js$/.test(dependencia)) {
     throw new Error("Ikigai cambió el módulo de su buscador");
   }
 
   const codigoDatos = await traerTexto(IKIGAI_WEB + "/build/" + dependencia);
-  const nombreLocal = codigoDatos.match(/([A-Za-z_$][\w$]*) as g(?:,|})/)?.[1];
+  const exportMatch = codigoDatos.match(new RegExp(`\\b([A-Za-z0-9_$]+)\\s+as\\s+${escaparRegex(nombreExportado)}\\b`));
+  const nombreLocal = exportMatch?.[1] || codigoDatos.match(/([A-Za-z_$][\w$]*) as g(?:,|})/)?.[1];
   if (!nombreLocal) throw new Error("Ikigai cambió la exportación de su buscador");
 
-  const simbolo = codigoDatos.match(
+  const simbolo = (codigoDatos.match(
     new RegExp(
-      "(?:const\\s+|,)" +
+      "(?:const\\s+|,|;)\\s*" +
         escaparRegex(nombreLocal) +
         "=\\w+\\(\\w+\\(\"([^\"]+)\"\\)\\)"
     )
-  )?.[1];
+  )?.[1] || codigoDatos.match(
+    new RegExp(
+      "(?:const\\s+|,|;)\\s*" +
+        escaparRegex(nombreLocal) +
+        "=[^;]*\"(s_[A-Za-z0-9_]+)\""
+    )
+  )?.[1]);
   if (!simbolo) throw new Error("Ikigai cambió la función de su buscador");
 
   const qrl = simbolo.split("_").pop();

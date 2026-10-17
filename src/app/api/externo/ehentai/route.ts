@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
   const idioma = searchParams.get("lang") ?? "todos";
   const tag = searchParams.get("tag") ?? "";
   const pagina = Math.max(0, parseInt(searchParams.get("page") ?? "0", 10) || 0);
+  const next = searchParams.get("next") ?? undefined;
+  const prev = searchParams.get("prev") ?? undefined;
+  const fresco = searchParams.get("fresco") === "1";
 
   try {
     const resultado = await catalogoEhentai({
@@ -31,6 +34,9 @@ export async function GET(req: NextRequest) {
       idioma,
       tag,
       pagina,
+      next,
+      prev,
+      fresco,
     });
     return NextResponse.json(resultado);
   } catch (err) {

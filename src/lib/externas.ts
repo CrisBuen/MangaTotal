@@ -77,7 +77,12 @@ export function capituloHref(
     return con(`/leer-externo/catharsis/${chapterId}`, `serie=${externalId}`);
   }
   if (source === "ehentai") {
-    return con(`/leer-externo/ehentai/${chapterId}`);
+    const idCapitulo = chapterId.includes("/")
+      ? chapterId
+      : slug && slug.includes("/")
+        ? slug
+        : `${externalId}/${chapterId}`;
+    return con(`/leer-externo/ehentai/${idCapitulo}`);
   }
   return con(`/leer-externo/${chapterId}`);
 }

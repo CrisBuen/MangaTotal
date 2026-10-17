@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     type?: string | null;
     last_chapter_id?: string | null;
     last_chapter_name?: string | null;
+    last_page_number?: number | null;
   };
   try {
     body = await req.json();
@@ -86,12 +87,23 @@ export async function POST(req: NextRequest) {
   externalId = await resolverIdBiblioteca(user.id, source, externalId, body.type);
   const llave = { userId_source_externalId: { userId: user.id, source, externalId } };
 
-  const progreso =
+  const progresoCreate =
     body.last_chapter_id !== undefined
       ? {
           lastChapterId: body.last_chapter_id,
           lastChapterName: body.last_chapter_name ?? null,
-          lastPageNumber: null,
+          lastPageNumber: body.last_page_number ?? null,
+        }
+      : {};
+
+  const progresoUpdate =
+    body.last_chapter_id !== undefined
+      ? {
+          lastChapterId: body.last_chapter_id,
+          lastChapterName: body.last_chapter_name ?? null,
+          ...(body.last_page_number !== undefined
+            ? { lastPageNumber: body.last_page_number }
+            : {}),
         }
       : {};
 
@@ -107,11 +119,11 @@ export async function POST(req: NextRequest) {
       title,
       coverUrl: body.cover_url ?? null,
       type: body.type ?? null,
-      ...progreso,
+      ...progresoCreate,
     },
     // si ya estaba, se respeta de qué lado está: esto solo pone al día por
     // dónde va y la fecha
-    update: progreso,
+    update: progresoUpdate,
   });
 
   return NextResponse.json(publico(fila));
