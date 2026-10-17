@@ -11,6 +11,7 @@ import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from 
 import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
+import { BotonMigrar } from "@/components/library/BotonMigrar";
 
 interface SerieOlympus {
   id: number;
@@ -157,17 +158,20 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
             </p>
           </div>
 
-          <SaveExternalButton serie={serieGuardable} />
+          <div className="flex flex-wrap items-center gap-3">
+            <SaveExternalButton serie={serieGuardable} />
+            <BotonMigrar fuente="olympus" externalId={serie.slug} slug={serie.slug} titulo={serie.title} />
 
-          {/* atribución al grupo, en la ficha */}
-          <a
-            href={serie.url_original}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-accent bg-[var(--accent-soft)] px-3 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:opacity-90"
-          >
-            Traducido por {serie.team} ↗
-          </a>
+            {/* atribución al grupo, en la ficha */}
+            <a
+              href={serie.url_original}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-accent bg-[var(--accent-soft)] px-3 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:opacity-90"
+            >
+              Traducido por {serie.team} ↗
+            </a>
+          </div>
 
           {serie.genres.length > 0 && (
             <div className="flex flex-wrap gap-1.5">

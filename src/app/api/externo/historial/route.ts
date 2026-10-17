@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
     tipo === "all"
       ? {}
       : tipo === "adult"
-        ? { OR: [{ type: "adult" }, { source: "ehentai" }] }
-        : { AND: [{ OR: [{ type: null }, { type: { not: "adult" } }] }, { source: { not: "ehentai" } }] };
+        ? { OR: [{ type: "adult" }, { source: "ehentai" }, { source: "hitomi" }] }
+        : { AND: [{ OR: [{ type: null }, { type: { not: "adult" } }] }, { source: { not: "ehentai" } }, { source: { not: "hitomi" } }] };
 
   const historial = await db.externalSeries.findMany({
     where: {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Faltan datos de la serie" }, { status: 400 });
   }
 
-  if (source === "ehentai") {
+  if (source === "ehentai" || source === "hitomi") {
     body.type = "adult";
   }
 

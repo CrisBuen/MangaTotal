@@ -60,7 +60,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Faltan datos de la serie" }, { status: 400 });
   }
 
-  if (source === "ehentai") {
+  if (source === "ehentai" || source === "hitomi") {
     body.type = "adult";
   }
 

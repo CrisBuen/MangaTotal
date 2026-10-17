@@ -171,6 +171,8 @@ public class DescargaServicio extends Service {
                             if (host.contains("hath.network") || host.contains("e-hentai.org") || host.contains("exhentai.org") || host.matches("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")) {
                                 conn.setRequestProperty("Cookie", "nw=1");
                                 conn.setRequestProperty("Referer", "https://e-hentai.org/");
+                            } else if (host.contains("gold-usergeneratedcontent.net") || host.contains("hitomi.la")) {
+                                conn.setRequestProperty("Referer", "https://hitomi.la/");
                             } else if (host.contains("leercapitulo")) {
                                 conn.setRequestProperty("Referer", "https://www.leercapitulo.co/");
                             } else if (host.contains("ikigai")) {

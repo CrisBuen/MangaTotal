@@ -10,6 +10,7 @@ import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { CW_NOMBRE, CW_WEB, imagenCw, serieCw, type FichaCw } from "@/lib/catharsis";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
+import { BotonMigrar } from "@/components/library/BotonMigrar";
 
 /**
  * Ficha de una serie de Catharsis World.
@@ -140,6 +141,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
             )}
 
             <SaveExternalButton serie={serieGuardable} />
+            <BotonMigrar fuente="catharsis" externalId={id} slug={id} titulo={ficha.nombre} />
 
           </div>
         </div>

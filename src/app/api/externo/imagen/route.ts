@@ -11,9 +11,9 @@ import { contenidoAdultoPermitido } from "@/lib/contentAccess";
  * Retransmite los bytes de la imagen original sin comprimir ni almacenar en R2/Vercel.
  */
 const ALLOWED_HOSTS =
-  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.com|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.com|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
-const ADULT_HOSTS = /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+const ADULT_HOSTS = /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("u");
@@ -47,6 +47,8 @@ export async function GET(req: NextRequest) {
   if (/hath\.network|e-hentai\.org|exhentai\.org|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname)) {
     upstreamHeaders["Cookie"] = "nw=1";
     upstreamHeaders["Referer"] = "https://e-hentai.org/";
+  } else if (/gold-usergeneratedcontent\.net|hitomi\.la/.test(url.hostname)) {
+    upstreamHeaders["Referer"] = "https://hitomi.la/";
   } else if (/leercapitulo/.test(url.hostname)) {
     upstreamHeaders["Referer"] = "https://www.leercapitulo.co/";
   } else if (/zonatmo|visortmo|tumangaonline/.test(url.hostname)) {

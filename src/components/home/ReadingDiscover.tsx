@@ -18,6 +18,7 @@ import {
 } from "@/lib/ikigai";
 import { isPlayStoreApp } from "@/lib/appVersion";
 import { EHENTAI_CATEGORIAS, EHENTAI_IDIOMAS, type SerieEhentai } from "@/lib/ehentai";
+import { HITOMI_TIPOS } from "@/lib/hitomiTipos";
 
 function decodificarHtml(texto: string): string {
   return texto
@@ -53,6 +54,7 @@ const SOURCE_DETAILS: Record<string, { name: string; desc: string; searchPlaceho
   catharsis: { name: "Catharsis", desc: "Historias de su catálogo", searchPlaceholder: "Buscá en Catharsis…" },
   ikigai: { name: "Ikigai Mangas", desc: "Lectura desde Windows y Android", searchPlaceholder: "Buscá en Ikigai…" },
   ehentai: { name: "E-Hentai", desc: "Galerías y doujinshis +18", searchPlaceholder: "Buscá en E-Hentai (título, artista, cosplay…)" },
+  hitomi: { name: "Hitomi.la", desc: "Galerías y doujinshis +18", searchPlaceholder: "Buscá en Hitomi.la (título, artista, tag…)" },
 };
 
 const OLYMPUS_TOP_GENEROS = [
@@ -330,7 +332,7 @@ export function ReadingDiscover() {
 
   const cambiarFuente = (nueva: string) => {
     if (nueva === fuente) return;
-    if (nueva === "ehentai" && !adultoHabilitado) return;
+    if ((nueva === "ehentai" || nueva === "hitomi") && !adultoHabilitado) return;
     setFuente(nueva);
     try {
       sessionStorage.setItem("mangatotal:fuente-lectura", nueva);
@@ -384,6 +386,13 @@ export function ReadingDiscover() {
                 selected={fuente === "ehentai"}
               >
                 E-Hentai
+              </Chip>
+              <Chip
+                type="button"
+                onClick={() => cambiarFuente("hitomi")}
+                selected={fuente === "hitomi"}
+              >
+                Hitomi.la
               </Chip>
             </div>
           )}
@@ -1228,6 +1237,110 @@ export function ReadingDiscover() {
                 cover_url: item.thumb,
                 href: `/externo/ehentai/${item.gid}/${item.token}`,
                 meta: `${item.filecount} págs.`,
+              }))
+            }
+          />
+        </>
+      )}
+
+      {/* ============================================================== */}
+      {/* SECCIÓN HITOMI.LA (SOLO SI CONTENIDO ADULTO ESTÁ HABILITADO)   */}
+      {/* ============================================================== */}
+      {fuente === "hitomi" && adultoHabilitado && (
+        <>
+          <section className="od-genres" aria-labelledby="hitomi-genres">
+            <h2 id="hitomi-genres">Categorías y tipos de Hitomi.la</h2>
+            <p>Elegí un tipo de publicación para explorar en el catálogo +18.</p>
+            <div className="od-genre-grid">
+              {HITOMI_TIPOS.filter((t) => t.id !== "todos").map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/explorar?fuente=hitomi&hitomi_tipo=${t.id}`}
+                  prefetch={false}
+                >
+                  {t.label}
+                  <span aria-hidden="true">↗</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <UniversalRail
+            title="Populares en español · Hitomi.la"
+            href="/explorar?fuente=hitomi&hitomi_lang=spanish"
+            fetchUrl="/api/externo/hitomi?tipo=todos&lang=spanish"
+            isSaved={(item) => guardada("hitomi", item.id)}
+            mapResponse={(data) =>
+              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
+                id: item.id,
+                title: decodificarHtml(item.title),
+                cover_url: item.thumb,
+                href: `/externo/hitomi/${item.id}`,
+                meta: `${item.type || "doujinshi"} · ${item.filecount} págs.`,
+              }))
+            }
+          />
+
+          <UniversalRail
+            title="Doujinshis en español · Hitomi.la"
+            href="/explorar?fuente=hitomi&hitomi_tipo=doujinshi&hitomi_lang=spanish"
+            fetchUrl="/api/externo/hitomi?tipo=doujinshi&lang=spanish"
+            isSaved={(item) => guardada("hitomi", item.id)}
+            mapResponse={(data) =>
+              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
+                id: item.id,
+                title: decodificarHtml(item.title),
+                cover_url: item.thumb,
+                href: `/externo/hitomi/${item.id}`,
+                meta: `${item.filecount} págs.`,
+              }))
+            }
+          />
+
+          <UniversalRail
+            title="Manga en español · Hitomi.la"
+            href="/explorar?fuente=hitomi&hitomi_tipo=manga&hitomi_lang=spanish"
+            fetchUrl="/api/externo/hitomi?tipo=manga&lang=spanish"
+            isSaved={(item) => guardada("hitomi", item.id)}
+            mapResponse={(data) =>
+              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
+                id: item.id,
+                title: decodificarHtml(item.title),
+                cover_url: item.thumb,
+                href: `/externo/hitomi/${item.id}`,
+                meta: `${item.filecount} págs.`,
+              }))
+            }
+          />
+
+          <UniversalRail
+            title="Artist CG e Ilustraciones · Hitomi.la"
+            href="/explorar?fuente=hitomi&hitomi_tipo=artistcg"
+            fetchUrl="/api/externo/hitomi?tipo=artistcg&lang=todos"
+            isSaved={(item) => guardada("hitomi", item.id)}
+            mapResponse={(data) =>
+              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
+                id: item.id,
+                title: decodificarHtml(item.title),
+                cover_url: item.thumb,
+                href: `/externo/hitomi/${item.id}`,
+                meta: `${item.filecount} págs.`,
+              }))
+            }
+          />
+
+          <UniversalRail
+            title="Últimos lanzamientos globales · Hitomi.la"
+            href="/explorar?fuente=hitomi&hitomi_lang=todos"
+            fetchUrl="/api/externo/hitomi?tipo=todos&lang=todos"
+            isSaved={(item) => guardada("hitomi", item.id)}
+            mapResponse={(data) =>
+              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
+                id: item.id,
+                title: decodificarHtml(item.title),
+                cover_url: item.thumb,
+                href: `/externo/hitomi/${item.id}`,
+                meta: `${item.language || "all"} · ${item.filecount} págs.`,
               }))
             }
           />

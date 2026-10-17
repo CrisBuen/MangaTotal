@@ -11,6 +11,7 @@ import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from 
 import { TMO_NOMBRE, serieTmo, capituloTmo } from "@/lib/zonatmo";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
+import { BotonMigrar } from "@/components/library/BotonMigrar";
 
 type Ficha = Awaited<ReturnType<typeof serieTmo>>;
 
@@ -124,6 +125,7 @@ export default function SerieTmoPage(props: {
             >
               Ver en {TMO_NOMBRE} ↗
             </a>
+            <BotonMigrar fuente="tmo" externalId={`${tipo}/${id}/${slug}`} slug={slug} titulo={ficha.title} />
           </div>
 
           {ficha.generos.length > 0 && (

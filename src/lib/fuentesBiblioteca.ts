@@ -5,9 +5,12 @@ export const FUENTES_BIBLIOTECA = [
   { id: "tmo", nombre: "ZonaTMO" },
   { id: "catharsis", nombre: "Catharsis World" },
   { id: "mangadex", nombre: "MangaDex" },
+  { id: "ehentai", nombre: "E-Hentai (+18)" },
+  { id: "hitomi", nombre: "Hitomi.la (+18)" },
 ] as const;
 
 export function regresoFuente(fuente: string | null): string | null {
-  return FUENTES_BIBLIOTECA.some(f => f.id === fuente)
-    ? `/fuentes?fuente=${fuente}` : null;
+  return FUENTES_BIBLIOTECA.some((f) => f.id === fuente)
+    ? `/fuentes?fuente=${fuente}`
+    : null;
 }

@@ -11,6 +11,7 @@ import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from 
 import { LC_NOMBRE, serieLc, paginasLc } from "@/lib/leercapitulo";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
+import { BotonMigrar } from "@/components/library/BotonMigrar";
 
 type Ficha = Awaited<ReturnType<typeof serieLc>>;
 
@@ -128,6 +129,12 @@ export default function SerieLcPage(props: {
             >
               Ver en {LC_NOMBRE} ↗
             </a>
+            <BotonMigrar
+              fuente="leercapitulo"
+              externalId={`${ficha.id}/${ficha.slug}`}
+              slug={ficha.slug}
+              titulo={ficha.title}
+            />
           </div>
 
           {ficha.generos.length > 0 && (

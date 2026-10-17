@@ -12,6 +12,7 @@ import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai, lecturaIkigai } from "@/lib/ikigai";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
+import { BotonMigrar } from "@/components/library/BotonMigrar";
 
 type Ficha = Awaited<ReturnType<typeof serieIkigai>>;
 
@@ -116,6 +117,7 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
             >
               Ver en {IKIGAI_NOMBRE} ↗
             </a>
+            <BotonMigrar fuente="ikigai" externalId={slug} slug={slug} titulo={ficha.title} />
           </div>
 
           {ficha.generos.length > 0 && (

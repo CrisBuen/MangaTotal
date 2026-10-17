@@ -51,6 +51,11 @@ import {
   buscarEtiquetasEhentai,
   type EhentaiTag,
 } from "@/lib/ehentaiTags";
+import {
+  HITOMI_IDIOMAS,
+  HITOMI_TIPOS,
+  type SerieHitomi,
+} from "@/lib/hitomiTipos";
 
 function decodificarHtml(texto: string): string {
   return texto
@@ -210,6 +215,14 @@ export default function ExplorarPage() {
   const [ehTagBusqueda, setEhTagBusqueda] = useState("");
   const ehCursors = useRef<Record<number, string | null>>({ 1: null });
   const [ehNextCursor, setEhNextCursor] = useState<string | null>(null);
+
+  const [hitomiSeries, setHitomiSeries] = useState<SerieHitomi[] | null>(null);
+  const [hitomiPage, setHitomiPage] = useState(1);
+  const [hitomiTotalPaginas, setHitomiTotalPaginas] = useState(1);
+  const [hitomiHayMas, setHitomiHayMas] = useState(false);
+  const [hitomiLang, setHitomiLang] = useState("spanish");
+  const [hitomiTipo, setHitomiTipo] = useState("todos");
+  const [hitomiTag, setHitomiTag] = useState<string | null>(null);
 
   // Botón de actualizar: vuelve a pedir SOLO lo que está en pantalla, y
   // saltea la caché para que aparezcan los capítulos recién subidos.
@@ -693,6 +706,16 @@ export default function ExplorarPage() {
       }
     }
 
+    const hitomiTipoUrl = leer("hitomi_tipo");
+    if (hitomiTipoUrl) setHitomiTipo(hitomiTipoUrl);
+    const hitomiLangUrl = leer("hitomi_lang");
+    if (hitomiLangUrl) setHitomiLang(hitomiLangUrl);
+    const hitomiTagUrl = leer("hitomi_tag") || leer("hi_tag");
+    if (hitomiTagUrl) setHitomiTag(hitomiTagUrl);
+    if (f === "hitomi") {
+      setHitomiPage(pagina);
+    }
+
     setRestaurado(true);
   }, []);
 
@@ -723,7 +746,9 @@ export default function ExplorarPage() {
                 ? cwPage
                 : fuente === "ehentai"
                   ? ehPage
-                  : Math.floor(offset / 24) + 1;
+                  : fuente === "hitomi"
+                    ? hitomiPage
+                    : Math.floor(offset / 24) + 1;
     poner("p", pagina > 1 ? pagina : null);
 
     poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
@@ -757,6 +782,10 @@ export default function ExplorarPage() {
     poner("eh_tag", ehTag);
     poner("eh_next", ehPage > 1 ? (ehNextCursor || ehCursors.current[ehPage] || null) : null);
 
+    poner("hitomi_tipo", hitomiTipo === "todos" ? null : hitomiTipo);
+    poner("hitomi_lang", hitomiLang === "spanish" ? null : hitomiLang);
+    poner("hitomi_tag", hitomiTag);
+
     window.history.replaceState(null, "", url.toString());
   }, [
     restaurado, seccion, animeFuente, fuente, search, offset, order, lang, selectedGenres, origin, status,
@@ -766,6 +795,7 @@ export default function ExplorarPage() {
     lcPage, lcGenero, lcInicial, lcLista,
     cwPage, cwOrden,
     ehPage, ehCat, ehLang, ehTag, ehNextCursor,
+    hitomiPage, hitomiTipo, hitomiLang, hitomiTag,
   ]);
 
   const load = useCallback(async (solicitud: number) => {
@@ -1013,8 +1043,93 @@ export default function ExplorarPage() {
     }
   }, [restaurado, search, ehCat, ehLang, ehTag]);
 
+  const cargarHitomi = useCallback(async (solicitud: number) => {
+    if (!solicitudVigente("hitomi", solicitud)) return;
+    setError(false);
+    const fresco = pedirFresco.current;
+    try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("q", search.trim());
+      if (hitomiTipo && hitomiTipo !== "todos") params.set("tipo", hitomiTipo);
+      if (hitomiLang) params.set("lang", hitomiLang);
+      if (hitomiTag && hitomiTag.trim()) params.set("tag", hitomiTag.trim());
+      params.set("page", String(hitomiPage));
+
+      const cacheKey = `explorar:hitomi:${hitomiPage}:${hitomiTipo}:${hitomiLang}:${hitomiTag ?? ""}:${search.trim()}`;
+
+      const r = await cargarConCacheAndroid<{
+        series: SerieHitomi[];
+        pagina: number;
+        totalPaginas: number;
+        totalResultados: number;
+        hayMas: boolean;
+      }>(
+        cacheKey,
+        async (signal) => {
+          const res = await fetch(`/api/externo/hitomi?${params.toString()}`, {
+            cache: fresco ? "no-store" : "default",
+            signal,
+          });
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => null);
+            throw new Error(errJson?.error || "Error al cargar Hitomi.la");
+          }
+          return res.json();
+        },
+        {
+          force: fresco,
+          freshForMs: 30 * 1000,
+          onCached: (guardado) => {
+            if (!solicitudVigente("hitomi", solicitud)) return;
+            setHitomiSeries(guardado.series);
+            setHitomiHayMas(guardado.hayMas);
+            setHitomiTotalPaginas(guardado.totalPaginas);
+          },
+        }
+      );
+      if (!solicitudVigente("hitomi", solicitud)) return;
+      setHitomiSeries(r.series);
+      setHitomiHayMas(r.hayMas);
+      setHitomiTotalPaginas(r.totalPaginas);
+    } catch (err) {
+      if (!solicitudVigente("hitomi", solicitud)) return;
+      setError(true);
+      setErrorDetalle(err instanceof Error ? err.message : null);
+      setHitomiSeries([]);
+    } finally {
+      if (!solicitudVigente("hitomi", solicitud)) return;
+      pedirFresco.current = false;
+      setRefrescando(false);
+    }
+  }, [hitomiPage, search, hitomiTipo, hitomiLang, hitomiTag, recarga, solicitudVigente]);
+
   useEffect(() => {
-    if (adultoComprobado && fuente === "ehentai" && !animeAdultoHabilitado) {
+    if (fuente !== "hitomi" || !animeAdultoHabilitado) return;
+    const solicitud = nuevaSolicitud("hitomi");
+    if (!pedirFresco.current) setHitomiSeries(null);
+    const t = setTimeout(() => void cargarHitomi(solicitud), search ? 400 : 0);
+    return () => {
+      clearTimeout(t);
+      cancelarSolicitud("hitomi", solicitud);
+    };
+  }, [cargarHitomi, search, fuente, animeAdultoHabilitado, nuevaSolicitud, cancelarSolicitud]);
+
+  const prevHitomiFiltros = useRef<string | null>(null);
+  useEffect(() => {
+    if (!restaurado) return;
+    const clave = JSON.stringify({ search, hitomiTipo, hitomiLang, hitomiTag });
+    if (prevHitomiFiltros.current === null) {
+      prevHitomiFiltros.current = clave;
+      return;
+    }
+    if (prevHitomiFiltros.current !== clave) {
+      prevHitomiFiltros.current = clave;
+      setHitomiPage(1);
+    }
+  }, [restaurado, search, hitomiTipo, hitomiLang, hitomiTag]);
+
+  useEffect(() => {
+    if (adultoComprobado && (fuente === "ehentai" || fuente === "hitomi") && !animeAdultoHabilitado) {
       setFuente("mangadex");
     }
   }, [adultoComprobado, animeAdultoHabilitado, fuente]);
@@ -1140,6 +1255,13 @@ export default function ExplorarPage() {
                 selected={fuente === "ehentai"}
               >
                 E-Hentai (+18)
+              </Chip>
+              <Chip
+                type="button"
+                onClick={() => cambiarFuente("hitomi")}
+                selected={fuente === "hitomi"}
+              >
+                Hitomi.la (+18)
               </Chip>
             </div>
           )}
@@ -1318,6 +1440,51 @@ export default function ExplorarPage() {
               >
                 ✕ Quitar tag
               </button>
+            )}
+          </>
+        )}
+
+        {fuente === "hitomi" && (
+          <>
+            <select
+              value={hitomiTipo}
+              onChange={(e) => setHitomiTipo(e.target.value)}
+              className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
+            >
+              <option value="todos">Todos los tipos</option>
+              {HITOMI_TIPOS.filter((t) => t.id !== "todos").map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={hitomiLang}
+              onChange={(e) => setHitomiLang(e.target.value)}
+              className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
+            >
+              {HITOMI_IDIOMAS.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.label}
+                </option>
+              ))}
+            </select>
+
+            {hitomiTag && (
+              <div className="flex items-center gap-2">
+                <span className="rounded-md border border-accent bg-[var(--accent-soft)] px-3 py-2 text-xs font-semibold text-accent-ink">
+                  🏷️ Tag: {hitomiTag}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setHitomiTag(null)}
+                  className="text-xs font-semibold text-danger hover:underline"
+                  title="Quitar filtro de etiqueta"
+                >
+                  ✕ Quitar tag
+                </button>
+              </div>
             )}
           </>
         )}
@@ -2253,10 +2420,109 @@ export default function ExplorarPage() {
         </div>
       )}
 
+      {fuente === "hitomi" && (
+        hitomiSeries === null ? (
+          <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
+            Cargando catálogo de Hitomi.la...
+          </p>
+        ) : hitomiSeries.length === 0 && !error ? (
+          <Surface className="p-12 text-center">
+            <p className="text-lg font-bold text-ink">Sin resultados</p>
+            <p className="mt-1 text-sm text-subtle">Probá con otro término, tipo o etiqueta.</p>
+          </Surface>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              {hitomiSeries.map((s) => (
+                <div key={s.id} className="group block">
+                  <Link
+                    href={`/externo/hitomi/${s.id}`}
+                    prefetch={false}
+                    className={`block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("hitomi", s.id, "adult") ? "opacity-60" : ""}`}
+                  >
+                    <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                      <MarcaGuardada visible={guardada("hitomi", s.id, "adult")} />
+                      {s.thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={s.thumb}
+                          alt={s.title}
+                          className="h-full w-full object-cover transition duration-500"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
+                          Sin portada
+                        </div>
+                      )}
+                      <span className="absolute left-2.5 top-2.5 rounded-md border border-danger bg-[color-mix(in_oklch,var(--bg)_82%,transparent)] px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-danger">
+                        +18
+                      </span>
+                      {s.filecount > 0 && (
+                        <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink">
+                          {s.filecount} págs.
+                        </span>
+                      )}
+                    </div>
+                    <div className="px-1 pt-3">
+                      <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
+                        {decodificarHtml(s.title)}
+                      </h3>
+                      <p className="mt-1 font-mono text-[12px] text-faint">
+                        {[s.type, s.language, s.artists?.[0]].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                  </Link>
+
+                  {s.tags && s.tags.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1 px-1">
+                      {s.tags.slice(0, 3).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setHitomiTag(t)}
+                          className="rounded-full border border-line bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] text-subtle transition hover:border-accent hover:text-accent-ink"
+                          title={`Filtrar por ${t}`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-8">
+              <button
+                disabled={hitomiPage <= 1}
+                onClick={() => setHitomiPage((p) => Math.max(1, p - 1))}
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
+              >
+                ← Anterior
+              </button>
+              <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">
+                Página {hitomiPage} {hitomiTotalPaginas > 1 ? `de ${hitomiTotalPaginas}` : ""}
+              </span>
+              <button
+                disabled={!hitomiHayMas || (hitomiTotalPaginas > 0 && hitomiPage >= hitomiTotalPaginas)}
+                onClick={() => setHitomiPage((p) => p + 1)}
+                className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </>
+        )
+      )}
+
       <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         {fuente === "ehentai"
           ? "Catálogo y galerías provistos por E-Hentai"
-          : "Catálogo y capítulos provistos por MangaDex y sus grupos de scanlation"}
+          : fuente === "hitomi"
+            ? "Catálogo y galerías provistos por Hitomi.la"
+            : "Catálogo y capítulos provistos por MangaDex y sus grupos de scanlation"}
       </p>
     </div>
   );

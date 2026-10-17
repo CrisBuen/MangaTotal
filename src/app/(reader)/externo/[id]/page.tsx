@@ -9,6 +9,7 @@ import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { use, useCallback, useEffect, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
+import { BotonMigrar } from "@/components/library/BotonMigrar";
 
 interface ExternalSeries {
   id: string;
@@ -198,6 +199,7 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
               </Link>
             )}
             <SaveExternalButton serie={serieGuardable} />
+            <BotonMigrar fuente="mangadex" externalId={id} titulo={series.title} />
             <div className="flex gap-1 rounded-md border border-line bg-[var(--surface-raised)] p-1">
               {[
                 { key: "es", label: "Español" },

@@ -14,6 +14,7 @@ export const FUENTES_EXTERNAS = [
   "leercapitulo",
   "catharsis",
   "ehentai",
+  "hitomi",
 ] as const;
 
 export type FuenteExterna = (typeof FUENTES_EXTERNAS)[number];
@@ -30,6 +31,7 @@ export function fichaHref(source: string, externalId: string, slug: string | nul
   if (source === "leercapitulo") return `/externo/leercapitulo/${externalId}`;
   if (source === "catharsis") return `/externo/catharsis/${externalId}`;
   if (source === "ehentai") return `/externo/ehentai/${externalId}`;
+  if (source === "hitomi") return `/externo/hitomi/${externalId}`;
   return `/externo/${externalId}`;
 }
 
@@ -83,6 +85,9 @@ export function capituloHref(
         ? slug
         : `${externalId}/${chapterId}`;
     return con(`/leer-externo/ehentai/${idCapitulo}`);
+  }
+  if (source === "hitomi") {
+    return con(`/leer-externo/hitomi/${externalId}`);
   }
   return con(`/leer-externo/${chapterId}`);
 }

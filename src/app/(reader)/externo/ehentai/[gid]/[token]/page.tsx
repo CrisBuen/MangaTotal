@@ -5,6 +5,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { VolverFuente } from "@/components/library/VolverFuente";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
+import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { Surface } from "@/components/ui/Surface";
 import { anotarHistorial } from "@/components/library/historial";
 import type { FichaEhentai } from "@/lib/ehentai";
@@ -170,6 +171,7 @@ export default function SerieEhentaiPage(props: {
               Empezar a leer
             </Link>
             <SaveExternalButton serie={serieGuardable} />
+            <BotonMigrar fuente="ehentai" externalId={`${gid}/${token}`} titulo={tituloLimpio} />
           </div>
         </div>
       </div>

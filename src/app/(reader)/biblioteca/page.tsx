@@ -78,6 +78,7 @@ const NOMBRE_FUENTE: Record<string, string> = {
   leercapitulo: "LeerCapítulo",
   catharsis: "Catharsis",
   ehentai: "E-Hentai",
+  hitomi: "Hitomi.la",
 };
 
 type Filter = "normal" | "adult" | "favoritos" | "historial";

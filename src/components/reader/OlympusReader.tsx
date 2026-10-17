@@ -54,7 +54,7 @@ export function OlympusReader({
   /** Identificador externo exacto si difiere de serie.slug */
   externalId?: string;
   /** Fuente, para guardar el progreso en la biblioteca. */
-  source?: "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis" | "ehentai";
+  source?: "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis" | "ehentai" | "hitomi";
   /** Enlaces propios de la fuente; por defecto, los de Olympus. */
   hrefVolver?: string;
   hrefCapitulo?: (id: number | string) => string;
