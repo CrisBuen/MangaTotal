@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Locale;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -376,7 +377,79 @@ public class FuentesPlugin extends Plugin {
         return estado == 301 || estado == 302 || estado == 303 || estado == 307 || estado == 308;
     }
 
+    private static FuentesPlugin instancia;
+
+    @Override
+    public void load() {
+        super.load();
+        instancia = this;
+    }
+
+    public static void notificarProgresoDescarga(String fuente, String serie, String capitulo, int actual, int total, int porcentaje) {
+        if (instancia != null) {
+            JSObject data = new JSObject();
+            data.put("fuente", fuente);
+            data.put("serie", serie);
+            data.put("capitulo", capitulo);
+            data.put("actual", actual);
+            data.put("total", total);
+            data.put("porcentaje", porcentaje);
+            instancia.notifyListeners("descargaProgreso", data);
+        }
+    }
+
+    public static void notificarDescargaTerminada(String fuente, String serie, String capitulo, int total) {
+        if (instancia != null) {
+            JSObject data = new JSObject();
+            data.put("fuente", fuente);
+            data.put("serie", serie);
+            data.put("capitulo", capitulo);
+            data.put("total", total);
+            instancia.notifyListeners("descargaCompletada", data);
+        }
+    }
+
     /**
+     * Inicia la descarga del capítulo en segundo plano (con notificación continua en la barra de estado).
+     * El usuario puede salir de la app, bloquear la pantalla o abrir el explorador y la descarga sigue.
+     */
+    @PluginMethod
+    public void iniciarDescarga(final PluginCall call) {
+        instancia = this;
+        final String fuente = call.getString("fuente", "MangaTotal");
+        final String serie = call.getString("serie", "Serie");
+        final String capitulo = call.getString("capitulo", "Capítulo");
+        final com.getcapacitor.JSArray urlsArray = call.getArray("urls");
+
+        if (urlsArray == null || urlsArray.length() == 0) {
+            call.reject("No hay páginas para descargar");
+            return;
+        }
+
+        ArrayList<String> urls = new ArrayList<>();
+        for (int i = 0; i < urlsArray.length(); i++) {
+            String u = urlsArray.optString(i);
+            if (u != null && !u.isEmpty()) urls.add(u);
+        }
+
+        Intent intent = new Intent(getContext(), DescargaServicio.class);
+        intent.putExtra("fuente", fuente);
+        intent.putExtra("serie", serie);
+        intent.putExtra("capitulo", capitulo);
+        intent.putStringArrayListExtra("urls", urls);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(intent);
+        } else {
+            getContext().startService(intent);
+        }
+
+        JSObject salida = new JSObject();
+        salida.put("ok", true);
+        salida.put("mensaje", "Descarga iniciada en segundo plano");
+        call.resolve(salida);
+    }
+
     /**
      * Asegura la creación de la estructura de carpetas estilo Mihon en la raíz de almacenamiento:
      * /storage/emulated/0/MangaTotal/

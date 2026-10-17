@@ -19,6 +19,7 @@ const copias = [
     "android/app/src/main/java/app/mangatotal/android/MainActivity.java",
   ],
   ["patches/FuentesPlugin.java", "android/app/src/main/java/app/mangatotal/android/FuentesPlugin.java"],
+  ["patches/DescargaServicio.java", "android/app/src/main/java/app/mangatotal/android/DescargaServicio.java"],
   ["patches/DesafioActivity.java", "android/app/src/main/java/app/mangatotal/android/DesafioActivity.java"],
   ["patches/PantallaPlugin.java", "android/app/src/main/java/app/mangatotal/android/PantallaPlugin.java"],
   [

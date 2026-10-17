@@ -133,6 +133,12 @@ interface PluginFuentesDescarga {
     abrioAjustes?: boolean;
     ruta?: string;
   }>;
+  iniciarDescarga?: (opciones: {
+    fuente: string;
+    serie: string;
+    capitulo: string;
+    urls: string[];
+  }) => Promise<{ ok: boolean; mensaje?: string }>;
   guardarArchivo?: (opciones: {
     fuente: string;
     serie: string;
@@ -152,6 +158,10 @@ interface PluginFuentesDescarga {
     capitulo: string;
     total: number;
   }) => Promise<void>;
+  addListener?: (
+    eventName: string,
+    listenerFunc: (data: any) => void
+  ) => Promise<{ remove: () => Promise<void> | void }>;
 }
 
 export function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
@@ -424,6 +434,94 @@ export async function descargarCapituloLocal(opciones: {
   const urls = await obtenerPaginas();
   if (!urls || urls.length === 0) {
     throw new Error("No se encontraron páginas para este capítulo");
+  }
+
+  // 1. En Android nativo: delegar la descarga al Foreground Service con notificación
+  // y WakeLock. Guarda directamente en /storage/emulated/0/MangaTotal/descargas/{fuente}/{serie}/{capitulo}/
+  // sin pasar por Vercel, R2 ni proxies intermedios. Funciona 100% en segundo plano.
+  const pluginAndroid = pluginFuentesAndroid();
+  if (pluginAndroid?.iniciarDescarga) {
+    onProgreso?.({
+      fase: "descargando",
+      actual: 0,
+      total: urls.length,
+      porcentaje: 2,
+    });
+
+    await new Promise<void>(async (resolve, reject) => {
+      let terminado = false;
+      let handleProgreso: { remove: () => void | Promise<void> } | null = null;
+      let handleFin: { remove: () => void | Promise<void> } | null = null;
+
+      const limpiar = () => {
+        if (!terminado) {
+          terminado = true;
+          try { void handleProgreso?.remove(); } catch {}
+          try { void handleFin?.remove(); } catch {}
+          resolve();
+        }
+      };
+
+      if (typeof pluginAndroid.addListener === "function") {
+        try {
+          handleProgreso = await pluginAndroid.addListener("descargaProgreso", (datos: {
+            capitulo?: string;
+            actual: number;
+            total: number;
+            porcentaje: number;
+          }) => {
+            if (datos && (!datos.capitulo || datos.capitulo === capitulo)) {
+              onProgreso?.({
+                fase: "descargando",
+                actual: datos.actual,
+                total: datos.total,
+                porcentaje: datos.porcentaje,
+              });
+            }
+          });
+
+          handleFin = await pluginAndroid.addListener("descargaCompletada", (datos: {
+            capitulo?: string;
+            total: number;
+          }) => {
+            if (datos && (!datos.capitulo || datos.capitulo === capitulo)) {
+              marcarCapituloDescargado(fuente, serie, capitulo);
+              onProgreso?.({
+                fase: "completado",
+                actual: datos.total,
+                total: datos.total,
+                porcentaje: 100,
+              });
+              limpiar();
+            }
+          });
+        } catch {}
+      }
+
+      try {
+        await pluginAndroid.iniciarDescarga({
+          fuente,
+          serie,
+          capitulo,
+          urls,
+        });
+        marcarCapituloDescargado(fuente, serie, capitulo);
+      } catch (err) {
+        limpiar();
+        reject(err);
+        return;
+      }
+
+      // Si el usuario sale o si los eventos IPC no se reciben directamente en la vista web,
+      // cerramos tras 3 segundos para dejar libre la UI; el Foreground Service sigue en el sistema.
+      setTimeout(() => {
+        if (!handleFin) {
+          limpiar();
+        }
+      }, 3000);
+    });
+
+    return;
   }
 
   const total = urls.length;

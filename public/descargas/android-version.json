@@ -1,15 +1,15 @@
 {
-  "versionCode": 26,
-  "versionName": "1.9.13",
+  "versionCode": 27,
+  "versionName": "1.9.14",
   "date": "2026-10-17",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "3AB68CBD946ADBEDB0220115DA4D42D92B79E1AF72057FEB95B3A18E96EDBAA6",
+  "sha256": "FAC99B9F7FD505424DC6C54713D52CC0CC432390BADB1496F6C5530532EE1D08",
   "sizeMb": 4.1,
   "changes": [
-    "Crea la estructura de carpetas MangaTotal (descargas, backups, local) en la raíz del almacenamiento estilo Mihon",
-    "Permiso de acceso a todos los archivos y guardado local directo en /storage/emulated/0/MangaTotal",
-    "Descargas y resolución ultrarrápida de galerías y páginas de E-Hentai",
-    "Indicador visual de progreso en porcentaje y estado persistente de capítulos descargados"
+    "Servicio nativo de descarga en segundo plano (Foreground Service) con notificación continua y WakeLock",
+    "Descargas directas al almacenamiento local estilo Mihon (/storage/emulated/0/MangaTotal/descargas) sin pasar por servidores intermedios",
+    "Progreso en tiempo real tanto en la notificación de la barra de estado como en el botón de la app",
+    "Compatibilidad completa con todas las fuentes externas y contenido +18"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }
