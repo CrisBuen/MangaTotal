@@ -116,9 +116,14 @@ export function urlSerieEnOlympus(tipo: string, slug: string): string {
   return `${OLYMPUS_WEB}/series/${tipo}-${slug}`;
 }
 
-/** Enlace al capítulo en el sitio de Olympus. */
-export function urlCapituloEnOlympus(id: number, tipo: string, slug: string): string {
-  return `${OLYMPUS_WEB}/capitulo/${id}/${tipo}-${slug}`;
+/**
+ * Enlace al capítulo en el sitio de Olympus.
+ * Desde 18/10/2026 es /series/{comic|novela}-{slug}/capitulo/{numero}; la
+ * ruta anterior /capitulo/{id}/{tipo}-{slug} ya no existe.
+ */
+export function urlCapituloEnOlympus(nombre: string, tipo: string, slug: string): string {
+  const prefijo = tipo === "novel" ? "novela" : tipo;
+  return `${OLYMPUS_WEB}/series/${prefijo}-${slug}/capitulo/${encodeURIComponent(nombre.trim())}`;
 }
 
 export function serieResumen(s: OlySerieLista) {
@@ -271,11 +276,28 @@ interface PaginaCapitulos {
   meta: { current_page: number; last_page: number; total: number };
 }
 
-const paginaDeCapitulos = (slug: string, page: number, fresco = false) =>
-  olympusFetch<PaginaCapitulos>(
-    `${OLYMPUS_PANEL}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}`,
-    fresco ? 0 : 600
-  );
+/**
+ * La lista de capítulos tiene dos orígenes con la misma forma: el panel
+ * (OLYMPUS_PANEL) y la ruta homónima del sitio principal. En mantenimiento
+ * el panel responde 520 de Cloudflare mientras el sitio sigue publicando
+ * capítulos, así que se prueba el sitio y el panel queda de respaldo. Se
+ * valida la forma para no tomar por buena una respuesta de error con 200.
+ */
+const paginaDeCapitulos = async (slug: string, page: number, fresco = false) => {
+  const ruta = `/api/series/${encodeURIComponent(slug)}/chapters?page=${page}`;
+  const valida = (r: PaginaCapitulos) => Array.isArray(r?.data) && Boolean(r?.meta);
+  let ultimoError: unknown;
+  for (const base of [OLYMPUS_WEB, OLYMPUS_PANEL]) {
+    try {
+      const r = await olympusFetch<PaginaCapitulos>(`${base}${ruta}`, fresco ? 0 : 600);
+      if (valida(r)) return r;
+      ultimoError = new Error(`Olympus devolvió capítulos con formato inesperado en ${base}`);
+    } catch (err) {
+      ultimoError = err;
+    }
+  }
+  throw ultimoError;
+};
 
 const aCapitulo = (c: OlyCapitulo) => ({
   id: c.id,
@@ -313,6 +335,13 @@ export async function capitulos(slug: string, fresco = false) {
  *
  * OJO: el HTML del lector devuelve marcadores de posición (/cp/cp-N.jpg)
  * en vez de las imágenes reales; hay que usar este endpoint.
+ *
+ * 18/10/2026: Olympus cambió esa ruta. Antes se pedía por id
+ * (/api/capitulo/comic-{slug}/{id}) y hoy responde 404 para todas las series;
+ * ahora el lector pide /api/capitulo/{slug}/{numero}?type=comic, con el slug
+ * sin prefijo y el NOMBRE del capítulo en vez de su id. Como la app guarda y
+ * enlaza capítulos por id, se conserva la forma vieja (por si la restauran)
+ * y, ante 404, se busca el nombre del capítulo en la lista de la serie.
  */
 export async function paginas(chapterId: number, tipo: string = "comic", slug: string = "") {
   interface RespuestaCapitulo {
@@ -321,19 +350,49 @@ export async function paginas(chapterId: number, tipo: string = "comic", slug: s
     next_chapter: { id: number; name: string } | null;
     comic?: { id: number; slug: string; name: string };
   }
+  type Cuerpo = RespuestaCapitulo & { data?: RespuestaCapitulo };
 
   // esta respuesta llega en la raíz, sin el envoltorio "data" del resto
   const slugLimpio = slug.replace(/^(comic|novel)-/, "").trim();
-  const consultar = (s: string) => olympusFetch<RespuestaCapitulo & { data?: RespuestaCapitulo }>(
+  const consultar = (s: string) => olympusFetch<Cuerpo>(
     `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(s || "serie")}/${chapterId}`, 600
   );
+
+  /** Forma actual: slug sin prefijo + número del capítulo + type. */
+  const consultarPorNumero = async (): Promise<{ cuerpo: Cuerpo; slug: string }> => {
+    if (!slugLimpio) throw new ErrorHttpOlympus(404, "capitulo sin slug");
+    // el slug fechado puede haber cambiado: serie() lo resuelve contra el índice
+    const ficha = await serie(slugLimpio, tipo);
+    const lista = await capitulos(ficha.slug);
+    const encontrado = lista.chapters.find((c) => c.id === chapterId);
+    if (!encontrado) throw new ErrorHttpOlympus(404, "capitulo inexistente");
+    const cuerpo = await olympusFetch<Cuerpo>(
+      `${OLYMPUS_WEB}/api/capitulo/${encodeURIComponent(ficha.slug)}/${encodeURIComponent(encontrado.name.trim())}?type=${tipo === "novel" ? "novel" : "comic"}`,
+      600
+    );
+    return { cuerpo, slug: ficha.slug };
+  };
+
   let slugVigente = slugLimpio;
-  let data;
+  let data: Cuerpo;
   try {
     data = await consultar(slugVigente);
   } catch (err) {
     if (!(err instanceof ErrorHttpOlympus) || err.status !== 404) throw err;
-    if (slugLimpio) {
+    let resuelto: Cuerpo | null = null;
+    try {
+      const r = await consultarPorNumero();
+      // el id debe coincidir: nunca se muestra otro capítulo
+      if ((r.cuerpo.data ?? r.cuerpo)?.chapter?.id === chapterId) {
+        resuelto = r.cuerpo;
+        slugVigente = r.slug;
+      }
+    } catch {
+      // se sigue con los respaldos anteriores
+    }
+    if (resuelto) {
+      data = resuelto;
+    } else if (slugLimpio) {
       try {
         const ficha = await serie(slugLimpio, tipo);
         // No sustituir un capítulo eliminado ni cambiar de cómic a novela.
@@ -362,7 +421,7 @@ export async function paginas(chapterId: number, tipo: string = "comic", slug: s
     pages: (d.chapter.pages ?? []).filter((u) => u.startsWith("http")),
     prev: d.prev_chapter ? { id: d.prev_chapter.id, name: d.prev_chapter.name } : null,
     next: d.next_chapter ? { id: d.next_chapter.id, name: d.next_chapter.name } : null,
-    url_original: urlCapituloEnOlympus(chapterId, tipo, slugFinal),
+    url_original: urlCapituloEnOlympus(d.chapter.name, tipo, slugFinal),
     slug: slugFinal,
   };
 }

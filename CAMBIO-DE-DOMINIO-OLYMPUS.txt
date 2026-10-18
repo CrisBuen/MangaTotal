@@ -2,6 +2,22 @@
  QUÉ HACER SI OLYMPUS SCANLATION CAMBIA DE DOMINIO
 ===========================================================================
 
+18/10/2026 (Olympus anunció mantenimiento "hasta el lunes"): dos cambios que
+dejaban "No se pudo cargar la serie" y capítulos sin abrir, sin que el
+dominio hubiera cambiado.
+  1) El panel (panel.olympusxyz.com) responde 520 de Cloudflare, pero el
+     sitio principal sirve la MISMA lista en /api/series/{slug}/chapters con
+     idéntica forma. capitulos() la pide primero al sitio y deja el panel de
+     respaldo (paginaDeCapitulos en src/lib/olympus.ts).
+  2) El lector cambió: /api/capitulo/comic-{slug}/{id} da 404 en TODAS las
+     series. Ahora es /api/capitulo/{slug}/{numero}?type=comic|novel (slug sin
+     prefijo y NOMBRE del capítulo, no su id). paginas() prueba la forma vieja
+     y, ante 404, busca el nombre en la lista de la serie y usa la nueva,
+     exigiendo que el id devuelto coincida. El enlace al capítulo en su sitio
+     pasó a /series/{comic|novela}-{slug}/capitulo/{numero}.
+Si dejan de servir la lista en el sitio principal, volverá a hacer falta el
+panel; el respaldo ya está.
+
 Olympus ya cambió una vez de dominio (olympusbiblioteca.com -> olympusxyz.com).
 23/09/2026: Explorar, guardar y progreso también reconocen la base exacta del
 slug fechado mediante identidadBiblioteca.ts. resolverBiblioteca.ts consulta
