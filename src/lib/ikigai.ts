@@ -348,7 +348,11 @@ export async function catalogoIkigai(page: number, filtros: FiltrosIkigai = {}) 
     const href = a.getAttribute("href") ?? "";
     const slug = href.split("/series/")[1]?.replace(/\/$/, "");
     if (!slug || vistos.has(slug)) continue;
-    if (isPlayStoreApp() && textoMarcaContenidoAdulto(a.textContent ?? "")) continue;
+    const textosTarjeta = [
+      a.textContent ?? "",
+      ...Array.from(a.querySelectorAll("span, div")).map((el) => el.textContent ?? ""),
+    ];
+    if (isPlayStoreApp() && textosTarjeta.some(textoMarcaContenidoAdulto)) continue;
     vistos.add(slug);
 
     // el texto de la tarjeta viene como "TipoTítuloGénero1Género2"
@@ -544,10 +548,7 @@ export async function capituloIkigai(chapterId: string) {
       .map(s => adultoDelEstadoIkigai(s.textContent ?? "", chapterId));
     const adulto = clasificaciones.includes(true);
     const clasificado = clasificaciones.some(v => typeof v === "boolean");
-    if (
-      adulto || (!clasificado && (/["']is_mature["']\s*:\s*true/i.test(html) ||
-      Array.from(IKIGAI_GENEROS_ADULTOS).some((id) => html.includes(id))))
-    ) {
+    if (adulto || (!clasificado && /["']is_mature["']\s*:\s*true/i.test(html))) {
       contenidoNoDisponible();
     }
   }

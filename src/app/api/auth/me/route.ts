@@ -16,8 +16,8 @@ export async function GET() {
     is_admin: user.isAdmin,
     show_adult_content: desdePlay ? false : user.showAdultContent,
     anime_enabled: desdePlay
-      ? user.animeEnabled && Boolean(user.animeTermsAcceptedAt)
-      : user.animeEnabled,
+      ? user.animeEnabled && Boolean(user.animeTermsAcceptedAt) && Boolean(user.emailVerifiedAt)
+      : user.animeEnabled && Boolean(user.emailVerifiedAt),
     preferred_reading_mode: user.preferredReadingMode,
     avatar_path: user.avatarPath,
     birthdate: user.birthdate,
@@ -85,14 +85,22 @@ export async function PATCH(req: NextRequest) {
   }
   if (typeof body.anime_enabled === "boolean") {
     // Es distinto del filtro +18: habilita la sección animada completa.
-    if (desdePlay && body.anime_enabled) {
-      if (body.accept_anime_terms !== true) {
+    if (body.anime_enabled) {
+      if (!user.email || !user.emailVerifiedAt) {
         return NextResponse.json(
-          { error: "Tenés que aceptar las condiciones de la sección animada" },
+          { error: "Debés tener tu correo electrónico verificado en Perfil para activar la sección de anime" },
           { status: 403 },
         );
       }
-      data.animeTermsAcceptedAt = new Date();
+      if (desdePlay) {
+        if (body.accept_anime_terms !== true) {
+          return NextResponse.json(
+            { error: "Tenés que aceptar las condiciones de la sección animada" },
+            { status: 403 },
+          );
+        }
+        data.animeTermsAcceptedAt = new Date();
+      }
     }
     data.animeEnabled = body.anime_enabled;
   }
@@ -151,10 +159,9 @@ export async function PATCH(req: NextRequest) {
 
   const publicUpdated = publicUser(updated);
   if (desdePlay) publicUpdated.show_adult_content = false;
-  if (desdePlay) {
-    publicUpdated.anime_enabled =
-      updated.animeEnabled && Boolean(updated.animeTermsAcceptedAt);
-  }
+  publicUpdated.anime_enabled = desdePlay
+    ? updated.animeEnabled && Boolean(updated.animeTermsAcceptedAt) && Boolean(updated.emailVerifiedAt)
+    : updated.animeEnabled && Boolean(updated.emailVerifiedAt);
   return NextResponse.json({
     user: publicUpdated,
     email_verification_sent: emailVerificationSent,

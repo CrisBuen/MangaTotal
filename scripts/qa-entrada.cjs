@@ -34,8 +34,9 @@ const root = path.resolve(__dirname, "..");
     await page.getByRole('heading', { name: '¿Qué te apetece hoy?' }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Cerrar sesión' }).count(), 0);
     await page.goto(base + '/?guest=1&play=1');
-    await page.getByRole('button', { name: /Configurar acceso/ }).click();
-    assert.equal(await page.evaluate(() => window.__destino), '/login');
-    console.log('OK cuenta existente → selección → lectura/anime; cambio de sección; invitado y activación Play. Sin modificar cuentas.');
+    assert.equal(await page.getByRole('button', { name: /Entrar a anime/ }).count(), 0);
+    await page.getByRole('button', { name: /Entrar a lectura/ }).click();
+    assert.equal(await page.evaluate(() => window.__destino), '/lectura');
+    console.log('OK cuenta existente → selección → lectura/anime; cambio de sección; invitado Play solo lectura. Sin modificar cuentas.');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

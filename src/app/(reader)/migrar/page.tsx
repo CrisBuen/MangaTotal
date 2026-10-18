@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { fichaHref } from "@/lib/externas";
 import { Surface } from "@/components/ui/Surface";
+import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
+import { catalogoIkigai } from "@/lib/ikigai";
+import { catalogoLc } from "@/lib/leercapitulo";
+import { catalogoTmo } from "@/lib/zonatmo";
+import { catalogoCw, imagenCw } from "@/lib/catharsis";
+import { isPlayStoreApp } from "@/lib/appVersion";
+import { migrarHistorialLocal } from "@/components/library/historial";
 import type { GrupoFuenteMigracion, ItemResultadoMigracion } from "@/app/api/externo/buscar-todas/route";
 
 const NOMBRES_FUENTES: Record<string, string> = {
@@ -38,7 +45,7 @@ function ContenidoMigracion() {
 
   const claveCache = `mangatotal:migracion:${origenFuente}:${origenId}`;
 
-  // Buscar en todas las fuentes
+  // Buscar en todas las fuentes (servidor + fuentes nativas del dispositivo)
   const ejecutarBusqueda = useCallback(async (query: string) => {
     const qLimpia = query.trim();
     if (!qLimpia || qLimpia.length < 2) return;
@@ -48,10 +55,87 @@ function ContenidoMigracion() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/externo/buscar-todas?q=${encodeURIComponent(qLimpia)}`);
-      if (!res.ok) throw new Error("Error al consultar las fuentes");
-      const data = await res.json();
-      const lista: GrupoFuenteMigracion[] = data.fuentes ?? [];
+      const enPlay = isPlayStoreApp();
+      const [remoto, ikigaiRes, lcRes, tmoRes, cwRes] = await Promise.all([
+        fetch(`/api/externo/buscar-todas?q=${encodeURIComponent(qLimpia)}`)
+          .then((r) => (r.ok ? r.json() : { fuentes: [] }))
+          .then((d) => (Array.isArray(d?.fuentes) ? (d.fuentes as GrupoFuenteMigracion[]) : []))
+          .catch(() => [] as GrupoFuenteMigracion[]),
+        catalogoIkigai(1, { q: qLimpia })
+          .then((res): GrupoFuenteMigracion => ({
+            source: "ikigai",
+            sourceNombre: "Ikigai Mangas",
+            items: (res?.series ?? []).slice(0, 12).map((s) => ({
+              id: s.slug,
+              slug: s.slug,
+              title: s.title,
+              coverUrl: s.cover_url,
+              source: "ikigai",
+              sourceNombre: "Ikigai Mangas",
+              type: "manga",
+            })),
+          }))
+          .catch((): GrupoFuenteMigracion => ({ source: "ikigai", sourceNombre: "Ikigai Mangas", items: [] })),
+        catalogoLc(1, { q: qLimpia })
+          .then((res): GrupoFuenteMigracion => ({
+            source: "leercapitulo",
+            sourceNombre: "LeerCapítulo",
+            items: (res?.series ?? []).slice(0, 12).map((s) => ({
+              id: `${s.id}/${s.slug}`,
+              slug: s.slug,
+              title: s.title,
+              coverUrl: s.cover_url,
+              source: "leercapitulo",
+              sourceNombre: "LeerCapítulo",
+              type: "manga",
+            })),
+          }))
+          .catch((): GrupoFuenteMigracion => ({ source: "leercapitulo", sourceNombre: "LeerCapítulo", items: [] })),
+        catalogoTmo(1, { q: qLimpia })
+          .then((res): GrupoFuenteMigracion => ({
+            source: "tmo",
+            sourceNombre: "ZonaTMO",
+            items: (res?.series ?? []).slice(0, 12).map((s) => ({
+              id: `${s.tipo}/${s.id}/${s.slug}`,
+              slug: s.slug,
+              title: s.title,
+              coverUrl: s.cover_url,
+              source: "tmo",
+              sourceNombre: "ZonaTMO",
+              type: s.tipo || "manga",
+            })),
+          }))
+          .catch((): GrupoFuenteMigracion => ({ source: "tmo", sourceNombre: "ZonaTMO", items: [] })),
+        catalogoCw({ busqueda: qLimpia, pagina: 1 })
+          .then((res): GrupoFuenteMigracion => ({
+            source: "catharsis",
+            sourceNombre: "Catharsis World",
+            items: (res?.series ?? []).slice(0, 12).map((s) => ({
+              id: s.id,
+              slug: null,
+              title: s.nombre,
+              coverUrl: s.portada ? imagenCw(s.portada, 256) : null,
+              source: "catharsis",
+              sourceNombre: "Catharsis World",
+              type: "manga",
+              capitulosTexto: s.capitulos ? `${s.capitulos} caps.` : undefined,
+              totalCapitulos: s.capitulos ?? null,
+            })),
+          }))
+          .catch((): GrupoFuenteMigracion => ({ source: "catharsis", sourceNombre: "Catharsis World", items: [] })),
+      ]);
+
+      const porFuente = new Map<string, GrupoFuenteMigracion>();
+      for (const g of [...remoto, ikigaiRes, lcRes, tmoRes, cwRes]) {
+        if (!g || !g.items?.length) continue;
+        if (enPlay && (g.source === "ehentai" || g.source === "hitomi")) continue;
+        const previo = porFuente.get(g.source);
+        if (!previo || previo.items.length === 0) {
+          porFuente.set(g.source, g);
+        }
+      }
+
+      const lista = Array.from(porFuente.values());
 
       // Excluir la misma fuente de origen de los resultados para evitar migrar a sí mismo
       const filtrados = lista
@@ -101,6 +185,18 @@ function ContenidoMigracion() {
     setError(null);
 
     try {
+      migrarHistorialLocal(
+        { source: origenFuente, externalId: origenId },
+        {
+          source: destino.source,
+          externalId: destino.id,
+          slug: destino.slug,
+          title: destino.title,
+          coverUrl: destino.coverUrl,
+          type: destino.type,
+        }
+      );
+
       const res = await fetch("/api/externo/migrar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,14 +214,16 @@ function ContenidoMigracion() {
             type: destino.type,
           },
         }),
-      });
+      }).catch(() => null);
 
-      if (!res.ok) {
+      const hrefDestino = fichaHref(destino.source, destino.id, destino.slug ?? null);
+
+      if (res && !res.ok && res.status !== 401) {
         const dataErr = await res.json().catch(() => ({}));
         throw new Error(dataErr.error || "No se pudo completar la migración");
       }
 
-      const data = await res.json();
+      const data = res?.ok ? await res.json().catch(() => ({})) : {};
       setExito(`¡Obra migrada a ${destino.sourceNombre}! Redirigiendo...`);
 
       // Limpiar caché de sesión
@@ -134,7 +232,7 @@ function ContenidoMigracion() {
       } catch {}
 
       setTimeout(() => {
-        router.push(data.href || fichaHref(destino.source, destino.id, destino.slug ?? null));
+        router.push(data.href || hrefDestino);
       }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al migrar");
@@ -273,8 +371,9 @@ function ContenidoMigracion() {
                   >
                     <div className="h-20 w-14 shrink-0 overflow-hidden rounded-md border border-line bg-[var(--surface-raised)]">
                       {item.coverUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <PortadaExterna
+                          source={item.source}
+                          externalId={item.id}
                           src={item.coverUrl}
                           alt={item.title}
                           className="h-full w-full object-cover"
@@ -317,8 +416,9 @@ function ContenidoMigracion() {
             <div className="flex items-start gap-4">
               <div className="h-24 w-16 shrink-0 overflow-hidden rounded-md border border-line bg-[var(--surface-raised)]">
                 {itemSeleccionado.coverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <PortadaExterna
+                    source={itemSeleccionado.source}
+                    externalId={itemSeleccionado.id}
                     src={itemSeleccionado.coverUrl}
                     alt={itemSeleccionado.title}
                     className="h-full w-full object-cover"

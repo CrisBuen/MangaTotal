@@ -19,6 +19,7 @@ const PUBLIC_EXACT = new Set([
   "/noticias",
   "/mas",
   "/fuentes",
+  "/migrar",
   "/consulta",
   "/anime",
   "/ajustes",
@@ -49,6 +50,7 @@ const PUBLIC_PREFIXES = [
   "/api/images/",
   "/api/series/",
   "/api/externo/series",
+  "/api/externo/buscar-todas",
   // las noticias son públicas, como la página que las muestra
   "/api/noticias",
   "/api/externo/olympus",
@@ -56,6 +58,7 @@ const PUBLIC_PREFIXES = [
   "/api/externo/leercapitulo",
   "/api/externo/catharsis",
   "/api/externo/ehentai",
+  "/api/externo/hitomi",
   "/api/externo/imagen",
   // la ruleta sortea entre los catálogos, que son públicos
   "/api/aleatorio",

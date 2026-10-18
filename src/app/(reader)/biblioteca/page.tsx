@@ -13,6 +13,8 @@ import { FavoritoBiblioteca, MenuBiblioteca, grillaBiblioteca, useOpcionesBiblio
 import { fechaBiblioteca, ordenarBiblioteca, serieFinalizada } from "@/lib/opcionesBiblioteca";
 import { pendientesBiblioteca } from "@/lib/colaBiblioteca";
 import { SeccionAnimadas } from "@/components/library/SeccionAnimadas";
+import { leerHistorialLocal, quitarHistorialLocal } from "@/components/library/historial";
+import { isPlayStoreApp } from "@/lib/appVersion";
 import {
   borrarCachePrivadaAndroid,
   cargarConCacheAndroid,
@@ -83,6 +85,31 @@ const NOMBRE_FUENTE: Record<string, string> = {
 
 type Filter = "normal" | "adult" | "favoritos" | "historial";
 
+function combinarHistorial(remoto: EntradaHistorial[], local: EntradaHistorial[]): EntradaHistorial[] {
+  const mapa = new Map<string, EntradaHistorial>();
+  for (const item of [...local, ...remoto]) {
+    if (!item?.source || !item?.external_id) continue;
+    const clave = `${item.source}:${item.external_id}`;
+    const previo = mapa.get(clave);
+    if (!previo) {
+      mapa.set(clave, item);
+      continue;
+    }
+    const tNuevo = Date.parse(item.updated_at ?? "") || 0;
+    const tPrevio = Date.parse(previo.updated_at ?? "") || 0;
+    if (tNuevo >= tPrevio) {
+      mapa.set(clave, {
+        ...previo,
+        ...item,
+        last_page_number: item.last_page_number ?? previo.last_page_number,
+      });
+    }
+  }
+  return Array.from(mapa.values()).sort(
+    (a, b) => (Date.parse(b.updated_at ?? "") || 0) - (Date.parse(a.updated_at ?? "") || 0)
+  );
+}
+
 export default function BibliotecaPage() {
   const router = useRouter();
   const urlParams = useSearchParams();
@@ -105,6 +132,8 @@ export default function BibliotecaPage() {
   const loggedIn = Boolean(me?.nickname);
 
   const cargarHistorial = useCallback(async () => {
+    const local = leerHistorialLocal();
+    setHistorial((prev) => combinarHistorial(prev, local));
     try {
       const data = await cargarConCacheAndroid<EntradaHistorial[]>(
         "biblioteca:historial",
@@ -113,15 +142,35 @@ export default function BibliotecaPage() {
           if (!r.ok) throw new Error("historial");
           return r.json();
         },
-        { privateData: true, onCached: setHistorial }
+        {
+          privateData: true,
+          onCached: (cached) => setHistorial(combinarHistorial(cached, leerHistorialLocal())),
+        }
       );
-      if (Array.isArray(data)) setHistorial(data);
+      if (Array.isArray(data)) {
+        setHistorial(combinarHistorial(data, leerHistorialLocal()));
+      }
     } catch {
-      setHistorial([]);
+      setHistorial(leerHistorialLocal());
     }
   }, []);
 
+  useEffect(() => {
+    const refrescarLocal = () => {
+      setHistorial((prev) => combinarHistorial(prev, leerHistorialLocal()));
+    };
+    window.addEventListener("focus", refrescarLocal);
+    window.addEventListener("pageshow", refrescarLocal);
+    window.addEventListener("popstate", refrescarLocal);
+    return () => {
+      window.removeEventListener("focus", refrescarLocal);
+      window.removeEventListener("pageshow", refrescarLocal);
+      window.removeEventListener("popstate", refrescarLocal);
+    };
+  }, []);
+
   async function quitarHistorial(e: EntradaHistorial) {
+    quitarHistorialLocal(e.source, e.external_id);
     setHistorial((prev) => {
       const next = (prev ?? []).filter(
         (x) => !(x.source === e.source && x.external_id === e.external_id)
@@ -276,13 +325,17 @@ export default function BibliotecaPage() {
   }
 
   // primero las que tienen capítulos sin leer, de mayor a menor
-  const esAdulta = (g: SerieGuardada) => g.source === "ehentai" || /^(adult|\+18|hentai)$/i.test(g.type ?? "");
+  const enPlay = typeof window !== "undefined" && isPlayStoreApp();
+  const esAdulta = (g: SerieGuardada) =>
+    g.source === "ehentai" || g.source === "hitomi" || /^(adult|\+18|hentai)$/i.test(g.type ?? "");
   const guardadasVisibles = guardadas.filter((g) =>
-    filter === "favoritos"
-      ? opciones.favoritos.includes(claveDe(g))
-      : filter === "adult"
-        ? esAdulta(g)
-        : !esAdulta(g)
+    enPlay && esAdulta(g)
+      ? false
+      : filter === "favoritos"
+        ? opciones.favoritos.includes(claveDe(g))
+        : filter === "adult"
+          ? esAdulta(g)
+          : !esAdulta(g)
   );
   const guardadasOrdenadas = ordenarBiblioteca(
     guardadasVisibles.filter((g) =>
@@ -320,13 +373,22 @@ export default function BibliotecaPage() {
   const hayQueContinuar = continuesVisible.length + externasEmpezadas.length > 0;
 
   const busquedaNormalizada = search.trim().toLocaleLowerCase("es");
-  const esHistorialAdulto = (e: EntradaHistorial) => e.source === "ehentai" || /^(adult|\+18|hentai)$/i.test(e.type ?? "");
+  const esHistorialAdulto = (e: EntradaHistorial) =>
+    e.source === "ehentai" || e.source === "hitomi" || /^(adult|\+18|hentai)$/i.test(e.type ?? "");
+  const clavesGuardadas = new Set(guardadas.map((g) => `${g.source}:${g.external_id}`));
+  const historialSinDuplicar = historial.filter(
+    (e) => !clavesGuardadas.has(`${e.source}:${e.external_id}`)
+  );
   const historialVisibles =
-    filter === "adult"
-      ? historial.filter(esHistorialAdulto)
-      : filter === "normal"
-        ? historial.filter((e) => !esHistorialAdulto(e))
-        : historial;
+    enPlay
+      ? historialSinDuplicar.filter((e) => !esHistorialAdulto(e))
+      : filter === "adult"
+        ? historialSinDuplicar.filter(esHistorialAdulto)
+        : filter === "normal"
+          ? historialSinDuplicar.filter((e) => !esHistorialAdulto(e))
+          : me?.show_adult_content
+            ? historialSinDuplicar
+            : historialSinDuplicar.filter((e) => !esHistorialAdulto(e));
 
   const historialFiltrado = historialVisibles.filter((e) =>
     busquedaNormalizada ? e.title.toLocaleLowerCase("es").includes(busquedaNormalizada) : true
@@ -340,9 +402,9 @@ export default function BibliotecaPage() {
 
   const filters: { key: Filter; label: string }[] = [
     { key: "normal", label: "Normal" },
-    ...(me?.show_adult_content ? [{ key: "adult" as Filter, label: "+18" }] : []),
+    ...(me?.show_adult_content && !enPlay ? [{ key: "adult" as Filter, label: "+18" }] : []),
     ...(loggedIn ? [{ key: "favoritos" as Filter, label: "Favoritos" }] : []),
-    ...(loggedIn ? [{ key: "historial" as Filter, label: "Historial" }] : []),
+    { key: "historial" as Filter, label: "Historial" },
   ];
 
   return (
@@ -353,7 +415,7 @@ export default function BibliotecaPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">Mi biblioteca</h1>
           <p className="mt-1 text-sm text-subtle">
             {filter === "historial"
-              ? `${historial.length + externasEmpezadas.length} series con registro de lectura`
+              ? `${historialVisibles.length + externasEmpezadas.length} series con registro de lectura`
               : guardadas.length > 0
                 ? `${guardadas.length} series guardadas en tu colección`
                 : "Tus mangas, manhwas y favoritos en un solo lugar"}
@@ -532,7 +594,7 @@ export default function BibliotecaPage() {
                                   {[
                                     h.last_chapter_name && h.last_chapter_name !== "Capítulo Completo"
                                       ? `Cap. ${h.last_chapter_name}`
-                                      : h.source === "ehentai"
+                                      : h.source === "ehentai" || h.source === "hitomi"
                                         ? "Completo"
                                         : (h.last_chapter_name || "Empezado"),
                                     h.last_page_number && h.last_page_number > 0
@@ -612,6 +674,9 @@ export default function BibliotecaPage() {
                                 </h3>
                                 <p className="mt-1 font-mono text-[12px] text-faint sm:text-[13px]">
                                   Cap. {g.last_chapter_name}
+                                  {g.last_page_number && g.last_page_number > 0
+                                    ? ` · pág. ${g.last_page_number}`
+                                    : ""}
                                 </p>
                               </div>
                             </Link>

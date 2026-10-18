@@ -9,9 +9,11 @@ import { isPlayStoreUserAgent } from "@/lib/androidVariant";
 export async function animeAnimadoPermitido(
   animeEnabled: boolean,
   animeTermsAcceptedAt?: Date | null,
+  emailVerifiedAt?: Date | null,
 ): Promise<boolean> {
   const userAgent = (await headers()).get("user-agent") ?? "";
   if (!isAndroidApp(userAgent)) return true;
+  if (emailVerifiedAt !== undefined && !emailVerifiedAt) return false;
   if (isPlayStoreUserAgent(userAgent)) {
     return animeEnabled && Boolean(animeTermsAcceptedAt);
   }
@@ -19,8 +21,10 @@ export async function animeAnimadoPermitido(
 }
 
 /** Explorar/ver no crea datos de cuenta. Play conserva su activación explícita. */
-export async function animePublicoPermitido(user: { animeEnabled: boolean; animeTermsAcceptedAt?: Date | null } | null): Promise<boolean> {
-  if (user) return animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt);
+export async function animePublicoPermitido(
+  user: { animeEnabled: boolean; animeTermsAcceptedAt?: Date | null; emailVerifiedAt?: Date | null } | null,
+): Promise<boolean> {
+  if (user) return animeAnimadoPermitido(user.animeEnabled, user.animeTermsAcceptedAt, user.emailVerifiedAt);
   const userAgent = (await headers()).get("user-agent") ?? "";
   return !isPlayStoreUserAgent(userAgent);
 }

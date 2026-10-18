@@ -9,6 +9,7 @@ import { fichaHref } from "@/lib/externas";
 import { FUENTES_BIBLIOTECA } from "@/lib/fuentesBiblioteca";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { enAppAndroid } from "@/lib/pantalla";
+import { isPlayStoreApp } from "@/lib/appVersion";
 
 interface Guardada {
   source: string; external_id: string; slug: string | null; title: string;
@@ -18,7 +19,11 @@ interface Guardada {
 function ListaFuentes() {
   const params = useSearchParams();
   const seleccion = params.get("fuente");
-  const fuente = FUENTES_BIBLIOTECA.find(f => f.id === seleccion);
+  const [enPlay, setEnPlay] = useState(false);
+  const fuentesVisibles = FUENTES_BIBLIOTECA.filter(
+    f => !enPlay || (f.id !== "ehentai" && f.id !== "hitomi")
+  );
+  const fuente = fuentesVisibles.find(f => f.id === seleccion);
   const [series, setSeries] = useState<Guardada[] | null>(null);
   const [error, setError] = useState(false);
   const [sinSesion, setSinSesion] = useState(false);
@@ -30,6 +35,7 @@ function ListaFuentes() {
   const claveScroll = `mangatotal:fuentes:scroll:${seleccion ?? "indice"}`;
 
   useEffect(() => {
+    setEnPlay(isPlayStoreApp());
     setEsAndroid(enAppAndroid() || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
 
@@ -104,7 +110,7 @@ function ListaFuentes() {
       : !series ? <p role="status">Cargando biblioteca…</p>
       : seleccion && !fuente ? <p>Fuente no disponible.</p>
       : !fuente ? <Surface className="divide-y divide-line p-0">
-        {FUENTES_BIBLIOTECA.map(f => <Link key={f.id} href={`/fuentes?fuente=${f.id}`} onClick={recordarScroll}
+        {fuentesVisibles.map(f => <Link key={f.id} href={`/fuentes?fuente=${f.id}`} onClick={recordarScroll}
           className="flex min-h-20 items-center gap-4 px-5 py-4 hover:bg-[var(--surface-raised)]">
           <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] font-bold text-accent-ink">{f.nombre.slice(0, 2)}</span>
           <span className="flex-1 font-semibold text-ink">{f.nombre}</span>

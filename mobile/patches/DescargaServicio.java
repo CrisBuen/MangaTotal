@@ -126,10 +126,43 @@ public class DescargaServicio extends Service {
         return START_NOT_STICKY;
     }
 
+    public static void descargarSinServicio(
+        final Context context,
+        final String fuente,
+        final String serie,
+        final String capitulo,
+        final ArrayList<String> urls
+    ) {
+        final Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(() -> Toast.makeText(context, "Descargando: " + capitulo, Toast.LENGTH_SHORT).show());
+        new Thread(() -> ejecutarDescarga(context, fuente != null ? fuente : "MangaTotal", serie, capitulo, urls, null, handler)).start();
+    }
+
     private void procesarDescarga(String fuente, String serie, String capitulo, ArrayList<String> urls, int startId) {
+        try {
+            ejecutarDescarga(this, fuente, serie, capitulo, urls, this, mainHandler);
+        } finally {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                try { wakeLock.release(); } catch (Exception ignored) {}
+            }
+            stopForeground(false);
+            stopSelf(startId);
+        }
+    }
+
+    private static void ejecutarDescarga(
+        Context context,
+        String fuente,
+        String serie,
+        String capitulo,
+        ArrayList<String> urls,
+        DescargaServicio servicio,
+        Handler handler
+    ) {
         int total = urls.size();
         int descargadas = 0;
 
+        File dirCap = null;
         try {
             File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
             if (!raiz.exists()) raiz.mkdirs();
@@ -140,113 +173,144 @@ public class DescargaServicio extends Service {
             File local = new File(raiz, "local");
             if (!local.exists()) local.mkdirs();
 
-            File dirCap = new File(descargas, limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo));
+            dirCap = new File(descargas, limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo));
             if (!dirCap.exists()) dirCap.mkdirs();
+        } catch (Exception ignored) {}
 
-            for (int i = 0; i < total; i++) {
-                String urlStr = urls.get(i);
-                boolean exito = false;
+        String subRutaRelativa = "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo);
 
-                // Reintentar hasta 3 veces por imagen
-                for (int intento = 0; intento < 3; intento++) {
-                    HttpURLConnection conn = null;
-                    try {
-                        URL u = new URL(urlStr);
+        for (int i = 0; i < total; i++) {
+            String urlStr = urls.get(i);
+            boolean exito = false;
 
-                        // Soporte para seguir hasta 3 redirecciones HTTP
-                        for (int salto = 0; salto < 3; salto++) {
-                            conn = (HttpURLConnection) u.openConnection();
-                            if (conn instanceof HttpsURLConnection && trustAllSocketFactory != null) {
-                                ((HttpsURLConnection) conn).setSSLSocketFactory(trustAllSocketFactory);
-                                ((HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
-                            }
+            // Reintentar hasta 3 veces por imagen
+            for (int intento = 0; intento < 3; intento++) {
+                HttpURLConnection conn = null;
+                try {
+                    URL u = new URL(urlStr);
 
-                            conn.setConnectTimeout(25000);
-                            conn.setReadTimeout(25000);
-                            conn.setInstanceFollowRedirects(true);
-                            conn.setRequestProperty("User-Agent", UA);
-                            conn.setRequestProperty("Accept", "image/webp,image/png,image/jpeg,image/*,*/*");
-
-                            String host = u.getHost() != null ? u.getHost().toLowerCase(Locale.ROOT) : "";
-                            if (host.contains("hath.network") || host.contains("e-hentai.org") || host.contains("exhentai.org") || host.matches("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")) {
-                                conn.setRequestProperty("Cookie", "nw=1");
-                                conn.setRequestProperty("Referer", "https://e-hentai.org/");
-                            } else if (host.contains("gold-usergeneratedcontent.net") || host.contains("hitomi.la")) {
-                                conn.setRequestProperty("Referer", "https://hitomi.la/");
-                            } else if (host.contains("leercapitulo")) {
-                                conn.setRequestProperty("Referer", "https://www.leercapitulo.co/");
-                            } else if (host.contains("ikigai")) {
-                                conn.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
-                                conn.setRequestProperty("Sec-Fetch-Mode", "cors");
-                            } else if (host.contains("zonatmo") || host.contains("visortmo") || host.contains("tumangaonline")) {
-                                conn.setRequestProperty("Referer", "https://visortmo.com/");
-                            } else if (host.contains("catharsis") || host.contains("dig-it.info")) {
-                                conn.setRequestProperty("Referer", "https://newcatharsis.dig-it.info/");
-                            }
-
-                            int codigo = conn.getResponseCode();
-                            if (codigo == 301 || codigo == 302 || codigo == 303 || codigo == 307 || codigo == 308) {
-                                String loc = conn.getHeaderField("Location");
-                                if (loc != null && !loc.isEmpty()) {
-                                    u = new URL(u, loc);
-                                    conn.disconnect();
-                                    conn = null;
-                                    continue;
-                                }
-                            }
-
-                            if (codigo == 200) {
-                                String ext = extensionDe(urlStr, conn.getContentType());
-                                String nombreArchivo = String.format(Locale.ROOT, "%03d.%s", i + 1, ext);
-                                File archivoDestino = new File(dirCap, nombreArchivo);
-
-                                try (InputStream in = conn.getInputStream();
-                                     FileOutputStream out = new FileOutputStream(archivoDestino)) {
-                                    byte[] buffer = new byte[32768];
-                                    int leidos;
-                                    while ((leidos = in.read(buffer)) != -1) {
-                                        out.write(buffer, 0, leidos);
-                                    }
-                                    exito = true;
-                                }
-                            }
-                            break;
+                    // Soporte para seguir hasta 3 redirecciones HTTP
+                    for (int salto = 0; salto < 3; salto++) {
+                        conn = (HttpURLConnection) u.openConnection();
+                        if (conn instanceof HttpsURLConnection && trustAllSocketFactory != null) {
+                            ((HttpsURLConnection) conn).setSSLSocketFactory(trustAllSocketFactory);
+                            ((HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
                         }
 
-                        if (exito) break;
-                    } catch (Exception ignored) {
-                        try { Thread.sleep(500); } catch (InterruptedException ignored2) {}
-                    } finally {
-                        if (conn != null) {
-                            try { conn.disconnect(); } catch (Exception ignored) {}
+                        conn.setConnectTimeout(25000);
+                        conn.setReadTimeout(25000);
+                        conn.setInstanceFollowRedirects(true);
+                        conn.setRequestProperty("User-Agent", UA);
+                        conn.setRequestProperty("Accept", "image/webp,image/png,image/jpeg,image/*,*/*");
+
+                        String host = u.getHost() != null ? u.getHost().toLowerCase(Locale.ROOT) : "";
+                        if (host.contains("hath.network") || host.contains("e-hentai.org") || host.contains("exhentai.org") || host.matches("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")) {
+                            conn.setRequestProperty("Cookie", "nw=1");
+                            conn.setRequestProperty("Referer", "https://e-hentai.org/");
+                        } else if (host.contains("gold-usergeneratedcontent.net") || host.contains("hitomi.la")) {
+                            conn.setRequestProperty("Referer", "https://hitomi.la/");
+                        } else if (host.contains("leercapitulo")) {
+                            conn.setRequestProperty("Referer", "https://www.leercapitulo.co/");
+                        } else if (host.contains("ikigai")) {
+                            conn.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
+                            conn.setRequestProperty("Sec-Fetch-Mode", "cors");
+                        } else if (host.contains("zonatmo") || host.contains("visortmo") || host.contains("tumangaonline")) {
+                            conn.setRequestProperty("Referer", "https://visortmo.com/");
+                        } else if (host.contains("catharsis") || host.contains("dig-it.info")) {
+                            conn.setRequestProperty("Referer", "https://newcatharsis.dig-it.info/");
                         }
+
+                        int codigo = conn.getResponseCode();
+                        if (codigo == 301 || codigo == 302 || codigo == 303 || codigo == 307 || codigo == 308) {
+                            String loc = conn.getHeaderField("Location");
+                            if (loc != null && !loc.isEmpty()) {
+                                u = new URL(u, loc);
+                                conn.disconnect();
+                                conn = null;
+                                continue;
+                            }
+                        }
+
+                        if (codigo == 200) {
+                            String ext = extensionDe(urlStr, conn.getContentType());
+                            String nombreArchivo = String.format(Locale.ROOT, "%03d.%s", i + 1, ext);
+
+                            try (InputStream in = conn.getInputStream()) {
+                                java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                                byte[] buffer = new byte[32768];
+                                int leidos;
+                                while ((leidos = in.read(buffer)) != -1) {
+                                    bos.write(buffer, 0, leidos);
+                                }
+                                byte[] bytes = bos.toByteArray();
+
+                                // 1. Intentar escritura directa en /storage/emulated/0/MangaTotal/descargas
+                                if (dirCap != null) {
+                                    try {
+                                        if (!dirCap.exists()) dirCap.mkdirs();
+                                        File archivoDestino = new File(dirCap, nombreArchivo);
+                                        try (FileOutputStream out = new FileOutputStream(archivoDestino)) {
+                                            out.write(bytes);
+                                            exito = true;
+                                        }
+                                    } catch (Exception ignoredDirecto) {}
+                                }
+
+                                // 2. Respaldo para edición Play Store (MediaStore.Downloads sin permisos especiales)
+                                if (!exito && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                    try {
+                                        android.content.ContentValues values = new android.content.ContentValues();
+                                        values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombreArchivo);
+                                        values.put(android.provider.MediaStore.Downloads.MIME_TYPE, "image/" + ("jpg".equals(ext) ? "jpeg" : ext));
+                                        values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + subRutaRelativa);
+                                        android.net.Uri uri = context.getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                                        if (uri != null) {
+                                            try (java.io.OutputStream out = context.getContentResolver().openOutputStream(uri)) {
+                                                if (out != null) {
+                                                    out.write(bytes);
+                                                    exito = true;
+                                                }
+                                            }
+                                        }
+                                    } catch (Exception ignoredMedia) {}
+                                }
+                            }
+                        }
+                        break;
+                    }
+
+                    if (exito) break;
+                } catch (Exception ignored) {
+                    try { Thread.sleep(500); } catch (InterruptedException ignored2) {}
+                } finally {
+                    if (conn != null) {
+                        try { conn.disconnect(); } catch (Exception ignored) {}
                     }
                 }
-
-                if (exito) {
-                    descargadas++;
-                }
-
-                int porcentaje = (int) Math.round(((double) (i + 1) / total) * 100);
-                String texto = String.format(Locale.ROOT, "%d de %d páginas (%d%%)", i + 1, total, porcentaje);
-                notificationManager.notify(NOTIF_ID, crearNotificacion(serie, capitulo, i + 1, total, texto));
-                FuentesPlugin.notificarProgresoDescarga(fuente, serie, capitulo, i + 1, total, porcentaje);
             }
 
-            final int totalFinal = descargadas;
-            Notification notifFin = crearNotificacionCompletada(serie, capitulo, totalFinal);
-            notificationManager.notify(NOTIF_ID, notifFin);
-
-            FuentesPlugin.notificarDescargaTerminada(fuente, serie, capitulo, totalFinal);
-
-            mainHandler.post(() -> Toast.makeText(this, "Capítulo guardado (" + totalFinal + " págs.) en MangaTotal/descargas", Toast.LENGTH_LONG).show());
-
-        } finally {
-            if (wakeLock != null && wakeLock.isHeld()) {
-                try { wakeLock.release(); } catch (Exception ignored) {}
+            if (exito) {
+                descargadas++;
             }
-            stopForeground(false);
-            stopSelf(startId);
+
+            int porcentaje = (int) Math.round(((double) (i + 1) / total) * 100);
+            String texto = String.format(Locale.ROOT, "%d de %d páginas (%d%%)", i + 1, total, porcentaje);
+            if (servicio != null && servicio.notificationManager != null) {
+                servicio.notificationManager.notify(NOTIF_ID, servicio.crearNotificacion(serie, capitulo, i + 1, total, texto));
+            }
+            FuentesPlugin.notificarProgresoDescarga(fuente, serie, capitulo, i + 1, total, porcentaje);
+        }
+
+        final int totalFinal = descargadas;
+        if (servicio != null && servicio.notificationManager != null) {
+            Notification notifFin = servicio.crearNotificacionCompletada(serie, capitulo, totalFinal);
+            servicio.notificationManager.notify(NOTIF_ID, notifFin);
+        }
+
+        FuentesPlugin.notificarDescargaTerminada(fuente, serie, capitulo, totalFinal);
+
+        if (handler != null) {
+            handler.post(() -> Toast.makeText(context, "Capítulo guardado (" + totalFinal + " págs.) en MangaTotal/descargas", Toast.LENGTH_LONG).show());
         }
     }
 

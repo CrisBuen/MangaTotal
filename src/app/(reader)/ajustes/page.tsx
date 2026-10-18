@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AjustesFuentes } from "@/components/fuentes/AjustesFuentes";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
@@ -13,6 +14,8 @@ const ImportarMihon = dynamic(() => import("@/components/library/ImportarMihon")
 
 interface Me {
   nickname?: string;
+  email?: string | null;
+  email_verified?: boolean;
   show_adult_content?: boolean;
   anime_enabled?: boolean;
   play_store_app?: boolean;
@@ -26,6 +29,7 @@ interface Me {
  * en Seguridad y privacidad, y viene apagado.
  */
 export default function AjustesPage() {
+  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [enAndroid, setEnAndroid] = useState(false);
   const [enPlay, setEnPlay] = useState(false);
@@ -64,11 +68,15 @@ export default function AjustesPage() {
   }
 
   async function cambiarAnime(valor: boolean, aceptoTerminos = false) {
+    setError(null);
+    if (valor && !me?.email_verified) {
+      setError("Debés tener tu correo electrónico verificado en Perfil para activar la sección de anime");
+      return;
+    }
     if (enPlay && valor && !aceptoTerminos) {
       setTerminosAnime(true);
       return;
     }
-    setError(null);
     const res = await fetch("/api/auth/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -86,10 +94,12 @@ export default function AjustesPage() {
     setMe((m) => (m ? { ...m, anime_enabled: data.user.anime_enabled } : m));
     setGuardado(true);
     setTerminosAnime(false);
+    router.refresh();
     setTimeout(() => setGuardado(false), 1500);
   }
 
   const conSesion = Boolean(me?.nickname);
+  const correoVerificado = Boolean(me?.email_verified);
 
   return (
     <div className="space-y-10" data-od-id="settings-page">
@@ -107,7 +117,7 @@ export default function AjustesPage() {
         {me === null ? null : !conSesion ? (
           <EmptyState
             title="Necesitás una cuenta"
-            description="Estos ajustes se guardan en tu cuenta."
+            description="Iniciá sesión y verificá tu correo electrónico en Perfil para activar la sección de anime y sincronizar tus preferencias."
             action={
               <Link
                 href="/login"
@@ -119,20 +129,7 @@ export default function AjustesPage() {
           />
         ) : (
           <Surface className="divide-y divide-line p-0">
-            {enPlay ? (
-              <div className="p-5">
-                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
-                  Edición Google Play
-                </p>
-                <p className="mt-2 text-base font-semibold text-ink">
-                  Disponible en la versión local
-                </p>
-                <p className="mt-1 max-w-2xl text-[13px] leading-5 text-subtle">
-                  Algunas preferencias de contenido solo están disponibles en MangaTotal Local,
-                  que se descarga desde el sitio oficial.
-                </p>
-              </div>
-            ) : (
+            {!enPlay && (
               <div className="flex items-center justify-between gap-6 p-5">
                 <div>
                   <p className="text-sm font-bold text-ink">Mostrar contenido +18</p>
@@ -157,31 +154,38 @@ export default function AjustesPage() {
                 </button>
               </div>
             )}
-            {enAndroid && (
-              <div className="flex items-center justify-between gap-6 p-5">
-                <div>
-                  <p className="text-sm font-bold text-ink">Activar sección animada</p>
-                  <p className="mt-1 text-[13px] leading-5 text-subtle">
-                    Viene apagada en Android. Al encenderla aparecen JKAnime y TioAnime dentro de Explorar y
-                    la biblioteca de anime animado. AniList permanece disponible siempre.
+            <div className="flex items-center justify-between gap-6 p-5">
+              <div>
+                <p className="text-sm font-bold text-ink">Activar sección animada</p>
+                <p className="mt-1 text-[13px] leading-5 text-subtle">
+                  {enAndroid
+                    ? "Al encenderla aparecen las opciones de Lectura y Anime al entrar a la app, junto con JKAnime y TioAnime en Explorar. AniList permanece disponible siempre."
+                    : "Habilita el acceso a la sección de anime animado en tu cuenta. Requiere sesión iniciada y correo electrónico verificado."}
+                </p>
+                {!correoVerificado && (
+                  <p className="mt-2 text-xs font-medium text-amber-300">
+                    Necesitás tener tu correo electrónico verificado para activar esta opción.{" "}
+                    <Link href="/perfil" className="underline underline-offset-4 hover:text-ink">
+                      Verificar correo en Perfil →
+                    </Link>
                   </p>
-                </div>
-                <button
-                  onClick={() => cambiarAnime(!me?.anime_enabled)}
-                  className={`min-h-11 w-16 shrink-0 rounded-full border border-line-strong p-1 transition-colors ${
-                    me?.anime_enabled ? "bg-accent" : "bg-panel"
-                  }`}
-                  aria-pressed={Boolean(me?.anime_enabled)}
-                  aria-label="Activar sección animada"
-                >
-                  <span
-                    className={`block h-7 w-7 rounded-full border border-line bg-ink transition-transform ${
-                      me?.anime_enabled ? "translate-x-6" : ""
-                    }`}
-                  />
-                </button>
+                )}
               </div>
-            )}
+              <button
+                onClick={() => cambiarAnime(!me?.anime_enabled)}
+                className={`min-h-11 w-16 shrink-0 rounded-full border border-line-strong p-1 transition-colors ${
+                  me?.anime_enabled ? "bg-accent" : "bg-panel"
+                } ${!correoVerificado && !me?.anime_enabled ? "opacity-60" : ""}`}
+                aria-pressed={Boolean(me?.anime_enabled)}
+                aria-label="Activar sección animada"
+              >
+                <span
+                  className={`block h-7 w-7 rounded-full border border-line bg-ink transition-transform ${
+                    me?.anime_enabled ? "translate-x-6" : ""
+                  }`}
+                />
+              </button>
+            </div>
             {error && (
               <p role="alert" className="p-5 text-sm text-[var(--danger-fg)]">
                 {error}

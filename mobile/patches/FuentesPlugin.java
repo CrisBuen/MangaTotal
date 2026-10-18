@@ -142,61 +142,77 @@ public class FuentesPlugin extends Plugin {
         new Thread(() -> {
             HttpsURLConnection conexion = null;
             try {
-                URL destino = new URL(direccion);
-                for (int salto = 0; salto <= MAX_REDIRECCIONES; salto++) {
-                    if (!direccionPermitida(destino)) {
-                        call.reject("Dirección de fuente no permitida");
-                        return;
+                int ultimoEstado = 0;
+                for (int intento = 0; intento < 2; intento++) {
+                    if (intento > 0) {
+                        try { Thread.sleep(350); } catch (InterruptedException ignored) {}
                     }
-
-                    conexion = (HttpsURLConnection) destino.openConnection();
-                    conexion.setInstanceFollowRedirects(false);
-                    conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
-                    conexion.setReadTimeout(TIEMPO_ESPERA_MS);
-                    conexion.setRequestProperty("User-Agent", ua);
-                    conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
-                    conexion.setRequestProperty(
-                        "Accept",
-                        "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,*/*;q=0.8"
-                    );
-
-                    // el permiso de Cloudflare vive en el almacén de cookies del
-                    // sistema: lo dejó ahí la ventana de verificación
-                    String cookies = CookieManager.getInstance().getCookie(destino.toString());
-                    if (cookies != null && !cookies.isEmpty()) {
-                        conexion.setRequestProperty("Cookie", cookies);
-                    }
-
-                    int estado = conexion.getResponseCode();
-                    if (esRedireccion(estado)) {
-                        String ubicacion = conexion.getHeaderField("Location");
-                        conexion.disconnect();
-                        conexion = null;
-                        if (ubicacion == null || ubicacion.trim().isEmpty() || salto == MAX_REDIRECCIONES) {
-                            call.reject("La fuente devolvió una redirección inválida");
+                    URL destino = new URL(direccion);
+                    boolean reintentar = false;
+                    for (int salto = 0; salto <= MAX_REDIRECCIONES; salto++) {
+                        if (!direccionPermitida(destino)) {
+                            call.reject("Dirección de fuente no permitida");
                             return;
                         }
-                        destino = new URL(destino, ubicacion);
-                        continue;
-                    }
 
-                    // Cloudflare pide verificar que hay una persona: la ventana la
-                    // abre la web llamando a resolverDesafio
-                    if (estado == 403 || estado == 503) {
-                        call.reject("DESAFIO:" + destino.getHost());
+                        conexion = (HttpsURLConnection) destino.openConnection();
+                        conexion.setInstanceFollowRedirects(false);
+                        conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
+                        conexion.setReadTimeout(TIEMPO_ESPERA_MS);
+                        conexion.setRequestProperty("User-Agent", ua);
+                        conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
+                        conexion.setRequestProperty(
+                            "Accept",
+                            "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,*/*;q=0.8"
+                        );
+
+                        // el permiso de Cloudflare vive en el almacén de cookies del
+                        // sistema: lo dejó ahí la ventana de verificación
+                        String cookies = CookieManager.getInstance().getCookie(destino.toString());
+                        if (cookies != null && !cookies.isEmpty()) {
+                            conexion.setRequestProperty("Cookie", cookies);
+                        }
+
+                        int estado = conexion.getResponseCode();
+                        if (esRedireccion(estado)) {
+                            String ubicacion = conexion.getHeaderField("Location");
+                            conexion.disconnect();
+                            conexion = null;
+                            if (ubicacion == null || ubicacion.trim().isEmpty() || salto == MAX_REDIRECCIONES) {
+                                call.reject("La fuente devolvió una redirección inválida");
+                                return;
+                            }
+                            destino = new URL(destino, ubicacion);
+                            continue;
+                        }
+
+                        // Cloudflare pide verificar que hay una persona: la ventana la
+                        // abre la web llamando a resolverDesafio
+                        if (estado == 403 || estado == 503) {
+                            call.reject("DESAFIO:" + destino.getHost());
+                            return;
+                        }
+                        if (estado >= 500 && intento == 0) {
+                            ultimoEstado = estado;
+                            conexion.disconnect();
+                            conexion = null;
+                            reintentar = true;
+                            break;
+                        }
+                        if (estado < 200 || estado >= 300) {
+                            call.reject("La fuente respondió " + estado);
+                            return;
+                        }
+
+                        JSObject salida = new JSObject();
+                        salida.put("status", estado);
+                        salida.put("data", leer(conexion.getInputStream()));
+                        call.resolve(salida);
                         return;
                     }
-                    if (estado < 200 || estado >= 300) {
-                        call.reject("La fuente respondió " + estado);
-                        return;
-                    }
-
-                    JSObject salida = new JSObject();
-                    salida.put("status", estado);
-                    salida.put("data", leer(conexion.getInputStream()));
-                    call.resolve(salida);
-                    return;
+                    if (!reintentar) break;
                 }
+                call.reject("La fuente respondió " + (ultimoEstado > 0 ? ultimoEstado : 500));
             } catch (Exception e) {
                 call.reject(mensaje(e));
             } finally {
@@ -438,10 +454,27 @@ public class FuentesPlugin extends Plugin {
         intent.putExtra("capitulo", capitulo);
         intent.putStringArrayListExtra("urls", urls);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getContext().startForegroundService(intent);
-        } else {
-            getContext().startService(intent);
+        boolean servicioIniciado = false;
+        try {
+            if (getContext().getPackageManager().resolveService(intent, 0) != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    servicioIniciado = getContext().startForegroundService(intent) != null;
+                } else {
+                    servicioIniciado = getContext().startService(intent) != null;
+                }
+            }
+        } catch (Exception ignored) {
+            servicioIniciado = false;
+        }
+
+        if (!servicioIniciado) {
+            DescargaServicio.descargarSinServicio(
+                getContext().getApplicationContext(),
+                fuente,
+                serie,
+                capitulo,
+                urls
+            );
         }
 
         JSObject salida = new JSObject();
@@ -473,6 +506,21 @@ public class FuentesPlugin extends Plugin {
         } catch (Exception ignorado) {}
     }
 
+    private boolean solicitaPermisoAccesoTotal() {
+        try {
+            android.content.pm.PackageInfo info = getContext().getPackageManager().getPackageInfo(
+                getContext().getPackageName(),
+                android.content.pm.PackageManager.GET_PERMISSIONS
+            );
+            if (info.requestedPermissions != null) {
+                for (String p : info.requestedPermissions) {
+                    if ("android.permission.MANAGE_EXTERNAL_STORAGE".equals(p)) return true;
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     /**
      * Comprueba y solicita permisos de almacenamiento (MANAGE_EXTERNAL_STORAGE en Android 11+).
      * Si no está concedido, abre la pantalla de ajustes del sistema para permitir "Acceso a todos los archivos".
@@ -482,7 +530,7 @@ public class FuentesPlugin extends Plugin {
         boolean concedido = false;
         boolean abrioAjustes = false;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && solicitaPermisoAccesoTotal()) {
             concedido = Environment.isExternalStorageManager();
             if (!concedido && getActivity() != null) {
                 try {

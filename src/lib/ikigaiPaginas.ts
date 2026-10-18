@@ -29,8 +29,7 @@ export function adultoDelEstadoIkigai(texto: string, chapterId: string): boolean
   const serie = estado.valor(estado.capitulo.series);
   if (!serie || typeof serie !== "object" || !("is_mature" in serie)) return undefined;
   const mature = estado.valor(serie.is_mature);
-  const riesgo = "high_risk" in serie && estado.valor(serie.high_risk);
-  return mature === true || riesgo === true ? true : mature === false ? false : undefined;
+  return mature === true ? true : mature === false ? false : undefined;
 }
 
 export function paginasDelEstadoIkigai(texto: string, chapterId: string): string[] {

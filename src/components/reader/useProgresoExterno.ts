@@ -2,12 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
+import { actualizarProgresoHistorialLocal } from "@/components/library/historial";
 
 const GUARDAR_MS = 1500;
 
 /**
  * Al abrir un capítulo externo, actualiza el progreso de esa serie en la
- * biblioteca del usuario. Si la serie no está guardada, no hace nada.
+ * biblioteca del usuario y en el historial local (invitado o con sesión).
  *
  * También va anotando por qué página va, con una pausa entre avisos para no
  * mandar un pedido por cada imagen que pasa.
@@ -34,6 +35,14 @@ export function useProgresoExterno(entrada: {
   useEffect(() => {
     let cancelado = false;
     anotada.current = false;
+
+    actualizarProgresoHistorialLocal({
+      source,
+      externalId,
+      chapterId,
+      chapterName,
+      pageNumber: paginaDeEntrada.current,
+    });
 
     (async () => {
       // ?todo=1 incluye las del historial: si abriste un capítulo, el avance
@@ -76,6 +85,14 @@ export function useProgresoExterno(entrada: {
     if (!pageNumber || pageNumber === ultimaPagina.current) return;
     if (temporizador.current) clearTimeout(temporizador.current);
 
+    actualizarProgresoHistorialLocal({
+      source,
+      externalId,
+      chapterId,
+      chapterName,
+      pageNumber,
+    });
+
     temporizador.current = setTimeout(() => {
       if (!anotada.current) return;
       ultimaPagina.current = pageNumber;
@@ -97,5 +114,5 @@ export function useProgresoExterno(entrada: {
     return () => {
       if (temporizador.current) clearTimeout(temporizador.current);
     };
-  }, [pageNumber, source, externalId, chapterId]);
+  }, [pageNumber, source, externalId, chapterId, chapterName]);
 }
