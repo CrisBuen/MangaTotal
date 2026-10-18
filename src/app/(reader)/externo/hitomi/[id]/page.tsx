@@ -84,13 +84,28 @@ export default function SerieHitomiPage(props: {
   }
 
   const tituloLimpio = decodificarHtml(ficha.title);
+  const portadaUrl =
+    ficha.thumb && !ficha.thumb.startsWith("/api/externo/imagen") && ficha.thumb.startsWith("http")
+      ? `/api/externo/imagen?u=${encodeURIComponent(ficha.thumb)}`
+      : ficha.thumb;
+
   const serieGuardable = {
     source: "hitomi" as const,
     external_id: id,
     title: tituloLimpio,
-    cover_url: ficha.thumb,
+    cover_url: portadaUrl,
     type: "adult",
   };
+
+  const todasLasEtiquetas: { tag: string; label: string }[] = [
+    ...(ficha.parodys ?? [])
+      .filter((p) => p && p.toLowerCase() !== "original")
+      .map((p) => ({ tag: `series:${p}`, label: `📚 ${p}` })),
+    ...(ficha.characters ?? []).map((c) => ({ tag: `character:${c}`, label: `👤 ${c}` })),
+    ...(ficha.artists ?? []).map((a) => ({ tag: `artist:${a}`, label: `🎨 ${a}` })),
+    ...(ficha.groups ?? []).map((g) => ({ tag: `group:${g}`, label: `👥 ${g}` })),
+    ...(ficha.tags ?? []).map((t) => ({ tag: t, label: t })),
+  ];
 
   return (
     <div className="space-y-10">
@@ -105,10 +120,10 @@ export default function SerieHitomiPage(props: {
       <div className="flex flex-col gap-8 sm:flex-row">
         <div className="w-44 shrink-0 overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] sm:w-52">
           <div className="aspect-[2/3]">
-            {ficha.thumb ? (
+            {portadaUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={ficha.thumb}
+                src={portadaUrl}
                 alt={tituloLimpio}
                 className="h-full w-full object-cover"
                 referrerPolicy="no-referrer"
@@ -135,16 +150,16 @@ export default function SerieHitomiPage(props: {
           </p>
 
           {/* Etiquetas interactivas */}
-          {ficha.tags && ficha.tags.length > 0 && (
+          {todasLasEtiquetas.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-1.5">
-              {ficha.tags.map((t) => (
+              {todasLasEtiquetas.map((item) => (
                 <Link
-                  key={t}
-                  href={`/explorar?fuente=hitomi&hitomi_tag=${encodeURIComponent(t)}`}
+                  key={item.tag}
+                  href={`/explorar?fuente=hitomi&hitomi_tag=${encodeURIComponent(item.tag)}`}
                   className="rounded-full border border-line bg-[var(--surface-raised)] px-2.5 py-0.5 text-[12px] text-subtle transition hover:border-accent hover:text-accent-ink"
-                  title={`Filtrar por "${t}" en el catálogo`}
+                  title={`Filtrar por "${item.tag}" en el catálogo`}
                 >
-                  {t}
+                  {item.label}
                 </Link>
               ))}
             </div>

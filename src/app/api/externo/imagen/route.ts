@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+  import { NextRequest, NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
+import { reconstruirUrlPaginaHitomi } from "@/lib/hitomi";
 
 /**
  * GET /api/externo/imagen?u=<url> — respaldo y descarga directa para las páginas
@@ -58,10 +59,27 @@ export async function GET(req: NextRequest) {
     upstreamHeaders["Sec-Fetch-Mode"] = "cors";
   }
 
-  const upstream = await fetch(url, {
+  let upstream = await fetch(url, {
     headers: upstreamHeaders,
     next: { revalidate: 3600 },
   }).catch(() => null);
+
+  if (
+    (!upstream?.ok || !upstream.body) &&
+    /gold-usergeneratedcontent\.net|hitomi\.la/.test(url.hostname) &&
+    !url.pathname.includes("bigtn")
+  ) {
+    const matchHash = url.pathname.match(/\/([0-9a-f]{64})\.(webp|avif)$/i);
+    if (matchHash) {
+      const freshUrl = await reconstruirUrlPaginaHitomi(matchHash[1], "webp").catch(() => null);
+      if (freshUrl) {
+        upstream = await fetch(freshUrl, {
+          headers: upstreamHeaders,
+          cache: "no-store",
+        }).catch(() => null);
+      }
+    }
+  }
 
   if (!upstream?.ok || !upstream.body) {
     return NextResponse.json({ error: "No se pudo obtener la imagen" }, { status: 502 });

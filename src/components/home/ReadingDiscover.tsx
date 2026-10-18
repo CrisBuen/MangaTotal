@@ -18,7 +18,7 @@ import {
 } from "@/lib/ikigai";
 import { isPlayStoreApp } from "@/lib/appVersion";
 import { EHENTAI_CATEGORIAS, EHENTAI_IDIOMAS, type SerieEhentai } from "@/lib/ehentai";
-import { HITOMI_TIPOS } from "@/lib/hitomiTipos";
+import { HITOMI_POPULAR_TAGS, HITOMI_TIPOS } from "@/lib/hitomiTipos";
 
 function decodificarHtml(texto: string): string {
   return texto
@@ -1249,8 +1249,8 @@ export function ReadingDiscover() {
       {fuente === "hitomi" && adultoHabilitado && (
         <>
           <section className="od-genres" aria-labelledby="hitomi-genres">
-            <h2 id="hitomi-genres">Categorías y tipos de Hitomi.la</h2>
-            <p>Elegí un tipo de publicación para explorar en el catálogo +18.</p>
+            <h2 id="hitomi-genres">Categorías y etiquetas de Hitomi.la</h2>
+            <p>Elegí un tipo de publicación o una etiqueta popular para explorar en el catálogo +18.</p>
             <div className="od-genre-grid">
               {HITOMI_TIPOS.filter((t) => t.id !== "todos").map((t) => (
                 <Link
@@ -1262,19 +1262,32 @@ export function ReadingDiscover() {
                   <span aria-hidden="true">↗</span>
                 </Link>
               ))}
+              {HITOMI_POPULAR_TAGS.slice(0, 18).map((tagItem) => (
+                <Link
+                  key={tagItem.tag}
+                  href={`/explorar?fuente=hitomi&hitomi_tag=${encodeURIComponent(tagItem.tag)}`}
+                  prefetch={false}
+                >
+                  🏷️ {tagItem.label}
+                  <span aria-hidden="true">↗</span>
+                </Link>
+              ))}
             </div>
           </section>
 
           <UniversalRail
             title="Populares en español · Hitomi.la"
             href="/explorar?fuente=hitomi&hitomi_lang=spanish"
-            fetchUrl="/api/externo/hitomi?tipo=todos&lang=spanish"
+            fetchUrl="/api/externo/hitomi?tipo=todos&lang=spanish&v=2"
             isSaved={(item) => guardada("hitomi", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
                 title: decodificarHtml(item.title),
-                cover_url: item.thumb,
+                cover_url:
+                  item.thumb && !item.thumb.startsWith("/api/externo/imagen") && item.thumb.startsWith("http")
+                    ? `/api/externo/imagen?u=${encodeURIComponent(item.thumb)}`
+                    : item.thumb,
                 href: `/externo/hitomi/${item.id}`,
                 meta: `${item.type || "doujinshi"} · ${item.filecount} págs.`,
               }))
@@ -1284,13 +1297,16 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Doujinshis en español · Hitomi.la"
             href="/explorar?fuente=hitomi&hitomi_tipo=doujinshi&hitomi_lang=spanish"
-            fetchUrl="/api/externo/hitomi?tipo=doujinshi&lang=spanish"
+            fetchUrl="/api/externo/hitomi?tipo=doujinshi&lang=spanish&v=2"
             isSaved={(item) => guardada("hitomi", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
                 title: decodificarHtml(item.title),
-                cover_url: item.thumb,
+                cover_url:
+                  item.thumb && !item.thumb.startsWith("/api/externo/imagen") && item.thumb.startsWith("http")
+                    ? `/api/externo/imagen?u=${encodeURIComponent(item.thumb)}`
+                    : item.thumb,
                 href: `/externo/hitomi/${item.id}`,
                 meta: `${item.filecount} págs.`,
               }))
@@ -1300,13 +1316,16 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Manga en español · Hitomi.la"
             href="/explorar?fuente=hitomi&hitomi_tipo=manga&hitomi_lang=spanish"
-            fetchUrl="/api/externo/hitomi?tipo=manga&lang=spanish"
+            fetchUrl="/api/externo/hitomi?tipo=manga&lang=spanish&v=2"
             isSaved={(item) => guardada("hitomi", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
                 title: decodificarHtml(item.title),
-                cover_url: item.thumb,
+                cover_url:
+                  item.thumb && !item.thumb.startsWith("/api/externo/imagen") && item.thumb.startsWith("http")
+                    ? `/api/externo/imagen?u=${encodeURIComponent(item.thumb)}`
+                    : item.thumb,
                 href: `/externo/hitomi/${item.id}`,
                 meta: `${item.filecount} págs.`,
               }))
@@ -1316,13 +1335,16 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Artist CG e Ilustraciones · Hitomi.la"
             href="/explorar?fuente=hitomi&hitomi_tipo=artistcg"
-            fetchUrl="/api/externo/hitomi?tipo=artistcg&lang=todos"
+            fetchUrl="/api/externo/hitomi?tipo=artistcg&lang=todos&v=2"
             isSaved={(item) => guardada("hitomi", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
                 title: decodificarHtml(item.title),
-                cover_url: item.thumb,
+                cover_url:
+                  item.thumb && !item.thumb.startsWith("/api/externo/imagen") && item.thumb.startsWith("http")
+                    ? `/api/externo/imagen?u=${encodeURIComponent(item.thumb)}`
+                    : item.thumb,
                 href: `/externo/hitomi/${item.id}`,
                 meta: `${item.filecount} págs.`,
               }))
@@ -1332,13 +1354,16 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Últimos lanzamientos globales · Hitomi.la"
             href="/explorar?fuente=hitomi&hitomi_lang=todos"
-            fetchUrl="/api/externo/hitomi?tipo=todos&lang=todos"
+            fetchUrl="/api/externo/hitomi?tipo=todos&lang=todos&v=2"
             isSaved={(item) => guardada("hitomi", item.id)}
             mapResponse={(data) =>
               (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
                 id: item.id,
                 title: decodificarHtml(item.title),
-                cover_url: item.thumb,
+                cover_url:
+                  item.thumb && !item.thumb.startsWith("/api/externo/imagen") && item.thumb.startsWith("http")
+                    ? `/api/externo/imagen?u=${encodeURIComponent(item.thumb)}`
+                    : item.thumb,
                 href: `/externo/hitomi/${item.id}`,
                 meta: `${item.language || "all"} · ${item.filecount} págs.`,
               }))

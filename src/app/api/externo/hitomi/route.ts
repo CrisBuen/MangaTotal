@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
-import { catalogoHitomi } from "@/lib/hitomi";
+import { catalogoHitomi, sugerirTagsHitomi } from "@/lib/hitomi";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Catálogo y búsqueda de Hitomi.la.
+ * Catálogo, búsqueda y autocompletado de etiquetas de Hitomi.la.
  * Requiere estrictamente que el usuario tenga el contenido +18 activado
  * y no esté usando la versión de Google Play Store.
  */
@@ -18,6 +18,12 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = req.nextUrl;
+  const suggest = searchParams.get("suggest");
+  if (suggest !== null) {
+    const tags = await sugerirTagsHitomi(suggest);
+    return NextResponse.json({ tags });
+  }
+
   const busqueda = searchParams.get("q") ?? "";
   const idioma = searchParams.get("lang") ?? "todos";
   const tag = searchParams.get("tag") ?? "";
@@ -38,3 +44,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 }
+

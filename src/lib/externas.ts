@@ -111,12 +111,18 @@ export interface SerieExternaFila {
 /** La forma en que se le entrega una serie externa a la web. */
 export function publico(e: SerieExternaFila) {
   const href = fichaHref(e.source, e.externalId, e.slug);
+  const coverUrl =
+    e.coverUrl &&
+    e.coverUrl.includes("gold-usergeneratedcontent.net") &&
+    !e.coverUrl.startsWith("/api/externo/imagen")
+      ? `/api/externo/imagen?u=${encodeURIComponent(e.coverUrl)}`
+      : e.coverUrl;
   return {
     source: e.source,
     external_id: e.externalId,
     slug: e.slug,
     title: e.title,
-    cover_url: e.coverUrl,
+    cover_url: coverUrl,
     type: e.type,
     last_chapter_id: e.lastChapterId,
     last_chapter_name: e.lastChapterName,

@@ -10,13 +10,14 @@ import {
   type SerieHitomi,
   type FichaHitomi,
   type CatalogoHitomi,
+  type HitomiTag,
 } from "./hitomiTipos";
 export * from "./hitomiTipos";
 
 // -------------------------------------------------------------
 // Cachés en memoria para acelerar pedidos sucesivos
 // -------------------------------------------------------------
-const galleryCache = new Map<string, { info: any; vence: number }>();
+const galleryCache = new Map<string, { info: FichaHitomi; vence: number }>();
 let ggCache: { gg: any; vence: number } | null = null;
 let indexVersionCache: { version: string; vence: number } | null = null;
 
@@ -75,17 +76,16 @@ async function getGalleriesIndexVersion(): Promise<string> {
   }
   const res = await fetch(`${HITOMI_LTN}/galleriesindex/version`, {
     headers: { Referer: HITOMI_WEB },
-    next: { revalidate: 3600 },
+    next: { revalidate: 1800 },
   });
   if (!res.ok) throw new Error("No se pudo obtener versión del índice de Hitomi");
   const version = (await res.text()).trim();
-  indexVersionCache = { version, vence: Date.now() + 30 * 60 * 1000 };
+  indexVersionCache = { version, vence: Date.now() + 15 * 60 * 1000 };
   return version;
 }
 
-async function buscarEnBTree(term: string): Promise<number[]> {
+async function buscarTerminoEnBTree(term: string, version: string): Promise<number[]> {
   try {
-    const version = await getGalleriesIndexVersion();
     const key = hashTerm(term);
     const maxNodeSize = 464;
 
@@ -126,7 +126,7 @@ async function buscarEnBTree(term: string): Promise<number[]> {
     if (!dataRef) return [];
 
     const [offset, length] = dataRef;
-    if (length <= 0 || length > 2_000_000) return [];
+    if (length <= 0 || length > 4_000_000) return [];
 
     const dataUrl = `${HITOMI_LTN}/galleriesindex/galleries.${version}.data`;
     const resData = await fetch(dataUrl, {
@@ -141,7 +141,7 @@ async function buscarEnBTree(term: string): Promise<number[]> {
 
     const count = bufData.readInt32BE(0);
     const ids: number[] = [];
-    for (let pos = 4; pos < bufData.length && ids.length < count; pos += 4) {
+    for (let pos = 4; pos + 4 <= bufData.length && ids.length < count; pos += 4) {
       ids.push(bufData.readInt32BE(pos));
     }
     return ids;
@@ -150,21 +150,56 @@ async function buscarEnBTree(term: string): Promise<number[]> {
   }
 }
 
+async function buscarEnBTree(query: string): Promise<number[]> {
+  try {
+    const palabras = query
+      .trim()
+      .toLowerCase()
+      .replace(/[_/:.-]+/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 2)
+      .slice(0, 5);
+
+    if (palabras.length === 0) {
+      const unica = query.trim().toLowerCase();
+      if (!unica) return [];
+      const version = await getGalleriesIndexVersion();
+      return buscarTerminoEnBTree(unica, version);
+    }
+
+    const version = await getGalleriesIndexVersion();
+    const listas = await Promise.all(palabras.map((p) => buscarTerminoEnBTree(p, version)));
+    const noVacias = listas.filter((l) => l.length > 0);
+    if (noVacias.length === 0) return [];
+
+    // Intersección manteniendo el orden cronológico descendente de la primera lista
+    let resultado = noVacias[0];
+    for (let i = 1; i < noVacias.length; i++) {
+      const conjunto = new Set(noVacias[i]);
+      resultado = resultado.filter((id) => conjunto.has(id));
+    }
+    return resultado;
+  } catch {
+    return [];
+  }
+}
+
 // -------------------------------------------------------------
 // Resolución de imágenes y miniaturas con gg.js
 // -------------------------------------------------------------
-async function obtenerGGFunc(): Promise<any> {
-  if (ggCache && ggCache.vence > Date.now()) {
+export async function obtenerGGFunc(forzar = false): Promise<any> {
+  if (!forzar && ggCache && ggCache.vence > Date.now()) {
     return ggCache.gg;
   }
   const res = await fetch(`${HITOMI_LTN}/gg.js`, {
     headers: { Referer: HITOMI_WEB },
-    next: { revalidate: 3600 },
+    cache: "no-store",
   });
   if (!res.ok) throw new Error("No se pudo obtener gg.js");
   const text = await res.text();
   const gg = new Function("var gg;" + text + "; return gg;")();
-  ggCache = { gg, vence: Date.now() + 60 * 60 * 1000 };
+  // gg.b rota cada ~60 minutos en Hitomi; conservarlo solo 60 segundos evita tokens vencidos
+  ggCache = { gg, vence: Date.now() + 60 * 1000 };
   return gg;
 }
 
@@ -175,29 +210,118 @@ export function construirUrlMiniatura(hash: string, gg: any): string {
   const tnPath = `${lastChar}/${prevTwo}/${hash}`;
   const g = parseInt(lastChar + prevTwo, 16);
   const sub = String.fromCharCode(97 + gg.m(g)) + "tn";
-  return `https://${sub}.gold-usergeneratedcontent.net/webpbigtn/${tnPath}.webp`;
+  const rawUrl = `https://${sub}.gold-usergeneratedcontent.net/webpbigtn/${tnPath}.webp`;
+  return `/api/externo/imagen?u=${encodeURIComponent(rawUrl)}`;
 }
 
 export function construirUrlPagina(hash: string, ext: string, gg: any): string {
   if (!hash) return "";
+  // En common.js oficial de Hitomi: dir === "webp" usa subdominio "w" (w1/w2), y "avif" usa "a" (a1/a2)
+  const prefijo = ext === "webp" ? "w" : "a";
   const b = 16;
   const match = hash.match(/\/?[0-9a-f]{61}([0-9a-f]{2})([0-9a-f])/);
-  let sub = "a";
+  let sub = `${prefijo}1`;
   if (match) {
     const g = parseInt(match[2] + match[1], b);
     if (!isNaN(g)) {
-      sub = "a" + (1 + gg.m(g));
+      sub = `${prefijo}${1 + gg.m(g)}`;
     }
   } else {
     const g = parseInt(hash.slice(-1) + hash.slice(-3, -1), 16);
     if (!isNaN(g)) {
-      sub = "a" + (1 + gg.m(g));
+      sub = `${prefijo}${1 + gg.m(g)}`;
     }
   }
 
   const s = gg.s(hash);
   const fullPath = `${gg.b}${s}/${hash}`;
   return `https://${sub}.gold-usergeneratedcontent.net/${fullPath}.${ext}`;
+}
+
+/**
+ * Reconstruye la URL de una página de Hitomi refrescando gg.js cuando el token horario gg.b rotó.
+ */
+export async function reconstruirUrlPaginaHitomi(hash: string, ext = "webp"): Promise<string> {
+  const gg = await obtenerGGFunc(true);
+  return construirUrlPagina(hash, ext, gg);
+}
+
+// -------------------------------------------------------------
+// Autocompletado de etiquetas en tiempo real desde tagindex.hitomi.la
+// -------------------------------------------------------------
+function codificarCaracterTagIndex(c: string): string {
+  if (c === " ") return "_";
+  if (c === "/") return "slash";
+  if (c === ".") return "dot";
+  return encodeURIComponent(c);
+}
+
+export async function sugerirTagsHitomi(query: string): Promise<HitomiTag[]> {
+  if (isPlayStoreApp()) return [];
+  const limpio = query.trim().toLowerCase().replace(/_/g, " ");
+  if (!limpio) return [];
+
+  let field = "global";
+  let term = limpio;
+  if (limpio.includes(":")) {
+    const partes = limpio.split(":");
+    const ns = partes[0]?.trim();
+    if (ns && ["female", "male", "tag", "series", "artist", "character", "group", "type"].includes(ns)) {
+      field = ns;
+      term = partes.slice(1).join(":").trim();
+    } else if (ns === "parody") {
+      field = "series";
+      term = partes.slice(1).join(":").trim();
+    }
+  }
+
+  if (!term) return [];
+  const chars = term.split("").map(codificarCaracterTagIndex);
+  const url = `${HITOMI_TAGINDEX}/${field}/${chars.join("/")}.json`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: HITOMI_WEB },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const sugerencias = (await res.json()) as [string, number, string][];
+    if (!Array.isArray(sugerencias)) return [];
+
+    return sugerencias.slice(0, 30).map(([nombre, cantidad, ns]) => {
+      const tagCompleto = ns === "tag" ? nombre : `${ns}:${nombre}`;
+      const categoria: HitomiTag["categoria"] =
+        ns === "female"
+          ? "femenino"
+          : ns === "male"
+            ? "masculino"
+            : ns === "series"
+              ? "serie"
+              : "tematica";
+      const prefijoLabel =
+        ns === "female"
+          ? "♀ "
+          : ns === "male"
+            ? "♂ "
+            : ns === "series"
+              ? "📚 "
+              : ns === "character"
+                ? "👤 "
+                : ns === "artist"
+                  ? "🎨 "
+                  : ns === "group"
+                    ? "👥 "
+                    : "";
+      return {
+        tag: tagCompleto,
+        label: `${prefijoLabel}${nombre} (${Number(cantidad).toLocaleString("es-ES")})`,
+        categoria,
+        count: Number(cantidad),
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 // -------------------------------------------------------------
@@ -238,7 +362,12 @@ export async function fichaHitomi(id: string): Promise<FichaHitomi> {
     for (const t of info.tags) {
       if (typeof t === "string") tags.push(t);
       else if (t?.tag) {
-        const prefix = t.female === "1" ? "female:" : t.male === "1" ? "male:" : "";
+        const prefix =
+          t.female === 1 || t.female === "1"
+            ? "female:"
+            : t.male === 1 || t.male === "1"
+              ? "male:"
+              : "";
         tags.push(`${prefix}${t.tag}`);
       }
     }
@@ -313,13 +442,76 @@ export async function paginasHitomi(id: string): Promise<string[]> {
   const urls: string[] = [];
   for (const f of info.files) {
     if (!f.hash) continue;
-    // Preferir WebP para compatibilidad universal en todas las plataformas y lectores
-    const ext = f.haswebp ? "webp" : f.hasavif ? "avif" : f.name?.split(".").pop() || "jpg";
-    const u = construirUrlPagina(f.hash, ext, gg);
+    // Igual que reader.js oficial de Hitomi: todas las páginas se sirven en WebP desde w1/w2
+    const u = construirUrlPagina(f.hash, "webp", gg);
     if (u) urls.push(u);
   }
 
   return urls;
+}
+
+// -------------------------------------------------------------
+// Lectura de archivos .nozomi por rango de bytes en un único pedido
+// -------------------------------------------------------------
+async function leerNozomiRango(
+  nozomiUrl: string,
+  numPagina: number,
+  itemsPorPagina: number
+): Promise<{ ids: number[]; total: number } | null> {
+  const startByte = (numPagina - 1) * itemsPorPagina * 4;
+  const endByte = startByte + itemsPorPagina * 4 - 1;
+
+  try {
+    const res = await fetch(nozomiUrl, {
+      headers: {
+        Referer: HITOMI_WEB,
+        Range: `bytes=${startByte}-${endByte}`,
+      },
+    });
+    if (!res.ok && res.status !== 206) return null;
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    const ids: number[] = [];
+    for (let i = 0; i + 4 <= buf.length; i += 4) {
+      ids.push(buf.readInt32BE(i));
+    }
+
+    let total = ids.length;
+    const cr = res.headers.get("content-range");
+    if (cr) {
+      const totalBytes = parseInt(cr.split("/")[1] || "0", 10);
+      if (totalBytes > 0) {
+        total = Math.floor(totalBytes / 4);
+      }
+    }
+    return { ids, total };
+  } catch {
+    return null;
+  }
+}
+
+function construirRutasCandidatasTag(tagLimpio: string): string[] {
+  const t = tagLimpio.replace(/_/g, " ").trim();
+  if (t.startsWith("series:")) return [`series/${t.replace(/^series:/, "").trim()}`];
+  if (t.startsWith("parody:")) return [`series/${t.replace(/^parody:/, "").trim()}`];
+  if (t.startsWith("artist:")) return [`artist/${t.replace(/^artist:/, "").trim()}`];
+  if (t.startsWith("group:")) return [`group/${t.replace(/^group:/, "").trim()}`];
+  if (t.startsWith("character:")) return [`character/${t.replace(/^character:/, "").trim()}`];
+  if (t.startsWith("type:")) return [`type/${t.replace(/^type:/, "").trim()}`];
+  if (t.startsWith("tag:")) return [`tag/${t.replace(/^tag:/, "").trim()}`];
+  if (t.startsWith("female:") || t.startsWith("male:")) return [`tag/${t}`];
+
+  // Si el usuario escribió un tag sin prefijo (ej: "maid", "milf", "full color", "blue archive"),
+  // probamos en orden: tag general, female:, male:, series/, character/, artist/
+  return [
+    `tag/${t}`,
+    `tag/female:${t}`,
+    `tag/male:${t}`,
+    `series/${t}`,
+    `character/${t}`,
+    `artist/${t}`,
+    `group/${t}`,
+  ];
 }
 
 // -------------------------------------------------------------
@@ -342,51 +534,54 @@ export async function catalogoHitomi(opciones: {
 
   let galleryIds: number[] = [];
   let totalResultados = 0;
+  let yaPaginado = false;
 
   const queryLimpia = busqueda.trim().toLowerCase();
   const tagLimpio = tag.trim().toLowerCase();
   const langCode = idioma === "todos" ? "all" : idioma.toLowerCase();
 
-  // Caso 1: Búsqueda por texto (ej. "naruto", "magic", etc.)
+  // Caso 1: Búsqueda por texto (ej. "naruto", "blue archive", etc.)
   if (queryLimpia) {
-    galleryIds = await buscarEnBTree(queryLimpia);
-    totalResultados = galleryIds.length;
+    // Si el texto ingresado coincide exactamente con una serie o etiqueta en el idioma elegido, priorizar su .nozomi
+    const candidatosDirectos = construirRutasCandidatasTag(queryLimpia).slice(0, 4);
+    for (const ruta of candidatosDirectos) {
+      const nozomiUrl = `${HITOMI_LTN}/n/${encodeURI(ruta)}-${langCode}.nozomi`;
+      const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
+      if (resNozomi && resNozomi.ids.length > 0) {
+        galleryIds = resNozomi.ids;
+        totalResultados = resNozomi.total;
+        yaPaginado = true;
+        break;
+      }
+    }
+
+    if (!yaPaginado) {
+      galleryIds = await buscarEnBTree(queryLimpia);
+      totalResultados = galleryIds.length;
+    }
   }
   // Caso 2: Filtrado por etiqueta específica
   else if (tagLimpio) {
-    let tagUrlPart = tagLimpio;
-    if (tagLimpio.startsWith("series:")) tagUrlPart = `series/${tagLimpio.replace(/^series:/, "")}`;
-    else if (tagLimpio.startsWith("artist:")) tagUrlPart = `artist/${tagLimpio.replace(/^artist:/, "")}`;
-    else if (tagLimpio.startsWith("character:")) tagUrlPart = `character/${tagLimpio.replace(/^character:/, "")}`;
-    else if (tagLimpio.startsWith("type:")) tagUrlPart = `type/${tagLimpio.replace(/^type:/, "")}`;
-    else tagUrlPart = `tag/${tagLimpio}`;
+    const rutasCandidatas = construirRutasCandidatasTag(tagLimpio);
+    const idiomasIntento = langCode === "all" ? ["all"] : [langCode, "all"];
 
-    const nozomiUrl = `${HITOMI_LTN}/n/${encodeURI(tagUrlPart)}-${langCode}.nozomi`;
-    try {
-      const res = await fetch(nozomiUrl, {
-        headers: { Referer: HITOMI_WEB, Range: "bytes=0-39" },
-      });
-      if (res.ok || res.status === 206) {
-        const cr = res.headers.get("content-range");
-        if (cr) {
-          const totalBytes = parseInt(cr.split("/")[1] || "0", 10);
-          totalResultados = Math.floor(totalBytes / 4);
-        }
-
-        const startByte = (numPagina - 1) * ITEMS_POR_PAGINA * 4;
-        const endByte = startByte + ITEMS_POR_PAGINA * 4 - 1;
-
-        const resPagina = await fetch(nozomiUrl, {
-          headers: { Referer: HITOMI_WEB, Range: `bytes=${startByte}-${endByte}` },
-        });
-        if (resPagina.ok || resPagina.status === 206) {
-          const buf = Buffer.from(await resPagina.arrayBuffer());
-          for (let i = 0; i < buf.length; i += 4) {
-            galleryIds.push(buf.readInt32BE(i));
-          }
+    busquedaTag: for (const codIdioma of idiomasIntento) {
+      for (const ruta of rutasCandidatas) {
+        const nozomiUrl = `${HITOMI_LTN}/n/${encodeURI(ruta)}-${codIdioma}.nozomi`;
+        const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
+        if (resNozomi && resNozomi.ids.length > 0) {
+          galleryIds = resNozomi.ids;
+          totalResultados = resNozomi.total;
+          yaPaginado = true;
+          break busquedaTag;
         }
       }
-    } catch {}
+    }
+
+    if (!yaPaginado) {
+      galleryIds = await buscarEnBTree(tagLimpio.replace(/^(female|male|series|parody|artist|group|character|tag):/, ""));
+      totalResultados = galleryIds.length;
+    }
   }
   // Caso 3: Navegación general por idioma y tipo
   else {
@@ -395,46 +590,30 @@ export async function catalogoHitomi(opciones: {
       nozomiUrl = `${HITOMI_LTN}/n/type/${encodeURI(tipo)}-${langCode}.nozomi`;
     }
 
-    try {
-      const res = await fetch(nozomiUrl, {
-        headers: { Referer: HITOMI_WEB, Range: "bytes=0-39" },
-      });
-      if (res.ok || res.status === 206) {
-        const cr = res.headers.get("content-range");
-        if (cr) {
-          const totalBytes = parseInt(cr.split("/")[1] || "0", 10);
-          totalResultados = Math.floor(totalBytes / 4);
-        }
-
-        const startByte = (numPagina - 1) * ITEMS_POR_PAGINA * 4;
-        const endByte = startByte + ITEMS_POR_PAGINA * 4 - 1;
-
-        const resPagina = await fetch(nozomiUrl, {
-          headers: { Referer: HITOMI_WEB, Range: `bytes=${startByte}-${endByte}` },
-        });
-        if (resPagina.ok || resPagina.status === 206) {
-          const buf = Buffer.from(await resPagina.arrayBuffer());
-          for (let i = 0; i < buf.length; i += 4) {
-            galleryIds.push(buf.readInt32BE(i));
-          }
-        }
-      }
-    } catch {}
+    const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
+    if (resNozomi) {
+      galleryIds = resNozomi.ids;
+      totalResultados = resNozomi.total;
+      yaPaginado = true;
+    }
   }
 
-  // Si vinieron IDs de búsqueda por B-tree, paginar en memoria
+  // Si vinieron IDs completos de búsqueda por B-tree, paginar en memoria
   let sliceIds = galleryIds;
-  if (queryLimpia) {
+  if (!yaPaginado) {
     const inicio = (numPagina - 1) * ITEMS_POR_PAGINA;
     sliceIds = galleryIds.slice(inicio, inicio + ITEMS_POR_PAGINA);
   }
 
-  // Obtener los metadatos de las galerías en paralelo
-  const gg = await obtenerGGFunc().catch(() => null);
+  // Eliminar IDs duplicados conservando el orden
+  const idsUnicos = Array.from(new Set(sliceIds));
+
+  // Precalentar gg.js antes de pedir las fichas en paralelo
+  await obtenerGGFunc().catch(() => null);
   const series: SerieHitomi[] = [];
 
   const fichas = await Promise.all(
-    sliceIds.map(async (id) => {
+    idsUnicos.map(async (id) => {
       try {
         return await fichaHitomi(String(id));
       } catch {
@@ -457,3 +636,4 @@ export async function catalogoHitomi(opciones: {
     hayMas: numPagina < totalPaginas,
   };
 }
+

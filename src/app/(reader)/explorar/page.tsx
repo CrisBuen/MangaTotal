@@ -54,6 +54,8 @@ import {
 import {
   HITOMI_IDIOMAS,
   HITOMI_TIPOS,
+  buscarEtiquetasHitomi,
+  type HitomiTag,
   type SerieHitomi,
 } from "@/lib/hitomiTipos";
 
@@ -223,6 +225,35 @@ export default function ExplorarPage() {
   const [hitomiLang, setHitomiLang] = useState("spanish");
   const [hitomiTipo, setHitomiTipo] = useState("todos");
   const [hitomiTag, setHitomiTag] = useState<string | null>(null);
+  const [hitomiModalTags, setHitomiModalTags] = useState(false);
+  const [hitomiTagBusqueda, setHitomiTagBusqueda] = useState("");
+  const [hitomiTagsSugeridos, setHitomiTagsSugeridos] = useState<HitomiTag[]>([]);
+
+  useEffect(() => {
+    if (!hitomiModalTags) return;
+    const q = hitomiTagBusqueda.trim();
+    if (q.length < 2) {
+      setHitomiTagsSugeridos([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/externo/hitomi?suggest=${encodeURIComponent(q)}`, {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data?.tags)) {
+          setHitomiTagsSugeridos(data.tags);
+        }
+      } catch {}
+    }, 220);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [hitomiModalTags, hitomiTagBusqueda]);
 
   // Botón de actualizar: vuelve a pedir SOLO lo que está en pantalla, y
   // saltea la caché para que aparezcan los capítulos recién subidos.
@@ -1055,7 +1086,7 @@ export default function ExplorarPage() {
       if (hitomiTag && hitomiTag.trim()) params.set("tag", hitomiTag.trim());
       params.set("page", String(hitomiPage));
 
-      const cacheKey = `explorar:hitomi:${hitomiPage}:${hitomiTipo}:${hitomiLang}:${hitomiTag ?? ""}:${search.trim()}`;
+      const cacheKey = `explorar:hitomi:v2:${hitomiPage}:${hitomiTipo}:${hitomiLang}:${hitomiTag ?? ""}:${search.trim()}`;
 
       const r = await cargarConCacheAndroid<{
         series: SerieHitomi[];
@@ -1471,20 +1502,26 @@ export default function ExplorarPage() {
               ))}
             </select>
 
+            <button
+              type="button"
+              onClick={() => setHitomiModalTags(true)}
+              className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
+                hitomiTag
+                  ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
+                  : "border-line-strong text-subtle hover:border-ink hover:text-ink"
+              }`}
+            >
+              {hitomiTag ? `🏷️ Tag: ${hitomiTag}` : "🏷️ Etiquetas (+100)"}
+            </button>
             {hitomiTag && (
-              <div className="flex items-center gap-2">
-                <span className="rounded-md border border-accent bg-[var(--accent-soft)] px-3 py-2 text-xs font-semibold text-accent-ink">
-                  🏷️ Tag: {hitomiTag}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setHitomiTag(null)}
-                  className="text-xs font-semibold text-danger hover:underline"
-                  title="Quitar filtro de etiqueta"
-                >
-                  ✕ Quitar tag
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setHitomiTag(null)}
+                className="text-xs font-semibold text-danger hover:underline"
+                title="Quitar filtro de etiqueta"
+              >
+                ✕ Quitar tag
+              </button>
             )}
           </>
         )}
@@ -2420,6 +2457,155 @@ export default function ExplorarPage() {
         </div>
       )}
 
+      {hitomiModalTags && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setHitomiModalTags(false)}
+        >
+          <div
+            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-line bg-panel shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabecera del modal */}
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <div>
+                <h3 className="text-base font-bold text-ink">Etiquetas de Hitomi.la</h3>
+                <p className="text-xs text-subtle">
+                  Elegí una etiqueta popular o escribí cualquier tag, serie, personaje o artista de Hitomi.la
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHitomiModalTags(false)}
+                className="rounded-md p-1.5 text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Barra de búsqueda de tags */}
+            <div className="border-b border-line p-4 space-y-2">
+              <input
+                type="text"
+                value={hitomiTagBusqueda}
+                onChange={(e) => setHitomiTagBusqueda(e.target.value)}
+                placeholder="Buscar etiqueta (ej: female:maid, milf, series:blue archive, full color)..."
+                className={`w-full ${fieldControlClass}`}
+                autoFocus
+              />
+              {hitomiTagBusqueda.trim() && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-subtle">
+                    ¿Querés filtrar directamente por lo que escribiste?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHitomiTag(hitomiTagBusqueda.trim());
+                      setHitomiModalTags(false);
+                    }}
+                    className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
+                  >
+                    Filtrar por &quot;{hitomiTagBusqueda.trim()}&quot;
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Lista de tags con scroll */}
+            <div className="overflow-y-auto p-5 space-y-4">
+              {hitomiTag && (
+                <div className="flex items-center justify-between rounded-lg border border-line bg-[var(--surface-raised)] p-3">
+                  <span className="text-xs text-ink">
+                    Etiqueta activa: <strong className="font-mono text-accent-ink">{hitomiTag}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHitomiTag(null);
+                      setHitomiModalTags(false);
+                    }}
+                    className="text-xs font-semibold text-danger hover:underline"
+                  >
+                    ✕ Quitar etiqueta
+                  </button>
+                </div>
+              )}
+
+              {hitomiTagsSugeridos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-accent-ink">
+                    Sugerencias en tiempo real de Hitomi.la
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {hitomiTagsSugeridos.map((t) => (
+                      <button
+                        key={`sug-${t.tag}`}
+                        type="button"
+                        onClick={() => {
+                          setHitomiTag(t.tag);
+                          setHitomiModalTags(false);
+                        }}
+                        className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
+                          hitomiTag === t.tag
+                            ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                            : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                        }`}
+                      >
+                        <span className="block font-medium">{t.label}</span>
+                        <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {hitomiTagsSugeridos.length > 0 && (
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-subtle">
+                    Etiquetas populares
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {buscarEtiquetasHitomi(hitomiTagBusqueda).map((t) => (
+                    <button
+                      key={t.tag}
+                      type="button"
+                      onClick={() => {
+                        setHitomiTag(t.tag);
+                        setHitomiModalTags(false);
+                      }}
+                      className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
+                        hitomiTag === t.tag
+                          ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                          : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                      }`}
+                    >
+                      <span className="block font-medium">{t.label}</span>
+                      <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Pie del modal */}
+            <div className="flex justify-end border-t border-line px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setHitomiModalTags(false)}
+                className="rounded-md border border-line px-4 py-1.5 text-xs font-medium text-subtle hover:border-line-strong hover:text-ink"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {fuente === "hitomi" && (
         hitomiSeries === null ? (
           <p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
@@ -2433,7 +2619,12 @@ export default function ExplorarPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {hitomiSeries.map((s) => (
+              {hitomiSeries.map((s) => {
+                const thumbUrl =
+                  s.thumb && !s.thumb.startsWith("/api/externo/imagen") && s.thumb.startsWith("http")
+                    ? `/api/externo/imagen?u=${encodeURIComponent(s.thumb)}`
+                    : s.thumb;
+                return (
                 <div key={s.id} className="group block">
                   <Link
                     href={`/externo/hitomi/${s.id}`}
@@ -2442,10 +2633,10 @@ export default function ExplorarPage() {
                   >
                     <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                       <MarcaGuardada visible={guardada("hitomi", s.id, "adult")} />
-                      {s.thumb ? (
+                      {thumbUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={s.thumb}
+                          src={thumbUrl}
                           alt={s.title}
                           className="h-full w-full object-cover transition duration-500"
                           loading="lazy"
@@ -2491,7 +2682,8 @@ export default function ExplorarPage() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex items-center justify-center gap-3 pt-8">
