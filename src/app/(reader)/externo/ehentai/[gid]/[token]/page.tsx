@@ -6,6 +6,7 @@ import { VolverFuente } from "@/components/library/VolverFuente";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
+import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 import { Surface } from "@/components/ui/Surface";
 import { anotarHistorial } from "@/components/library/historial";
 import type { FichaEhentai } from "@/lib/ehentai";
@@ -157,19 +158,6 @@ export default function SerieEhentaiPage(props: {
           )}
 
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              onClick={() =>
-                void anotarHistorial({
-                  ...serieGuardable,
-                  last_chapter_id: `${gid}/${token}`,
-                  last_chapter_name: "Capítulo Completo",
-                })
-              }
-              href={`/leer-externo/ehentai/${gid}/${token}`}
-              className="rounded-md bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
-            >
-              Empezar a leer
-            </Link>
             <SaveExternalButton serie={serieGuardable} />
             <BotonMigrar fuente="ehentai" externalId={`${gid}/${token}`} titulo={tituloLimpio} />
           </div>
@@ -243,6 +231,17 @@ export default function SerieEhentaiPage(props: {
           E-Hentai Galleries
         </a>
       </p>
+
+      <BotonFlotanteLectura
+        source="ehentai"
+        externalId={`${gid}/${token}`}
+        slug={`${gid}/${token}`}
+        title={tituloLimpio}
+        coverUrl={ficha.thumb}
+        type="adult"
+        primerCapitulo={{ id: `${gid}/${token}`, name: "Capítulo Completo" }}
+        cargando={cargando}
+      />
     </div>
   );
 }

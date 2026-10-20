@@ -6,6 +6,8 @@ import { buscarHistorialLocal } from "@/components/library/historial";
 export interface ProgresoSerie {
   /** Identificador del último capítulo abierto, tal como lo guarda la fuente. */
   ultimoId: string | null;
+  /** Nombre del capítulo tal como lo reporta la fuente (ej. "20", "Capítulo 20", "Capítulo Completo"). */
+  ultimoNombre: string | null;
   /** Su número, para poder marcar como leídos los anteriores. */
   ultimoNumero: number | null;
   /** Página por la que iba dentro de ese capítulo. */
@@ -17,6 +19,7 @@ export interface ProgresoSerie {
 
 const VACIO: ProgresoSerie = {
   ultimoId: null,
+  ultimoNombre: null,
   ultimoNumero: null,
   ultimaPagina: null,
   guardada: false,
@@ -63,6 +66,7 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
       const numero = Number(local.last_chapter_name ?? local.last_chapter_id);
       setProgreso({
         ultimoId: local.last_chapter_id,
+        ultimoNombre: local.last_chapter_name ?? null,
         ultimoNumero: Number.isFinite(numero) ? numero : null,
         ultimaPagina: local.last_page_number,
         guardada: false,
@@ -98,6 +102,7 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
       const numero = Number(serie.last_chapter_name ?? serie.last_chapter_id);
       setProgreso({
         ultimoId: serie.last_chapter_id ?? local?.last_chapter_id ?? null,
+        ultimoNombre: serie.last_chapter_name ?? local?.last_chapter_name ?? null,
         ultimoNumero: Number.isFinite(numero) ? numero : null,
         ultimaPagina: serie.last_page_number ?? local?.last_page_number ?? null,
         guardada: true,

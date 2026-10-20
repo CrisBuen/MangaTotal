@@ -12,6 +12,7 @@ import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
+import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 
 interface SerieOlympus {
   id: number;
@@ -292,6 +293,17 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
         </a>
         , publicados con su permiso
       </p>
+
+      <BotonFlotanteLectura
+        source="olympus"
+        externalId={serie.slug || slug}
+        slug={serie.slug || slug}
+        title={serie.title}
+        coverUrl={serie.cover_url}
+        type={serie.type}
+        capitulos={capitulos.map((c) => ({ id: c.id, name: c.name }))}
+        cargando={!serie}
+      />
     </div>
   );
 }

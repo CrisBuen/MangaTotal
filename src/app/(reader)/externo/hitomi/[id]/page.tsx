@@ -6,6 +6,7 @@ import { VolverFuente } from "@/components/library/VolverFuente";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
+import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 import { Surface } from "@/components/ui/Surface";
 import { anotarHistorial } from "@/components/library/historial";
 import type { FichaHitomi } from "@/lib/hitomiTipos";
@@ -173,19 +174,6 @@ export default function SerieHitomiPage(props: {
 
           {/* Acciones de la obra */}
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              onClick={() =>
-                void anotarHistorial({
-                  ...serieGuardable,
-                  last_chapter_id: id,
-                  last_chapter_name: "Capítulo Completo",
-                })
-              }
-              href={`/leer-externo/hitomi/${id}`}
-              className="rounded-md bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
-            >
-              Empezar a leer
-            </Link>
             <SaveExternalButton serie={serieGuardable} />
             <BotonMigrar fuente="hitomi" externalId={id} titulo={tituloLimpio} />
           </div>
@@ -259,6 +247,16 @@ export default function SerieHitomiPage(props: {
           Hitomi.la
         </a>
       </p>
+
+      <BotonFlotanteLectura
+        source="hitomi"
+        externalId={id}
+        title={tituloLimpio}
+        coverUrl={portadaUrl}
+        type="adult"
+        primerCapitulo={{ id, name: "Capítulo Completo" }}
+        cargando={cargando}
+      />
     </div>
   );
 }

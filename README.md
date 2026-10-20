@@ -1,8 +1,9 @@
 # MangaTotal
 
-Biblioteca de manga, manhwa y manhua que junta el **catálogo propio** con el
-de **seis sitios externos** que dieron permiso por escrito, todo con el mismo
-lector y el mismo progreso de lectura.
+Biblioteca de manga, manhwa, manhua y anime que junta el **catálogo propio** con el
+de **ocho sitios externos de lectura** y **tres de anime** que dieron permiso por escrito,
+todo con el mismo lector, seguimiento procedural de capítulos y páginas, y sincronización
+de progreso local y en la nube.
 
 **https://www.mangatotal.com** · también como app de **Windows** y de
 **Android**.
@@ -39,12 +40,11 @@ detalle fino de cómo funciona y qué hacer si cambian algo.
 - **Apps**: Windows con Tauri (`desktop/`), Android con Capacitor
   (`mobile/`). Las dos cargan la misma web, así que un cambio de interfaz o
   de fuentes llega con un push, sin recompilar.
-- **Acceso**: los catálogos se miran sin cuenta; leer un capítulo, guardar
-  progreso y marcar favoritos exige registrarse.
-- **Fuentes externas**: MangaDex, Olympus, ZonaTMO, Ikigai, Catharsis World y
-  LeerCapítulo, todas con permiso por escrito de cada sitio.
-- **No se aloja nada de las fuentes**: portadas y páginas se cargan desde sus
-  servidores. Tampoco se reproduce anime: esa sección es solo seguimiento.
+- **Acceso**: los catálogos se miran sin cuenta; el historial se guarda tanto localmente para invitados como en la nube al iniciar sesión; marcar favoritos y activar anime exige registrarse (y correo verificado para anime).
+- **Fuentes externas de lectura**: MangaDex, Olympus, ZonaTMO, Ikigai, Catharsis World, LeerCapítulo, y de forma opcional para mayores (+18) E-Hentai y Hitomi.la.
+- **Fuentes de anime**: JKAnime, TioAnime y HentaiTV (+18).
+- **Herramientas**: botón flotante interactivo de lectura rápida («Continuar» / «Empezar a leer») con número de capítulo y página, sistema de migración de obras entre fuentes y descarga local 100% cliente sin costo de servidor.
+- **No se aloja nada de las fuentes**: portadas y páginas se cargan desde sus servidores.
 
 ## Desarrollo
 

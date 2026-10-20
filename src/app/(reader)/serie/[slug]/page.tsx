@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FavoriteButton } from "@/components/library/FavoriteButton";
 import { BotonRefrescarFichaPropia, RefrescarFichaPropia } from "@/components/library/RefrescarFichaPropia";
+import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 import { buttonStyles } from "@/components/ui/Button";
 import { Badge, EmptyState } from "@/components/ui/Feedback";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
@@ -223,6 +224,36 @@ export default async function SeriePage(props: { params: Promise<{ slug: string 
           </ul>
         )}
       </section>
+
+      <BotonFlotanteLectura
+        source="local"
+        externalId={slug}
+        slug={slug}
+        title={series.title}
+        coverUrl={series.coverImagePath ? `/api/images/${series.coverImagePath}` : null}
+        type={series.type}
+        progresoManual={
+          bookmark
+            ? {
+                chapterId: bookmark.chapterId,
+                chapterName: bookmark.chapter.number,
+                chapterNumber: bookmark.chapter.number,
+                pageNumber: bookmark.lastPageNumber,
+                href: `/leer/${bookmark.chapterId}${bookmark.lastPageNumber && bookmark.lastPageNumber > 1 ? `?page=${bookmark.lastPageNumber}` : ""}`,
+              }
+            : null
+        }
+        primerCapitulo={
+          series.chapters[0]
+            ? {
+                id: series.chapters[0].id,
+                name: series.chapters[0].number,
+                number: series.chapters[0].number,
+                href: `/leer/${series.chapters[0].id}`,
+              }
+            : null
+        }
+      />
     </RefrescarFichaPropia>
   );
 }

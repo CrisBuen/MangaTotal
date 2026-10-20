@@ -10,6 +10,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
+import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 
 interface ExternalSeries {
   id: string;
@@ -358,6 +359,22 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
       <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">
         Serie y capítulos alojados en MangaDex · traducciones de sus grupos de scanlation
       </p>
+
+      {series && (
+        <BotonFlotanteLectura
+          source="mangadex"
+          externalId={id}
+          title={series.title}
+          coverUrl={series.cover_url}
+          type={series.is_adult ? "adult" : "normal"}
+          capitulos={chapters.map((e) => ({
+            id: e.chosen.id,
+            name: e.number,
+            number: e.number,
+          }))}
+          cargando={loading && !series}
+        />
+      )}
     </div>
   );
 }

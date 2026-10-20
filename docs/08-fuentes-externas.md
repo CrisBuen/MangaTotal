@@ -21,17 +21,28 @@ De ahí salen tres reglas que no se negocian:
 El permiso cubre el sitio de cada uno, no las traducciones de terceros que
 republiquen.
 
-## 8.2 Las siete
+## 8.2 Las fuentes integradas
+
+### Lectura (Manga / Manhwa / Manhua / Doujinshi)
 
 | Fuente | Dominio | Cómo se lee | Estado |
 |---|---|---|---|
 | **MangaDex** | `api.mangadex.org` | API pública, desde el servidor | ✅ |
-| **Olympus** | `olympusxyz.com` | API propia, desde el servidor | ✅ |
+| **Olympus** | `olympusxyz.com` | API propia y respaldo por web, desde el servidor | ✅ |
 | **ZonaTMO** | `zonatmo.net` | API interna, desde el servidor | ✅ |
 | **Ikigai** | `visorikigai.gettocaboca.com` | **Puente nativo**: bloquea servidores | ✅ solo apps |
 | **Catharsis World** | `newcatharsis.dig-it.info` | Su almacén Directus, desde el servidor | ✅ |
-| **LeerCapítulo** | `www.leercapitulo.co` | HTML + código propio, desde el servidor | ✅ |
-| **JKAnime** | `jkanime.net` | Directorio/episodios por servidor; reproductor nativo autorizado | ✅ |
+| **LeerCapítulo** | `www.leercapitulo.co` | HTML + desbarajado propio, desde el servidor | ✅ |
+| **E-Hentai** | `e-hentai.org` | API JSON `gdata` + red Hath (+18 opcional) | ✅ |
+| **Hitomi.la** | `hitomi.la` | Índices binarios `.nozomi` + WebP distribuido (+18 opcional) | ✅ |
+
+### Anime
+
+| Fuente | Dominio | Cómo se reproduce | Estado |
+|---|---|---|---|
+| **JKAnime** | `jkanime.net` | Directorio y episodios desde servidor; reproductor nativo | ✅ |
+| **TioAnime** | `tioanime.com` | Catálogo y fuentes de video integradas | ✅ |
+| **HentaiTV** | `hentaitv.com` | Directorio y reproducción anime (+18 opcional) | ✅ |
 
 ## 8.3 El contrato: qué expone cada fuente
 

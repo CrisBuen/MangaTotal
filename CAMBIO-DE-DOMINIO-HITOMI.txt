@@ -1,0 +1,60 @@
+HITOMI.LA — CONTRATO DE INTEGRACION Y CAMBIO DE DOMINIO
+======================================================
+
+Estado: integrado con soporte para lectura, catalogo, ordenacion y busqueda por etiquetas (+18).
+Dominio oficial: https://hitomi.la
+CDN / API: https://ltn.gold-usergeneratedcontent.net
+
+QUE CONSUME MANGATOTAL
+----------------------
+
+- Catalogo y busqueda mediante indices binarios `.nozomi`:
+  Hitomi no usa una base SQL clasica expuesta en la web, sino archivos binarios `.nozomi` donde
+  cada galería es un entero de 4 bytes en Big-Endian (Uint32BE).
+  Los índices viven bajo `https://ltn.gold-usergeneratedcontent.net/n/`:
+  - General: `index-{idioma}.nozomi`
+  - Por fecha de publicación: `date/published-{idioma}.nozomi`
+  - Por popularidad: `popular/{today|week|month|year}-{idioma}.nozomi`
+  - Por etiqueta / área: `{area}/{etiqueta}-{idioma}.nozomi`
+  - Por etiqueta + ordenación: `{area}/popular/{orden}/{etiqueta}-{idioma}.nozomi` o `{area}/date/published/{etiqueta}-{idioma}.nozomi`
+  MangaTotal usa HTTP Range (`bytes=start-end`) para descargar solo los identificadores de la
+  página solicitada (24 por página) sin transferir el archivo completo.
+- Orden Random:
+  Descarga el índice `.nozomi` en memoria y realiza un barajado Fisher-Yates, paginando los resultados.
+- Ficha de galería:
+  `https://ltn.gold-usergeneratedcontent.net/galleries/{id}.js` (declaración `var galleryinfo = {...}`).
+- Resolución de subdominios de imágenes WebP:
+  Hitomi distribuye sus imágenes en múltiples subdominios (`aa.gold-usergeneratedcontent.net`, `ba`, `bb`, etc.).
+  La regla calcula el subdominio con una función hash sobre los últimos bytes del hash hexadecimal de la imagen
+  (ver `subdominioWebpHitomi()` en `src/lib/hitomi.ts`).
+  La ruta final de cada página es `https://{subdominio}.gold-usergeneratedcontent.net/webp/{b}/{sub}/{hash}.webp`.
+
+ACCESO ADULTO Y GOOGLE PLAY STORE
+---------------------------------
+
+- La fuente SOLO aparece cuando el usuario tiene activado "Mostrar contenido +18" en Más -> Ajustes -> Seguridad.
+- Todas sus rutas de API (`/api/externo/hitomi/...`) comprueban `contenidoAdultoPermitido()`.
+- La edición Google Play Store (detectada via User-Agent con `isPlayStoreApp()`) NUNCA muestra ni sirve catálogo,
+  fichas ni imágenes de Hitomi.la. Responde 404/403 de inmediato para proteger la publicación en Play Store.
+
+ETIQUETAS Y ORDENACION
+----------------------
+
+- Etiquetas populares independientes en `src/lib/hitomiTipos.ts` (sin mezclar con E-Hentai).
+- Nombres de series/parodias adaptados al formato de índice `.nozomi` (espacios en vez de barras/dos puntos).
+- Menú de ordenación oficial con las 7 opciones de Hitomi:
+  - Date Added
+  - Date Published
+  - Popular: Today
+  - Popular: Week
+  - Popular: Month
+  - Popular: Year
+  - Random
+
+SI CAMBIAN LOS HOSTS O EL CDN
+-----------------------------
+
+1. Revisar `HITOMI_BASE` y `HITOMI_LTN` en `src/lib/hitomi.ts`.
+2. Si cambian los subdominios de imágenes, actualizar la lista blanca `ALLOWED_HOSTS` en `src/app/api/externo/imagen/route.ts`
+   y el algoritmo en `src/lib/hitomi.ts`.
+3. Comprobar catálogo, ordenación, cambio de idioma, etiquetas y lectura de un doujinshi completo.

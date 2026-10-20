@@ -93,3 +93,12 @@ sin tener que acordarse.
 
 **Abrir un capítulo de verdad**, y que sea largo y de webtoon. Todos los bugs
 de esta parte compilaban perfecto y pasaban el chequeo de tipos.
+
+## 6.7 Botón flotante para continuar lectura en fichas
+
+`BotonFlotanteLectura.tsx`. Ubicado en la esquina inferior derecha de cualquier ficha de serie (propias y todas las externas actuales y futuras):
+
+- **Sin lectura previa**: muestra «Empezar a leer» con «Capítulo 1» (o el nombre del primer capítulo/galería disponible).
+- **Con progreso guardado**: muestra «Continuar» con «Cap. X · Pág. Y» (ej. «Cap. 20 · Pág. 5»).
+- **Al pulsar**: anota el historial de lectura (almacenamiento local para invitados y cuenta si hay sesión) y redirige de inmediato al lector en el capítulo y página exactos.
+- **Fuentes +18**: en Hitomi y E-Hentai sustituye al botón estático que existía anteriormente en la cabecera.

@@ -85,6 +85,29 @@ Se parecen entre sí pero están escritas distinto **a pedido del dueño del
 proyecto**. No unificarlas ni extraer un componente común "para quitar
 duplicación": esa variedad es intencional.
 
+### Botón flotante de lectura en fichas de series (`src/components/reader/BotonFlotanteLectura.tsx`)
+Presente en todas las fichas de series (`/serie/[slug]` y `/externo/*`), ubicado
+en la esquina inferior derecha encima de la barra de navegación móvil.
+Muestra de forma reactiva:
+- Si no se ha leído nada: «Empezar a leer» con «Capítulo 1» (o «Capítulo Completo» en galerías unitarias).
+- Si hay progreso: «Continuar» con «Cap. X · Pág. Y».
+Al pulsar, anota inmediatamente el historial (local y remoto) y abre el lector en la página exacta.
+En las fuentes +18 (`hitomi` y `ehentai`), este botón sustituye al botón estático de la cabecera.
+
+### Historial de navegación y scroll en `/explorar`
+Avanzar de página en el catálogo (`p=1, 2, 3...`), cambiar de etiqueta, orden o fuente
+genera entradas en el historial (`pushState` y evento `popstate`). Esto permite que
+el gesto de retroceder en Android y el botón Atrás del ratón o navegador en PC
+vuelvan página por página (ej. 10 → 9 → 8) en lugar de salirse de golpe a Biblioteca.
+Al abrir una serie y retroceder, el scroll se restaura con exactitud mediante `sessionStorage`
+(`mangatotal:scroll:...`) una vez renderizadas las tarjetas.
+
+### Sistema de migración entre fuentes (`/migrar`)
+Permite trasladar una serie de una fuente a otra (por ejemplo, si una fuente dejó de
+actualizar capítulos) transfiriendo el número de capítulos leídos y la última página.
+Accesible desde el botón «Migrar obra» en cada ficha y desde «Más → Fuentes de lectura»
+(con botón dedicado en PC o pulsación larga en Android).
+
 ### Los comentarios en español
 Explican **por qué**, no qué. Son el registro de cosas que costó averiguar
 (alfabetos reconstruidos, APIs sin documentar, trampas de cada sitio). No

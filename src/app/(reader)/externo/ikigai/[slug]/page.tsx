@@ -13,6 +13,7 @@ import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from 
 import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai, lecturaIkigai } from "@/lib/ikigai";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
+import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 
 type Ficha = Awaited<ReturnType<typeof serieIkigai>>;
 
@@ -267,6 +268,16 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
         </a>
         , publicado con su permiso
       </p>
+
+      <BotonFlotanteLectura
+        source="ikigai"
+        externalId={slug}
+        slug={slug}
+        title={ficha.title}
+        coverUrl={ficha.cover_url}
+        capitulos={ficha.capitulos.map((c) => ({ id: c.id, name: c.numero }))}
+        cargando={!ficha}
+      />
     </div>
   );
 }

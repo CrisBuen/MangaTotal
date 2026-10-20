@@ -11,6 +11,7 @@ import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from 
 import { CW_NOMBRE, CW_WEB, imagenCw, serieCw, type FichaCw } from "@/lib/catharsis";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
+import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 
 /**
  * Ficha de una serie de Catharsis World.
@@ -230,6 +231,15 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
         </a>
         , integrada con su permiso. Si te gusta la serie, pasá por su sitio.
       </p>
+
+      <BotonFlotanteLectura
+        source="catharsis"
+        externalId={id}
+        title={ficha.nombre}
+        coverUrl={ficha.portada ? imagenCw(ficha.portada, 400) : null}
+        capitulos={ficha.capitulos.map((c) => ({ id: c.id, name: c.etiqueta }))}
+        cargando={!ficha}
+      />
     </div>
   );
 }
