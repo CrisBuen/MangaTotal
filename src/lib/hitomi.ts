@@ -7,6 +7,8 @@ import {
   HITOMI_TAGINDEX,
   HITOMI_IDIOMAS,
   HITOMI_TIPOS,
+  HITOMI_ORDENES,
+  type HitomiOrden,
   type SerieHitomi,
   type FichaHitomi,
   type CatalogoHitomi,
@@ -490,10 +492,90 @@ async function leerNozomiRango(
   }
 }
 
+async function leerNozomiCompleto(nozomiUrl: string): Promise<number[] | null> {
+  try {
+    const res = await fetch(nozomiUrl, {
+      headers: { Referer: HITOMI_WEB },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    const ids: number[] = [];
+    for (let i = 0; i + 4 <= buf.length; i += 4) {
+      ids.push(buf.readInt32BE(i));
+    }
+    return ids;
+  } catch {
+    return null;
+  }
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const copia = [...arr];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
+function construirUrlsNozomiPorOrden(
+  ruta: string | null,
+  orden: HitomiOrden,
+  codIdioma: string
+): string[] {
+  const urls: string[] = [];
+
+  if (!ruta) {
+    if (orden === "date_added" || orden === "random") {
+      urls.push(`${HITOMI_LTN}/n/index-${codIdioma}.nozomi`);
+      if (codIdioma !== "all") urls.push(`${HITOMI_LTN}/n/index-all.nozomi`);
+    } else if (orden === "published") {
+      urls.push(`${HITOMI_LTN}/n/date/published-${codIdioma}.nozomi`);
+      if (codIdioma !== "all") urls.push(`${HITOMI_LTN}/n/date/published-all.nozomi`);
+    } else {
+      urls.push(`${HITOMI_LTN}/n/popular/${orden}-${codIdioma}.nozomi`);
+      if (codIdioma !== "all") urls.push(`${HITOMI_LTN}/n/popular/${orden}-all.nozomi`);
+    }
+    urls.push(`${HITOMI_LTN}/n/index-${codIdioma}.nozomi`);
+    return Array.from(new Set(urls));
+  }
+
+  const primerSlash = ruta.indexOf("/");
+  const area = primerSlash > -1 ? ruta.slice(0, primerSlash) : "tag";
+  const item = primerSlash > -1 ? ruta.slice(primerSlash + 1) : ruta;
+
+  if (orden === "date_added" || orden === "random") {
+    urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/${encodeURI(item)}-${codIdioma}.nozomi`);
+    if (codIdioma !== "all") urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/${encodeURI(item)}-all.nozomi`);
+  } else if (orden === "published") {
+    urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/date/published/${encodeURI(item)}-${codIdioma}.nozomi`);
+    if (codIdioma !== "all") urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/date/published/${encodeURI(item)}-all.nozomi`);
+  } else {
+    urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/popular/${orden}/${encodeURI(item)}-${codIdioma}.nozomi`);
+    if (codIdioma !== "all") urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/popular/${orden}/${encodeURI(item)}-all.nozomi`);
+  }
+
+  urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/${encodeURI(item)}-${codIdioma}.nozomi`);
+  if (codIdioma !== "all") urls.push(`${HITOMI_LTN}/n/${encodeURI(area)}/${encodeURI(item)}-all.nozomi`);
+
+  return Array.from(new Set(urls));
+}
+
 function construirRutasCandidatasTag(tagLimpio: string): string[] {
-  const t = tagLimpio.replace(/_/g, " ").trim();
-  if (t.startsWith("series:")) return [`series/${t.replace(/^series:/, "").trim()}`];
-  if (t.startsWith("parody:")) return [`series/${t.replace(/^parody:/, "").trim()}`];
+  let t = tagLimpio.replace(/_/g, " ").trim();
+  t = t
+    .replace(/^parody:/i, "series:")
+    .replace(/^series:fate\/grand order/i, "series:fate grand order")
+    .replace(/^series:honkai: star rail/i, "series:honkai star rail")
+    .replace(/^series:sono bisque doll wa koi wo suru/i, "series:sono bisque doll wa koi o suru")
+    .replace(/^series:bocchi the rock!/i, "series:bocchi the rock")
+    .replace(/^series:nier:automata/i, "series:nier automata");
+
+  if (t.startsWith("series:")) {
+    const s = t.replace(/^series:/, "").replace(/[/:]/g, " ").replace(/\s+/g, " ").trim();
+    return [`series/${s}`];
+  }
   if (t.startsWith("artist:")) return [`artist/${t.replace(/^artist:/, "").trim()}`];
   if (t.startsWith("group:")) return [`group/${t.replace(/^group:/, "").trim()}`];
   if (t.startsWith("character:")) return [`character/${t.replace(/^character:/, "").trim()}`];
@@ -501,7 +583,7 @@ function construirRutasCandidatasTag(tagLimpio: string): string[] {
   if (t.startsWith("tag:")) return [`tag/${t.replace(/^tag:/, "").trim()}`];
   if (t.startsWith("female:") || t.startsWith("male:")) return [`tag/${t}`];
 
-  // Si el usuario escribió un tag sin prefijo (ej: "maid", "milf", "full color", "blue archive"),
+  // Si el usuario escribió un tag sin prefijo (ej: "maid", "milf", "full color", "blue archive", "netorare"),
   // probamos en orden: tag general, female:, male:, series/, character/, artist/
   return [
     `tag/${t}`,
@@ -522,13 +604,21 @@ export async function catalogoHitomi(opciones: {
   idioma?: string;
   tag?: string;
   tipo?: string;
+  orden?: HitomiOrden;
   pagina?: number;
 }): Promise<CatalogoHitomi> {
   if (isPlayStoreApp()) {
     throw new Error("Fuente no disponible en esta edición");
   }
 
-  const { busqueda = "", idioma = "todos", tag = "", tipo = "todos", pagina = 1 } = opciones;
+  const {
+    busqueda = "",
+    idioma = "todos",
+    tag = "",
+    tipo = "todos",
+    orden = "date_added",
+    pagina = 1,
+  } = opciones;
   const numPagina = Math.max(1, pagina);
   const ITEMS_POR_PAGINA = 24;
 
@@ -542,22 +632,40 @@ export async function catalogoHitomi(opciones: {
 
   // Caso 1: Búsqueda por texto (ej. "naruto", "blue archive", etc.)
   if (queryLimpia) {
-    // Si el texto ingresado coincide exactamente con una serie o etiqueta en el idioma elegido, priorizar su .nozomi
     const candidatosDirectos = construirRutasCandidatasTag(queryLimpia).slice(0, 4);
     for (const ruta of candidatosDirectos) {
-      const nozomiUrl = `${HITOMI_LTN}/n/${encodeURI(ruta)}-${langCode}.nozomi`;
-      const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
-      if (resNozomi && resNozomi.ids.length > 0) {
-        galleryIds = resNozomi.ids;
-        totalResultados = resNozomi.total;
-        yaPaginado = true;
-        break;
+      const urls = construirUrlsNozomiPorOrden(ruta, orden, langCode);
+      for (const nozomiUrl of urls) {
+        if (orden === "random") {
+          const todos = await leerNozomiCompleto(nozomiUrl);
+          if (todos && todos.length > 0) {
+            galleryIds = shuffleArray(todos);
+            totalResultados = todos.length;
+            yaPaginado = false;
+            break;
+          }
+        } else {
+          const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
+          if (resNozomi && resNozomi.ids.length > 0) {
+            galleryIds = resNozomi.ids;
+            totalResultados = resNozomi.total;
+            yaPaginado = true;
+            break;
+          }
+        }
       }
+      if (galleryIds.length > 0) break;
     }
 
-    if (!yaPaginado) {
-      galleryIds = await buscarEnBTree(queryLimpia);
+    if (galleryIds.length === 0) {
+      const encontrados = await buscarEnBTree(queryLimpia);
+      if (orden === "random") {
+        galleryIds = shuffleArray(encontrados);
+      } else {
+        galleryIds = encontrados;
+      }
       totalResultados = galleryIds.length;
+      yaPaginado = false;
     }
   }
   // Caso 2: Filtrado por etiqueta específica
@@ -567,34 +675,67 @@ export async function catalogoHitomi(opciones: {
 
     busquedaTag: for (const codIdioma of idiomasIntento) {
       for (const ruta of rutasCandidatas) {
-        const nozomiUrl = `${HITOMI_LTN}/n/${encodeURI(ruta)}-${codIdioma}.nozomi`;
+        const urls = construirUrlsNozomiPorOrden(ruta, orden, codIdioma);
+        for (const nozomiUrl of urls) {
+          if (orden === "random") {
+            const todos = await leerNozomiCompleto(nozomiUrl);
+            if (todos && todos.length > 0) {
+              galleryIds = shuffleArray(todos);
+              totalResultados = todos.length;
+              yaPaginado = false;
+              break busquedaTag;
+            }
+          } else {
+            const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
+            if (resNozomi && resNozomi.ids.length > 0) {
+              galleryIds = resNozomi.ids;
+              totalResultados = resNozomi.total;
+              yaPaginado = true;
+              break busquedaTag;
+            }
+          }
+        }
+      }
+    }
+
+    if (galleryIds.length === 0) {
+      const encontrados = await buscarEnBTree(
+        tagLimpio.replace(/^(female|male|series|parody|artist|group|character|tag):/, "")
+      );
+      if (orden === "random") {
+        galleryIds = shuffleArray(encontrados);
+      } else {
+        galleryIds = encontrados;
+      }
+      totalResultados = galleryIds.length;
+      yaPaginado = false;
+    }
+  }
+  // Caso 3: Navegación general por idioma y orden
+  else {
+    const urls =
+      tipo !== "todos"
+        ? [`${HITOMI_LTN}/n/type/${encodeURI(tipo)}-${langCode}.nozomi`]
+        : construirUrlsNozomiPorOrden(null, orden, langCode);
+
+    for (const nozomiUrl of urls) {
+      if (orden === "random" && tipo === "todos") {
+        const todos = await leerNozomiCompleto(nozomiUrl);
+        if (todos && todos.length > 0) {
+          galleryIds = shuffleArray(todos);
+          totalResultados = todos.length;
+          yaPaginado = false;
+          break;
+        }
+      } else {
         const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
         if (resNozomi && resNozomi.ids.length > 0) {
           galleryIds = resNozomi.ids;
           totalResultados = resNozomi.total;
           yaPaginado = true;
-          break busquedaTag;
+          break;
         }
       }
-    }
-
-    if (!yaPaginado) {
-      galleryIds = await buscarEnBTree(tagLimpio.replace(/^(female|male|series|parody|artist|group|character|tag):/, ""));
-      totalResultados = galleryIds.length;
-    }
-  }
-  // Caso 3: Navegación general por idioma y tipo
-  else {
-    let nozomiUrl = `${HITOMI_LTN}/n/index-${langCode}.nozomi`;
-    if (tipo !== "todos") {
-      nozomiUrl = `${HITOMI_LTN}/n/type/${encodeURI(tipo)}-${langCode}.nozomi`;
-    }
-
-    const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
-    if (resNozomi) {
-      galleryIds = resNozomi.ids;
-      totalResultados = resNozomi.total;
-      yaPaginado = true;
     }
   }
 

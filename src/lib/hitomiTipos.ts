@@ -29,6 +29,18 @@ export const HITOMI_TIPOS = [
   { id: "anime", label: "Anime" },
 ] as const;
 
+export const HITOMI_ORDENES = [
+  { id: "date_added", label: "Date Added" },
+  { id: "published", label: "Date Published" },
+  { id: "today", label: "Popular: Today" },
+  { id: "week", label: "Popular: Week" },
+  { id: "month", label: "Popular: Month" },
+  { id: "year", label: "Popular: Year" },
+  { id: "random", label: "Random" },
+] as const;
+
+export type HitomiOrden = (typeof HITOMI_ORDENES)[number]["id"];
+
 export interface SerieHitomi {
   id: string;
   title: string;
@@ -72,15 +84,15 @@ export const HITOMI_POPULAR_TAGS: HitomiTag[] = [
   // Series / Parodias populares en Hitomi.la
   { tag: "series:original", label: "Original", categoria: "serie" },
   { tag: "series:blue archive", label: "Blue Archive", categoria: "serie" },
-  { tag: "series:fate/grand order", label: "Fate/Grand Order", categoria: "serie" },
+  { tag: "series:fate grand order", label: "Fate/Grand Order", categoria: "serie" },
   { tag: "series:genshin impact", label: "Genshin Impact", categoria: "serie" },
-  { tag: "series:honkai: star rail", label: "Honkai: Star Rail", categoria: "serie" },
+  { tag: "series:honkai star rail", label: "Honkai: Star Rail", categoria: "serie" },
   { tag: "series:zenless zone zero", label: "Zenless Zone Zero", categoria: "serie" },
   { tag: "series:touhou project", label: "Touhou Project", categoria: "serie" },
   { tag: "series:kantai collection", label: "Kantai Collection", categoria: "serie" },
   { tag: "series:the idolmaster", label: "The Idolmaster", categoria: "serie" },
   { tag: "series:azur lane", label: "Azur Lane", categoria: "serie" },
-  { tag: "series:nikke: goddess of victory", label: "NIKKE: Goddess of Victory", categoria: "serie" },
+  { tag: "series:nikke goddess of victory", label: "NIKKE: Goddess of Victory", categoria: "serie" },
   { tag: "series:hololive", label: "Hololive", categoria: "serie" },
   { tag: "series:granblue fantasy", label: "Granblue Fantasy", categoria: "serie" },
   { tag: "series:pokemon", label: "Pokémon", categoria: "serie" },
@@ -96,11 +108,11 @@ export const HITOMI_POPULAR_TAGS: HitomiTag[] = [
   { tag: "series:sousou no frieren", label: "Frieren", categoria: "serie" },
   { tag: "series:dandadan", label: "Dandadan", categoria: "serie" },
   { tag: "series:oshi no ko", label: "Oshi no Ko", categoria: "serie" },
-  { tag: "series:bocchi the rock!", label: "Bocchi the Rock!", categoria: "serie" },
-  { tag: "series:sono bisque doll wa koi wo suru", label: "My Dress-Up Darling", categoria: "serie" },
+  { tag: "series:bocchi the rock", label: "Bocchi the Rock!", categoria: "serie" },
+  { tag: "series:sono bisque doll wa koi o suru", label: "My Dress-Up Darling", categoria: "serie" },
   { tag: "series:sword art online", label: "Sword Art Online", categoria: "serie" },
   { tag: "series:neon genesis evangelion", label: "Evangelion", categoria: "serie" },
-  { tag: "series:nier:automata", label: "NieR:Automata", categoria: "serie" },
+  { tag: "series:nier automata", label: "NieR:Automata", categoria: "serie" },
 
   // Femenino
   { tag: "female:big breasts", label: "Pechos grandes", categoria: "femenino" },
@@ -201,7 +213,6 @@ export const HITOMI_POPULAR_TAGS: HitomiTag[] = [
   { tag: "mmf threesome", label: "Trío (MMF)", categoria: "tematica" },
   { tag: "group", label: "Grupal (Group)", categoria: "tematica" },
   { tag: "incest", label: "Incesto", categoria: "tematica" },
-  { tag: "inbese", label: "Romance / Vanilla", categoria: "tematica" },
   { tag: "time stop", label: "Detener el tiempo", categoria: "tematica" },
   { tag: "mosaic censorship", label: "Censura con mosaico", categoria: "tematica" },
 ];

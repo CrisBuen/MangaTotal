@@ -123,6 +123,11 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:eyepatch", label: "Parche en el ojo", categoria: "femenino" },
   { tag: "female:apron", label: "Delantal desnudo", categoria: "femenino" },
   { tag: "female:kimono", label: "Kimono / Yukata", categoria: "femenino" },
+  { tag: "female:sister", label: "Hermana", categoria: "femenino" },
+  { tag: "female:mother", label: "Madre", categoria: "femenino" },
+  { tag: "female:daughter", label: "Hija", categoria: "femenino" },
+  { tag: "female:aunt", label: "Tía", categoria: "femenino" },
+  { tag: "female:cousin", label: "Prima", categoria: "femenino" },
 
   // Masculino
   { tag: "male:sole male", label: "Hombre único", categoria: "masculino" },
@@ -150,7 +155,6 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "webtoon", label: "Webtoon / Manhwa", categoria: "tematica" },
   { tag: "vanilla", label: "Romance dulce (Vanilla)", categoria: "tematica" },
   { tag: "harem", label: "Harén", categoria: "tematica" },
-  { tag: "incest", label: "Incesto", categoria: "tematica" },
   { tag: "cosplay", label: "Cosplay real", categoria: "tematica" },
   { tag: "mosaic censorship", label: "Censura con mosaico", categoria: "tematica" },
   { tag: "netorare", label: "Netorare (NTR)", categoria: "tematica" },
@@ -163,7 +167,6 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "blackmail", label: "Chantaje", categoria: "tematica" },
   { tag: "cheating", label: "Infidelidad", categoria: "tematica" },
   { tag: "dark skin", label: "Piel morena", categoria: "tematica" },
-  { tag: "fantasy", label: "Fantasía / Isekai", categoria: "tematica" },
   { tag: "schoolboy uniform", label: "Uniforme masculino", categoria: "tematica" },
 ];
 

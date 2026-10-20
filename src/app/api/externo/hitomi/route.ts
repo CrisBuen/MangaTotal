@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
-import { catalogoHitomi, sugerirTagsHitomi } from "@/lib/hitomi";
+import { catalogoHitomi, sugerirTagsHitomi, type HitomiOrden } from "@/lib/hitomi";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   const idioma = searchParams.get("lang") ?? "todos";
   const tag = searchParams.get("tag") ?? "";
   const tipo = searchParams.get("tipo") ?? "todos";
+  const orden = (searchParams.get("orden") ?? searchParams.get("order") ?? "date_added") as HitomiOrden;
   const pagina = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
   try {
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
       idioma,
       tag,
       tipo,
+      orden,
       pagina,
     });
     return NextResponse.json(resultado);

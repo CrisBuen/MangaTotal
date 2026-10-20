@@ -54,6 +54,8 @@ import {
 import {
   HITOMI_IDIOMAS,
   HITOMI_TIPOS,
+  HITOMI_ORDENES,
+  type HitomiOrden,
   buscarEtiquetasHitomi,
   type HitomiTag,
   type SerieHitomi,
@@ -70,6 +72,8 @@ function decodificarHtml(texto: string): string {
 }
 
 // Leer manga no debe descargar también los tres catálogos de anime.
+// dynamic(() => import("@/components/anime/JkanimeCatalog")
+// dynamic(() => import("@/components/anime/TioanimeCatalog")
 const cargandoAnime = () => <p role="status" className="py-12 text-center text-subtle">Cargando catálogo de anime...</p>;
 const AnimeDiscover = dynamic(() => import("@/components/discover/AnimeDiscover").then((m) => m.AnimeDiscover), { loading: cargandoAnime });
 const HentaitvCatalog = dynamic(() => import("@/components/anime/HentaitvCatalog").then((m) => m.HentaitvCatalog), { loading: cargandoAnime });
@@ -224,6 +228,7 @@ export default function ExplorarPage() {
   const [hitomiHayMas, setHitomiHayMas] = useState(false);
   const [hitomiLang, setHitomiLang] = useState("spanish");
   const [hitomiTipo, setHitomiTipo] = useState("todos");
+  const [hitomiOrden, setHitomiOrden] = useState<HitomiOrden>("date_added");
   const [hitomiTag, setHitomiTag] = useState<string | null>(null);
   const [hitomiModalTags, setHitomiModalTags] = useState(false);
   const [hitomiTagBusqueda, setHitomiTagBusqueda] = useState("");
@@ -672,11 +677,19 @@ export default function ExplorarPage() {
       .catch(() => {});
   }, [lecturaActiva, fuente, genres.length]);
 
-  // ── estado en la URL ────────────────────────────────────────────────
-  // Sin esto, volver desde una serie te devolvía a MangaDex en la página 1
-  // y se perdía la búsqueda, los filtros y por dónde ibas.
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
+  // ── estado en la URL e historial de navegación ───────────────────────
+  // Permite que retroceder (gesto de Android o botón atrás en mouse/navegador)
+  // vuelva paso a paso entre páginas (10 -> 9 -> 8...) y preserve filtros.
+  const navegandoPorPopState = useRef(false);
+  const prevRef = useRef<{
+    url: string;
+    fuente: string;
+    pagina: number;
+    tag: string | null;
+    orden: string;
+  } | null>(null);
+
+  const aplicarEstadoDesdeUrl = useCallback((p: URLSearchParams) => {
     const leer = (k: string) => p.get(k) || null;
 
     const fuenteAnime = leer("anime_fuente");
@@ -684,21 +697,23 @@ export default function ExplorarPage() {
     const f = leer("fuente") || (typeof window !== "undefined" ? sessionStorage.getItem("mangatotal:fuente-lectura") : null);
     if (f) setFuente(f);
     const q = leer("q");
-    if (q) setSearch(q);
+    setSearch(q ?? "");
     setSelectedGenres(p.getAll("md_genre"));
 
     const pagina = Number(leer("p")) || 1;
     if (leer("md_order")) setOrder(leer("md_order")!);
     if (leer("md_lang")) setLang(leer("md_lang")!);
     const st = p.getAll("md_status");
-    if (st.length > 0) setStatus(st);
+    setStatus(st);
     const or = p.getAll("md_origin");
-    if (or.length > 0) setOrigin(or);
-    if (f === "mangadex" && pagina > 1) setOffset((pagina - 1) * 24);
+    setOrigin(or);
+    if (f === "mangadex" || !f) {
+      setOffset(pagina > 1 ? (pagina - 1) * 24 : 0);
+    }
 
     if (leer("oly_orden")) setOlyOrden(leer("oly_orden")!);
-    if (leer("oly_genero")) setOlyGenero(Number(leer("oly_genero")));
-    if (leer("oly_estado")) setOlyEstado(Number(leer("oly_estado")));
+    setOlyGenero(leer("oly_genero") ? Number(leer("oly_genero")) : null);
+    setOlyEstado(leer("oly_estado") ? Number(leer("oly_estado")) : null);
     setOlyTipo(leer("oly_tipo"));
     if (f === "olympus") setOlympusPage(pagina);
 
@@ -723,11 +738,11 @@ export default function ExplorarPage() {
     if (f === "catharsis") setCwPage(pagina);
 
     const ehCatUrl = leer("eh_cat");
-    if (ehCatUrl) setEhCat(ehCatUrl);
+    setEhCat(ehCatUrl ?? "todos");
     const ehLangUrl = leer("eh_lang");
-    if (ehLangUrl) setEhLang(ehLangUrl);
+    setEhLang(ehLangUrl ?? "todos");
     const ehTagUrl = leer("eh_tag");
-    if (ehTagUrl) setEhTag(ehTagUrl);
+    setEhTag(ehTagUrl);
     const ehNextUrl = leer("eh_next");
     if (f === "ehentai") {
       setEhPage(pagina);
@@ -739,18 +754,36 @@ export default function ExplorarPage() {
 
     const hitomiTipoUrl = leer("hitomi_tipo");
     if (hitomiTipoUrl) setHitomiTipo(hitomiTipoUrl);
+    const hitomiOrdenUrl = leer("hitomi_orden") || leer("hitomi_order") || leer("hi_orden");
+    if (hitomiOrdenUrl) setHitomiOrden(hitomiOrdenUrl as HitomiOrden);
     const hitomiLangUrl = leer("hitomi_lang");
-    if (hitomiLangUrl) setHitomiLang(hitomiLangUrl);
+    setHitomiLang(hitomiLangUrl ?? "spanish");
     const hitomiTagUrl = leer("hitomi_tag") || leer("hi_tag");
-    if (hitomiTagUrl) setHitomiTag(hitomiTagUrl);
+    setHitomiTag(hitomiTagUrl);
     if (f === "hitomi") {
       setHitomiPage(pagina);
     }
-
-    setRestaurado(true);
   }, []);
 
-  // reflejar el estado en la URL (replaceState: no ensucia el historial)
+  // Restauración inicial al montar
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    aplicarEstadoDesdeUrl(p);
+    setRestaurado(true);
+  }, [aplicarEstadoDesdeUrl]);
+
+  // Manejo del evento popstate (navegación atrás/adelante en navegador o gesto Android)
+  useEffect(() => {
+    const onPopState = () => {
+      navegandoPorPopState.current = true;
+      const p = new URLSearchParams(window.location.search);
+      aplicarEstadoDesdeUrl(p);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [aplicarEstadoDesdeUrl]);
+
+  // Reflejar el estado en la URL (pushState para cambios de página, tag, fuente u orden; replaceState para búsqueda continua)
   useEffect(() => {
     if (!restaurado) return;
     const url = new URL(window.location.href);
@@ -814,10 +847,64 @@ export default function ExplorarPage() {
     poner("eh_next", ehPage > 1 ? (ehNextCursor || ehCursors.current[ehPage] || null) : null);
 
     poner("hitomi_tipo", hitomiTipo === "todos" ? null : hitomiTipo);
+    poner("hitomi_orden", hitomiOrden === "date_added" ? null : hitomiOrden);
     poner("hitomi_lang", hitomiLang === "spanish" ? null : hitomiLang);
     poner("hitomi_tag", hitomiTag);
 
-    window.history.replaceState(null, "", url.toString());
+    const nuevaUrlStr = url.toString();
+
+    // Si venimos de un evento 'popstate' (el usuario pulsó atrás/adelante en el navegador o gesto en Android),
+    // no creamos una nueva entrada en el historial para respetar la pila de navegación nativa.
+    if (navegandoPorPopState.current) {
+      navegandoPorPopState.current = false;
+      prevRef.current = {
+        url: nuevaUrlStr,
+        fuente,
+        pagina,
+        tag: fuente === "hitomi" ? hitomiTag : fuente === "ehentai" ? ehTag : selectedGenres.join(","),
+        orden: fuente === "hitomi" ? hitomiOrden : cwOrden,
+      };
+      return;
+    }
+
+    const tagActual = fuente === "hitomi" ? hitomiTag : fuente === "ehentai" ? ehTag : selectedGenres.join(",");
+    const ordenActual = fuente === "hitomi" ? hitomiOrden : cwOrden;
+
+    if (!prevRef.current) {
+      prevRef.current = {
+        url: nuevaUrlStr,
+        fuente,
+        pagina,
+        tag: tagActual,
+        orden: ordenActual,
+      };
+      window.history.replaceState(null, "", nuevaUrlStr);
+      return;
+    }
+
+    if (prevRef.current.url === nuevaUrlStr) return;
+
+    // Si cambió la página, la fuente, la etiqueta o el orden: pushState crea historial
+    // para que retroceder paso a paso (ej: página 10 -> 9 -> 8...) funcione tal como pidió el usuario.
+    const esPasoHistorial =
+      pagina !== prevRef.current.pagina ||
+      fuente !== prevRef.current.fuente ||
+      tagActual !== prevRef.current.tag ||
+      ordenActual !== prevRef.current.orden;
+
+    if (esPasoHistorial) {
+      window.history.pushState(null, "", nuevaUrlStr);
+    } else {
+      window.history.replaceState(null, "", nuevaUrlStr);
+    }
+
+    prevRef.current = {
+      url: nuevaUrlStr,
+      fuente,
+      pagina,
+      tag: tagActual,
+      orden: ordenActual,
+    };
   }, [
     restaurado, seccion, animeFuente, fuente, search, offset, order, lang, selectedGenres, origin, status,
     olympusPage, olyOrden, olyGenero, olyEstado, olyTipo,
@@ -826,8 +913,77 @@ export default function ExplorarPage() {
     lcPage, lcGenero, lcInicial, lcLista,
     cwPage, cwOrden,
     ehPage, ehCat, ehLang, ehTag, ehNextCursor,
-    hitomiPage, hitomiTipo, hitomiLang, hitomiTag,
+    hitomiPage, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag,
   ]);
+
+  // Guardar posición de scroll antes de salir de explorar o al hacer scroll
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    const guardarScroll = () => {
+      if (typeof window === "undefined") return;
+      if (window.scrollY > 0) {
+        sessionStorage.setItem("mangatotal:scroll:" + window.location.search, String(window.scrollY));
+      }
+    };
+    const onScroll = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(guardarScroll, 100);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      if (timer) clearTimeout(timer);
+      guardarScroll();
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  // Restaurar posición de scroll guardada cuando los elementos de la página terminan de cargarse
+  useEffect(() => {
+    const hayItems =
+      (fuente === "mangadex" && series !== null && series.length > 0) ||
+      (fuente === "olympus" && olympus !== null && olympus.length > 0) ||
+      (fuente === "tmo" && ((tmo !== null && tmo.length > 0) || tmoPopulares.length > 0)) ||
+      (fuente === "ikigai" && iki !== null && iki.length > 0) ||
+      (fuente === "leercapitulo" && lc !== null && lc.length > 0) ||
+      (fuente === "catharsis" && cw !== null && cw.length > 0) ||
+      (fuente === "ehentai" && ehGalleries !== null && ehGalleries.length > 0) ||
+      (fuente === "hitomi" && hitomiSeries !== null && hitomiSeries.length > 0);
+
+    if (!hayItems) return;
+
+    const key = "mangatotal:scroll:" + window.location.search;
+    const guardado = typeof window !== "undefined" ? sessionStorage.getItem(key) : null;
+    if (guardado) {
+      const y = parseInt(guardado, 10);
+      if (!isNaN(y) && y > 0) {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
+          setTimeout(() => {
+            if (Math.abs(window.scrollY - y) > 60) {
+              window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
+            }
+          }, 60);
+        });
+      }
+    }
+  }, [
+    fuente,
+    series,
+    olympus,
+    tmo,
+    tmoPopulares,
+    iki,
+    lc,
+    cw,
+    ehGalleries,
+    hitomiSeries,
+  ]);
+
+  const guardarScrollActual = useCallback(() => {
+    if (typeof window !== "undefined" && window.scrollY > 0) {
+      sessionStorage.setItem("mangatotal:scroll:" + window.location.search, String(window.scrollY));
+    }
+  }, []);
 
   const load = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("mangadex", solicitud)) return;
@@ -1082,11 +1238,12 @@ export default function ExplorarPage() {
       const params = new URLSearchParams();
       if (search.trim()) params.set("q", search.trim());
       if (hitomiTipo && hitomiTipo !== "todos") params.set("tipo", hitomiTipo);
+      if (hitomiOrden) params.set("orden", hitomiOrden);
       if (hitomiLang) params.set("lang", hitomiLang);
       if (hitomiTag && hitomiTag.trim()) params.set("tag", hitomiTag.trim());
       params.set("page", String(hitomiPage));
 
-      const cacheKey = `explorar:hitomi:v2:${hitomiPage}:${hitomiTipo}:${hitomiLang}:${hitomiTag ?? ""}:${search.trim()}`;
+      const cacheKey = `explorar:hitomi:v3:${hitomiPage}:${hitomiTipo}:${hitomiOrden}:${hitomiLang}:${hitomiTag ?? ""}:${search.trim()}`;
 
       const r = await cargarConCacheAndroid<{
         series: SerieHitomi[];
@@ -1132,7 +1289,7 @@ export default function ExplorarPage() {
       pedirFresco.current = false;
       setRefrescando(false);
     }
-  }, [hitomiPage, search, hitomiTipo, hitomiLang, hitomiTag, recarga, solicitudVigente]);
+  }, [hitomiPage, search, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag, recarga, solicitudVigente]);
 
   useEffect(() => {
     if (fuente !== "hitomi" || !animeAdultoHabilitado) return;
@@ -1148,7 +1305,7 @@ export default function ExplorarPage() {
   const prevHitomiFiltros = useRef<string | null>(null);
   useEffect(() => {
     if (!restaurado) return;
-    const clave = JSON.stringify({ search, hitomiTipo, hitomiLang, hitomiTag });
+    const clave = JSON.stringify({ search, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag });
     if (prevHitomiFiltros.current === null) {
       prevHitomiFiltros.current = clave;
       return;
@@ -1157,7 +1314,7 @@ export default function ExplorarPage() {
       prevHitomiFiltros.current = clave;
       setHitomiPage(1);
     }
-  }, [restaurado, search, hitomiTipo, hitomiLang, hitomiTag]);
+  }, [restaurado, search, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag]);
 
   useEffect(() => {
     if (adultoComprobado && (fuente === "ehentai" || fuente === "hitomi") && !animeAdultoHabilitado) {
@@ -1177,9 +1334,6 @@ export default function ExplorarPage() {
   const cambiarFuente = (siguiente: string) => {
     if (siguiente === fuente) return;
     try { sessionStorage.setItem("mangatotal:fuente-lectura", siguiente); } catch {}
-    const url = new URL(location.href);
-    url.searchParams.set("fuente", siguiente);
-    history.replaceState(history.state, "", url);
     setSearch("");
     setFuente(siguiente);
   };
@@ -1478,26 +1632,33 @@ export default function ExplorarPage() {
         {fuente === "hitomi" && (
           <>
             <select
-              value={hitomiTipo}
-              onChange={(e) => setHitomiTipo(e.target.value)}
-              className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
-            >
-              <option value="todos">Todos los tipos</option>
-              {HITOMI_TIPOS.filter((t) => t.id !== "todos").map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-
-            <select
               value={hitomiLang}
-              onChange={(e) => setHitomiLang(e.target.value)}
+              onChange={(e) => {
+                setHitomiLang(e.target.value);
+                setHitomiPage(1);
+              }}
+              aria-label="Idioma de Hitomi.la"
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
             >
               {HITOMI_IDIOMAS.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={hitomiOrden}
+              onChange={(e) => {
+                setHitomiOrden(e.target.value as HitomiOrden);
+                setHitomiPage(1);
+              }}
+              aria-label="Ordenar por"
+              className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
+            >
+              {HITOMI_ORDENES.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
                 </option>
               ))}
             </select>
@@ -1516,7 +1677,10 @@ export default function ExplorarPage() {
             {hitomiTag && (
               <button
                 type="button"
-                onClick={() => setHitomiTag(null)}
+                onClick={() => {
+                  setHitomiTag(null);
+                  setHitomiPage(1);
+                }}
                 className="text-xs font-semibold text-danger hover:underline"
                 title="Quitar filtro de etiqueta"
               >
@@ -1671,6 +1835,7 @@ export default function ExplorarPage() {
             <Link
               key={s.id}
               href={`/externo/${s.id}`}
+              onClick={guardarScrollActual}
               className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("mangadex", s.id) ? "opacity-60" : ""}`}
             >
               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -1720,7 +1885,10 @@ export default function ExplorarPage() {
         <div className="flex items-center justify-center gap-3 pt-4">
           <button
             disabled={offset === 0}
-            onClick={() => setOffset(Math.max(0, offset - 24))}
+            onClick={() => {
+              setOffset(Math.max(0, offset - 24));
+              window.scrollTo({ top: 0, behavior: "instant" });
+            }}
             className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             ← Anterior
@@ -1730,7 +1898,10 @@ export default function ExplorarPage() {
           </span>
           <button
             disabled={page >= lastPage}
-            onClick={() => setOffset(offset + 24)}
+            onClick={() => {
+              setOffset(offset + 24);
+              window.scrollTo({ top: 0, behavior: "instant" });
+            }}
             className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             Siguiente →
@@ -1836,6 +2007,7 @@ export default function ExplorarPage() {
                   key={s.id}
                   href={`/externo/olympus/${s.slug}`}
                   prefetch={false}
+                  onClick={guardarScrollActual}
                   className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("olympus", s.slug, s.type) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -1876,7 +2048,10 @@ export default function ExplorarPage() {
               <div className="flex items-center justify-center gap-3 pt-8">
                 <button
                   disabled={olympusPage <= 1}
-                  onClick={() => setOlympusPage(olympusPage - 1)}
+                  onClick={() => {
+                    setOlympusPage(olympusPage - 1);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   ← Anterior
@@ -1886,7 +2061,10 @@ export default function ExplorarPage() {
                 </span>
                 <button
                   disabled={olympusPage >= olympusLastPage}
-                  onClick={() => setOlympusPage(olympusPage + 1)}
+                  onClick={() => {
+                    setOlympusPage(olympusPage + 1);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   Siguiente →
@@ -1972,6 +2150,7 @@ export default function ExplorarPage() {
                 <Link
                   key={t.id}
                   href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
+                  onClick={guardarScrollActual}
                   className={`group w-32 shrink-0 rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-36 ${guardada("tmo", `${t.tipo}/${t.id}/${t.slug}`) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -2013,6 +2192,7 @@ export default function ExplorarPage() {
                 <Link
                   key={s.id}
                   href={`/externo/catharsis/${s.id}`}
+                  onClick={guardarScrollActual}
                   className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("catharsis", s.id) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -2042,7 +2222,10 @@ export default function ExplorarPage() {
               <div className="flex items-center justify-center gap-3 pt-8">
                 <button
                   disabled={cwPage <= 1}
-                  onClick={() => setCwPage(cwPage - 1)}
+                  onClick={() => {
+                    setCwPage(cwPage - 1);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   ← Anterior
@@ -2052,7 +2235,10 @@ export default function ExplorarPage() {
                 </span>
                 <button
                   disabled={cwPage >= cwPaginas}
-                  onClick={() => setCwPage(cwPage + 1)}
+                  onClick={() => {
+                    setCwPage(cwPage + 1);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   Siguiente →
@@ -2085,6 +2271,7 @@ export default function ExplorarPage() {
                 <Link
                   key={t.id}
                   href={`/externo/leercapitulo/${t.id}/${t.slug}`}
+                  onClick={guardarScrollActual}
                   className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("leercapitulo", `${t.id}/${t.slug}`) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -2111,7 +2298,10 @@ export default function ExplorarPage() {
               <div className="flex items-center justify-center gap-3 pt-8">
                 <button
                   disabled={lcPage <= 1}
-                  onClick={() => setLcPage(lcPage - 1)}
+                  onClick={() => {
+                    setLcPage(lcPage - 1);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   ← Anterior
@@ -2121,7 +2311,10 @@ export default function ExplorarPage() {
                 </span>
                 <button
                   disabled={!lcMas}
-                  onClick={() => setLcPage(lcPage + 1)}
+                  onClick={() => {
+                    setLcPage(lcPage + 1);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
                   Siguiente →
@@ -2149,6 +2342,7 @@ export default function ExplorarPage() {
                 <Link
                   key={t.id}
                   href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
+                  onClick={guardarScrollActual}
                   className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("tmo", `${t.tipo}/${t.id}/${t.slug}`) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -2179,7 +2373,10 @@ export default function ExplorarPage() {
             <div className="flex items-center justify-center gap-3 pt-8">
               <button
                 disabled={tmoPage <= 1}
-                onClick={() => setTmoPage(tmoPage - 1)}
+                onClick={() => {
+                  setTmoPage(tmoPage - 1);
+                  window.scrollTo({ top: 0, behavior: "instant" });
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 ← Anterior
@@ -2189,7 +2386,10 @@ export default function ExplorarPage() {
               </span>
               <button
                 disabled={!tmoMas}
-                onClick={() => setTmoPage(tmoPage + 1)}
+                onClick={() => {
+                  setTmoPage(tmoPage + 1);
+                  window.scrollTo({ top: 0, behavior: "instant" });
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Siguiente →
@@ -2216,6 +2416,7 @@ export default function ExplorarPage() {
                 <Link
                   key={s.slug}
                   href={`/externo/ikigai/${s.slug}`}
+                  onClick={guardarScrollActual}
                   className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("ikigai", s.slug) ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -2242,7 +2443,10 @@ export default function ExplorarPage() {
             <div className="flex items-center justify-center gap-3 pt-8">
               <button
                 disabled={ikiPage <= 1}
-                onClick={() => setIkiPage(ikiPage - 1)}
+                onClick={() => {
+                  setIkiPage(ikiPage - 1);
+                  window.scrollTo({ top: 0, behavior: "instant" });
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 ← Anterior
@@ -2252,7 +2456,10 @@ export default function ExplorarPage() {
               </span>
               <button
                 disabled={!ikiMas}
-                onClick={() => setIkiPage(ikiPage + 1)}
+                onClick={() => {
+                  setIkiPage(ikiPage + 1);
+                  window.scrollTo({ top: 0, behavior: "instant" });
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Siguiente →
@@ -2280,6 +2487,7 @@ export default function ExplorarPage() {
                   key={`${s.gid}-${s.token}`}
                   href={`/externo/ehentai/${s.gid}/${s.token}`}
                   prefetch={false}
+                  onClick={guardarScrollActual}
                   className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("ehentai", s.gid, "adult") ? "opacity-60" : ""}`}
                 >
                   <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -2326,6 +2534,7 @@ export default function ExplorarPage() {
                   const ant = Math.max(1, ehPage - 1);
                   setEhNextCursor(ehCursors.current[ant] ?? null);
                   setEhPage(ant);
+                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2340,6 +2549,7 @@ export default function ExplorarPage() {
                   const sig = ehPage + 1;
                   setEhNextCursor(ehCursors.current[sig] ?? null);
                   setEhPage(sig);
+                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2394,7 +2604,9 @@ export default function ExplorarPage() {
                   <button
                     onClick={() => {
                       setEhTag(ehTagBusqueda.trim());
+                      setEhPage(1);
                       setEhModalTags(false);
+                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
                   >
@@ -2414,7 +2626,9 @@ export default function ExplorarPage() {
                   <button
                     onClick={() => {
                       setEhTag(null);
+                      setEhPage(1);
                       setEhModalTags(false);
+                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="text-xs font-semibold text-danger hover:underline"
                   >
@@ -2429,7 +2643,9 @@ export default function ExplorarPage() {
                     key={t.tag}
                     onClick={() => {
                       setEhTag(t.tag);
+                      setEhPage(1);
                       setEhModalTags(false);
+                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
                       ehTag === t.tag
@@ -2505,7 +2721,9 @@ export default function ExplorarPage() {
                     type="button"
                     onClick={() => {
                       setHitomiTag(hitomiTagBusqueda.trim());
+                      setHitomiPage(1);
                       setHitomiModalTags(false);
+                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
                   >
@@ -2526,7 +2744,9 @@ export default function ExplorarPage() {
                     type="button"
                     onClick={() => {
                       setHitomiTag(null);
+                      setHitomiPage(1);
                       setHitomiModalTags(false);
+                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="text-xs font-semibold text-danger hover:underline"
                   >
@@ -2547,7 +2767,9 @@ export default function ExplorarPage() {
                         type="button"
                         onClick={() => {
                           setHitomiTag(t.tag);
+                          setHitomiPage(1);
                           setHitomiModalTags(false);
+                          window.scrollTo({ top: 0, behavior: "instant" });
                         }}
                         className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
                           hitomiTag === t.tag
@@ -2576,7 +2798,9 @@ export default function ExplorarPage() {
                       type="button"
                       onClick={() => {
                         setHitomiTag(t.tag);
+                        setHitomiPage(1);
                         setHitomiModalTags(false);
+                        window.scrollTo({ top: 0, behavior: "instant" });
                       }}
                       className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
                         hitomiTag === t.tag
@@ -2629,6 +2853,7 @@ export default function ExplorarPage() {
                   <Link
                     href={`/externo/hitomi/${s.id}`}
                     prefetch={false}
+                    onClick={guardarScrollActual}
                     className={`block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("hitomi", s.id, "adult") ? "opacity-60" : ""}`}
                   >
                     <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
@@ -2672,7 +2897,11 @@ export default function ExplorarPage() {
                         <button
                           key={t}
                           type="button"
-                          onClick={() => setHitomiTag(t)}
+                          onClick={() => {
+                            setHitomiTag(t);
+                            setHitomiPage(1);
+                            window.scrollTo({ top: 0, behavior: "instant" });
+                          }}
                           className="rounded-full border border-line bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] text-subtle transition hover:border-accent hover:text-accent-ink"
                           title={`Filtrar por ${t}`}
                         >
@@ -2689,7 +2918,10 @@ export default function ExplorarPage() {
             <div className="flex items-center justify-center gap-3 pt-8">
               <button
                 disabled={hitomiPage <= 1}
-                onClick={() => setHitomiPage((p) => Math.max(1, p - 1))}
+                onClick={() => {
+                  setHitomiPage((p) => Math.max(1, p - 1));
+                  window.scrollTo({ top: 0, behavior: "instant" });
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 ← Anterior
@@ -2699,7 +2931,10 @@ export default function ExplorarPage() {
               </span>
               <button
                 disabled={!hitomiHayMas || (hitomiTotalPaginas > 0 && hitomiPage >= hitomiTotalPaginas)}
-                onClick={() => setHitomiPage((p) => p + 1)}
+                onClick={() => {
+                  setHitomiPage((p) => p + 1);
+                  window.scrollTo({ top: 0, behavior: "instant" });
+                }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
                 Siguiente →
