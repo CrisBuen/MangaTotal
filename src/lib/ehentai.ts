@@ -127,7 +127,8 @@ export async function catalogoEhentai(opciones: {
   }
 
   if (tag && tag.trim()) {
-    const tagLimpio = tag.trim().includes(" ") ? `"${tag.trim()}$"` : `${tag.trim()}$`;
+    const tLimpio = tag.trim().replace(/^"+|"+$/g, "");
+    const tagLimpio = tLimpio.includes(" ") ? `"${tLimpio}"` : tLimpio;
     partesBusqueda.push(tagLimpio);
   }
 

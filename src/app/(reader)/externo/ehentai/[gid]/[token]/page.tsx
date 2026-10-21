@@ -141,7 +141,7 @@ export default function SerieEhentaiPage(props: {
               {ficha.tags.map((t) => (
                 <Link
                   key={t}
-                  href={`/explorar?fuente=ehentai&eh_tag=${encodeURIComponent(t)}`}
+                  href={`/explorar?fuente=ehentai&eh_tag=${encodeURIComponent(t)}&eh_lang=todos`}
                   className="rounded-full border border-line bg-[var(--surface-raised)] px-2.5 py-0.5 text-[12px] text-subtle transition hover:border-accent hover:text-accent-ink"
                   title={`Filtrar por "${t}" en el catálogo`}
                 >

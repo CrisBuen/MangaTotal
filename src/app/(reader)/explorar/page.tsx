@@ -1615,7 +1615,7 @@ export default function ExplorarPage() {
                   : "border-line-strong text-subtle hover:border-ink hover:text-ink"
               }`}
             >
-              {ehTag ? `🏷️ Tag: ${ehTag}` : "🏷️ Etiquetas (+100)"}
+              {ehTag ? `🏷️ Tag: ${ehTag}` : "🏷️ Etiquetas (+270)"}
             </button>
             {ehTag && (
               <button
