@@ -504,6 +504,9 @@ public class FuentesPlugin extends Plugin {
      */
     public static void asegurarCarpetasMangaTotal(Context context) {
         try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+                return;
+            }
             File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
             if (!raiz.exists()) raiz.mkdirs();
 
@@ -596,26 +599,29 @@ public class FuentesPlugin extends Plugin {
 
                 synchronized (LOCK_GUARDADO) {
                     // 1. Guardado directo estilo Mihon en /storage/emulated/0/MangaTotal/descargas/...
-                    try {
-                        File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
-                        if (!raiz.exists()) raiz.mkdirs();
-                        File descargas = new File(raiz, "descargas");
-                        if (!descargas.exists()) descargas.mkdirs();
-                        File backups = new File(raiz, "backups");
-                        if (!backups.exists()) backups.mkdirs();
-                        File local = new File(raiz, "local");
-                        if (!local.exists()) local.mkdirs();
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()) {
+                        try {
+                            File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
+                            if (!raiz.exists()) raiz.mkdirs();
+                            File descargas = new File(raiz, "descargas");
+                            if (!descargas.exists()) descargas.mkdirs();
+                            File backups = new File(raiz, "backups");
+                            if (!backups.exists()) backups.mkdirs();
+                            File local = new File(raiz, "local");
+                            if (!local.exists()) local.mkdirs();
 
-                        File dirCap = new File(descargas, fLimpia + "/" + sLimpia + "/" + cLimpio);
-                        if (!dirCap.exists()) dirCap.mkdirs();
+                            File dirCap = new File(descargas, fLimpia + "/" + sLimpia + "/" + cLimpio);
+                            if (!dirCap.exists()) dirCap.mkdirs();
 
-                        File destino = new File(dirCap, nombre);
-                        try (FileOutputStream fos = new FileOutputStream(destino)) {
-                            fos.write(bytes);
-                            guardado = true;
+                            File destino = new File(dirCap, nombre);
+                            try (FileOutputStream fos = new FileOutputStream(destino)) {
+                                fos.write(bytes);
+                                fos.getFD().sync();
+                                guardado = destino.exists() && destino.length() > 0;
+                            }
+                        } catch (Exception eDirecto) {
+                            // Si el sistema no permite escritura directa, continuar con las alternativas
                         }
-                    } catch (Exception eDirecto) {
-                        // Si el sistema no permite escritura directa, continuar con las alternativas
                     }
 
                     // 2. MediaStore en Download/MangaTotal/descargas/ (Android 10+ local y Google Play)

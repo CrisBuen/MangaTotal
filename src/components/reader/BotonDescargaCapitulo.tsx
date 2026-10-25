@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  asegurarPermisosAlmacenamientoAndroid,
   descargarCapituloLocal,
   esCapituloDescargado,
+  esEntornoAndroid,
   prepararCarpetaDestinoPC,
   type ProgresoDescarga,
 } from "@/lib/descargaCapitulo";
@@ -41,24 +41,25 @@ export function BotonDescargaCapitulo({
 
       if (estado === "descargando") return;
 
-      try {
-        // En Android, verificar y solicitar acceso completo de almacenamiento estilo Mihon
-        await asegurarPermisosAlmacenamientoAndroid();
-        // En PC, solicitar la carpeta de destino durante el gesto de clic si aplica
-        await prepararCarpetaDestinoPC();
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          if (err.message.includes("cancelada por el usuario")) return;
-          if (err.message.includes("Permiso de almacenamiento")) {
-            setEstado("error");
-            setErrorMensaje(err.message);
-            setTimeout(() => setEstado("inactivo"), 6000);
+      // Solo en PC de escritorio solicitamos carpeta con File System Access API.
+      // En Android nunca se invoca showDirectoryPicker (bloquea el WebView) y se guarda directo en MangaTotal/descargas.
+      if (!esEntornoAndroid()) {
+        try {
+          await prepararCarpetaDestinoPC();
+        } catch (err: unknown) {
+          if (err instanceof Error && err.message.includes("cancelada por el usuario")) {
             return;
           }
         }
       }
 
       setEstado("descargando");
+      setProgreso({
+        fase: "conectando",
+        actual: 0,
+        total: 0,
+        porcentaje: 0,
+      });
       setErrorMensaje(null);
 
       try {

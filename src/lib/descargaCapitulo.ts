@@ -78,13 +78,18 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
 
   for (let intento = 0; intento < 3; intento++) {
     if (signal?.aborted) throw new Error("Descarga cancelada");
+    const ctrlIntento = new AbortController();
+    const timer = setTimeout(() => ctrlIntento.abort(), 25_000);
+    const onAbortExterno = () => ctrlIntento.abort();
+    signal?.addEventListener("abort", onAbortExterno, { once: true });
+
     try {
       // 1. Intento directo del cliente solo si el CDN no bloquea por Referer/CORS
       if (intento === 0 && !usarProxyDirecto) {
         try {
           const resDirecta = await fetch(url, {
             mode: "cors",
-            signal,
+            signal: ctrlIntento.signal,
           });
           if (resDirecta.ok) {
             const blob = await resDirecta.blob();
@@ -99,7 +104,7 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
       const proxyUrl = url.startsWith("/api/externo/imagen")
         ? url
         : `/api/externo/imagen?u=${encodeURIComponent(url)}`;
-      const resProxy = await fetch(proxyUrl, { signal });
+      const resProxy = await fetch(proxyUrl, { signal: ctrlIntento.signal });
       if (resProxy.ok) {
         const blob = await resProxy.blob();
         if (blob.size > 200) return blob;
@@ -107,6 +112,9 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
       ultimoError = new Error(`Error al descargar página (${resProxy.status})`);
     } catch (err) {
       ultimoError = err;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbortExterno);
     }
 
     if (signal?.aborted) throw new Error("Descarga cancelada");
@@ -127,11 +135,38 @@ export interface ProgresoDescarga {
 let manijaCarpetaRaiz: FileSystemDirectoryHandle | null = null;
 
 /**
+ * Detecta si la ejecución ocurre en Android (app nativa local, Google Play o navegador móvil Android).
+ * En Android nunca se debe invocar window.showDirectoryPicker() porque BridgeWebChromeClient
+ * no soporta ACTION_OPEN_DOCUMENT_TREE (intent.getType() es null) y deja la promesa colgada.
+ */
+export function esEntornoAndroid(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as {
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+      getPlatform?: () => string;
+      Plugins?: Record<string, unknown>;
+    };
+    androidBridge?: unknown;
+  };
+  if (w.androidBridge) return true;
+  if (w.Capacitor?.isNativePlatform?.()) return true;
+  if (w.Capacitor?.getPlatform?.() === "android") return true;
+  if (w.Capacitor?.Plugins?.Fuentes) return true;
+  if (typeof navigator !== "undefined") {
+    const ua = navigator.userAgent || "";
+    if (/MangaTotalApp\/|Android|Mobile|wv\)/i.test(ua)) return true;
+  }
+  return false;
+}
+
+/**
  * En PC (Chrome, Edge), pide la carpeta de destino durante el gesto del usuario
  * para cumplir las reglas de seguridad de File System Access API.
  */
 export async function prepararCarpetaDestinoPC(): Promise<boolean> {
   if (typeof window === "undefined") return false;
+  if (esEntornoAndroid()) return false;
   const w = window as unknown as {
     showDirectoryPicker?: (opciones?: { mode?: string }) => Promise<FileSystemDirectoryHandle>;
   };
@@ -206,7 +241,7 @@ async function obtenerCarpetaCapituloPC(
   serie: string,
   capitulo: string
 ): Promise<FileSystemDirectoryHandle | null> {
-  if (!manijaCarpetaRaiz) return null;
+  if (!manijaCarpetaRaiz || esEntornoAndroid()) return null;
 
   try {
     const nombreRaiz = manijaCarpetaRaiz.name.trim().toLowerCase();
@@ -344,6 +379,22 @@ export function marcarCapituloDescargado(fuente: string, serie: string, capitulo
   } catch {}
 }
 
+function conTimeout<T>(promesa: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Tiempo de espera agotado")), ms);
+    promesa.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      }
+    );
+  });
+}
+
 /** En Android, prepara las carpetas base sin bloquear ni abrir Ajustes forzosamente */
 export async function asegurarPermisosAlmacenamientoAndroid(): Promise<boolean> {
   return true;
@@ -376,13 +427,16 @@ async function guardarConAndroid(
     for (let i = 0; i < total; i++) {
       const { nombre, blob } = pendientes[i];
       const dataBase64 = await blobABase64(blob);
-      const res = await plugin.guardarArchivo({
-        fuente: fuenteLimpia,
-        serie: serieLimpia,
-        capitulo: capituloLimpio,
-        nombre,
-        dataBase64,
-      });
+      const res = await conTimeout(
+        plugin.guardarArchivo({
+          fuente: fuenteLimpia,
+          serie: serieLimpia,
+          capitulo: capituloLimpio,
+          nombre,
+          dataBase64,
+        }),
+        15_000
+      );
       if (res && res.ok === false) {
         return false;
       }
@@ -398,12 +452,15 @@ async function guardarConAndroid(
 
     if (plugin.avisarDescargaCompletada) {
       try {
-        await plugin.avisarDescargaCompletada({
-          fuente: fuenteLimpia,
-          serie: serieLimpia,
-          capitulo: capituloLimpio,
-          total: guardados,
-        });
+        await conTimeout(
+          plugin.avisarDescargaCompletada({
+            fuente: fuenteLimpia,
+            serie: serieLimpia,
+            capitulo: capituloLimpio,
+            total: guardados,
+          }),
+          5_000
+        );
       } catch {}
     }
     return guardados === total;
@@ -452,6 +509,7 @@ async function guardarConFileSystemAccess(
   onProgreso?: (p: ProgresoDescarga) => void,
   carpetaYaCreada?: FileSystemDirectoryHandle | null
 ): Promise<boolean> {
+  if (esEntornoAndroid()) return false;
   const dCapitulo = carpetaYaCreada ?? (await obtenerCarpetaCapituloPC(fuente, serie, capitulo));
   if (!dCapitulo) return false;
 
@@ -608,13 +666,16 @@ export async function descargarCapituloLocal(opciones: {
         try {
           const tareaEscritura = colaEscrituraAndroid.then(async () => {
             const dataBase64 = await blobABase64(blob);
-            const res = await pluginAndroid.guardarArchivo({
-              fuente: fuenteLimpia,
-              serie: serieLimpia,
-              capitulo: capituloLimpio,
-              nombre,
-              dataBase64,
-            });
+            const res = await conTimeout(
+              pluginAndroid.guardarArchivo({
+                fuente: fuenteLimpia,
+                serie: serieLimpia,
+                capitulo: capituloLimpio,
+                nombre,
+                dataBase64,
+              }),
+              15_000
+            );
             if (res && res.ok === false) {
               throw new Error("No se pudo escribir el archivo en Android");
             }
@@ -655,12 +716,15 @@ export async function descargarCapituloLocal(opciones: {
   if (Boolean(pluginAndroid?.guardarArchivo) && escritosDirectoEnAndroid === total) {
     if (pluginAndroid?.avisarDescargaCompletada) {
       try {
-        await pluginAndroid.avisarDescargaCompletada({
-          fuente: fuenteLimpia,
-          serie: serieLimpia,
-          capitulo: capituloLimpio,
-          total,
-        });
+        await conTimeout(
+          pluginAndroid.avisarDescargaCompletada({
+            fuente: fuenteLimpia,
+            serie: serieLimpia,
+            capitulo: capituloLimpio,
+            total,
+          }),
+          5_000
+        );
       } catch {}
     }
   }
