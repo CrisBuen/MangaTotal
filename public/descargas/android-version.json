@@ -1,14 +1,14 @@
 {
-  "versionCode": 27,
-  "versionName": "1.9.14",
-  "date": "2026-10-17",
+  "versionCode": 29,
+  "versionName": "1.9.16",
+  "date": "2026-10-25",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "FAC99B9F7FD505424DC6C54713D52CC0CC432390BADB1496F6C5530532EE1D08",
+  "sha256": "45E986EC6DD9ACE0E46BAE877446CBF9906DA24E954031BD63F3082DC4FB3DE8",
   "sizeMb": 4.1,
   "changes": [
-    "Servicio nativo de descarga en segundo plano (Foreground Service) con notificación continua y WakeLock",
-    "Descargas directas al almacenamiento local estilo Mihon (/storage/emulated/0/MangaTotal/descargas) sin pasar por servidores intermedios",
-    "Progreso en tiempo real tanto en la notificación de la barra de estado como en el botón de la app",
+    "Corrección de descargas de capítulos en Android (versión local y Google Play): ya no se queda bloqueado en morado y muestra el progreso página por página hasta finalizar en verde",
+    "Descarga paralela de 4 páginas en calidad original con escritura directa y respaldo MediaStore en MangaTotal/descargas",
+    "Limpieza automática de títulos largos y caracteres especiales para evitar errores de creación de carpeta en Android y Windows",
     "Compatibilidad completa con todas las fuentes externas y contenido +18"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"

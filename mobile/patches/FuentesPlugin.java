@@ -1,6 +1,15 @@
 package app.mangatotal.android;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.Settings;
 import android.webkit.CookieManager;
 import android.webkit.WebStorage;
 
@@ -13,15 +22,9 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import android.content.Context;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Environment;
-import android.provider.Settings;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -84,6 +87,7 @@ public class FuentesPlugin extends Plugin {
     private static final int MAX_RESPUESTA_BYTES = 20 * 1024 * 1024;
 
     private static final java.util.concurrent.ExecutorService IMAGENES = java.util.concurrent.Executors.newFixedThreadPool(3);
+    private static final Object LOCK_GUARDADO = new Object();
 
     /** Solo imágenes públicas de Ikigai, con referencia fija y sin intermediarios. */
     @PluginMethod
@@ -410,7 +414,11 @@ public class FuentesPlugin extends Plugin {
             data.put("actual", actual);
             data.put("total", total);
             data.put("porcentaje", porcentaje);
-            instancia.notifyListeners("descargaProgreso", data);
+            if (instancia.getActivity() != null) {
+                instancia.getActivity().runOnUiThread(() -> instancia.notifyListeners("descargaProgreso", data));
+            } else {
+                instancia.notifyListeners("descargaProgreso", data);
+            }
         }
     }
 
@@ -421,7 +429,11 @@ public class FuentesPlugin extends Plugin {
             data.put("serie", serie);
             data.put("capitulo", capitulo);
             data.put("total", total);
-            instancia.notifyListeners("descargaCompletada", data);
+            if (instancia.getActivity() != null) {
+                instancia.getActivity().runOnUiThread(() -> instancia.notifyListeners("descargaCompletada", data));
+            } else {
+                instancia.notifyListeners("descargaCompletada", data);
+            }
         }
     }
 
@@ -522,17 +534,17 @@ public class FuentesPlugin extends Plugin {
     }
 
     /**
-     * Comprueba y solicita permisos de almacenamiento (MANAGE_EXTERNAL_STORAGE en Android 11+).
-     * Si no está concedido, abre la pantalla de ajustes del sistema para permitir "Acceso a todos los archivos".
+     * Comprueba permisos de almacenamiento y asegura la carpeta MangaTotal.
+     * No bloquea las descargas porque guardarArchivo dispone de MediaStore.Downloads
+     * como respaldo automático en Android 10-16 tanto en la versión local como en Google Play.
      */
     @PluginMethod
     public void verificarYPedirPermisosAlmacenamiento(final PluginCall call) {
-        boolean concedido = false;
+        boolean abrirAjustes = Boolean.TRUE.equals(call.getBoolean("abrirAjustes", false));
         boolean abrioAjustes = false;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && solicitaPermisoAccesoTotal()) {
-            concedido = Environment.isExternalStorageManager();
-            if (!concedido && getActivity() != null) {
+        if (abrirAjustes && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && solicitaPermisoAccesoTotal()) {
+            if (!Environment.isExternalStorageManager() && getActivity() != null) {
                 try {
                     Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                     intent.setData(Uri.parse("package:" + getContext().getPackageName()));
@@ -546,14 +558,12 @@ public class FuentesPlugin extends Plugin {
                     } catch (Exception ignorado) {}
                 }
             }
-        } else {
-            concedido = true;
         }
 
         asegurarCarpetasMangaTotal(getContext());
 
         JSObject salida = new JSObject();
-        salida.put("concedido", concedido);
+        salida.put("concedido", true);
         salida.put("abrioAjustes", abrioAjustes);
         salida.put("ruta", new File(Environment.getExternalStorageDirectory(), "MangaTotal").getAbsolutePath());
         call.resolve(salida);
@@ -580,79 +590,94 @@ public class FuentesPlugin extends Plugin {
             try {
                 byte[] bytes = android.util.Base64.decode(dataB64, android.util.Base64.DEFAULT);
                 boolean guardado = false;
+                String fLimpia = limpiarCarpeta(fuente);
+                String sLimpia = limpiarCarpeta(serie);
+                String cLimpio = limpiarCarpeta(capitulo);
 
-                // 1. Guardado directo estilo Mihon en /storage/emulated/0/MangaTotal/descargas/...
-                try {
-                    File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
-                    if (!raiz.exists()) raiz.mkdirs();
-                    File descargas = new File(raiz, "descargas");
-                    if (!descargas.exists()) descargas.mkdirs();
-                    File backups = new File(raiz, "backups");
-                    if (!backups.exists()) backups.mkdirs();
-                    File local = new File(raiz, "local");
-                    if (!local.exists()) local.mkdirs();
-
-                    File dirCap = new File(descargas, limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo));
-                    if (!dirCap.exists()) dirCap.mkdirs();
-
-                    File destino = new File(dirCap, nombre);
-                    try (FileOutputStream fos = new FileOutputStream(destino)) {
-                        fos.write(bytes);
-                        guardado = true;
-                    }
-                } catch (Exception eDirecto) {
-                    // Si el sistema no permite escritura directa, continuar con las alternativas
-                }
-
-                // 2. Mediastore en Download/MangaTotal/descargas/
-                if (!guardado && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                synchronized (LOCK_GUARDADO) {
+                    // 1. Guardado directo estilo Mihon en /storage/emulated/0/MangaTotal/descargas/...
                     try {
-                        String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
-                        android.content.ContentResolver resolver = getContext().getContentResolver();
-                        android.content.ContentValues values = new android.content.ContentValues();
-                        values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
-                        values.put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeDe(nombre));
-                        values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, subRuta);
+                        File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
+                        if (!raiz.exists()) raiz.mkdirs();
+                        File descargas = new File(raiz, "descargas");
+                        if (!descargas.exists()) descargas.mkdirs();
+                        File backups = new File(raiz, "backups");
+                        if (!backups.exists()) backups.mkdirs();
+                        File local = new File(raiz, "local");
+                        if (!local.exists()) local.mkdirs();
 
-                        android.net.Uri uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                        if (uri != null) {
-                            try (OutputStream out = resolver.openOutputStream(uri)) {
-                                if (out != null) {
-                                    out.write(bytes);
-                                    guardado = true;
-                                }
-                            }
-                        }
-                    } catch (Exception ignorado) {}
-                }
+                        File dirCap = new File(descargas, fLimpia + "/" + sLimpia + "/" + cLimpio);
+                        if (!dirCap.exists()) dirCap.mkdirs();
 
-                // 3. Carpeta pública de Descargas de Android
-                if (!guardado) {
-                    try {
-                        File dir = new File(
-                            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                            "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
-                        );
-                        if (!dir.exists()) dir.mkdirs();
-                        File destino = new File(dir, nombre);
+                        File destino = new File(dirCap, nombre);
                         try (FileOutputStream fos = new FileOutputStream(destino)) {
                             fos.write(bytes);
                             guardado = true;
                         }
-                    } catch (Exception ignorado) {}
-                }
+                    } catch (Exception eDirecto) {
+                        // Si el sistema no permite escritura directa, continuar con las alternativas
+                    }
 
-                // 4. Fallback en carpeta de la app
-                if (!guardado) {
-                    File dirApp = new File(
-                        getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-                        "MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo)
-                    );
-                    if (!dirApp.exists()) dirApp.mkdirs();
-                    File destinoApp = new File(dirApp, nombre);
-                    try (FileOutputStream fos = new FileOutputStream(destinoApp)) {
-                        fos.write(bytes);
-                        guardado = true;
+                    // 2. MediaStore en Download/MangaTotal/descargas/ (Android 10+ local y Google Play)
+                    if (!guardado && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        try {
+                            String subRuta = Environment.DIRECTORY_DOWNLOADS + "/MangaTotal/descargas/" + fLimpia + "/" + sLimpia + "/" + cLimpio + "/";
+                            android.content.ContentResolver resolver = getContext().getContentResolver();
+
+                            try {
+                                resolver.delete(
+                                    android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                                    android.provider.MediaStore.Downloads.RELATIVE_PATH + "=? AND " +
+                                    android.provider.MediaStore.Downloads.DISPLAY_NAME + "=?",
+                                    new String[]{subRuta, nombre}
+                                );
+                            } catch (Exception ignoredDel) {}
+
+                            android.content.ContentValues values = new android.content.ContentValues();
+                            values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
+                            values.put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeDe(nombre));
+                            values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, subRuta);
+
+                            android.net.Uri uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                            if (uri != null) {
+                                try (OutputStream out = resolver.openOutputStream(uri)) {
+                                    if (out != null) {
+                                        out.write(bytes);
+                                        guardado = true;
+                                    }
+                                }
+                            }
+                        } catch (Exception ignorado) {}
+                    }
+
+                    // 3. Carpeta pública de Descargas de Android
+                    if (!guardado) {
+                        try {
+                            File dir = new File(
+                                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                                "MangaTotal/descargas/" + fLimpia + "/" + sLimpia + "/" + cLimpio
+                            );
+                            if (!dir.exists()) dir.mkdirs();
+                            File destino = new File(dir, nombre);
+                            try (FileOutputStream fos = new FileOutputStream(destino)) {
+                                fos.write(bytes);
+                                guardado = true;
+                            }
+                        } catch (Exception ignorado) {}
+                    }
+
+                    // 4. Fallback en carpeta externa de la app
+                    if (!guardado) {
+                        File dirApp = new File(
+                            getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                            "MangaTotal/descargas/" + fLimpia + "/" + sLimpia + "/" + cLimpio
+                        );
+                        if (!dirApp.exists()) dirApp.mkdirs();
+                        File destinoApp = new File(dirApp, nombre);
+                        try (FileOutputStream fos = new FileOutputStream(destinoApp)) {
+                            fos.write(bytes);
+                            guardado = true;
+                        }
                     }
                 }
 
@@ -679,6 +704,37 @@ public class FuentesPlugin extends Plugin {
                 ).show();
             });
         }
+        try {
+            NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    NotificationChannel channel = new NotificationChannel(
+                        DescargaServicio.CANAL_ID,
+                        "Descargas de MangaTotal",
+                        NotificationManager.IMPORTANCE_LOW
+                    );
+                    nm.createNotificationChannel(channel);
+                }
+                Intent openIntent = new Intent(getContext(), MainActivity.class);
+                openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                PendingIntent pi = PendingIntent.getActivity(
+                    getContext(),
+                    0,
+                    openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                );
+                Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? new Notification.Builder(getContext(), DescargaServicio.CANAL_ID)
+                    : new Notification.Builder(getContext());
+                b.setContentTitle("Descarga completada ✓")
+                 .setContentText(serie + " - " + capitulo)
+                 .setSubText(total + " páginas guardadas en MangaTotal/descargas")
+                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                 .setContentIntent(pi)
+                 .setAutoCancel(true);
+                nm.notify(DescargaServicio.NOTIF_ID, b.build());
+            }
+        } catch (Exception ignored) {}
         call.resolve();
     }
 
@@ -700,6 +756,9 @@ public class FuentesPlugin extends Plugin {
         new Thread(() -> {
             try {
                 int guardados = 0;
+                String fLimpia = limpiarCarpeta(fuente);
+                String sLimpia = limpiarCarpeta(serie);
+                String cLimpio = limpiarCarpeta(capitulo);
 
                 File raiz = new File(Environment.getExternalStorageDirectory(), "MangaTotal");
                 if (!raiz.exists()) raiz.mkdirs();
@@ -710,7 +769,7 @@ public class FuentesPlugin extends Plugin {
                 File local = new File(raiz, "local");
                 if (!local.exists()) local.mkdirs();
 
-                File dirCap = new File(descargas, limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo));
+                File dirCap = new File(descargas, fLimpia + "/" + sLimpia + "/" + cLimpio);
                 if (!dirCap.exists()) dirCap.mkdirs();
 
                 for (int i = 0; i < archivos.length(); i++) {
@@ -733,7 +792,7 @@ public class FuentesPlugin extends Plugin {
 
                     if (!escrito && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         try {
-                            String subRuta = "Download/MangaTotal/descargas/" + limpiarCarpeta(fuente) + "/" + limpiarCarpeta(serie) + "/" + limpiarCarpeta(capitulo) + "/";
+                            String subRuta = Environment.DIRECTORY_DOWNLOADS + "/MangaTotal/descargas/" + fLimpia + "/" + sLimpia + "/" + cLimpio + "/";
                             android.content.ContentResolver resolver = getContext().getContentResolver();
                             android.content.ContentValues values = new android.content.ContentValues();
                             values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, nombre);
@@ -777,14 +836,28 @@ public class FuentesPlugin extends Plugin {
     }
 
     private static String limpiarCarpeta(String texto) {
-        if (texto == null) return "manga";
-        return texto.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (texto == null) return "Capitulo";
+        String limpio = texto
+            .replaceAll("[\\u0000-\\u001f\\u007f-\\u009f\\\\/:*?\"<>|~]", "_")
+            .replaceAll("\\.+", ".")
+            .replaceAll("\\s+", " ")
+            .replaceAll("^[.\\s_]+|[.\\s_]+$", "")
+            .trim();
+        if (limpio.length() > 64) {
+            limpio = limpio.substring(0, 64).replaceAll("^[.\\s_]+|[.\\s_]+$", "").trim();
+        }
+        if (limpio.isEmpty() || limpio.matches("(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\\..*)?$")) {
+            return "Capitulo";
+        }
+        return limpio;
     }
 
     private static String mimeDe(String nombre) {
-        if (nombre.endsWith(".webp")) return "image/webp";
-        if (nombre.endsWith(".png")) return "image/png";
-        if (nombre.endsWith(".gif")) return "image/gif";
+        String n = nombre != null ? nombre.toLowerCase(Locale.ROOT) : "";
+        if (n.endsWith(".webp")) return "image/webp";
+        if (n.endsWith(".png")) return "image/png";
+        if (n.endsWith(".gif")) return "image/gif";
+        if (n.endsWith(".avif")) return "image/avif";
         return "image/jpeg";
     }
 

@@ -1,9 +1,9 @@
 {
-  "versionCode": 28,
-  "versionName": "1.9.15",
+  "versionCode": 29,
+  "versionName": "1.9.16",
   "playStore": {
-    "versionCode": 10,
-    "versionName": "1.0.9"
+    "versionCode": 11,
+    "versionName": "1.0.10"
   },
   "_nota": "Única fuente de ambas versiones Android. La raíz corresponde al APK local compatible con instalaciones actuales; playStore corresponde al AAB de Google Play. scripts/patch.mjs escribe la variante elegida en Gradle y en el user agent."
 }

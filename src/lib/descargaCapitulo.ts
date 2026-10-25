@@ -344,20 +344,9 @@ export function marcarCapituloDescargado(fuente: string, serie: string, capitulo
   } catch {}
 }
 
-/** En Android, comprueba y pide el permiso de almacenamiento para la carpeta MangaTotal estilo Mihon */
+/** En Android, prepara las carpetas base sin bloquear ni abrir Ajustes forzosamente */
 export async function asegurarPermisosAlmacenamientoAndroid(): Promise<boolean> {
-  const plugin = pluginFuentesAndroid();
-  if (!plugin?.verificarYPedirPermisosAlmacenamiento) return true;
-  try {
-    const res = await plugin.verificarYPedirPermisosAlmacenamiento();
-    if (!res.concedido && res.abrioAjustes) {
-      throw new Error("Permiso de almacenamiento necesario: activa 'Acceso a todos los archivos' en Ajustes");
-    }
-    return res.concedido;
-  } catch (err) {
-    if (err instanceof Error && err.message.includes("Permiso de almacenamiento")) throw err;
-    return true;
-  }
+  return true;
 }
 
 /**
@@ -375,32 +364,55 @@ async function guardarConAndroid(
   const plugin = pluginFuentesAndroid();
   if (!plugin) return false;
 
-  const total = archivos.length;
+  const fuenteLimpia = limpiarNombreArchivo(fuente);
+  const serieLimpia = limpiarNombreArchivo(serie);
+  const capituloLimpio = limpiarNombreArchivo(capitulo);
+  const pendientes = archivos.filter(Boolean);
+  const total = pendientes.length;
+  if (total === 0) return true;
 
   if (plugin.guardarArchivo) {
+    let guardados = 0;
     for (let i = 0; i < total; i++) {
-      const { nombre, blob } = archivos[i];
+      const { nombre, blob } = pendientes[i];
       const dataBase64 = await blobABase64(blob);
-      await plugin.guardarArchivo({ fuente, serie, capitulo, nombre, dataBase64 });
+      const res = await plugin.guardarArchivo({
+        fuente: fuenteLimpia,
+        serie: serieLimpia,
+        capitulo: capituloLimpio,
+        nombre,
+        dataBase64,
+      });
+      if (res && res.ok === false) {
+        return false;
+      }
+      guardados++;
 
       onProgreso?.({
         fase: "guardando",
-        actual: i + 1,
+        actual: guardados,
         total,
-        porcentaje: 85 + Math.round(((i + 1) / total) * 15),
+        porcentaje: 85 + Math.round((guardados / total) * 15),
       });
     }
 
     if (plugin.avisarDescargaCompletada) {
-      void plugin.avisarDescargaCompletada({ fuente, serie, capitulo, total });
+      try {
+        await plugin.avisarDescargaCompletada({
+          fuente: fuenteLimpia,
+          serie: serieLimpia,
+          capitulo: capituloLimpio,
+          total: guardados,
+        });
+      } catch {}
     }
-    return true;
+    return guardados === total;
   }
 
   if (plugin.guardarCapitulo) {
     const LOTE = 5;
     for (let i = 0; i < total; i += LOTE) {
-      const lote = archivos.slice(i, i + LOTE);
+      const lote = pendientes.slice(i, i + LOTE);
       const loteB64 = await Promise.all(
         lote.map(async ({ nombre, blob }) => ({
           nombre,
@@ -408,9 +420,9 @@ async function guardarConAndroid(
         }))
       );
       await plugin.guardarCapitulo({
-        fuente,
-        serie,
-        capitulo,
+        fuente: fuenteLimpia,
+        serie: serieLimpia,
+        capitulo: capituloLimpio,
         archivos: loteB64,
       });
 
@@ -548,97 +560,26 @@ export async function descargarCapituloLocal(opciones: {
     throw new Error("No se encontraron páginas para este capítulo");
   }
 
-  // 1. En Android nativo: delegar la descarga al Foreground Service con notificación
-  // y WakeLock. Guarda directamente en /storage/emulated/0/MangaTotal/descargas/{fuente}/{serie}/{capitulo}/
   const pluginAndroid = pluginFuentesAndroid();
-  if (pluginAndroid?.iniciarDescarga) {
-    onProgreso?.({
-      fase: "descargando",
-      actual: 0,
-      total: urls.length,
-      porcentaje: 2,
-    });
-
-    await new Promise<void>(async (resolve, reject) => {
-      let terminado = false;
-      let handleProgreso: { remove: () => void | Promise<void> } | null = null;
-      let handleFin: { remove: () => void | Promise<void> } | null = null;
-
-      const limpiar = () => {
-        if (!terminado) {
-          terminado = true;
-          try { void handleProgreso?.remove(); } catch {}
-          try { void handleFin?.remove(); } catch {}
-          resolve();
-        }
-      };
-
-      if (typeof pluginAndroid.addListener === "function") {
-        try {
-          handleProgreso = await pluginAndroid.addListener("descargaProgreso", (datos: {
-            capitulo?: string;
-            actual: number;
-            total: number;
-            porcentaje: number;
-          }) => {
-            if (datos && (!datos.capitulo || datos.capitulo === capitulo)) {
-              onProgreso?.({
-                fase: "descargando",
-                actual: datos.actual,
-                total: datos.total,
-                porcentaje: datos.porcentaje,
-              });
-            }
-          });
-
-          handleFin = await pluginAndroid.addListener("descargaCompletada", (datos: {
-            capitulo?: string;
-            total: number;
-          }) => {
-            if (datos && (!datos.capitulo || datos.capitulo === capitulo)) {
-              marcarCapituloDescargado(fuente, serie, capitulo);
-              onProgreso?.({
-                fase: "completado",
-                actual: datos.total,
-                total: datos.total,
-                porcentaje: 100,
-              });
-              limpiar();
-            }
-          });
-        } catch {}
-      }
-
-      try {
-        await pluginAndroid.iniciarDescarga({
-          fuente,
-          serie,
-          capitulo,
-          urls,
-        });
-        marcarCapituloDescargado(fuente, serie, capitulo);
-      } catch (err) {
-        limpiar();
-        reject(err);
-        return;
-      }
-
-      setTimeout(() => {
-        if (!handleFin) {
-          limpiar();
-        }
-      }, 3000);
-    });
-
-    return;
-  }
+  const fuenteLimpia = limpiarNombreArchivo(fuente);
+  const serieLimpia = limpiarNombreArchivo(serie);
+  const capituloLimpio = limpiarNombreArchivo(capitulo);
 
   const total = urls.length;
+  onProgreso?.({
+    fase: "descargando",
+    actual: 0,
+    total,
+    porcentaje: 2,
+  });
+
   const archivos: { nombre: string; blob: Blob }[] = new Array(total);
   let descargadas = 0;
   let escritosDirectoEnPC = 0;
+  let escritosDirectoEnAndroid = 0;
+  let colaEscrituraAndroid: Promise<void> = Promise.resolve();
 
-  // Lotes concurrentes de 4 imágenes para descarga rápida y estable
+  // Lotes concurrentes de 4 imágenes para descarga rápida y estable en PC y Android
   const CONCURRENCIA = 4;
   let cursor = 0;
 
@@ -663,6 +604,27 @@ export async function descargarCapituloLocal(opciones: {
         } catch {
           archivos[idx] = { nombre, blob };
         }
+      } else if (pluginAndroid?.guardarArchivo) {
+        try {
+          const tareaEscritura = colaEscrituraAndroid.then(async () => {
+            const dataBase64 = await blobABase64(blob);
+            const res = await pluginAndroid.guardarArchivo({
+              fuente: fuenteLimpia,
+              serie: serieLimpia,
+              capitulo: capituloLimpio,
+              nombre,
+              dataBase64,
+            });
+            if (res && res.ok === false) {
+              throw new Error("No se pudo escribir el archivo en Android");
+            }
+          });
+          colaEscrituraAndroid = tareaEscritura.catch(() => {});
+          await tareaEscritura;
+          escritosDirectoEnAndroid++;
+        } catch {
+          archivos[idx] = { nombre, blob };
+        }
       } else {
         archivos[idx] = { nombre, blob };
       }
@@ -673,9 +635,10 @@ export async function descargarCapituloLocal(opciones: {
         fase: "descargando",
         actual: descargadas,
         total,
-        porcentaje: carpetaCapituloPC
-          ? Math.round((descargadas / total) * 100)
-          : Math.round((descargadas / total) * 85),
+        porcentaje:
+          carpetaCapituloPC || pluginAndroid?.guardarArchivo
+            ? Math.round((descargadas / total) * 100)
+            : Math.round((descargadas / total) * 85),
       });
     }
   }
@@ -685,7 +648,22 @@ export async function descargarCapituloLocal(opciones: {
 
   if (signal?.aborted) throw new Error("Descarga cancelada");
 
-  let guardado = carpetaCapituloPC !== null && escritosDirectoEnPC === total;
+  let guardado =
+    (carpetaCapituloPC !== null && escritosDirectoEnPC === total) ||
+    (Boolean(pluginAndroid?.guardarArchivo) && escritosDirectoEnAndroid === total);
+
+  if (Boolean(pluginAndroid?.guardarArchivo) && escritosDirectoEnAndroid === total) {
+    if (pluginAndroid?.avisarDescargaCompletada) {
+      try {
+        await pluginAndroid.avisarDescargaCompletada({
+          fuente: fuenteLimpia,
+          serie: serieLimpia,
+          capitulo: capituloLimpio,
+          total,
+        });
+      } catch {}
+    }
+  }
 
   if (!guardado) {
     onProgreso?.({
