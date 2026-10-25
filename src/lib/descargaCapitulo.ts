@@ -2,13 +2,43 @@ import JSZip from "jszip";
 
 /**
  * Limpia caracteres inválidos para nombres de archivos y carpetas en Windows/Android.
+ * Windows y la API File System Access de Chromium rechazan carpetas que terminan en punto (".")
+ * o espacio (" "), nombres reservados de DOS o rutas que superen MAX_PATH (260 caracteres).
  */
 export function limpiarNombreArchivo(nombre: string): string {
-  return nombre
-    .replace(/[\\/:*?"<>|]/g, "_")
+  const limpio = nombre
+    .replace(/[\u0000-\u001f\u007f-\u009f\\/:*?"<>|~]/g, "_")
+    .replace(/\.+/g, ".")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
+    .replace(/^[.\s_]+|[.\s_]+$/g, "")
+    .slice(0, 64)
+    .replace(/^[.\s_]+|[.\s_]+$/g, "")
+    .trim();
+
+  if (!limpio || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i.test(limpio)) {
+    return "Capitulo";
+  }
+  return limpio;
+}
+
+/**
+ * Nombre ASCII de respaldo por si el sistema de archivos de Windows rechaza
+ * algún carácter especial Unicode o combinación particular del título.
+ */
+function nombreCarpetaRespaldoAscii(nombre: string, porDefecto: string): string {
+  const ascii = nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 _-]/g, "_")
+    .replace(/\s+/g, " ")
+    .replace(/^[_\s-]+|[_\s-]+$/g, "")
+    .slice(0, 48)
+    .replace(/^[_\s-]+|[_\s-]+$/g, "")
+    .trim();
+  if (!ascii || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(ascii)) {
+    return porDefecto;
+  }
+  return ascii;
 }
 
 /**
@@ -23,7 +53,7 @@ function extensionDesdeBlob(blob: Blob, url: string): string {
   if (mime.includes("avif")) return "avif";
 
   try {
-    const pathname = new URL(url).pathname;
+    const pathname = new URL(url, "https://mangatotal.local").pathname;
     const match = pathname.match(/\.(webp|png|jpe?g|gif|avif)$/i);
     if (match) return match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
   } catch {}
@@ -31,19 +61,26 @@ function extensionDesdeBlob(blob: Blob, url: string): string {
   return "jpg";
 }
 
+/** Dominios cuyos CDN exigen Referer propio y bloquean fetch CORS directo desde el navegador. */
+const REQUIERE_PROXY_REFERER =
+  /gold-usergeneratedcontent\.net|hitomi\.la|e-hentai\.org|exhentai\.org|hath\.network|leercapitulo|zonatmo|visortmo|tumangaonline|ikigai/i;
+
 /**
  * Descarga una imagen en su calidad máxima FullHD original con reintentos automáticos.
- * Primero intenta descarga directa del CDN original; si falla por CORS o protección,
- * recurre a /api/externo/imagen que retransmite el flujo binario idéntico sin comprimir.
+ * Primero intenta descarga directa del CDN original (si soporta CORS sin Referer);
+ * si requiere Referer o falla por CORS, recurre a /api/externo/imagen que retransmite
+ * el flujo binario idéntico sin comprimir.
  */
 export async function descargarBlobOriginal(url: string, signal?: AbortSignal): Promise<Blob> {
   let ultimoError: unknown = null;
+  const usarProxyDirecto =
+    url.startsWith("/api/externo/imagen") || REQUIERE_PROXY_REFERER.test(url);
 
   for (let intento = 0; intento < 3; intento++) {
     if (signal?.aborted) throw new Error("Descarga cancelada");
     try {
-      // 1. Intento directo del cliente (salvo que ya sea ruta proxy local)
-      if (intento === 0 && !url.startsWith("/api/externo/imagen")) {
+      // 1. Intento directo del cliente solo si el CDN no bloquea por Referer/CORS
+      if (intento === 0 && !usarProxyDirecto) {
         try {
           const resDirecta = await fetch(url, {
             mode: "cors",
@@ -58,7 +95,7 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
         }
       }
 
-      // 2. Respaldo streaming idéntico (sin compresión ni paso por almacenamiento R2)
+      // 2. Canal de streaming idéntico (sin compresión ni paso por almacenamiento R2)
       const proxyUrl = url.startsWith("/api/externo/imagen")
         ? url
         : `/api/externo/imagen?u=${encodeURIComponent(url)}`;
@@ -73,8 +110,7 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
     }
 
     if (signal?.aborted) throw new Error("Descarga cancelada");
-    // Esperar brevemente antes de reintentar si falló una página aislada
-    await new Promise((r) => setTimeout(r, 600 * (intento + 1)));
+    await new Promise((r) => setTimeout(r, 500 * (intento + 1)));
   }
 
   throw ultimoError instanceof Error ? ultimoError : new Error("No se pudo descargar la página");
@@ -100,7 +136,27 @@ export async function prepararCarpetaDestinoPC(): Promise<boolean> {
     showDirectoryPicker?: (opciones?: { mode?: string }) => Promise<FileSystemDirectoryHandle>;
   };
   if (typeof w.showDirectoryPicker !== "function") return false;
-  if (manijaCarpetaRaiz) return true;
+
+  if (manijaCarpetaRaiz) {
+    try {
+      const mh = manijaCarpetaRaiz as unknown as {
+        queryPermission?: (desc?: { mode?: string }) => Promise<string>;
+        requestPermission?: (desc?: { mode?: string }) => Promise<string>;
+      };
+      if (typeof mh.queryPermission === "function") {
+        const estado = await mh.queryPermission({ mode: "readwrite" });
+        if (estado === "granted") return true;
+        if (typeof mh.requestPermission === "function") {
+          const nuevo = await mh.requestPermission({ mode: "readwrite" });
+          if (nuevo === "granted") return true;
+        }
+      } else {
+        return true;
+      }
+    } catch {
+      manijaCarpetaRaiz = null;
+    }
+  }
 
   try {
     manijaCarpetaRaiz = await w.showDirectoryPicker({ mode: "readwrite" });
@@ -110,6 +166,79 @@ export async function prepararCarpetaDestinoPC(): Promise<boolean> {
       throw new Error("Descarga cancelada por el usuario");
     }
     return false;
+  }
+}
+
+/**
+ * Abre o crea un subdirectorio dentro de `padre`, con fallback automático a nombre ASCII
+ * si Windows/Chromium rechaza el nombre original por longitud o caracteres especiales.
+ */
+async function obtenerSubcarpetaSegura(
+  padre: FileSystemDirectoryHandle,
+  nombreDeseado: string,
+  porDefectoAscii: string
+): Promise<FileSystemDirectoryHandle> {
+  const limpio = limpiarNombreArchivo(nombreDeseado);
+  try {
+    return await padre.getDirectoryHandle(limpio, { create: true });
+  } catch {
+    try {
+      const respaldo = nombreCarpetaRespaldoAscii(nombreDeseado, porDefectoAscii);
+      return await padre.getDirectoryHandle(respaldo, { create: true });
+    } catch {
+      const corto =
+        nombreCarpetaRespaldoAscii(nombreDeseado, porDefectoAscii)
+          .slice(0, 20)
+          .replace(/[_\s-]+$/g, "") || porDefectoAscii;
+      return await padre.getDirectoryHandle(corto, { create: true });
+    }
+  }
+}
+
+/**
+ * Resuelve y crea inmediatamente la carpeta del capítulo en PC:
+ * MangaTotal/descargas/{fuente}/{serie}/{capitulo}
+ * Detecta si el usuario seleccionó directamente MangaTotal, descargas o la carpeta de la fuente
+ * para no duplicar niveles.
+ */
+async function obtenerCarpetaCapituloPC(
+  fuente: string,
+  serie: string,
+  capitulo: string
+): Promise<FileSystemDirectoryHandle | null> {
+  if (!manijaCarpetaRaiz) return null;
+
+  try {
+    const nombreRaiz = manijaCarpetaRaiz.name.trim().toLowerCase();
+    const fuenteLimpia = limpiarNombreArchivo(fuente);
+    let dFuente: FileSystemDirectoryHandle;
+
+    if (nombreRaiz === fuenteLimpia.toLowerCase()) {
+      dFuente = manijaCarpetaRaiz;
+    } else if (nombreRaiz === "descargas") {
+      dFuente = await obtenerSubcarpetaSegura(manijaCarpetaRaiz, fuente, "Fuente");
+    } else {
+      let dRaiz = manijaCarpetaRaiz;
+      if (nombreRaiz !== "mangatotal") {
+        try {
+          dRaiz = await manijaCarpetaRaiz.getDirectoryHandle("MangaTotal", { create: true });
+        } catch {
+          dRaiz = manijaCarpetaRaiz;
+        }
+      }
+      const dDescargas = await dRaiz.getDirectoryHandle("descargas", { create: true });
+      dFuente = await obtenerSubcarpetaSegura(dDescargas, fuente, "Fuente");
+    }
+
+    const dSerie = await obtenerSubcarpetaSegura(dFuente, serie, "Obra");
+    const dCapitulo = await obtenerSubcarpetaSegura(dSerie, capitulo, "Capitulo_Completo");
+    return dCapitulo;
+  } catch (err: unknown) {
+    manijaCarpetaRaiz = null;
+    if (err instanceof Error && err.name === "AbortError") {
+      throw err;
+    }
+    return null;
   }
 }
 
@@ -185,7 +314,7 @@ export function pluginFuentesAndroid(): Required<PluginFuentesDescarga> | null {
   return null;
 }
 
-const CLAVE_DESCARGAS = "mangatotal_descargas_locales_v1";
+const CLAVE_DESCARGAS = "mangatotal_descargas_locales_v2";
 
 /** Comprueba si el capítulo ya se descargó localmente en este dispositivo */
 export function esCapituloDescargado(fuente: string, serie: string, capitulo: string): boolean {
@@ -269,7 +398,6 @@ async function guardarConAndroid(
   }
 
   if (plugin.guardarCapitulo) {
-    // Si la versión nativa aún solo tiene guardarCapitulo, enviar en micro-lotes de 5 para no saturar
     const LOTE = 5;
     for (let i = 0; i < total; i += LOTE) {
       const lote = archivos.slice(i, i + LOTE);
@@ -309,34 +437,13 @@ async function guardarConFileSystemAccess(
   serie: string,
   capitulo: string,
   archivos: { nombre: string; blob: Blob }[],
-  onProgreso?: (p: ProgresoDescarga) => void
+  onProgreso?: (p: ProgresoDescarga) => void,
+  carpetaYaCreada?: FileSystemDirectoryHandle | null
 ): Promise<boolean> {
-  if (!manijaCarpetaRaiz) {
-    const w = window as unknown as {
-      showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
-    };
-    if (typeof w.showDirectoryPicker !== "function") return false;
-    try {
-      manijaCarpetaRaiz = await w.showDirectoryPicker();
-    } catch {
-      return false;
-    }
-  }
+  const dCapitulo = carpetaYaCreada ?? (await obtenerCarpetaCapituloPC(fuente, serie, capitulo));
+  if (!dCapitulo) return false;
 
   try {
-    let dRaiz = manijaCarpetaRaiz;
-    if (dRaiz.name.toLowerCase() !== "mangatotal") {
-      try {
-        dRaiz = await manijaCarpetaRaiz.getDirectoryHandle("MangaTotal", { create: true });
-      } catch {
-        dRaiz = manijaCarpetaRaiz;
-      }
-    }
-    const dDescargas = await dRaiz.getDirectoryHandle("descargas", { create: true });
-    const dFuente = await dDescargas.getDirectoryHandle(limpiarNombreArchivo(fuente), { create: true });
-    const dSerie = await dFuente.getDirectoryHandle(limpiarNombreArchivo(serie), { create: true });
-    const dCapitulo = await dSerie.getDirectoryHandle(limpiarNombreArchivo(capitulo), { create: true });
-
     const total = archivos.length;
     for (let i = 0; i < total; i++) {
       const { nombre, blob } = archivos[i];
@@ -411,10 +518,10 @@ async function guardarComoZip(
 /**
  * Flujo completo de descarga local de un capítulo:
  * 1. Pide la lista de URLs de las páginas a la fuente.
- * 2. Descarga todas las imágenes en paralelo con calidad completa FullHD.
+ * 2. En PC con File System Access: crea la carpeta del capítulo desde el inicio y escribe
+ *    cada imagen al disco a medida que se descarga, evitando que la carpeta quede vacía.
  * 3. En Android nativo: guarda mediante puente seguro en Download/MangaTotal/descargas/...
- * 4. En PC con File System Access: guarda en la carpeta local elegida por el usuario.
- * 5. Fallback universal: genera el paquete ZIP organizado por carpetas.
+ * 4. Fallback universal: genera el paquete ZIP organizado por carpetas.
  */
 export async function descargarCapituloLocal(opciones: {
   fuente: string;
@@ -433,6 +540,9 @@ export async function descargarCapituloLocal(opciones: {
     porcentaje: 0,
   });
 
+  // Crear la estructura de carpetas en PC de inmediato mientras la activación de usuario está fresca
+  const carpetaCapituloPC = await obtenerCarpetaCapituloPC(fuente, serie, capitulo);
+
   const urls = await obtenerPaginas();
   if (!urls || urls.length === 0) {
     throw new Error("No se encontraron páginas para este capítulo");
@@ -440,7 +550,6 @@ export async function descargarCapituloLocal(opciones: {
 
   // 1. En Android nativo: delegar la descarga al Foreground Service con notificación
   // y WakeLock. Guarda directamente en /storage/emulated/0/MangaTotal/descargas/{fuente}/{serie}/{capitulo}/
-  // sin pasar por Vercel, R2 ni proxies intermedios. Funciona 100% en segundo plano.
   const pluginAndroid = pluginFuentesAndroid();
   if (pluginAndroid?.iniciarDescarga) {
     onProgreso?.({
@@ -514,8 +623,6 @@ export async function descargarCapituloLocal(opciones: {
         return;
       }
 
-      // Si el usuario sale o si los eventos IPC no se reciben directamente en la vista web,
-      // cerramos tras 3 segundos para dejar libre la UI; el Foreground Service sigue en el sistema.
       setTimeout(() => {
         if (!handleFin) {
           limpiar();
@@ -529,6 +636,7 @@ export async function descargarCapituloLocal(opciones: {
   const total = urls.length;
   const archivos: { nombre: string; blob: Blob }[] = new Array(total);
   let descargadas = 0;
+  let escritosDirectoEnPC = 0;
 
   // Lotes concurrentes de 4 imágenes para descarga rápida y estable
   const CONCURRENCIA = 4;
@@ -545,14 +653,29 @@ export async function descargarCapituloLocal(opciones: {
       const numeroPadded = String(idx + 1).padStart(3, "0");
       const nombre = `${numeroPadded}.${ext}`;
 
-      archivos[idx] = { nombre, blob };
+      if (carpetaCapituloPC) {
+        try {
+          const archivoHandle = await carpetaCapituloPC.getFileHandle(nombre, { create: true });
+          const writable = await archivoHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          escritosDirectoEnPC++;
+        } catch {
+          archivos[idx] = { nombre, blob };
+        }
+      } else {
+        archivos[idx] = { nombre, blob };
+      }
+
       descargadas++;
 
       onProgreso?.({
         fase: "descargando",
         actual: descargadas,
         total,
-        porcentaje: Math.round((descargadas / total) * 85),
+        porcentaje: carpetaCapituloPC
+          ? Math.round((descargadas / total) * 100)
+          : Math.round((descargadas / total) * 85),
       });
     }
   }
@@ -562,35 +685,45 @@ export async function descargarCapituloLocal(opciones: {
 
   if (signal?.aborted) throw new Error("Descarga cancelada");
 
-  onProgreso?.({
-    fase: "guardando",
-    actual: total,
-    total,
-    porcentaje: 85,
-  });
+  let guardado = carpetaCapituloPC !== null && escritosDirectoEnPC === total;
 
-  // 1. En Android nativo: guardar directamente en la carpeta de descargas
-  let guardado = false;
-  try {
-    guardado = await guardarConAndroid(fuente, serie, capitulo, archivos, onProgreso);
-  } catch (err) {
-    console.warn("No se pudo guardar mediante puente nativo de Android:", err);
-  }
-
-  // 2. En PC con File System Access API (Chrome, Edge, Opera)
   if (!guardado) {
+    onProgreso?.({
+      fase: "guardando",
+      actual: total,
+      total,
+      porcentaje: 85,
+    });
+
+    // 1. En Android nativo: guardar directamente en la carpeta de descargas
     try {
-      guardado = await guardarConFileSystemAccess(fuente, serie, capitulo, archivos, onProgreso);
+      guardado = await guardarConAndroid(fuente, serie, capitulo, archivos, onProgreso);
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new Error("Descarga cancelada por el usuario");
+      console.warn("No se pudo guardar mediante puente nativo de Android:", err);
+    }
+
+    // 2. En PC con File System Access API (si alguna página quedó pendiente)
+    if (!guardado) {
+      try {
+        guardado = await guardarConFileSystemAccess(
+          fuente,
+          serie,
+          capitulo,
+          archivos.filter(Boolean),
+          onProgreso,
+          carpetaCapituloPC
+        );
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          throw new Error("Descarga cancelada por el usuario");
+        }
       }
     }
-  }
 
-  // 3. Fallback universal (móvil web, Firefox, Safari): descarga como archivo ZIP estructurado
-  if (!guardado) {
-    await guardarComoZip(fuente, serie, capitulo, archivos, onProgreso);
+    // 3. Fallback universal (móvil web, Firefox, Safari): descarga como archivo ZIP estructurado
+    if (!guardado) {
+      await guardarComoZip(fuente, serie, capitulo, archivos.filter(Boolean), onProgreso);
+    }
   }
 
   marcarCapituloDescargado(fuente, serie, capitulo);
