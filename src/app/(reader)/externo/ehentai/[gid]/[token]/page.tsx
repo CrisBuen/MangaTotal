@@ -76,8 +76,6 @@ export default function SerieEhentaiPage(props: {
         }
       );
       setFicha(data);
-      // Pre-calentar lista de páginas en segundo plano para abrir el lector sin espera
-      void obtenerPaginas().catch(() => {});
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al cargar la galería");
     } finally {

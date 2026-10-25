@@ -1,6 +1,6 @@
 /**
  * Catálogo de etiquetas (tags) populares y frecuentes de E-Hentai organizadas por categorías.
- * 100% en inglés según los estándares y namespaces de E-Hentai.
+ * 100% en inglés según los estándares y namespaces oficiales de E-Hentai.
  * Todas las etiquetas fueron verificadas en vivo contra e-hentai.org.
  */
 
@@ -55,16 +55,19 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "parody:street fighter", label: "Street Fighter", categoria: "parodia" },
   { tag: "parody:lycoris recoil", label: "Lycoris Recoil", categoria: "parodia" },
   { tag: "parody:date a live", label: "Date A Live", categoria: "parodia" },
-  { tag: "parody:kono subarashii sekai ni syukufuku o", label: "KonoSuba (Kono Subarashii Sekai ni Syukufuku o)", categoria: "parodia" },
+  { tag: "parody:kono subarashii sekai ni syukufuku o", label: "KonoSuba", categoria: "parodia" },
   { tag: "parody:mushoku tensei", label: "Mushoku Tensei", categoria: "parodia" },
   { tag: "parody:re zero kara hajimeru isekai seikatsu", label: "Re:Zero", categoria: "parodia" },
   { tag: "parody:persona 5", label: "Persona 5", categoria: "parodia" },
 
   // === MIXED (Fetishes involving multiple genders / groups) ===
+  { tag: "mixed:group", label: "Group (Mixed)", categoria: "tematica" },
   { tag: "mixed:ffm threesome", label: "FFM Threesome", categoria: "tematica" },
   { tag: "mixed:mmf threesome", label: "MMF Threesome", categoria: "tematica" },
-  { tag: "mixed:group", label: "Group (Mixed)", categoria: "tematica" },
+  { tag: "mixed:inseki", label: "Inseki (Mixed)", categoria: "tematica" },
+  { tag: "mixed:oyakodon", label: "Oyakodon (Mixed)", categoria: "tematica" },
   { tag: "mixed:twins", label: "Twins (Mixed)", categoria: "tematica" },
+  { tag: "mixed:body swap", label: "Body Swap (Mixed)", categoria: "tematica" },
 
   // === FEMALE ===
   { tag: "female:sole female", label: "Sole Female", categoria: "femenino" },
@@ -86,8 +89,10 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:ahegao", label: "Ahegao", categoria: "femenino" },
   { tag: "female:bondage", label: "Bondage", categoria: "femenino" },
   { tag: "female:yuri", label: "Yuri", categoria: "femenino" },
+  { tag: "female:fff threesome", label: "FFF Threesome", categoria: "femenino" },
   { tag: "female:femdom", label: "Femdom", categoria: "femenino" },
   { tag: "female:lingerie", label: "Lingerie", categoria: "femenino" },
+  { tag: "female:business suit", label: "Business Suit (Office Lady)", categoria: "femenino" },
   { tag: "female:cheating", label: "Cheating", categoria: "femenino" },
   { tag: "female:collar", label: "Collar", categoria: "femenino" },
   { tag: "female:dark skin", label: "Dark Skin", categoria: "femenino" },
@@ -97,6 +102,7 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:catgirl", label: "Catgirl", categoria: "femenino" },
   { tag: "female:fox girl", label: "Fox Girl", categoria: "femenino" },
   { tag: "female:wolf girl", label: "Wolf Girl", categoria: "femenino" },
+  { tag: "female:horse girl", label: "Horse Girl", categoria: "femenino" },
   { tag: "female:twintails", label: "Twintails", categoria: "femenino" },
   { tag: "female:ponytail", label: "Ponytail", categoria: "femenino" },
   { tag: "female:mind break", label: "Mind Break", categoria: "femenino" },
@@ -115,6 +121,8 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:monster girl", label: "Monster Girl", categoria: "femenino" },
   { tag: "female:demon girl", label: "Demon Girl", categoria: "femenino" },
   { tag: "female:vampire", label: "Vampire", categoria: "femenino" },
+  { tag: "female:witch", label: "Witch", categoria: "femenino" },
+  { tag: "female:magical girl", label: "Magical Girl", categoria: "femenino" },
   { tag: "female:kunoichi", label: "Kunoichi", categoria: "femenino" },
   { tag: "female:miko", label: "Miko (Shrine Maiden)", categoria: "femenino" },
   { tag: "female:nun", label: "Nun", categoria: "femenino" },
@@ -124,6 +132,7 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:gag", label: "Gag", categoria: "femenino" },
   { tag: "female:shibari", label: "Shibari", categoria: "femenino" },
   { tag: "female:hypnosis", label: "Hypnosis", categoria: "femenino" },
+  { tag: "female:drugs", label: "Drugs (Female)", categoria: "femenino" },
   { tag: "female:exhibitionism", label: "Exhibitionism", categoria: "femenino" },
   { tag: "female:voyeurism", label: "Voyeurism", categoria: "femenino" },
   { tag: "female:masturbation", label: "Masturbation", categoria: "femenino" },
@@ -150,6 +159,7 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:aunt", label: "Aunt", categoria: "femenino" },
   { tag: "female:cousin", label: "Cousin", categoria: "femenino" },
   { tag: "female:crossdressing", label: "Crossdressing", categoria: "femenino" },
+  { tag: "female:gender bender", label: "Gender Bender (Female)", categoria: "femenino" },
   { tag: "female:stomach deformation", label: "Stomach Deformation", categoria: "femenino" },
   { tag: "female:netorare", label: "Netorare", categoria: "femenino" },
   { tag: "female:leotard", label: "Leotard", categoria: "femenino" },
@@ -166,7 +176,6 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:blackmail", label: "Blackmail", categoria: "femenino" },
   { tag: "female:slave", label: "Slave", categoria: "femenino" },
   { tag: "female:succubus", label: "Succubus", categoria: "femenino" },
-  { tag: "female:magic", label: "Magic", categoria: "femenino" },
   { tag: "female:parasite", label: "Parasite", categoria: "femenino" },
   { tag: "female:tentacles", label: "Tentacles", categoria: "femenino" },
   { tag: "female:public use", label: "Public Use", categoria: "femenino" },
@@ -188,16 +197,21 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "female:eye-covering bang", label: "Eye-Covering Bang", categoria: "femenino" },
   { tag: "female:big areolae", label: "Big Areolae", categoria: "femenino" },
   { tag: "female:all the way through", label: "All The Way Through", categoria: "femenino" },
-  { tag: "female:oyakodon", label: "Oyakodon", categoria: "femenino" },
+  { tag: "female:oyakodon", label: "Oyakodon (Female)", categoria: "femenino" },
   { tag: "female:chinese dress", label: "Chinese Dress", categoria: "femenino" },
   { tag: "female:tracksuit", label: "Tracksuit", categoria: "femenino" },
 
   // === MALE ===
   { tag: "male:sole male", label: "Sole Male", categoria: "masculino" },
+  { tag: "male:first person perspective", label: "First Person Perspective (POV)", categoria: "masculino" },
+  { tag: "male:harem", label: "Harem (Male)", categoria: "masculino" },
   { tag: "male:yaoi", label: "Yaoi", categoria: "masculino" },
+  { tag: "male:mmm threesome", label: "MMM Threesome", categoria: "masculino" },
   { tag: "male:dilf", label: "DILF", categoria: "masculino" },
+  { tag: "male:schoolboy uniform", label: "Schoolboy Uniform", categoria: "masculino" },
   { tag: "male:crossdressing", label: "Crossdressing", categoria: "masculino" },
   { tag: "male:tomgirl", label: "Tomgirl", categoria: "masculino" },
+  { tag: "male:gender bender", label: "Gender Bender (Male)", categoria: "masculino" },
   { tag: "male:monster", label: "Monster", categoria: "masculino" },
   { tag: "male:tentacles", label: "Tentacles", categoria: "masculino" },
   { tag: "male:teacher", label: "Teacher", categoria: "masculino" },
@@ -214,6 +228,7 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "male:dark skin", label: "Dark Skin", categoria: "masculino" },
   { tag: "male:cheating", label: "Cheating", categoria: "masculino" },
   { tag: "male:bondage", label: "Bondage", categoria: "masculino" },
+  { tag: "male:drugs", label: "Drugs (Male)", categoria: "masculino" },
   { tag: "male:masturbation", label: "Masturbation", categoria: "masculino" },
   { tag: "male:anal", label: "Anal", categoria: "masculino" },
   { tag: "male:blowjob", label: "Blowjob", categoria: "masculino" },
@@ -228,37 +243,27 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "male:bbm", label: "BBM", categoria: "masculino" },
   { tag: "male:multiple orgasms", label: "Multiple Orgasms", categoria: "masculino" },
 
-  // === OTHER / THEMES ===
+  // === OTHER / FORMATS & THEMES ===
   { tag: "other:full color", label: "Full Color", categoria: "tematica" },
   { tag: "other:uncensored", label: "Uncensored", categoria: "tematica" },
+  { tag: "other:mosaic censorship", label: "Mosaic Censorship", categoria: "tematica" },
   { tag: "other:comic", label: "Comic", categoria: "tematica" },
   { tag: "other:story arc", label: "Story Arc", categoria: "tematica" },
   { tag: "other:multi-work series", label: "Multi-work Series", categoria: "tematica" },
   { tag: "other:tankoubon", label: "Tankoubon", categoria: "tematica" },
   { tag: "other:anthology", label: "Anthology", categoria: "tematica" },
-  { tag: "other:mosaic censorship", label: "Mosaic Censorship", categoria: "tematica" },
+  { tag: "other:compilation", label: "Compilation", categoria: "tematica" },
   { tag: "other:webtoon", label: "Webtoon", categoria: "tematica" },
+  { tag: "other:artbook", label: "Artbook", categoria: "tematica" },
+  { tag: "other:3d", label: "3D", categoria: "tematica" },
+  { tag: "other:variant set", label: "Variant Set", categoria: "tematica" },
+  { tag: "other:nudity only", label: "Nudity Only", categoria: "tematica" },
   { tag: "other:no penetration", label: "No Penetration", categoria: "tematica" },
+  { tag: "other:rough translation", label: "Rough Translation", categoria: "tematica" },
+  { tag: "other:incomplete", label: "Incomplete", categoria: "tematica" },
+  { tag: "other:watermarked", label: "Watermarked", categoria: "tematica" },
+  { tag: "other:time stop", label: "Time Stop", categoria: "tematica" },
   { tag: "other:ai generated", label: "AI Generated", categoria: "tematica" },
-  { tag: "vanilla", label: "Vanilla", categoria: "tematica" },
-  { tag: "netorare", label: "Netorare", categoria: "tematica" },
-  { tag: "mind control", label: "Mind Control", categoria: "tematica" },
-  { tag: "time stop", label: "Time Stop", categoria: "tematica" },
-  { tag: "gender bender", label: "Gender Bender", categoria: "tematica" },
-  { tag: "body swap", label: "Body Swap", categoria: "tematica" },
-  { tag: "drugs", label: "Drugs", categoria: "tematica" },
-  { tag: "corruption", label: "Corruption", categoria: "tematica" },
-  { tag: "blackmail", label: "Blackmail", categoria: "tematica" },
-  { tag: "cheating", label: "Cheating", categoria: "tematica" },
-  { tag: "schoolboy uniform", label: "Schoolboy Uniform", categoria: "tematica" },
-  { tag: "sukumizu", label: "Sukumizu", categoria: "tematica" },
-  { tag: "kogal", label: "Kogal", categoria: "tematica" },
-  { tag: "office lady", label: "Office Lady", categoria: "tematica" },
-  { tag: "threesome", label: "Threesome", categoria: "tematica" },
-  { tag: "group", label: "Group", categoria: "tematica" },
-  { tag: "ugly bastard", label: "Ugly Bastard", categoria: "tematica" },
-  { tag: "gangbang", label: "Gangbang", categoria: "tematica" },
-  { tag: "furry", label: "Furry", categoria: "tematica" },
 
   // === CHARACTERS ===
   { tag: "character:reisa uzawa", label: "Reisa Uzawa", categoria: "personaje" },
@@ -291,20 +296,33 @@ export const EHENTAI_POPULAR_TAGS: EhentaiTag[] = [
   { tag: "character:marin kitagawa", label: "Marin Kitagawa", categoria: "personaje" },
   { tag: "character:2b", label: "2B", categoria: "personaje" },
   { tag: "character:c.c.", label: "C.C.", categoria: "personaje" },
-  { tag: "character:chisato nishikigi", label: "Chisato Nishikigi", categoria: "personaje" }
+  { tag: "character:chisato nishikigi", label: "Chisato Nishikigi", categoria: "personaje" },
 ];
 
 /**
  * Busca etiquetas que coincidan con el término ingresado.
- * Si no se ingresa término, devuelve la lista completa.
+ * Soporta listas separadas por coma ("tag1, tag2, parcial"): filtra según el
+ * último término después de la última coma y excluye las ya agregadas.
  */
 export function buscarEtiquetasEhentai(termino: string): EhentaiTag[] {
-  const q = termino.trim().toLowerCase();
-  if (!q) return EHENTAI_POPULAR_TAGS;
+  const partes = termino.split(",");
+  const ultimo = (partes[partes.length - 1] ?? "").trim().toLowerCase();
+  const previas = new Set(
+    partes
+      .slice(0, -1)
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean)
+  );
 
-  return EHENTAI_POPULAR_TAGS.filter(
+  const base = previas.size > 0
+    ? EHENTAI_POPULAR_TAGS.filter((t) => !previas.has(t.tag.toLowerCase()))
+    : EHENTAI_POPULAR_TAGS;
+
+  if (!ultimo) return base;
+
+  return base.filter(
     (t) =>
-      t.tag.toLowerCase().includes(q) ||
-      t.label.toLowerCase().includes(q)
+      t.tag.toLowerCase().includes(ultimo) ||
+      t.label.toLowerCase().includes(ultimo)
   );
 }

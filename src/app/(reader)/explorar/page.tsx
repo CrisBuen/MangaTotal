@@ -237,7 +237,8 @@ export default function ExplorarPage() {
 
   useEffect(() => {
     if (!hitomiModalTags) return;
-    const q = hitomiTagBusqueda.trim();
+    const partes = hitomiTagBusqueda.split(",");
+    const q = (partes[partes.length - 1] ?? "").trim();
     if (q.length < 2) {
       setHitomiTagsSugeridos([]);
       return;
@@ -738,18 +739,33 @@ export default function ExplorarPage() {
     if (leer("cw_orden")) setCwOrden(leer("cw_orden")! as OrdenCw);
     if (f === "catharsis") setCwPage(pagina);
 
-    const ehCatUrl = leer("eh_cat");
-    setEhCat(ehCatUrl ?? "todos");
-    const ehLangUrl = leer("eh_lang");
-    setEhLang(ehLangUrl ?? "todos");
+    const ehCatUrl = leer("eh_cat") ?? "todos";
+    setEhCat(ehCatUrl);
+    const ehLangUrl = leer("eh_lang") ?? "todos";
+    setEhLang(ehLangUrl);
     const ehTagUrl = leer("eh_tag");
     setEhTag(ehTagUrl);
     const ehNextUrl = leer("eh_next");
+    prevEhFiltros.current = JSON.stringify({
+      search: q ?? "",
+      ehCat: ehCatUrl,
+      ehLang: ehLangUrl,
+      ehTag: ehTagUrl,
+    });
     if (f === "ehentai") {
+      try {
+        const claveCursores = `mangatotal:ehcursors:${JSON.stringify([(q ?? "").trim(), ehCatUrl, ehLangUrl, ehTagUrl ?? ""])}`;
+        const guardados = JSON.parse(sessionStorage.getItem(claveCursores) || "{}") as Record<number, string | null>;
+        ehCursors.current = { 1: null, ...guardados };
+      } catch {
+        ehCursors.current = { 1: null };
+      }
       setEhPage(pagina);
       if (pagina > 1 && ehNextUrl) {
         ehCursors.current[pagina] = ehNextUrl;
         setEhNextCursor(ehNextUrl);
+      } else {
+        setEhNextCursor(ehCursors.current[pagina] ?? null);
       }
     }
 
@@ -766,12 +782,21 @@ export default function ExplorarPage() {
     }
   }, []);
 
-  // Restauración inicial al montar
+  // Restauración inicial al montar y al llegar por enlace externo (ej. click en tag dentro de una ficha)
+  const searchParamsStr = navigation.toString();
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    aplicarEstadoDesdeUrl(p);
-    setRestaurado(true);
-  }, [aplicarEstadoDesdeUrl]);
+    if (!restaurado) {
+      aplicarEstadoDesdeUrl(p);
+      setRestaurado(true);
+      return;
+    }
+    const urlActual = window.location.href;
+    if (prevRef.current && prevRef.current.url !== urlActual) {
+      navegandoPorPopState.current = true;
+      aplicarEstadoDesdeUrl(p);
+    }
+  }, [aplicarEstadoDesdeUrl, searchParamsStr, restaurado]);
 
   // Manejo del evento popstate (navegación atrás/adelante en navegador o gesto Android)
   useEffect(() => {
@@ -853,6 +878,9 @@ export default function ExplorarPage() {
     poner("hitomi_tag", hitomiTag);
 
     const nuevaUrlStr = url.toString();
+    try {
+      sessionStorage.setItem("mangatotal:ultimo-explorar", url.pathname + url.search);
+    } catch {}
 
     // Si venimos de un evento 'popstate' (el usuario pulsó atrás/adelante en el navegador o gesto en Android),
     // no creamos una nueva entrada en el historial para respetar la pila de navegación nativa.
@@ -1137,12 +1165,39 @@ export default function ExplorarPage() {
     if (!solicitudVigente("ehentai", solicitud)) return;
     setError(false);
     const fresco = pedirFresco.current;
+    // E-Hentai pagina por cursor (gid). Al abrir una serie, leerla y volver, el
+    // componente se monta de nuevo y el mapa en memoria se pierde: sin esto la
+    // página siguiente (ej. 10 -> 11) o anterior se quedaba sin cursor. Se
+    // persiste el mapa de cursores por combinación de filtros en sessionStorage.
+    const claveCursores = `mangatotal:ehcursors:${JSON.stringify([search.trim(), ehCat, ehLang, ehTag ?? ""])}`;
+    const leerCursores = (): Record<number, string | null> => {
+      try {
+        return JSON.parse(sessionStorage.getItem(claveCursores) || "{}");
+      } catch {
+        return {};
+      }
+    };
+    const anotarCursor = (pagina: number, cursor: string) => {
+      ehCursors.current[pagina] = cursor;
+      try {
+        const todos = leerCursores();
+        todos[pagina] = cursor;
+        sessionStorage.setItem(claveCursores, JSON.stringify(todos));
+      } catch {}
+    };
     try {
-      const cursorActual = ehCursors.current[ehPage] ?? null;
+      let cursorActual = ehCursors.current[ehPage] ?? null;
+      if (ehPage > 1 && !cursorActual) {
+        cursorActual = leerCursores()[ehPage] ?? null;
+        if (cursorActual) ehCursors.current[ehPage] = cursorActual;
+      }
       if (ehPage > 1 && !cursorActual) {
         setEhNextCursor(null);
         setEhPage(1);
         return;
+      }
+      if (ehPage > 1 && cursorActual) {
+        anotarCursor(ehPage, cursorActual);
       }
 
       const params = new URLSearchParams();
@@ -1153,7 +1208,7 @@ export default function ExplorarPage() {
       if (cursorActual) params.set("next", cursorActual);
       if (fresco) params.set("fresco", "1");
 
-      const cacheKey = `explorar:ehentai:${ehPage}:${cursorActual ?? "inicio"}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`;
+      const cacheKey = `explorar:ehentai:v3:${ehPage}:${cursorActual ?? "inicio"}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`;
 
       const r = await cargarConCacheAndroid<{
         series: SerieEhentai[];
@@ -1180,7 +1235,7 @@ export default function ExplorarPage() {
           onCached: (guardado) => {
             if (!solicitudVigente("ehentai", solicitud)) return;
             if (guardado.nextCursor) {
-              ehCursors.current[ehPage + 1] = guardado.nextCursor;
+              anotarCursor(ehPage + 1, guardado.nextCursor);
             }
             setEhGalleries(guardado.series);
             setEhHayMas(guardado.hayMas);
@@ -1189,7 +1244,7 @@ export default function ExplorarPage() {
       );
       if (!solicitudVigente("ehentai", solicitud)) return;
       if (r.nextCursor) {
-        ehCursors.current[ehPage + 1] = r.nextCursor;
+        anotarCursor(ehPage + 1, r.nextCursor);
       }
       setEhGalleries(r.series);
       setEhHayMas(r.hayMas);
@@ -2496,49 +2551,70 @@ export default function ExplorarPage() {
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {ehGalleries.map((s, idx) => (
-                <Link
-                  key={`${s.gid}-${s.token}`}
-                  href={`/externo/ehentai/${s.gid}/${s.token}`}
-                  prefetch={false}
-                  onClick={guardarScrollActual}
-                  className={`group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("ehentai", s.gid, "adult") ? "opacity-60" : ""}`}
-                >
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
-                    <MarcaGuardada visible={guardada("ehentai", s.gid, "adult")} />
-                    {s.thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={s.thumb}
-                        alt={s.title}
-                        className="h-full w-full object-cover transition duration-500"
-                        loading={idx < 4 ? "eager" : "lazy"}
-                        decoding="async"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => retryThroughProxy(e.currentTarget)}
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
-                        Sin portada
-                      </div>
-                    )}
-                    <span className="absolute left-2.5 top-2.5 rounded-md border border-danger bg-[color-mix(in_oklch,var(--bg)_82%,transparent)] px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-danger">
-                      +18
-                    </span>
-                    {s.filecount > 0 && (
-                      <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink">
-                        {s.filecount} págs.
+                <div key={`${s.gid}-${s.token}`} className="group block">
+                  <Link
+                    href={`/externo/ehentai/${s.gid}/${s.token}`}
+                    prefetch={false}
+                    onClick={guardarScrollActual}
+                    className={`block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${guardada("ehentai", s.gid, "adult") ? "opacity-60" : ""}`}
+                  >
+                    <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
+                      <MarcaGuardada visible={guardada("ehentai", s.gid, "adult")} />
+                      {s.thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={s.thumb}
+                          alt={s.title}
+                          className="h-full w-full object-cover transition duration-500"
+                          loading={idx < 4 ? "eager" : "lazy"}
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => retryThroughProxy(e.currentTarget)}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
+                          Sin portada
+                        </div>
+                      )}
+                      <span className="absolute left-2.5 top-2.5 rounded-md border border-danger bg-[color-mix(in_oklch,var(--bg)_82%,transparent)] px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-danger">
+                        +18
                       </span>
-                    )}
-                  </div>
-                  <div className="px-1 pt-3">
-                    <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
-                      {decodificarHtml(s.title)}
-                    </h3>
-                    <p className="mt-1 font-mono text-[12px] text-faint">
-                      {[s.category, s.uploader].filter(Boolean).join(" · ")}
-                    </p>
-                  </div>
-                </Link>
+                      {s.filecount > 0 && (
+                        <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink">
+                          {s.filecount} págs.
+                        </span>
+                      )}
+                    </div>
+                    <div className="px-1 pt-3">
+                      <h3 className="line-clamp-2 text-base font-semibold leading-[1.25] text-ink transition-colors group-hover:text-accent-ink">
+                        {decodificarHtml(s.title)}
+                      </h3>
+                      <p className="mt-1 font-mono text-[12px] text-faint">
+                        {[s.category, s.uploader].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                  </Link>
+
+                  {s.tags && s.tags.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1 px-1">
+                      {s.tags.slice(0, 3).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            setEhTag(t);
+                            setEhPage(1);
+                            window.scrollTo({ top: 0, behavior: "instant" });
+                          }}
+                          className="rounded-full border border-line bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] text-subtle transition hover:border-accent hover:text-accent-ink"
+                          title={`Filtrar por ${t}`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
 
@@ -2607,25 +2683,38 @@ export default function ExplorarPage() {
                 type="text"
                 value={ehTagBusqueda}
                 onChange={(e) => setEhTagBusqueda(e.target.value)}
-                placeholder="Buscar o escribir etiqueta (ej: female:maid, milf, schoolgirl, original)..."
+                onKeyDown={(e) => {
+                  const limpio = ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
+                  if (e.key === "Enter" && limpio) {
+                    e.preventDefault();
+                    setEhTag(limpio);
+                    setEhPage(1);
+                    setEhModalTags(false);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }
+                }}
+                placeholder="Etiqueta o varias separadas por coma (ej: female:maid, other:full color, mixed:group)..."
                 className={`w-full ${fieldControlClass}`}
                 autoFocus
               />
-              {ehTagBusqueda.trim() && (
-                <div className="flex items-center justify-between pt-1">
+              {ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim() && (
+                <div className="flex items-center justify-between gap-2 pt-1">
                   <span className="text-xs text-subtle">
-                    ¿No está en la lista rápida? Podés buscarla directamente:
+                    Separalas con coma (tag, tag, tag) o pulsá Enter para buscar todas juntas:
                   </span>
                   <button
+                    type="button"
                     onClick={() => {
-                      setEhTag(ehTagBusqueda.trim());
+                      const limpio = ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
+                      if (!limpio) return;
+                      setEhTag(limpio);
                       setEhPage(1);
                       setEhModalTags(false);
                       window.scrollTo({ top: 0, behavior: "instant" });
                     }}
-                    className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
+                    className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
                   >
-                    Filtrar por "{ehTagBusqueda.trim()}"
+                    Filtrar por &quot;{ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim()}&quot;
                   </button>
                 </div>
               )}
@@ -2634,44 +2723,123 @@ export default function ExplorarPage() {
             {/* Lista de tags con scroll */}
             <div className="overflow-y-auto p-5 space-y-4">
               {ehTag && (
-                <div className="flex items-center justify-between rounded-lg border border-line bg-[var(--surface-raised)] p-3">
-                  <span className="text-xs text-ink">
-                    Etiqueta activa: <strong className="font-mono text-accent-ink">{ehTag}</strong>
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-[var(--surface-raised)] p-3">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink">
+                    <span>Etiquetas activas:</span>
+                    {ehTag.split(",").map((item) => {
+                      const limpio = item.trim();
+                      if (!limpio) return null;
+                      return (
+                        <span
+                          key={limpio}
+                          className="inline-flex items-center gap-1 rounded-md border border-accent bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-ink"
+                        >
+                          {limpio}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const restantes = ehTag
+                                .split(",")
+                                .map((x) => x.trim())
+                                .filter((x) => x && x.toLowerCase() !== limpio.toLowerCase());
+                              setEhTag(restantes.length > 0 ? restantes.join(", ") : null);
+                              setEhPage(1);
+                            }}
+                            className="ml-0.5 text-danger hover:opacity-80"
+                            title={`Quitar ${limpio}`}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
                   <button
+                    type="button"
                     onClick={() => {
                       setEhTag(null);
+                      setEhTagBusqueda("");
                       setEhPage(1);
                       setEhModalTags(false);
                       window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="text-xs font-semibold text-danger hover:underline"
                   >
-                    ✕ Quitar etiqueta
+                    ✕ Quitar todas
                   </button>
                 </div>
               )}
 
               <div className="flex flex-wrap gap-2">
-                {buscarEtiquetasEhentai(ehTagBusqueda).map((t) => (
-                  <button
-                    key={t.tag}
-                    onClick={() => {
-                      setEhTag(t.tag);
-                      setEhPage(1);
-                      setEhModalTags(false);
-                      window.scrollTo({ top: 0, behavior: "instant" });
-                    }}
-                    className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
-                      ehTag === t.tag
-                        ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
-                        : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
-                    }`}
-                  >
-                    <span className="block font-medium">{t.label}</span>
-                    <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
-                  </button>
-                ))}
+                {buscarEtiquetasEhentai(ehTagBusqueda).map((t) => {
+                  const activas = (ehTag ?? "")
+                    .split(",")
+                    .map((x) => x.trim().toLowerCase())
+                    .filter(Boolean);
+                  const estaActiva = activas.includes(t.tag.toLowerCase());
+                  return (
+                    <div
+                      key={t.tag}
+                      className={`inline-flex items-stretch overflow-hidden rounded-lg border text-xs transition-colors ${
+                        estaActiva
+                          ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                          : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (ehTagBusqueda.includes(",")) {
+                            const previas = ehTagBusqueda
+                              .split(",")
+                              .slice(0, -1)
+                              .map((x) => x.trim())
+                              .filter(Boolean);
+                            const nuevaLista = Array.from(new Set([...previas, t.tag])).join(", ");
+                            setEhTag(nuevaLista);
+                            setEhTagBusqueda(`${nuevaLista}, `);
+                          } else {
+                            setEhTag(t.tag);
+                            setEhModalTags(false);
+                          }
+                          setEhPage(1);
+                          window.scrollTo({ top: 0, behavior: "instant" });
+                        }}
+                        className="px-3 py-1.5 text-left"
+                      >
+                        <span className="block font-medium">{t.label}</span>
+                        <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const base = ehTagBusqueda.includes(",")
+                            ? ehTagBusqueda
+                                .split(",")
+                                .slice(0, -1)
+                                .map((x) => x.trim())
+                                .filter(Boolean)
+                            : (ehTag ?? "")
+                                .split(",")
+                                .map((x) => x.trim())
+                                .filter(Boolean);
+                          const existe = base.some((x) => x.toLowerCase() === t.tag.toLowerCase());
+                          const nueva = existe
+                            ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
+                            : [...base, t.tag];
+                          const textoFinal = nueva.join(", ");
+                          setEhTag(textoFinal || null);
+                          setEhTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
+                          setEhPage(1);
+                        }}
+                        title={estaActiva ? `Quitar ${t.tag} de la combinación` : `Agregar ${t.tag} a la búsqueda múltiple`}
+                        className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
+                      >
+                        {estaActiva ? "✓" : "+"}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -2723,26 +2891,38 @@ export default function ExplorarPage() {
                 type="text"
                 value={hitomiTagBusqueda}
                 onChange={(e) => setHitomiTagBusqueda(e.target.value)}
-                placeholder="Buscar etiqueta (ej: female:maid, milf, series:blue archive, full color)..."
+                onKeyDown={(e) => {
+                  const limpio = hitomiTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
+                  if (e.key === "Enter" && limpio) {
+                    e.preventDefault();
+                    setHitomiTag(limpio);
+                    setHitomiPage(1);
+                    setHitomiModalTags(false);
+                    window.scrollTo({ top: 0, behavior: "instant" });
+                  }
+                }}
+                placeholder="Etiqueta o varias separadas por coma (ej: female:maid, full color, series:blue archive)..."
                 className={`w-full ${fieldControlClass}`}
                 autoFocus
               />
-              {hitomiTagBusqueda.trim() && (
-                <div className="flex items-center justify-between pt-1">
+              {hitomiTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim() && (
+                <div className="flex items-center justify-between gap-2 pt-1">
                   <span className="text-xs text-subtle">
-                    ¿Querés filtrar directamente por lo que escribiste?
+                    Separalas con coma (tag, tag, tag) o pulsá Enter para buscar todas juntas:
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      setHitomiTag(hitomiTagBusqueda.trim());
+                      const limpio = hitomiTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
+                      if (!limpio) return;
+                      setHitomiTag(limpio);
                       setHitomiPage(1);
                       setHitomiModalTags(false);
                       window.scrollTo({ top: 0, behavior: "instant" });
                     }}
-                    className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
+                    className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
                   >
-                    Filtrar por &quot;{hitomiTagBusqueda.trim()}&quot;
+                    Filtrar por &quot;{hitomiTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim()}&quot;
                   </button>
                 </div>
               )}
@@ -2751,21 +2931,49 @@ export default function ExplorarPage() {
             {/* Lista de tags con scroll */}
             <div className="overflow-y-auto p-5 space-y-4">
               {hitomiTag && (
-                <div className="flex items-center justify-between rounded-lg border border-line bg-[var(--surface-raised)] p-3">
-                  <span className="text-xs text-ink">
-                    Etiqueta activa: <strong className="font-mono text-accent-ink">{hitomiTag}</strong>
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-[var(--surface-raised)] p-3">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink">
+                    <span>Etiquetas activas:</span>
+                    {hitomiTag.split(",").map((item) => {
+                      const limpio = item.trim();
+                      if (!limpio) return null;
+                      return (
+                        <span
+                          key={limpio}
+                          className="inline-flex items-center gap-1 rounded-md border border-accent bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-ink"
+                        >
+                          {limpio}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const restantes = hitomiTag
+                                .split(",")
+                                .map((x) => x.trim())
+                                .filter((x) => x && x.toLowerCase() !== limpio.toLowerCase());
+                              setHitomiTag(restantes.length > 0 ? restantes.join(", ") : null);
+                              setHitomiPage(1);
+                            }}
+                            className="ml-0.5 text-danger hover:opacity-80"
+                            title={`Quitar ${limpio}`}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
                       setHitomiTag(null);
+                      setHitomiTagBusqueda("");
                       setHitomiPage(1);
                       setHitomiModalTags(false);
                       window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="text-xs font-semibold text-danger hover:underline"
                   >
-                    ✕ Quitar etiqueta
+                    ✕ Quitar todas
                   </button>
                 </div>
               )}
@@ -2776,26 +2984,75 @@ export default function ExplorarPage() {
                     Sugerencias en tiempo real de Hitomi.la
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {hitomiTagsSugeridos.map((t) => (
-                      <button
-                        key={`sug-${t.tag}`}
-                        type="button"
-                        onClick={() => {
-                          setHitomiTag(t.tag);
-                          setHitomiPage(1);
-                          setHitomiModalTags(false);
-                          window.scrollTo({ top: 0, behavior: "instant" });
-                        }}
-                        className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
-                          hitomiTag === t.tag
-                            ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
-                            : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
-                        }`}
-                      >
-                        <span className="block font-medium">{t.label}</span>
-                        <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
-                      </button>
-                    ))}
+                    {hitomiTagsSugeridos.map((t) => {
+                      const activas = (hitomiTag ?? "")
+                        .split(",")
+                        .map((x) => x.trim().toLowerCase())
+                        .filter(Boolean);
+                      const estaActiva = activas.includes(t.tag.toLowerCase());
+                      return (
+                        <div
+                          key={`sug-${t.tag}`}
+                          className={`inline-flex items-stretch overflow-hidden rounded-lg border text-xs transition-colors ${
+                            estaActiva
+                              ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                              : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (hitomiTagBusqueda.includes(",")) {
+                                const previas = hitomiTagBusqueda
+                                  .split(",")
+                                  .slice(0, -1)
+                                  .map((x) => x.trim())
+                                  .filter(Boolean);
+                                const nuevaLista = Array.from(new Set([...previas, t.tag])).join(", ");
+                                setHitomiTag(nuevaLista);
+                                setHitomiTagBusqueda(`${nuevaLista}, `);
+                              } else {
+                                setHitomiTag(t.tag);
+                                setHitomiModalTags(false);
+                              }
+                              setHitomiPage(1);
+                              window.scrollTo({ top: 0, behavior: "instant" });
+                            }}
+                            className="px-3 py-1.5 text-left"
+                          >
+                            <span className="block font-medium">{t.label}</span>
+                            <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const base = hitomiTagBusqueda.includes(",")
+                                ? hitomiTagBusqueda
+                                    .split(",")
+                                    .slice(0, -1)
+                                    .map((x) => x.trim())
+                                    .filter(Boolean)
+                                : (hitomiTag ?? "")
+                                    .split(",")
+                                    .map((x) => x.trim())
+                                    .filter(Boolean);
+                              const existe = base.some((x) => x.toLowerCase() === t.tag.toLowerCase());
+                              const nueva = existe
+                                ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
+                                : [...base, t.tag];
+                              const textoFinal = nueva.join(", ");
+                              setHitomiTag(textoFinal || null);
+                              setHitomiTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
+                              setHitomiPage(1);
+                            }}
+                            title={estaActiva ? `Quitar ${t.tag}` : `Agregar ${t.tag} a la búsqueda múltiple`}
+                            className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
+                          >
+                            {estaActiva ? "✓" : "+"}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2807,26 +3064,75 @@ export default function ExplorarPage() {
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {buscarEtiquetasHitomi(hitomiTagBusqueda).map((t) => (
-                    <button
-                      key={t.tag}
-                      type="button"
-                      onClick={() => {
-                        setHitomiTag(t.tag);
-                        setHitomiPage(1);
-                        setHitomiModalTags(false);
-                        window.scrollTo({ top: 0, behavior: "instant" });
-                      }}
-                      className={`rounded-lg border px-3 py-1.5 text-left text-xs transition-colors ${
-                        hitomiTag === t.tag
-                          ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
-                          : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
-                      }`}
-                    >
-                      <span className="block font-medium">{t.label}</span>
-                      <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
-                    </button>
-                  ))}
+                  {buscarEtiquetasHitomi(hitomiTagBusqueda).map((t) => {
+                    const activas = (hitomiTag ?? "")
+                      .split(",")
+                      .map((x) => x.trim().toLowerCase())
+                      .filter(Boolean);
+                    const estaActiva = activas.includes(t.tag.toLowerCase());
+                    return (
+                      <div
+                        key={t.tag}
+                        className={`inline-flex items-stretch overflow-hidden rounded-lg border text-xs transition-colors ${
+                          estaActiva
+                            ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                            : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (hitomiTagBusqueda.includes(",")) {
+                              const previas = hitomiTagBusqueda
+                                .split(",")
+                                .slice(0, -1)
+                                .map((x) => x.trim())
+                                .filter(Boolean);
+                              const nuevaLista = Array.from(new Set([...previas, t.tag])).join(", ");
+                              setHitomiTag(nuevaLista);
+                              setHitomiTagBusqueda(`${nuevaLista}, `);
+                            } else {
+                              setHitomiTag(t.tag);
+                              setHitomiModalTags(false);
+                            }
+                            setHitomiPage(1);
+                            window.scrollTo({ top: 0, behavior: "instant" });
+                          }}
+                          className="px-3 py-1.5 text-left"
+                        >
+                          <span className="block font-medium">{t.label}</span>
+                          <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const base = hitomiTagBusqueda.includes(",")
+                              ? hitomiTagBusqueda
+                                  .split(",")
+                                  .slice(0, -1)
+                                  .map((x) => x.trim())
+                                  .filter(Boolean)
+                              : (hitomiTag ?? "")
+                                  .split(",")
+                                  .map((x) => x.trim())
+                                  .filter(Boolean);
+                            const existe = base.some((x) => x.toLowerCase() === t.tag.toLowerCase());
+                            const nueva = existe
+                              ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
+                              : [...base, t.tag];
+                            const textoFinal = nueva.join(", ");
+                            setHitomiTag(textoFinal || null);
+                            setHitomiTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
+                            setHitomiPage(1);
+                          }}
+                          title={estaActiva ? `Quitar ${t.tag}` : `Agregar ${t.tag} a la búsqueda múltiple`}
+                          className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
+                        >
+                          {estaActiva ? "✓" : "+"}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -257,7 +257,16 @@ export async function cargarConCacheAndroid<T>(
 
   const promesa = (async () => {
     const value = await conLimite(cargar, timeoutEfectivo);
-    await guardarCacheAndroid(clave, value, opciones);
+    const esCatalogoVacio =
+      clave.startsWith("explorar:") &&
+      value !== null &&
+      typeof value === "object" &&
+      "series" in (value as Record<string, unknown>) &&
+      Array.isArray((value as unknown as { series?: unknown[] }).series) &&
+      (value as unknown as { series: unknown[] }).series.length === 0;
+    if (!esCatalogoVacio) {
+      await guardarCacheAndroid(clave, value, opciones);
+    }
     return value;
   })();
 

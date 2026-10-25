@@ -8,6 +8,7 @@ import {
   HITOMI_IDIOMAS,
   HITOMI_TIPOS,
   HITOMI_ORDENES,
+  HITOMI_POPULAR_TAGS,
   type HitomiOrden,
   type SerieHitomi,
   type FichaHitomi,
@@ -514,6 +515,39 @@ async function leerNozomiRango(
   }
 }
 
+const nozomiCompletoCache = new Map<string, { ids: number[]; vence: number }>();
+
+/** Lista completa de un .nozomi (necesaria para intersectar varias etiquetas). */
+async function leerNozomiCompleto(nozomiUrl: string): Promise<number[] | null> {
+  const ahora = Date.now();
+  const enCache = nozomiCompletoCache.get(nozomiUrl);
+  if (enCache && enCache.vence > ahora) {
+    return enCache.ids;
+  }
+  try {
+    const res = await fetch(nozomiUrl, {
+      headers: { Referer: HITOMI_WEB },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    const ids: number[] = [];
+    for (let i = 0; i + 4 <= buf.length; i += 4) {
+      ids.push(buf.readInt32BE(i));
+    }
+    if (ids.length > 0) {
+      if (nozomiCompletoCache.size >= 80) {
+        const k = nozomiCompletoCache.keys().next().value;
+        if (k !== undefined) nozomiCompletoCache.delete(k);
+      }
+      nozomiCompletoCache.set(nozomiUrl, { ids, vence: ahora + 10 * 60_000 });
+    }
+    return ids;
+  } catch {
+    return null;
+  }
+}
+
 function shuffleArray<T>(arr: T[]): T[] {
   const copia = [...arr];
   for (let i = copia.length - 1; i > 0; i--) {
@@ -667,8 +701,14 @@ export async function catalogoHitomi(opciones: {
   let totalResultados = 0;
   let yaPaginado = false;
 
-  const queryLimpia = busqueda.trim().toLowerCase();
-  const tagLimpio = tag.trim().toLowerCase();
+  const queryRaw = busqueda.trim().toLowerCase();
+  const tagRaw = tag.trim().toLowerCase();
+  // Si el usuario escribió varias etiquetas separadas por coma en la barra de búsqueda
+  // o en el filtro de etiquetas, las procesamos juntas como intersección multi-tag.
+  const queryLimpia = queryRaw.includes(",") ? "" : queryRaw;
+  const tagLimpio = queryRaw.includes(",")
+    ? [tagRaw, queryRaw].filter(Boolean).join(", ")
+    : tagRaw;
   const langCode = idioma === "todos" ? "all" : idioma.toLowerCase();
 
   const consultarNozomiUrl = (nozomiUrl: string) =>
@@ -702,8 +742,56 @@ export async function catalogoHitomi(opciones: {
       yaPaginado = false;
     }
   }
-  // Caso 2: Filtrado por etiqueta específica
+  // Caso 2: Filtrado por etiqueta específica (una o varias separadas por coma)
   else if (tagLimpio) {
+    const etiquetas = Array.from(
+      new Set(tagLimpio.split(/[,;]+/).map((t) => t.trim()).filter(Boolean))
+    );
+    if (etiquetas.length > 1) {
+      // Varias etiquetas: se descarga la lista completa de cada una en paralelo
+      // y se intersectan; la primera etiqueta marca el orden elegido.
+      const normalizarEtiqueta = (et: string): string => {
+        if (et.includes(":")) return et;
+        const popular = HITOMI_POPULAR_TAGS.find(
+          (p) =>
+            p.tag.toLowerCase() === et ||
+            p.label.toLowerCase() === et ||
+            p.tag.toLowerCase().endsWith(`:${et}`)
+        );
+        return popular ? popular.tag.toLowerCase() : et;
+      };
+
+      const listaDeEtiqueta = async (etOriginal: string, idx: number): Promise<number[]> => {
+        const et = normalizarEtiqueta(etOriginal);
+        const rutas = construirRutasCandidatasTag(et);
+        const ordenEfectivo = idx === 0 && orden !== "random" ? orden : "date_added";
+        const idiomasIntento = langCode === "all" ? ["all"] : [langCode, "all"];
+
+        for (const codIdioma of idiomasIntento) {
+          const urls = rutas
+            .map((ruta) => construirUrlsNozomiPorOrden(ruta, ordenEfectivo, codIdioma)[0])
+            .filter(Boolean);
+          const respuestas = await Promise.all(urls.map((u) => leerNozomiCompleto(u)));
+          const valida = respuestas.find((r) => r && r.length > 0);
+          if (valida) return valida;
+        }
+        return buscarEnBTree(
+          et.replace(/^(female|male|series|parody|artist|group|character|tag):/, "")
+        );
+      };
+
+      const listas = await Promise.all(etiquetas.map((et, idx) => listaDeEtiqueta(et, idx)));
+      if (listas.every((l) => l.length > 0)) {
+        let resultado = listas[0];
+        for (let i = 1; i < listas.length; i++) {
+          const conjunto = new Set(listas[i]);
+          resultado = resultado.filter((id) => conjunto.has(id));
+        }
+        galleryIds = orden === "random" ? shuffleArray(resultado) : resultado;
+      }
+      totalResultados = galleryIds.length;
+      yaPaginado = false;
+    } else {
     const rutasCandidatas = construirRutasCandidatasTag(tagLimpio);
     const idiomasIntento = langCode === "all" ? ["all"] : [langCode, "all"];
 
@@ -749,6 +837,7 @@ export async function catalogoHitomi(opciones: {
       }
       totalResultados = galleryIds.length;
       yaPaginado = false;
+    }
     }
   }
   // Caso 3: Navegación general por idioma y orden

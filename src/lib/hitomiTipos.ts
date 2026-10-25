@@ -218,13 +218,25 @@ export const HITOMI_POPULAR_TAGS: HitomiTag[] = [
 ];
 
 export function buscarEtiquetasHitomi(termino: string): HitomiTag[] {
-  const q = termino.trim().toLowerCase();
-  if (!q) return HITOMI_POPULAR_TAGS;
+  const partes = termino.split(",");
+  const ultimo = (partes[partes.length - 1] ?? "").trim().toLowerCase();
+  const previas = new Set(
+    partes
+      .slice(0, -1)
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean)
+  );
 
-  return HITOMI_POPULAR_TAGS.filter(
+  const base = previas.size > 0
+    ? HITOMI_POPULAR_TAGS.filter((t) => !previas.has(t.tag.toLowerCase()))
+    : HITOMI_POPULAR_TAGS;
+
+  if (!ultimo) return base;
+
+  return base.filter(
     (t) =>
-      t.tag.toLowerCase().includes(q) ||
-      t.label.toLowerCase().includes(q)
+      t.tag.toLowerCase().includes(ultimo) ||
+      t.label.toLowerCase().includes(ultimo)
   );
 }
 

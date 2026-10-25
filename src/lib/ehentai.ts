@@ -1,4 +1,5 @@
 import { isPlayStoreApp } from "./appVersion";
+import { EHENTAI_POPULAR_TAGS } from "./ehentaiTags";
 
 export const EHENTAI_NOMBRE = "E-Hentai";
 export const EHENTAI_WEB = "https://e-hentai.org";
@@ -72,6 +73,56 @@ const EH_UA =
 const catalogoEhCache = new Map<string, { data: CatalogoEhentai; vence: number }>();
 const fichaEhCache = new Map<string, { data: FichaEhentai; vence: number }>();
 
+/** Namespaces reales del buscador de E-Hentai (incluye "mixed" y "other"). */
+const EH_NAMESPACES = new Set([
+  "language", "parody", "character", "artist", "group", "cosplayer",
+  "female", "male", "mixed", "other", "reclass", "temp",
+]);
+
+/** Divide "tag, tag, tag" en etiquetas individuales sin vacíos ni repetidas. */
+export function separarEtiquetasEhentai(texto: string): string[] {
+  return Array.from(
+    new Set(
+      texto
+        .split(/[,;]+/)
+        .map((t) => t.trim().replace(/^"+|"+$/g, "").replace(/\$$/, "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+/**
+ * Convierte una etiqueta a la sintaxis exacta de E-Hentai: namespace:"valor$".
+ * Sin las comillas en el valor ni el `$`, E-Hentai la trata como texto libre y
+ * con frases de varias palabras (o al paginar con cursor) devuelve "No hits".
+ */
+export function formatearEtiquetaEhentai(etiqueta: string): string {
+  const limpia = etiqueta.trim().toLowerCase().replace(/^"+|"+$/g, "").replace(/\$$/, "").trim();
+  const dosPuntos = limpia.indexOf(":");
+  if (dosPuntos > 0) {
+    let ns = limpia.slice(0, dosPuntos).trim();
+    const valor = limpia.slice(dosPuntos + 1).trim().replace(/^"+|"+$/g, "").replace(/\$$/, "");
+    if (ns === "series") ns = "parody";
+    if (ns === "tag") return `"${valor}$"`;
+    if (EH_NAMESPACES.has(ns) && valor) return `${ns}:"${valor}$"`;
+  }
+  const conocida = EHENTAI_POPULAR_TAGS.find(
+    (t) =>
+      t.tag.toLowerCase() === limpia ||
+      t.label.toLowerCase() === limpia ||
+      t.tag.toLowerCase().endsWith(`:${limpia}`)
+  );
+  if (conocida) {
+    const idx = conocida.tag.indexOf(":");
+    if (idx > 0) {
+      const ns = conocida.tag.slice(0, idx).trim().toLowerCase();
+      const val = conocida.tag.slice(idx + 1).trim().toLowerCase();
+      if (EH_NAMESPACES.has(ns) && val) return `${ns}:"${val}$"`;
+    }
+  }
+  return `"${limpia}$"`;
+}
+
 /**
  * Calcula la máscara f_cats para E-Hentai.
  * Si no hay filtro o es "todos", devuelve 0 (todas habilitadas).
@@ -130,19 +181,30 @@ export async function catalogoEhentai(opciones: {
 
   const partesBusqueda: string[] = [];
   if (busqueda.trim()) {
-    partesBusqueda.push(busqueda.trim());
+    const qTexto = busqueda.trim();
+    const primerDosPuntos = qTexto.indexOf(":");
+    const prefijoPosible = primerDosPuntos > 0 ? qTexto.slice(0, primerDosPuntos).trim().toLowerCase() : "";
+    if (qTexto.includes(",") || EH_NAMESPACES.has(prefijoPosible) || prefijoPosible === "series") {
+      for (const t of separarEtiquetasEhentai(qTexto)) {
+        partesBusqueda.push(formatearEtiquetaEhentai(t));
+      }
+    } else {
+      partesBusqueda.push(qTexto);
+    }
   }
 
   if (tag && tag.trim()) {
-    const tLimpio = tag.trim().replace(/^"+|"+$/g, "");
-    const tagLimpio = tLimpio.includes(" ") ? `"${tLimpio}"` : tLimpio;
-    partesBusqueda.push(tagLimpio);
+    // Varias etiquetas separadas por coma: E-Hentai las combina con AND
+    // cuando van juntas en f_search, cada una con su sintaxis exacta.
+    for (const t of separarEtiquetasEhentai(tag)) {
+      partesBusqueda.push(formatearEtiquetaEhentai(t));
+    }
   }
 
   if (idioma && idioma !== "todos") {
     const idi = EHENTAI_IDIOMAS.find((i) => i.id === idioma);
-    if (idi?.tag) {
-      partesBusqueda.push(idi.tag);
+    if (idi?.tag && !partesBusqueda.some((p) => p.startsWith("language:"))) {
+      partesBusqueda.push(formatearEtiquetaEhentai(idi.tag));
     }
   }
 
@@ -220,15 +282,33 @@ export async function catalogoEhentai(opciones: {
   });
 
   // Extraer enlaces cursor de la barra de navegación (#unext / #dnext y #uprev / #dprev).
-  const nextHref = html.match(/<a[^>]*id="[ud]next"[^>]*href="([^"]+)"/i)?.[1];
-  const nextMatch = nextHref ? nextHref.match(/[?&](?:amp;)?next=(\d+)/i) : null;
+  const nextHref =
+    html.match(/<a[^>]*id="[ud]next"[^>]*href="([^"]+)"/i)?.[1] ??
+    html.match(/<a[^>]*href="([^"]+)"[^>]*id="[ud]next"/i)?.[1];
+  const nextMatch = nextHref ? nextHref.match(/[?&](?:amp;)?next=([^&"]+)/i) : null;
   const nextCursor = nextMatch ? nextMatch[1] : null;
 
-  const prevHref = html.match(/<a[^>]*id="[ud]prev"[^>]*href="([^"]+)"/i)?.[1];
-  const prevMatch = prevHref ? prevHref.match(/[?&](?:amp;)?prev=(\d+)/i) : null;
+  const prevHref =
+    html.match(/<a[^>]*id="[ud]prev"[^>]*href="([^"]+)"/i)?.[1] ??
+    html.match(/<a[^>]*href="([^"]+)"[^>]*id="[ud]prev"/i)?.[1];
+  const prevMatch = prevHref ? prevHref.match(/[?&](?:amp;)?prev=([^&"]+)/i) : null;
   const prevCursor = prevMatch ? prevMatch[1] : null;
 
-  const hayMas = Boolean(nextCursor) || html.includes(`page=${pagina + 1}`);
+  // Si E-Hentai devolvió 200 OK sin tabla de resultados ni mensaje de "No hits",
+  // es una página de bloqueo temporal / anti-flood: lanzar error impide que el
+  // cliente guarde un falso "Sin resultados" en caché al volver de leer una serie.
+  if (
+    series.length === 0 &&
+    !html.includes("No hits found") &&
+    !html.includes("No unfiltered results") &&
+    !html.includes('class="itg')
+  ) {
+    throw new Error("E-Hentai limitó temporalmente las consultas, reintentá en unos segundos");
+  }
+
+  // Solo el cursor real prueba que hay otra página: buscar "page=N" en el HTML
+  // daba falsos positivos y la página siguiente salía vacía.
+  const hayMas = Boolean(nextCursor);
 
   const resultado: CatalogoEhentai = {
     series,
@@ -238,11 +318,13 @@ export async function catalogoEhentai(opciones: {
     prevCursor,
   };
 
-  if (catalogoEhCache.size >= 150) {
-    const k = catalogoEhCache.keys().next().value;
-    if (k !== undefined) catalogoEhCache.delete(k);
+  if (series.length > 0) {
+    if (catalogoEhCache.size >= 150) {
+      const k = catalogoEhCache.keys().next().value;
+      if (k !== undefined) catalogoEhCache.delete(k);
+    }
+    catalogoEhCache.set(urlStr, { data: resultado, vence: ahora + 90_000 });
   }
-  catalogoEhCache.set(urlStr, { data: resultado, vence: ahora + 90_000 });
 
   return resultado;
 }
@@ -433,9 +515,11 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
     throw new Error("No se pudieron obtener las páginas de la galería");
   }
 
-  // 2. Resolver de inmediato las primeras 8 páginas para que el lector abra al instante
-  // y dejar el resto envuelto en /api/externo/imagen?u=<viewerUrl> mientras se pre-resuelve en segundo plano.
-  const EAGER_COUNT = Math.min(8, linksValidos.length);
+  // 2. Resolver solo las primeras 4 páginas para que el lector abra al instante
+  // y delegar el resto a resolución bajo demanda en /api/externo/imagen?u=<viewerUrl>
+  // a medida que el usuario hace scroll. Descargar los 200 visores de golpe activaba
+  // el límite anti-flood de E-Hentai y hacía fallar el catálogo al volver atrás.
+  const EAGER_COUNT = Math.min(4, linksValidos.length);
   const primerasResueltas = await Promise.all(
     linksValidos.slice(0, EAGER_COUNT).map(async (vUrl) => {
       const directa = await resolverImagenVisorEhentai(vUrl);
@@ -454,33 +538,6 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
     paginas: paginasFinales,
     vence: Date.now() + 90 * 60_000,
   });
-
-  // Pre-resolución asíncrona en segundo plano para que a medida que el usuario baje o descargue,
-  // las URLs de imagen ya estén listas en visorImagenCache y paginasCache.
-  if (linksValidos.length > EAGER_COUNT) {
-    void (async () => {
-      let cursor = EAGER_COUNT;
-      const CONCURRENCIA = 8;
-      const completas = [...paginasFinales];
-      async function worker() {
-        while (cursor < linksValidos.length) {
-          const idx = cursor++;
-          const vUrl = linksValidos[idx];
-          const img = await resolverImagenVisorEhentai(vUrl);
-          if (img) completas[idx] = img;
-        }
-      }
-      await Promise.all(
-        Array.from({ length: Math.min(CONCURRENCIA, linksValidos.length - EAGER_COUNT) }, () =>
-          worker()
-        )
-      ).catch(() => {});
-      paginasCache.set(claveCache, {
-        paginas: completas,
-        vence: Date.now() + 90 * 60_000,
-      });
-    })();
-  }
 
   return paginasFinales;
 }
