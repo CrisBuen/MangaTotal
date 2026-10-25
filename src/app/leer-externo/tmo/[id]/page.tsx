@@ -5,6 +5,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
 import { TMO_NOMBRE, capituloTmo } from "@/lib/zonatmo";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 type Capitulo = Awaited<ReturnType<typeof capituloTmo>>;
 
@@ -23,8 +24,20 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
   const [error, setError] = useState<unknown>(null);
 
   const cargar = useCallback(async () => {
+    setError(null);
     try {
-      const cap = await capituloTmo(slug, slugCapitulo);
+      const cap = await cargarConCacheAndroid<Capitulo>(
+        `capitulo:tmo:${slug}:${slugCapitulo}`,
+        () => capituloTmo(slug, slugCapitulo),
+        {
+          publicCache: true,
+          freshForMs: 5 * 60 * 1000,
+          maxAgeMs: 60 * 60 * 1000,
+          onCached: (guardado) => {
+            if (guardado.paginas.length > 0) setCapitulo(guardado);
+          },
+        }
+      );
       if (cap.paginas.length === 0) throw new Error("Este capítulo no tiene páginas");
       setCapitulo(cap);
     } catch (err) {

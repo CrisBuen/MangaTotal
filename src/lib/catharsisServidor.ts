@@ -16,6 +16,7 @@ export const CARPETA_MANGAS = "cf1f897d-9735-49f7-a96c-77a8c72d2124";
 
 /** El catálogo entero pesa poco y cambia despacio: se arma cada media hora. */
 const VIDA_CATALOGO_MS = 30 * 60 * 1000;
+const VIDA_NOVEDADES_MS = 5 * 60 * 1000;
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -66,6 +67,7 @@ export function numeroCw(texto: string): number {
 }
 
 let catalogo: { hecho: number; series: SerieCatalogoCw[] } | null = null;
+let novedadesCache: { hecho: number; series: SerieCatalogoCw[] } | null = null;
 
 export async function catalogoCwServidor(fresco = false): Promise<SerieCatalogoCw[]> {
   if (!fresco && catalogo && Date.now() - catalogo.hecho < VIDA_CATALOGO_MS) {
@@ -119,13 +121,18 @@ export async function catalogoCwServidor(fresco = false): Promise<SerieCatalogoC
 
 /** Las series con capítulos subidos hace poco, de más nueva a más vieja. */
 export async function novedadesCwServidor(fresco = false): Promise<SerieCatalogoCw[]> {
-  const series = await catalogoCwServidor(fresco);
-  const porId = new Map(series.map((s) => [s.id, s]));
+  if (!fresco && novedadesCache && Date.now() - novedadesCache.hecho < VIDA_NOVEDADES_MS) {
+    return novedadesCache.series;
+  }
 
-  const recientes = await pedirCw<{ data: { folder: string | null }[] }>(
-    `/files?sort=-created_on&limit=400&fields=folder`,
-    fresco ? 0 : 300
-  );
+  const [series, recientes] = await Promise.all([
+    catalogoCwServidor(fresco),
+    pedirCw<{ data: { folder: string | null }[] }>(
+      `/files?sort=-created_on&limit=400&fields=folder`,
+      fresco ? 0 : 300
+    ),
+  ]);
+  const porId = new Map(series.map((s) => [s.id, s]));
 
   // los archivos cuelgan de la carpeta del capítulo: hay que subir un piso
   const carpetas = [...new Set(recientes.data.map((f) => f.folder).filter(Boolean))] as string[];
@@ -146,5 +153,6 @@ export async function novedadesCwServidor(fresco = false): Promise<SerieCatalogo
     const s = porId.get(serie);
     if (s) salida.push(s);
   }
+  novedadesCache = { hecho: Date.now(), series: salida };
   return salida;
 }

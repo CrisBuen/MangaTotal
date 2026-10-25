@@ -65,6 +65,13 @@ export interface CatalogoEhentai {
   prevCursor?: string | null;
 }
 
+const EH_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/** Caché en memoria de servidor para catálogo y fichas de E-Hentai. */
+const catalogoEhCache = new Map<string, { data: CatalogoEhentai; vence: number }>();
+const fichaEhCache = new Map<string, { data: FichaEhentai; vence: number }>();
+
 /**
  * Calcula la máscara f_cats para E-Hentai.
  * Si no hay filtro o es "todos", devuelve 0 (todas habilitadas).
@@ -143,13 +150,21 @@ export async function catalogoEhentai(opciones: {
     url.searchParams.set("f_search", partesBusqueda.join(" "));
   }
 
-  const res = await fetch(url.toString(), {
+  const urlStr = url.toString();
+  const ahora = Date.now();
+  if (!fresco) {
+    const cached = catalogoEhCache.get(urlStr);
+    if (cached && cached.vence > ahora) {
+      return cached.data;
+    }
+  }
+
+  const res = await fetch(urlStr, {
     headers: {
       Cookie: "nw=1",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "User-Agent": EH_UA,
     },
-    ...(fresco ? { cache: "no-store" } : { next: { revalidate: 30 } }),
+    ...(fresco ? { cache: "no-store" } : { next: { revalidate: 60 } }),
   });
 
   if (!res.ok) {
@@ -205,8 +220,6 @@ export async function catalogoEhentai(opciones: {
   });
 
   // Extraer enlaces cursor de la barra de navegación (#unext / #dnext y #uprev / #dprev).
-  // E-Hentai usa etiquetas <a id="unext" href="...?next=12345">Next ></a> cuando hay siguiente página,
-  // y <span id="unext"> o sin href cuando se llega al final.
   const nextHref = html.match(/<a[^>]*id="[ud]next"[^>]*href="([^"]+)"/i)?.[1];
   const nextMatch = nextHref ? nextHref.match(/[?&](?:amp;)?next=(\d+)/i) : null;
   const nextCursor = nextMatch ? nextMatch[1] : null;
@@ -217,13 +230,21 @@ export async function catalogoEhentai(opciones: {
 
   const hayMas = Boolean(nextCursor) || html.includes(`page=${pagina + 1}`);
 
-  return {
+  const resultado: CatalogoEhentai = {
     series,
     pagina,
     hayMas,
     nextCursor,
     prevCursor,
   };
+
+  if (catalogoEhCache.size >= 150) {
+    const k = catalogoEhCache.keys().next().value;
+    if (k !== undefined) catalogoEhCache.delete(k);
+  }
+  catalogoEhCache.set(urlStr, { data: resultado, vence: ahora + 90_000 });
+
+  return resultado;
 }
 
 /**
@@ -232,6 +253,13 @@ export async function catalogoEhentai(opciones: {
 export async function fichaEhentai(gid: string, token: string): Promise<FichaEhentai> {
   if (isPlayStoreApp()) {
     throw new Error("Fuente no disponible en esta edición");
+  }
+
+  const clave = `${gid}:${token}`;
+  const ahora = Date.now();
+  const guardada = fichaEhCache.get(clave);
+  if (guardada && guardada.vence > ahora) {
+    return guardada.data;
   }
 
   const apiRes = await fetch(EHENTAI_API, {
@@ -256,7 +284,7 @@ export async function fichaEhentai(gid: string, token: string): Promise<FichaEhe
     throw new Error(meta?.error || "Galería no encontrada en E-Hentai");
   }
 
-  return {
+  const ficha: FichaEhentai = {
     gid,
     token,
     title: meta.title || `Galería #${gid}`,
@@ -270,14 +298,62 @@ export async function fichaEhentai(gid: string, token: string): Promise<FichaEhe
     tags: Array.isArray(meta.tags) ? meta.tags : [],
     url_original: `${EHENTAI_WEB}/g/${gid}/${token}/`,
   };
+
+  if (fichaEhCache.size >= 300) {
+    const first = fichaEhCache.keys().next().value;
+    if (first !== undefined) fichaEhCache.delete(first);
+  }
+  fichaEhCache.set(clave, { data: ficha, vence: ahora + 30 * 60_000 });
+  return ficha;
 }
 
-// Caché en memoria para las páginas ya resueltas de una galería
+// Caché en memoria para las páginas ya resueltas de una galería y visores individuales
 const paginasCache = new Map<string, { paginas: string[]; vence: number }>();
+const visorImagenCache = new Map<string, { imgUrl: string; vence: number }>();
 
 /**
- * Obtiene todas las URLs directas de las imágenes de una galería para el lector y la descarga.
- * Resuelve las páginas mediante la API o raspado de los enlaces de visualización.
+ * Resuelve la URL de imagen directa (<img id="img" src="...">) a partir de un enlace de visor
+ * de E-Hentai (https://e-hentai.org/s/{pageToken}/{gid}-{num}).
+ */
+export async function resolverImagenVisorEhentai(viewerUrl: string): Promise<string | null> {
+  const ahora = Date.now();
+  const cached = visorImagenCache.get(viewerUrl);
+  if (cached && cached.vence > ahora) {
+    return cached.imgUrl;
+  }
+
+  try {
+    const res = await fetch(viewerUrl, {
+      headers: {
+        Cookie: "nw=1",
+        "User-Agent": EH_UA,
+      },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const match = html.match(/<img id="img"[^>]+src="([^"]+)"/);
+    if (match && match[1]) {
+      if (visorImagenCache.size >= 2500) {
+        const first = visorImagenCache.keys().next().value;
+        if (first !== undefined) visorImagenCache.delete(first);
+      }
+      visorImagenCache.set(viewerUrl, {
+        imgUrl: match[1],
+        vence: ahora + 90 * 60_000,
+      });
+      return match[1];
+    }
+  } catch {
+    // Error puntual de red
+  }
+  return null;
+}
+
+/**
+ * Obtiene las URLs de las imágenes de una galería para el lector y la descarga.
+ * Resuelve de inmediato las primeras páginas para que el lector abra en menos de 1 segundo
+ * incluso en galerías de 200+ páginas o con mala señal (H+), y delega el resto a resolución
+ * bajo demanda en /api/externo/imagen mientras pre-resuelve en segundo plano.
  */
 export async function paginasEhentai(gid: string, token: string): Promise<string[]> {
   if (isPlayStoreApp()) {
@@ -290,40 +366,65 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
     return enCache.paginas;
   }
 
-  // 1. Obtener la ficha para saber el total de páginas
-  const ficha = await fichaEhentai(gid, token);
+  // 1. Obtener la primera página de índice (?p=0) y la ficha en paralelo
+  const [ficha, resP0] = await Promise.all([
+    fichaEhentai(gid, token),
+    fetch(`${EHENTAI_WEB}/g/${gid}/${token}/?p=0`, {
+      headers: { Cookie: "nw=1", "User-Agent": EH_UA },
+    }),
+  ]);
+
   const totalPaginas = ficha.filecount;
   if (totalPaginas <= 0) return [];
 
-  // 2. Extraer todos los viewer links recorriendo las subpáginas de la galería (?p=0, ?p=1...) en paralelo
-  const paginasIndice = Math.ceil(totalPaginas / 20);
-  const indices = Array.from({ length: paginasIndice }, (_, i) => i);
+  const htmlP0 = resP0.ok ? await resP0.text() : "";
+  const regexVisor = new RegExp(`https:\\/\\/e-hentai\\.org\\/s\\/([a-f0-9]+)\\/${gid}-(\\d+)`, "g");
+  const matchesP0 = [...htmlP0.matchAll(regexVisor)].map((m) => ({
+    url: m[0],
+    num: parseInt(m[2], 10),
+  }));
+
+  // E-Hentai muestra 20 o 40 miniaturas por página de índice según su configuración por defecto
+  const porPaginaIndice = matchesP0.length > 20 ? 40 : 20;
+  const paginasIndice = Math.ceil(totalPaginas / porPaginaIndice);
   const viewerLinks = new Array<string>(totalPaginas);
 
-  const resLotes = await Promise.all(
-    indices.map(async (indice) => {
-      const url = `${EHENTAI_WEB}/g/${gid}/${token}/?p=${indice}`;
-      const res = await fetch(url, {
-        headers: {
-          Cookie: "nw=1",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        },
-      });
-      if (!res.ok) return [];
-      const html = await res.text();
-      const matches = [
-        ...html.matchAll(
-          new RegExp(`https:\\/\\/e-hentai\\.org\\/s\\/([a-f0-9]+)\\/${gid}-(\\d+)`, "g")
-        ),
-      ];
-      return matches.map((m) => ({ url: m[0], num: parseInt(m[2], 10) }));
-    })
-  );
-
-  for (const items of resLotes) {
-    for (const item of items) {
+  for (const item of matchesP0) {
+    if (item.num >= 1 && item.num <= totalPaginas) {
       viewerLinks[item.num - 1] = item.url;
+    }
+  }
+
+  if (paginasIndice > 1) {
+    const indicesRestantes = Array.from({ length: paginasIndice - 1 }, (_, i) => i + 1);
+    const LOTE_INDICE = 8;
+    for (let i = 0; i < indicesRestantes.length; i += LOTE_INDICE) {
+      const lote = indicesRestantes.slice(i, i + LOTE_INDICE);
+      const resLotes = await Promise.all(
+        lote.map(async (indice) => {
+          try {
+            const url = `${EHENTAI_WEB}/g/${gid}/${token}/?p=${indice}`;
+            const res = await fetch(url, {
+              headers: { Cookie: "nw=1", "User-Agent": EH_UA },
+            });
+            if (!res.ok) return [];
+            const html = await res.text();
+            return [...html.matchAll(regexVisor)].map((m) => ({
+              url: m[0],
+              num: parseInt(m[2], 10),
+            }));
+          } catch {
+            return [];
+          }
+        })
+      );
+      for (const items of resLotes) {
+        for (const item of items) {
+          if (item.num >= 1 && item.num <= totalPaginas) {
+            viewerLinks[item.num - 1] = item.url;
+          }
+        }
+      }
     }
   }
 
@@ -332,48 +433,53 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
     throw new Error("No se pudieron obtener las páginas de la galería");
   }
 
-  // 3. Resolver las imágenes finales desde los enlaces de visualización con concurrencia de 25
-  const imagenesResueltas = new Array<string>(linksValidos.length);
-  const CONCURRENCIA = 25;
-  let cursor = 0;
-
-  async function procesarSiguiente(): Promise<void> {
-    while (cursor < linksValidos.length) {
-      const idx = cursor++;
-      const vUrl = linksValidos[idx];
-      try {
-        const res = await fetch(vUrl, {
-          headers: {
-            Cookie: "nw=1",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          },
-        });
-        if (res.ok) {
-          const html = await res.text();
-          const match = html.match(/<img id="img"[^>]+src="([^"]+)"/);
-          if (match && match[1]) {
-            imagenesResueltas[idx] = match[1];
-          }
-        }
-      } catch {
-        // En caso de fallo en una página aislada
-      }
-    }
-  }
-
-  const trabajadores = Array.from(
-    { length: Math.min(CONCURRENCIA, linksValidos.length) },
-    () => procesarSiguiente()
+  // 2. Resolver de inmediato las primeras 8 páginas para que el lector abra al instante
+  // y dejar el resto envuelto en /api/externo/imagen?u=<viewerUrl> mientras se pre-resuelve en segundo plano.
+  const EAGER_COUNT = Math.min(8, linksValidos.length);
+  const primerasResueltas = await Promise.all(
+    linksValidos.slice(0, EAGER_COUNT).map(async (vUrl) => {
+      const directa = await resolverImagenVisorEhentai(vUrl);
+      return directa || `/api/externo/imagen?u=${encodeURIComponent(vUrl)}`;
+    })
   );
-  await Promise.all(trabajadores);
 
-  const paginasFinales = imagenesResueltas.filter(Boolean);
-  if (paginasFinales.length > 0) {
-    paginasCache.set(claveCache, {
-      paginas: paginasFinales,
-      vence: Date.now() + 2 * 60 * 60 * 1000, // 2 horas
-    });
+  const paginasFinales = linksValidos.map((vUrl, idx) => {
+    if (idx < EAGER_COUNT) return primerasResueltas[idx];
+    const yaEnCache = visorImagenCache.get(vUrl);
+    if (yaEnCache && yaEnCache.vence > Date.now()) return yaEnCache.imgUrl;
+    return `/api/externo/imagen?u=${encodeURIComponent(vUrl)}`;
+  });
+
+  paginasCache.set(claveCache, {
+    paginas: paginasFinales,
+    vence: Date.now() + 90 * 60_000,
+  });
+
+  // Pre-resolución asíncrona en segundo plano para que a medida que el usuario baje o descargue,
+  // las URLs de imagen ya estén listas en visorImagenCache y paginasCache.
+  if (linksValidos.length > EAGER_COUNT) {
+    void (async () => {
+      let cursor = EAGER_COUNT;
+      const CONCURRENCIA = 8;
+      const completas = [...paginasFinales];
+      async function worker() {
+        while (cursor < linksValidos.length) {
+          const idx = cursor++;
+          const vUrl = linksValidos[idx];
+          const img = await resolverImagenVisorEhentai(vUrl);
+          if (img) completas[idx] = img;
+        }
+      }
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCIA, linksValidos.length - EAGER_COUNT) }, () =>
+          worker()
+        )
+      ).catch(() => {});
+      paginasCache.set(claveCache, {
+        paginas: completas,
+        vence: Date.now() + 90 * 60_000,
+      });
+    })();
   }
 
   return paginasFinales;

@@ -23,8 +23,8 @@ function recordar(src: string, blob: Blob) {
   const previo = memoria.get(src);
   if (previo) bytesEnMemoria -= previo.blob.size;
   memoria.delete(src);
-  memoria.set(src, { blob, vence: Date.now() + 90_000 }); bytesEnMemoria += blob.size;
-  while (bytesEnMemoria > 24 * 1024 * 1024 || memoria.size > 32) {
+  memoria.set(src, { blob, vence: Date.now() + 10 * 60_000 }); bytesEnMemoria += blob.size;
+  while (bytesEnMemoria > 36 * 1024 * 1024 || memoria.size > 64) {
     const primera = memoria.entries().next().value!;
     bytesEnMemoria -= primera[1].blob.size; memoria.delete(primera[0]);
   }
@@ -33,7 +33,7 @@ const cancelacion = () => Object.assign(new Error("Carga cancelada"), { name: "A
 
 function avanzar() {
   cola.sort((a, b) => b.prioridad - a.prioridad);
-  while (activas < 3 && cola.length) {
+  while (activas < 4 && cola.length) {
     const pedido = cola.shift()!;
     pedido.iniciado = true; activas++;
     descargar(pedido.src).then(blob => {
@@ -79,7 +79,7 @@ async function descargar(src: string): Promise<Blob> {
   }
   return new Blob([bytes], { type: tipo });
 }
-/** Tres descargas; salir de una vista descarta su trabajo todavía no iniciado. */
+/** Cuatro descargas concurrentes; salir de una vista descarta su trabajo todavía no iniciado. */
 export function cargarImagenNativa(src: string, opciones: { signal?: AbortSignal; prioridad?: number } = {}): Promise<Blob> {
   if (!esImagenIkigai(src)) return Promise.reject(new Error("Imagen de fuente no permitida"));
   if (opciones.signal?.aborted) return Promise.reject(cancelacion());

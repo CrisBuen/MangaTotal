@@ -11,6 +11,7 @@ import { Surface } from "@/components/ui/Surface";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 interface ExternalSeries {
   id: string;
@@ -52,21 +53,42 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (fresco = false) => {
-    setLoading(true);
+    if (!fresco) setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/externo/series/${id}?lang=${lang}${fresco ? "&fresco=1" : ""}`, { cache: fresco ? "no-store" : "default" });
-      const data = await res.json();
-      if (!res.ok) {
-        if (fresco) throw new Error(data.error ?? "No se pudo actualizar la serie");
-        setError(data.error ?? "No se pudo cargar la serie");
-        return;
-      }
+      const data = await cargarConCacheAndroid<{
+        series: ExternalSeries;
+        chapters: ChapterEntry[];
+      }>(
+        `ficha:mangadex:${id}:${lang}`,
+        async (signal) => {
+          const res = await fetch(
+            `/api/externo/series/${id}?lang=${lang}${fresco ? "&fresco=1" : ""}`,
+            { cache: fresco ? "no-store" : "default", signal }
+          );
+          const json = await res.json();
+          if (!res.ok) {
+            throw new Error(json.error ?? (fresco ? "No se pudo actualizar la serie" : "No se pudo cargar la serie"));
+          }
+          return json;
+        },
+        {
+          publicCache: true,
+          force: fresco,
+          freshForMs: 5 * 60 * 1000,
+          maxAgeMs: 24 * 60 * 60 * 1000,
+          onCached: (guardado) => {
+            setSeries(guardado.series);
+            setChapters(guardado.chapters);
+            setLoading(false);
+          },
+        }
+      );
       setSeries(data.series);
       setChapters(data.chapters);
     } catch (err) {
       if (fresco) throw err;
-      setError("No se pudo conectar con el catálogo externo");
+      setError(err instanceof Error ? err.message : "No se pudo conectar con el catálogo externo");
     } finally {
       setLoading(false);
     }

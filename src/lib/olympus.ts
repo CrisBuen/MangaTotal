@@ -74,13 +74,34 @@ class ErrorHttpOlympus extends Error {
   }
 }
 
+/** Caché en memoria de servidor para acelerar fichas, listas de capítulos y catálogo de Olympus. */
+const olympusMemCache = new Map<string, { value: unknown; expiresAt: number }>();
+const OLY_CACHE_MAX = 400;
+
 async function olympusFetch<T>(url: string, revalidate: number): Promise<T> {
+  const now = Date.now();
+  if (revalidate > 0) {
+    const cached = olympusMemCache.get(url);
+    if (cached && cached.expiresAt > now) {
+      return cached.value as T;
+    }
+  }
+
   const res = await fetch(url, {
     headers: { "User-Agent": UA, Accept: "application/json" },
-    next: { revalidate },
+    ...(revalidate > 0 ? { next: { revalidate } } : { cache: "no-store" as const }),
   });
   if (!res.ok) throw new ErrorHttpOlympus(res.status, url);
-  return (await res.json()) as T;
+  const data = (await res.json()) as T;
+
+  if (revalidate > 0) {
+    if (olympusMemCache.size >= OLY_CACHE_MAX) {
+      const first = olympusMemCache.keys().next().value;
+      if (first !== undefined) olympusMemCache.delete(first);
+    }
+    olympusMemCache.set(url, { value: data, expiresAt: now + revalidate * 1000 });
+  }
+  return data;
 }
 
 // ── formas que devuelve su API ────────────────────────────────────────────
@@ -197,34 +218,47 @@ function parametros(page: number, f: FiltrosOlympus): string {
   return qs.toString();
 }
 
+type SerieResumen = ReturnType<typeof serieResumen>;
+
+/** Caché en memoria del índice ensamblado por combinación de (genero, estado, tipo). */
+const indiceCache = new Map<string, { items: SerieResumen[]; expiresAt: number }>();
+
 /** Todas las series que cumplen los filtros (para buscar y ordenar). */
 async function indiceCompleto(filtros: FiltrosOlympus) {
-  const primera = await olympusFetch<{
-    data: { series: { last_page: number; data: OlySerieLista[] } };
-  }>(`${OLYMPUS_WEB}/api/series?${parametros(1, filtros)}`, 3600);
+  const claveFiltro = `${filtros.genero ?? ""}:${filtros.estado ?? ""}:${filtros.tipo ?? ""}`;
+  const ahora = Date.now();
+  const guardado = indiceCache.get(claveFiltro);
+  let todas: SerieResumen[];
 
-  const todas = primera.data.series.data.map(serieResumen);
-  const restantes = Array.from({ length: primera.data.series.last_page - 1 }, (_, i) => i + 2);
+  if (guardado && guardado.expiresAt > ahora) {
+    todas = guardado.items;
+  } else {
+    const primera = await olympusFetch<{
+      data: { series: { last_page: number; data: OlySerieLista[] } };
+    }>(`${OLYMPUS_WEB}/api/series?${parametros(1, filtros)}`, 3600);
 
-  const LOTE = 6;
-  for (let i = 0; i < restantes.length; i += LOTE) {
-    const grupo = await Promise.all(
-      restantes.slice(i, i + LOTE).map((p) =>
-        olympusFetch<{ data: { series: { data: OlySerieLista[] } } }>(
-          `${OLYMPUS_WEB}/api/series?${parametros(p, filtros)}`,
-          3600
-        ).catch(() => null)
-      )
-    );
-    for (const r of grupo) if (r) todas.push(...r.data.series.data.map(serieResumen));
+    todas = primera.data.series.data.map(serieResumen);
+    const restantes = Array.from({ length: primera.data.series.last_page - 1 }, (_, i) => i + 2);
+
+    const LOTE = 12;
+    for (let i = 0; i < restantes.length; i += LOTE) {
+      const grupo = await Promise.all(
+        restantes.slice(i, i + LOTE).map((p) =>
+          olympusFetch<{ data: { series: { data: OlySerieLista[] } } }>(
+            `${OLYMPUS_WEB}/api/series?${parametros(p, filtros)}`,
+            3600
+          ).catch(() => null)
+        )
+      );
+      for (const r of grupo) if (r) todas.push(...r.data.series.data.map(serieResumen));
+    }
+    indiceCache.set(claveFiltro, { items: todas, expiresAt: ahora + 30 * 60_000 });
   }
 
   if (!filtros.q) return todas;
   const buscado = normalizar(filtros.q);
   return todas.filter((s) => normalizar(s.title).includes(buscado));
 }
-
-type SerieResumen = ReturnType<typeof serieResumen>;
 
 function ordenar(series: SerieResumen[], orden?: string): SerieResumen[] {
   const copia = [...series];
@@ -306,18 +340,29 @@ const aCapitulo = (c: OlyCapitulo) => ({
   team: c.team?.name ?? OLYMPUS_NOMBRE,
 });
 
+/** Caché en memoria de la lista completa de capítulos por slug. */
+const capitulosCache = new Map<string, { chapters: ReturnType<typeof aCapitulo>[]; total: number; expiresAt: number }>();
+
 /**
  * Todos los capítulos de una serie.
  *
  * Su API los manda de a 40, así que una serie larga son muchas páginas: se
- * piden de a seis en paralelo. Devuelve la lista entera, sin cortes.
+ * piden en lotes paralelos y se guardan en memoria para abrir capítulos al instante.
  */
 export async function capitulos(slug: string, fresco = false) {
+  const ahora = Date.now();
+  if (!fresco) {
+    const guardado = capitulosCache.get(slug);
+    if (guardado && guardado.expiresAt > ahora) {
+      return { chapters: guardado.chapters, total: guardado.total };
+    }
+  }
+
   const primera = await paginaDeCapitulos(slug, 1, fresco);
   const total = primera.meta.last_page;
 
   const paginas: PaginaCapitulos[] = [primera];
-  const LOTE = 6;
+  const LOTE = 10;
   for (let desde = 2; desde <= total; desde += LOTE) {
     const lote = [];
     for (let p = desde; p < desde + LOTE && p <= total; p++) {
@@ -327,7 +372,13 @@ export async function capitulos(slug: string, fresco = false) {
   }
 
   const chapters = paginas.flatMap((p) => p.data.map(aCapitulo));
-  return { chapters, total: primera.meta.total };
+  const resultado = { chapters, total: primera.meta.total };
+  if (capitulosCache.size >= 200) {
+    const primero = capitulosCache.keys().next().value;
+    if (primero !== undefined) capitulosCache.delete(primero);
+  }
+  capitulosCache.set(slug, { ...resultado, expiresAt: ahora + 10 * 60_000 });
+  return resultado;
 }
 
 /**
@@ -340,8 +391,8 @@ export async function capitulos(slug: string, fresco = false) {
  * (/api/capitulo/comic-{slug}/{id}) y hoy responde 404 para todas las series;
  * ahora el lector pide /api/capitulo/{slug}/{numero}?type=comic, con el slug
  * sin prefijo y el NOMBRE del capítulo en vez de su id. Como la app guarda y
- * enlaza capítulos por id, se conserva la forma vieja (por si la restauran)
- * y, ante 404, se busca el nombre del capítulo en la lista de la serie.
+ * enlaza capítulos por id, se intenta primero la ruta vigente (aprovechando la
+ * lista de capítulos en caché de la serie) y se conserva la ruta antigua como respaldo.
  */
 export async function paginas(chapterId: number, tipo: string = "comic", slug: string = "") {
   interface RespuestaCapitulo {
@@ -352,7 +403,6 @@ export async function paginas(chapterId: number, tipo: string = "comic", slug: s
   }
   type Cuerpo = RespuestaCapitulo & { data?: RespuestaCapitulo };
 
-  // esta respuesta llega en la raíz, sin el envoltorio "data" del resto
   const slugLimpio = slug.replace(/^(comic|novel)-/, "").trim();
   const consultar = (s: string) => olympusFetch<Cuerpo>(
     `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(s || "serie")}/${chapterId}`, 600
@@ -361,9 +411,12 @@ export async function paginas(chapterId: number, tipo: string = "comic", slug: s
   /** Forma actual: slug sin prefijo + número del capítulo + type. */
   const consultarPorNumero = async (): Promise<{ cuerpo: Cuerpo; slug: string }> => {
     if (!slugLimpio) throw new ErrorHttpOlympus(404, "capitulo sin slug");
-    // el slug fechado puede haber cambiado: serie() lo resuelve contra el índice
-    const ficha = await serie(slugLimpio, tipo);
-    const lista = await capitulos(ficha.slug);
+    // Intentar primero con el slug directo en paralelo; si hubo alias se resuelve con serie()
+    const [ficha, listaDirecta] = await Promise.all([
+      serie(slugLimpio, tipo),
+      capitulos(slugLimpio).catch(() => null),
+    ]);
+    const lista = listaDirecta && ficha.slug === slugLimpio ? listaDirecta : await capitulos(ficha.slug);
     const encontrado = lista.chapters.find((c) => c.id === chapterId);
     if (!encontrado) throw new ErrorHttpOlympus(404, "capitulo inexistente");
     const cuerpo = await olympusFetch<Cuerpo>(
@@ -374,40 +427,41 @@ export async function paginas(chapterId: number, tipo: string = "comic", slug: s
   };
 
   let slugVigente = slugLimpio;
-  let data: Cuerpo;
-  try {
-    data = await consultar(slugVigente);
-  } catch (err) {
-    if (!(err instanceof ErrorHttpOlympus) || err.status !== 404) throw err;
-    let resuelto: Cuerpo | null = null;
+  let data: Cuerpo | null = null;
+
+  // Si tenemos slug, usamos primero el endpoint vigente por número (evita un 404 seguro en cada lectura)
+  if (slugLimpio) {
     try {
       const r = await consultarPorNumero();
-      // el id debe coincidir: nunca se muestra otro capítulo
       if ((r.cuerpo.data ?? r.cuerpo)?.chapter?.id === chapterId) {
-        resuelto = r.cuerpo;
+        data = r.cuerpo;
         slugVigente = r.slug;
       }
     } catch {
-      // se sigue con los respaldos anteriores
+      // cae al respaldo por id
     }
-    if (resuelto) {
-      data = resuelto;
-    } else if (slugLimpio) {
-      try {
-        const ficha = await serie(slugLimpio, tipo);
-        // No sustituir un capítulo eliminado ni cambiar de cómic a novela.
-        if (ficha.slug !== slugLimpio && ficha.type === tipo) {
-          slugVigente = ficha.slug;
-          data = await consultar(slugVigente);
-        } else {
-          // Si el slug no cambió, Olympus identifica el capítulo directamente por id
+  }
+
+  if (!data) {
+    try {
+      data = await consultar(slugVigente);
+    } catch (err) {
+      if (!(err instanceof ErrorHttpOlympus) || err.status !== 404) throw err;
+      if (slugLimpio) {
+        try {
+          const ficha = await serie(slugLimpio, tipo);
+          if (ficha.slug !== slugLimpio && ficha.type === tipo) {
+            slugVigente = ficha.slug;
+            data = await consultar(slugVigente);
+          } else {
+            data = await consultar("serie");
+          }
+        } catch {
           data = await consultar("serie");
         }
-      } catch {
+      } else {
         data = await consultar("serie");
       }
-    } else {
-      data = await consultar("serie");
     }
   }
 
@@ -470,6 +524,18 @@ export async function portada() {
  * apunta a otra posición del mismo array.
  */
 export async function novedades(page: number) {
+  const cacheKey = `novedades:${page}`;
+  const ahora = Date.now();
+  const enCache = olympusMemCache.get(cacheKey);
+  if (enCache && enCache.expiresAt > ahora) {
+    return enCache.value as {
+      series: (SerieResumen & { ultimos: { id: number; name: string; published_at: string }[] })[];
+      page: number;
+      last_page: number;
+      total: number;
+    };
+  }
+
   const res = await fetch(`${OLYMPUS_WEB}/capitulos?page=${page}`, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; MangaTotal/1.0)" },
     next: { revalidate: 300 },
@@ -512,7 +578,7 @@ export async function novedades(page: number) {
       last_chapters?: ({ id: number; name: string; published_at: string } | null)[];
     })[]) ?? [];
 
-  return {
+  const resultado = {
     series: items.filter(Boolean).map((s) => ({
       ...serieResumen(s),
       // en esta vista el estado viene como texto, no como objeto
@@ -525,6 +591,9 @@ export async function novedades(page: number) {
     last_page: (resolver(nodo.last_page) as number) ?? 1,
     total: (resolver(nodo.total) as number) ?? items.length,
   };
+
+  olympusMemCache.set(cacheKey, { value: resultado, expiresAt: ahora + 180_000 });
+  return resultado;
 }
 
 /** Catálogo completo en una sola consulta (id, nombre, slug, portada, tipo). */

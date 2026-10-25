@@ -42,8 +42,8 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
   for (let intento = 0; intento < 3; intento++) {
     if (signal?.aborted) throw new Error("Descarga cancelada");
     try {
-      // 1. Intento directo del cliente
-      if (intento === 0) {
+      // 1. Intento directo del cliente (salvo que ya sea ruta proxy local)
+      if (intento === 0 && !url.startsWith("/api/externo/imagen")) {
         try {
           const resDirecta = await fetch(url, {
             mode: "cors",
@@ -59,7 +59,9 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
       }
 
       // 2. Respaldo streaming idéntico (sin compresión ni paso por almacenamiento R2)
-      const proxyUrl = `/api/externo/imagen?u=${encodeURIComponent(url)}`;
+      const proxyUrl = url.startsWith("/api/externo/imagen")
+        ? url
+        : `/api/externo/imagen?u=${encodeURIComponent(url)}`;
       const resProxy = await fetch(proxyUrl, { signal });
       if (resProxy.ok) {
         const blob = await resProxy.blob();

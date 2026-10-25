@@ -22,6 +22,8 @@ const RUTAS_PERMITIDAS = [
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+const lcMemCache = new Map<string, { payload: Record<string, unknown>; vence: number }>();
+
 /**
  * Sus páginas pesan más de 200 KB, casi todo publicidad y scripts que no
  * usamos. Se recorta antes de mandarla: en una conexión lenta es la
@@ -67,8 +69,6 @@ export async function GET(request: Request) {
     if (!ruta.startsWith("/leer/")) {
       return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
     }
-
-    // Leer es público; guardar el avance sigue exigiendo la sesión propia.
 
     const numero = ruta.split("/").filter(Boolean).pop() ?? "";
 
@@ -124,6 +124,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
   }
 
+  const ahora = Date.now();
+  if (!fresco) {
+    const enMem = lcMemCache.get(ruta);
+    if (enMem && enMem.vence > ahora) {
+      return NextResponse.json(enMem.payload);
+    }
+  }
+
   try {
     const res = await fetch(`${BASE}${ruta}`, {
       headers: {
@@ -148,7 +156,15 @@ export async function GET(request: Request) {
     // Se conserva el puente para que web, Windows y Android busquen igual.
     if (ruta.startsWith("/search-autocomplete")) {
       const data = (await res.json()) as unknown;
-      const respuesta = NextResponse.json({ data });
+      const payload = { data };
+      if (!fresco) {
+        if (lcMemCache.size >= 200) {
+          const first = lcMemCache.keys().next().value;
+          if (first !== undefined) lcMemCache.delete(first);
+        }
+        lcMemCache.set(ruta, { payload, vence: ahora + 180_000 });
+      }
+      const respuesta = NextResponse.json(payload);
       if (fresco) respuesta.headers.set("Cache-Control", "no-store");
       return respuesta;
     }
@@ -160,7 +176,15 @@ export async function GET(request: Request) {
         { status: 502 }
       );
     }
-    const respuesta = NextResponse.json({ html: aligerar(html) });
+    const payload = { html: aligerar(html) };
+    if (!fresco) {
+      if (lcMemCache.size >= 200) {
+        const first = lcMemCache.keys().next().value;
+        if (first !== undefined) lcMemCache.delete(first);
+      }
+      lcMemCache.set(ruta, { payload, vence: ahora + 180_000 });
+    }
+    const respuesta = NextResponse.json(payload);
     if (fresco) respuesta.headers.set("Cache-Control", "no-store");
     return respuesta;
   } catch {

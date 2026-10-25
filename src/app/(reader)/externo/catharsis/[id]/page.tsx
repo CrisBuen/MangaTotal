@@ -12,6 +12,7 @@ import { CW_NOMBRE, CW_WEB, imagenCw, serieCw, type FichaCw } from "@/lib/cathar
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 
 /**
  * Ficha de una serie de Catharsis World.
@@ -34,7 +35,21 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
     async (fresco = false) => {
       if (!fresco) setError(null);
       try {
-        setFicha(await serieCw(id, fresco));
+        const data = await cargarConCacheAndroid<FichaCw>(
+          `ficha:catharsis:${id}`,
+          () => serieCw(id, fresco),
+          {
+            publicCache: true,
+            force: fresco,
+            freshForMs: 5 * 60 * 1000,
+            maxAgeMs: 24 * 60 * 60 * 1000,
+            onCached: (guardado) => {
+              setFicha(guardado);
+              setError(null);
+            },
+          }
+        );
+        setFicha(data);
         setError(null);
       } catch (err) {
         if (fresco) throw err;

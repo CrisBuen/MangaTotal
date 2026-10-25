@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
+import { retryThroughProxy } from "@/components/reader/pageImage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
@@ -1173,8 +1174,9 @@ export default function ExplorarPage() {
           return res.json();
         },
         {
+          publicCache: true,
           force: fresco,
-          freshForMs: 30 * 1000,
+          freshForMs: 5 * 60 * 1000,
           onCached: (guardado) => {
             if (!solicitudVigente("ehentai", solicitud)) return;
             if (guardado.nextCursor) {
@@ -1265,8 +1267,9 @@ export default function ExplorarPage() {
           return res.json();
         },
         {
+          publicCache: true,
           force: fresco,
-          freshForMs: 30 * 1000,
+          freshForMs: 5 * 60 * 1000,
           onCached: (guardado) => {
             if (!solicitudVigente("hitomi", solicitud)) return;
             setHitomiSeries(guardado.series);
@@ -1831,7 +1834,7 @@ export default function ExplorarPage() {
         </Surface>
       ) : (
         <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {series.map((s) => (
+          {series.map((s, idx) => (
             <Link
               key={s.id}
               href={`/externo/${s.id}`}
@@ -1846,8 +1849,10 @@ export default function ExplorarPage() {
                     src={s.cover_url}
                     alt={s.title}
                     className="h-full w-full object-cover transition duration-500"
-                    loading="lazy"
+                    loading={idx < 4 ? "eager" : "lazy"}
+                    decoding="async"
                     referrerPolicy="no-referrer"
+                    onError={(e) => retryThroughProxy(e.currentTarget)}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
@@ -2002,7 +2007,7 @@ export default function ExplorarPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {olympus.map((s) => (
+              {olympus.map((s, idx) => (
                 <Link
                   key={s.id}
                   href={`/externo/olympus/${s.slug}`}
@@ -2018,8 +2023,10 @@ export default function ExplorarPage() {
                         src={s.cover_url}
                         alt={s.title}
                         className="h-full w-full object-cover transition duration-500"
-                        loading="lazy"
+                        loading={idx < 4 ? "eager" : "lazy"}
+                        decoding="async"
                         referrerPolicy="no-referrer"
+                        onError={(e) => retryThroughProxy(e.currentTarget)}
                       />
                     )}
                   </div>
@@ -2188,7 +2195,7 @@ export default function ExplorarPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {cw.map((s) => (
+              {cw.map((s, idx) => (
                 <Link
                   key={s.id}
                   href={`/externo/catharsis/${s.id}`}
@@ -2200,11 +2207,13 @@ export default function ExplorarPage() {
                     {s.portada && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={imagenCw(s.portada, 320)}
+                        src={imagenCw(s.portada, 256)}
                         alt={s.nombre}
                         className="h-full w-full object-cover transition duration-500"
-                        loading="lazy"
+                        loading={idx < 4 ? "eager" : "lazy"}
+                        decoding="async"
                         referrerPolicy="no-referrer"
+                        onError={(e) => retryThroughProxy(e.currentTarget)}
                       />
                     )}
                     <span className="absolute right-2 top-2 rounded-full bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] px-2 py-1 font-mono text-[11px] font-bold tracking-[0.1em] text-accent-ink ">
@@ -2267,7 +2276,7 @@ export default function ExplorarPage() {
               </p>
             )}
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {lc.map((t) => (
+              {lc.map((t, idx) => (
                 <Link
                   key={t.id}
                   href={`/externo/leercapitulo/${t.id}/${t.slug}`}
@@ -2282,8 +2291,10 @@ export default function ExplorarPage() {
                         src={t.cover_url}
                         alt={t.title}
                         className="h-full w-full object-cover transition duration-500"
-                        loading="lazy"
+                        loading={idx < 4 ? "eager" : "lazy"}
+                        decoding="async"
                         referrerPolicy="no-referrer"
+                        onError={(e) => retryThroughProxy(e.currentTarget)}
                       />
                     )}
                   </div>
@@ -2338,7 +2349,7 @@ export default function ExplorarPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {tmo.map((t) => (
+              {tmo.map((t, idx) => (
                 <Link
                   key={t.id}
                   href={`/externo/tmo/${t.tipo}/${t.id}/${t.slug}`}
@@ -2353,8 +2364,10 @@ export default function ExplorarPage() {
                         src={t.cover_url}
                         alt={t.title}
                         className="h-full w-full object-cover transition duration-500"
-                        loading="lazy"
+                        loading={idx < 4 ? "eager" : "lazy"}
+                        decoding="async"
                         referrerPolicy="no-referrer"
+                        onError={(e) => retryThroughProxy(e.currentTarget)}
                       />
                     )}
                   </div>
@@ -2482,7 +2495,7 @@ export default function ExplorarPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {ehGalleries.map((s) => (
+              {ehGalleries.map((s, idx) => (
                 <Link
                   key={`${s.gid}-${s.token}`}
                   href={`/externo/ehentai/${s.gid}/${s.token}`}
@@ -2498,8 +2511,10 @@ export default function ExplorarPage() {
                         src={s.thumb}
                         alt={s.title}
                         className="h-full w-full object-cover transition duration-500"
-                        loading="lazy"
+                        loading={idx < 4 ? "eager" : "lazy"}
+                        decoding="async"
                         referrerPolicy="no-referrer"
+                        onError={(e) => retryThroughProxy(e.currentTarget)}
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center px-4 text-center font-mono text-[11px] font-medium tracking-[0.08em] text-faint">
@@ -2843,7 +2858,7 @@ export default function ExplorarPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {hitomiSeries.map((s) => {
+              {hitomiSeries.map((s, idx) => {
                 const thumbUrl =
                   s.thumb && !s.thumb.startsWith("/api/externo/imagen") && s.thumb.startsWith("http")
                     ? `/api/externo/imagen?u=${encodeURIComponent(s.thumb)}`
@@ -2864,7 +2879,8 @@ export default function ExplorarPage() {
                           src={thumbUrl}
                           alt={s.title}
                           className="h-full w-full object-cover transition duration-500"
-                          loading="lazy"
+                          loading={idx < 4 ? "eager" : "lazy"}
+                          decoding="async"
                           referrerPolicy="no-referrer"
                         />
                       ) : (

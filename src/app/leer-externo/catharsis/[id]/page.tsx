@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { OlympusReader } from "@/components/reader/OlympusReader";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 import {
   CW_NOMBRE,
   CW_WEB,
@@ -11,6 +12,7 @@ import {
   paginasCw,
   serieCw,
   type CapituloCw,
+  type FichaCw,
   type PaginaCw,
 } from "@/lib/catharsis";
 
@@ -34,7 +36,31 @@ export default function LeerCwPage(props: { params: Promise<{ id: string }> }) {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      const [capitulo, ficha] = await Promise.all([paginasCw(id), serieCw(serieId)]);
+      const [capitulo, ficha] = await Promise.all([
+        cargarConCacheAndroid(
+          `capitulo:catharsis:${id}`,
+          () => paginasCw(id),
+          {
+            publicCache: true,
+            freshForMs: 30 * 60 * 1000,
+            maxAgeMs: 24 * 60 * 60 * 1000,
+            onCached: (guardado) => setPaginas(guardado.paginas),
+          }
+        ),
+        cargarConCacheAndroid<FichaCw>(
+          `ficha:catharsis:${serieId}`,
+          () => serieCw(serieId),
+          {
+            publicCache: true,
+            freshForMs: 5 * 60 * 1000,
+            maxAgeMs: 24 * 60 * 60 * 1000,
+            onCached: (guardado) => {
+              setCapitulos(guardado.capitulos);
+              setNombre(guardado.nombre);
+            },
+          }
+        ),
+      ]);
       setPaginas(capitulo.paginas);
       setCapitulos(ficha.capitulos);
       setNombre(ficha.nombre);

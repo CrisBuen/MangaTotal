@@ -12,10 +12,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
   const fresco = req.nextUrl.searchParams.get("fresco") === "1";
 
   try {
-    // La ficha puede resolver un slug antiguo: sus capítulos se consultan
-    // con esa misma dirección vigente, no con la que ya devolvió 404.
-    const ficha = await serie(slug, undefined, fresco);
-    const lista = await capitulos(ficha.slug, fresco);
+    // Pedimos ficha y capítulos en paralelo para ahorrar la mitad del tiempo.
+    // Si la ficha resolvió un alias (slug nuevo distinto al pedido), re-consultamos con el slug vigente.
+    const [ficha, listaInicial] = await Promise.all([
+      serie(slug, undefined, fresco),
+      capitulos(slug, fresco).catch(() => null),
+    ]);
+    const lista =
+      listaInicial && ficha.slug === slug
+        ? listaInicial
+        : await capitulos(ficha.slug, fresco);
     return NextResponse.json({ serie: ficha, ...lista });
   } catch (err) {
     console.error("[olympus] serie", slug, err);

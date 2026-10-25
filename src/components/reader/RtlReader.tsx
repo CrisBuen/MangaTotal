@@ -5,7 +5,7 @@ import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect } from "react";
 import { retryThroughProxy } from "./pageImage";
-import { esImagenIkigai } from "@/lib/imagenFuenteNativa";
+import { cargarImagenNativa, esImagenIkigai } from "@/lib/imagenFuenteNativa";
 import type { ChapterLink, ReaderPage } from "./types";
 
 /**
@@ -58,13 +58,18 @@ export function RtlReader({
     return () => window.removeEventListener("keydown", onKey);
   }, [goNext, goPrev]);
 
-  // precarga la página actual + las 2 siguientes (transición instantánea)
+  // precarga la página siguiente y subsiguiente (transición instantánea)
   useEffect(() => {
     for (let i = currentPage; i < Math.min(currentPage + 2, total); i++) {
-      // La precarga del navegador carece de la referencia nativa de Ikigai.
-      if (esImagenIkigai(pages[i].url)) continue;
+      const nextUrl = pages[i].url;
+      if (esImagenIkigai(nextUrl)) {
+        void cargarImagenNativa(nextUrl, { prioridad: 0 }).catch(() => {});
+        continue;
+      }
       const img = new Image();
-      img.src = pages[i].url;
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      img.src = nextUrl;
     }
   }, [currentPage, pages, total]);
 
@@ -78,6 +83,8 @@ export function RtlReader({
         src={page.url}
         alt={`Página ${page.pageNumber}`}
         className="max-h-[calc(100vh-5.5rem)] w-auto max-w-full select-none object-contain"
+        fetchPriority="high"
+        decoding="async"
         draggable={false}
         referrerPolicy="no-referrer"
         onError={(e) => retryThroughProxy(e.currentTarget)}

@@ -1,20 +1,22 @@
-  import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
+import { resolverImagenVisorEhentai } from "@/lib/ehentai";
 import { reconstruirUrlPaginaHitomi } from "@/lib/hitomi";
 
 /**
  * GET /api/externo/imagen?u=<url> — respaldo y descarga directa para las páginas
  * de fuentes de lectura integradas (MangaDex, Olympus, ZonaTMO, LeerCapítulo,
- * Catharsis, Ikigai y E-Hentai).
+ * Catharsis, Ikigai, E-Hentai y Hitomi).
  *
  * Retransmite los bytes de la imagen original sin comprimir ni almacenar en R2/Vercel.
  */
 const ALLOWED_HOSTS =
-  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.com|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la|olympusxyz\.com|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.(com|net|to|org)|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
-const ADULT_HOSTS = /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+const ADULT_HOSTS =
+  /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("u");
@@ -37,6 +39,19 @@ export async function GET(req: NextRequest) {
     const permitido = await contenidoAdultoPermitido(user);
     if (!permitido && Boolean(user)) {
       return NextResponse.json({ error: "Contenido no permitido en esta edición" }, { status: 403 });
+    }
+  }
+
+  // Si la URL es una página de visor de E-Hentai (/s/{token}/{gid}-{page}), resolvemos su imagen directa primero
+  if (/(^|\.)(e-hentai\.org|exhentai\.org)$/i.test(url.hostname) && url.pathname.startsWith("/s/")) {
+    const directa = await resolverImagenVisorEhentai(url.toString());
+    if (!directa) {
+      return NextResponse.json({ error: "No se pudo resolver la página de E-Hentai" }, { status: 502 });
+    }
+    try {
+      url = new URL(directa);
+    } catch {
+      return NextResponse.json({ error: "Imagen resuelta inválida" }, { status: 502 });
     }
   }
 

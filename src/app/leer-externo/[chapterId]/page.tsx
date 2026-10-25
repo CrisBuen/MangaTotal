@@ -15,10 +15,24 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 interface AtHome {
   baseUrl: string;
-  chapter: { hash: string; data: string[] };
+  chapter: { hash: string; data: string[]; dataSaver?: string[] };
 }
 
 export const dynamic = "force-dynamic";
+
+function buildChapterListQuery(seriesId: string, offset: number, langs: string[], verAdulto: boolean): string {
+  const qs = new URLSearchParams();
+  qs.set("limit", "100");
+  qs.set("offset", String(offset));
+  qs.set("manga", seriesId);
+  qs.set("order[chapter]", "asc");
+  qs.append("includes[]", "scanlation_group");
+  for (const l of langs) qs.append("translatedLanguage[]", l);
+  for (const r of allowedRatings(verAdulto)) {
+    qs.append("contentRating[]", r);
+  }
+  return qs.toString();
+}
 
 /** Lectura de un capítulo alojado en MangaDex, dentro del lector propio. */
 export default async function LeerExternoPage(props: {
@@ -79,24 +93,28 @@ export default async function LeerExternoPage(props: {
   if (seriesId) {
     try {
       const langs = LANG_GROUPS[chapter.lang.startsWith("es") ? "es" : "en"] ?? LANG_GROUPS.es;
-      const all: MdChapter[] = [];
-      for (let offset = 0; offset < 500; offset += 100) {
-        const qs = new URLSearchParams();
-        qs.set("limit", "100");
-        qs.set("offset", String(offset));
-        qs.set("manga", seriesId);
-        qs.set("order[chapter]", "asc");
-        qs.append("includes[]", "scanlation_group");
-        for (const l of langs) qs.append("translatedLanguage[]", l);
-        for (const r of allowedRatings(verAdulto)) {
-          qs.append("contentRating[]", r);
+      const firstPage = await mdFetch<{ data: MdChapter[]; total: number }>(
+        `/chapter?${buildChapterListQuery(seriesId, 0, langs, verAdulto)}`,
+        180
+      );
+      const all: MdChapter[] = [...firstPage.data];
+      const maxTotal = Math.min(firstPage.total, 500);
+      if (maxTotal > 100 && firstPage.data.length > 0) {
+        const offsets: number[] = [];
+        for (let offset = 100; offset < maxTotal; offset += 100) {
+          offsets.push(offset);
         }
-        const page = await mdFetch<{ data: MdChapter[]; total: number }>(
-          `/chapter?${qs.toString()}`,
-          120
+        const restPages = await Promise.all(
+          offsets.map((offset) =>
+            mdFetch<{ data: MdChapter[]; total: number }>(
+              `/chapter?${buildChapterListQuery(seriesId!, offset, langs, verAdulto)}`,
+              180
+            )
+          )
         );
-        all.push(...page.data);
-        if (all.length >= page.total) break;
+        for (const p of restPages) {
+          all.push(...p.data);
+        }
       }
 
       const entries = groupChaptersByNumber(all.map(publicChapter));

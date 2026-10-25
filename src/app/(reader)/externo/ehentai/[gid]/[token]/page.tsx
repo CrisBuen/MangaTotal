@@ -9,6 +9,7 @@ import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 import { Surface } from "@/components/ui/Surface";
 import { anotarHistorial } from "@/components/library/historial";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 import type { FichaEhentai } from "@/lib/ehentai";
 
 function decodificarHtml(texto: string): string {
@@ -31,36 +32,62 @@ export default function SerieEhentaiPage(props: {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
+  const obtenerPaginas = useCallback(async (): Promise<string[]> => {
+    return cargarConCacheAndroid<string[]>(
+      `paginas:ehentai:${gid}:${token}`,
+      async (signal) => {
+        const res = await fetch(`/api/externo/ehentai/${gid}/${token}/paginas`, { signal });
+        if (!res.ok) throw new Error("No se pudieron obtener las páginas de esta galería");
+        const data = await res.json();
+        return data.paginas || [];
+      },
+      {
+        publicCache: true,
+        freshForMs: 30 * 60 * 1000,
+        maxAgeMs: 24 * 60 * 60 * 1000,
+      }
+    );
+  }, [gid, token]);
+
   const cargar = useCallback(async () => {
     setCargando(true);
     setError(null);
     try {
-      const res = await fetch(`/api/externo/ehentai/${gid}/${token}`);
-      if (!res.ok) {
-        if (res.status === 403) {
-          throw new Error("Contenido +18 no disponible. Podés activarlo en Más → Ajustes → Seguridad.");
+      const data = await cargarConCacheAndroid<FichaEhentai>(
+        `ficha:ehentai:${gid}:${token}`,
+        async (signal) => {
+          const res = await fetch(`/api/externo/ehentai/${gid}/${token}`, { signal });
+          if (!res.ok) {
+            if (res.status === 403) {
+              throw new Error("Contenido +18 no disponible. Podés activarlo en Más → Ajustes → Seguridad.");
+            }
+            throw new Error(`No se pudo cargar la galería (${res.status})`);
+          }
+          return res.json();
+        },
+        {
+          publicCache: true,
+          freshForMs: 30 * 60 * 1000,
+          maxAgeMs: 24 * 60 * 60 * 1000,
+          onCached: (guardado) => {
+            setFicha(guardado);
+            setCargando(false);
+          },
         }
-        throw new Error(`No se pudo cargar la galería (${res.status})`);
-      }
-      const data = await res.json();
+      );
       setFicha(data);
+      // Pre-calentar lista de páginas en segundo plano para abrir el lector sin espera
+      void obtenerPaginas().catch(() => {});
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al cargar la galería");
     } finally {
       setCargando(false);
     }
-  }, [gid, token]);
+  }, [gid, token, obtenerPaginas]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
-
-  const obtenerPaginas = useCallback(async (): Promise<string[]> => {
-    const res = await fetch(`/api/externo/ehentai/${gid}/${token}/paginas`);
-    if (!res.ok) throw new Error("No se pudieron obtener las páginas de esta galería");
-    const data = await res.json();
-    return data.paginas || [];
-  }, [gid, token]);
 
   if (error) {
     return (

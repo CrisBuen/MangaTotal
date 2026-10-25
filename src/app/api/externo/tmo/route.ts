@@ -14,6 +14,8 @@ const RUTAS_PERMITIDAS = ["/listing/", "/single/", "/tops/"];
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+const tmoMemCache = new Map<string, { data: unknown; vence: number }>();
+
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const ruta = params.get("ruta") ?? "";
@@ -23,8 +25,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Ruta no permitida" }, { status: 400 });
   }
 
-  // Catálogo, ficha y lectura son públicos. El avance se escribe únicamente
-  // mediante los handlers privados de la cuenta; este puente sigue siendo GET.
+  const esSingle = ruta.startsWith("/single/");
+  const ahora = Date.now();
+  if (!fresco && !esSingle) {
+    const enMem = tmoMemCache.get(ruta);
+    if (enMem && enMem.vence > ahora) {
+      return NextResponse.json(enMem.data);
+    }
+  }
 
   try {
     const res = await fetch(`${BASE}${ruta}`, {
@@ -36,7 +44,7 @@ export async function GET(request: Request) {
       },
       // el catálogo cambia despacio y se cachea; la ficha y el capítulo no,
       // porque el enlace de las imágenes viene firmado y caduca
-      ...(fresco || ruta.startsWith("/single/")
+      ...(fresco || esSingle
         ? { cache: "no-store" as const }
         : { next: { revalidate: 300 } }),
     });
@@ -48,7 +56,15 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(await res.json());
+    const data = await res.json();
+    if (!fresco && !esSingle) {
+      if (tmoMemCache.size >= 200) {
+        const first = tmoMemCache.keys().next().value;
+        if (first !== undefined) tmoMemCache.delete(first);
+      }
+      tmoMemCache.set(ruta, { data, vence: ahora + 180_000 });
+    }
+    return NextResponse.json(data);
   } catch {
     return NextResponse.json(
       { error: "No se pudo contactar con ZonaTMO", bloqueado: true },

@@ -63,6 +63,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es-ES" className={lato.variable}>
+      <head>
+        <link rel="preconnect" href="https://uploads.mangadex.org" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://olympusxyz.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://direct-new-catha.catharsisfood.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://uploads.mangadex.org" />
+        <link rel="dns-prefetch" href="https://olympusxyz.com" />
+        <link rel="dns-prefetch" href="https://direct-new-catha.catharsisfood.com" />
+        <link rel="dns-prefetch" href="https://cdn.zonatmo.to" />
+        <link rel="dns-prefetch" href="https://www.leercapitulo.co" />
+        <link rel="dns-prefetch" href="https://ehgt.org" />
+      </head>
       <body>
         <ActualizacionesBiblioteca>{children}</ActualizacionesBiblioteca>
         <AnalyticsTracker />

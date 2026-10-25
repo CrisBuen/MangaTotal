@@ -21,15 +21,40 @@ export function allowedRatings(seeAdult: boolean): ContentRating[] {
     : ["safe", "suggestive"];
 }
 
+/** Caché en memoria de servidor para respuestas frecuentes de MangaDex. */
+const mdMemoryCache = new Map<string, { value: unknown; expiresAt: number }>();
+const MD_CACHE_MAX = 400;
+
 export async function mdFetch<T>(path: string, revalidateSeconds = 60): Promise<T> {
+  const now = Date.now();
+  if (revalidateSeconds > 0) {
+    const cached = mdMemoryCache.get(path);
+    if (cached && cached.expiresAt > now) {
+      return cached.value as T;
+    }
+  }
+
   const res = await fetch(`${MD_API}${path}`, {
     headers: { "User-Agent": USER_AGENT },
-    next: { revalidate: revalidateSeconds },
+    ...(revalidateSeconds > 0
+      ? { next: { revalidate: revalidateSeconds } }
+      : { cache: "no-store" as const }),
   });
   if (!res.ok) {
     throw new Error(`MangaDex respondió ${res.status} para ${path}`);
   }
-  return (await res.json()) as T;
+  const data = (await res.json()) as T;
+  if (revalidateSeconds > 0) {
+    if (mdMemoryCache.size >= MD_CACHE_MAX) {
+      const oldest = mdMemoryCache.keys().next().value;
+      if (oldest !== undefined) mdMemoryCache.delete(oldest);
+    }
+    mdMemoryCache.set(path, {
+      value: data,
+      expiresAt: now + revalidateSeconds * 1000,
+    });
+  }
+  return data;
 }
 
 /** Elige el mejor texto de un mapa {idioma: texto} de MangaDex. */
@@ -92,8 +117,8 @@ const STATUS_ES: Record<string, string> = {
   cancelled: "Cancelada",
 };
 
-/** Forma pública que consume el frontend. */
-export function publicManga(m: MdManga) {
+/** Forma pública que consume el frontend. Permite usar miniatura 256px en el catálogo para ahorrar datos en H+/3G. */
+export function publicManga(m: MdManga, coverSize: 256 | 512 = 512) {
   return {
     id: m.id,
     title: pickText(m.attributes.title) ?? "Sin título",
@@ -106,7 +131,7 @@ export function publicManga(m: MdManga) {
     tags: m.attributes.tags
       .map((t) => pickText(t.attributes.name))
       .filter((n): n is string => Boolean(n)),
-    cover_url: coverUrl(m),
+    cover_url: coverUrl(m, coverSize),
   };
 }
 

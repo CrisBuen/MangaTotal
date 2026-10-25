@@ -14,6 +14,20 @@ import { contenidoAdultoPermitido } from "@/lib/contentAccess";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function buildChapterQuery(id: string, offset: number, langs: string[], seeAdult: boolean): string {
+  const qs = new URLSearchParams();
+  qs.set("limit", "100");
+  qs.set("offset", String(offset));
+  qs.set("manga", id);
+  qs.set("order[chapter]", "asc");
+  qs.append("includes[]", "scanlation_group");
+  for (const l of langs) qs.append("translatedLanguage[]", l);
+  for (const r of allowedRatings(seeAdult)) {
+    qs.append("contentRating[]", r);
+  }
+  return qs.toString();
+}
+
 /**
  * GET /api/externo/series/:id?lang=es — ficha de una serie de MangaDex con
  * su lista de capítulos en el idioma pedido (orden por número).
@@ -32,41 +46,48 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const langs = LANG_GROUPS[lang] ?? LANG_GROUPS.es;
 
   try {
-    const mangaRes = await mdFetch<{ data: MdManga }>(
-      `/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`,
-      fresco ? 0 : 300
-    );
-    const series = publicManga(mangaRes.data);
+    // Pedir ficha y primera página de capítulos en paralelo ahorra un viaje completo de red.
+    const [mangaRes, firstPage] = await Promise.all([
+      mdFetch<{ data: MdManga }>(
+        `/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`,
+        fresco ? 0 : 300
+      ),
+      mdFetch<{ data: MdChapter[]; total: number }>(
+        `/chapter?${buildChapterQuery(id, 0, langs, seeAdult)}`,
+        fresco ? 0 : 120
+      ),
+    ]);
+
+    const series = publicManga(mangaRes.data, 512);
 
     if (series.is_adult && !seeAdult) {
       return NextResponse.json({ error: "Contenido no disponible" }, { status: 404 });
     }
 
-    // Los capítulos vienen paginados de a 100 y se recorren todos: una serie
-    // larga tiene que llegar hasta su último capítulo, no cortarse por la
-    // mitad. El total lo dice la propia respuesta.
-    const chapters: MdChapter[] = [];
-    let totalCapitulos = Infinity;
-    for (let offset = 0; offset < totalCapitulos; offset += 100) {
-      const qs = new URLSearchParams();
-      qs.set("limit", "100");
-      qs.set("offset", String(offset));
-      qs.set("manga", id);
-      qs.set("order[chapter]", "asc");
-      qs.append("includes[]", "scanlation_group");
-      for (const l of langs) qs.append("translatedLanguage[]", l);
-      for (const r of allowedRatings(seeAdult)) {
-        qs.append("contentRating[]", r);
-      }
+    const chapters: MdChapter[] = [...firstPage.data];
+    const totalCapitulos = firstPage.total;
 
-      const page = await mdFetch<{ data: MdChapter[]; total: number }>(
-        `/chapter?${qs.toString()}`,
-        fresco ? 0 : 120
-      );
-      totalCapitulos = page.total;
-      chapters.push(...page.data);
-      // si deja de mandar datos, no hay más que traer
-      if (page.data.length === 0) break;
+    // Si hay más de 100 capítulos, pedir los bloques restantes en lotes paralelos de 4.
+    if (totalCapitulos > 100 && firstPage.data.length > 0) {
+      const offsets: number[] = [];
+      for (let offset = 100; offset < totalCapitulos; offset += 100) {
+        offsets.push(offset);
+      }
+      const BATCH_SIZE = 4;
+      for (let i = 0; i < offsets.length; i += BATCH_SIZE) {
+        const batch = offsets.slice(i, i + BATCH_SIZE);
+        const pages = await Promise.all(
+          batch.map((offset) =>
+            mdFetch<{ data: MdChapter[]; total: number }>(
+              `/chapter?${buildChapterQuery(id, offset, langs, seeAdult)}`,
+              fresco ? 0 : 120
+            )
+          )
+        );
+        for (const page of pages) {
+          chapters.push(...page.data);
+        }
+      }
     }
 
     const all = chapters.map(publicChapter);

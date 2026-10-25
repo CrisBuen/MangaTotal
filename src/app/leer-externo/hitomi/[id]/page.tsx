@@ -4,6 +4,7 @@ import { use, useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
+import { cargarConCacheAndroid } from "@/lib/androidCache";
 import type { FichaHitomi } from "@/lib/hitomiTipos";
 
 function LectorHitomiContenido(props: {
@@ -21,30 +22,53 @@ function LectorHitomiContenido(props: {
     setCargando(true);
     setError(null);
     try {
-      const [resFicha, resPaginas] = await Promise.all([
-        fetch(`/api/externo/hitomi/${id}`),
-        fetch(`/api/externo/hitomi/${id}/paginas`),
+      const [dataFicha, listaPaginas] = await Promise.all([
+        cargarConCacheAndroid<FichaHitomi>(
+          `ficha:hitomi:${id}`,
+          async (signal) => {
+            const resFicha = await fetch(`/api/externo/hitomi/${id}`, { signal });
+            if (!resFicha.ok) {
+              if (resFicha.status === 403) {
+                throw new Error("Contenido +18 no disponible en esta edición.");
+              }
+              throw new Error("No se pudo cargar la información de la galería");
+            }
+            return resFicha.json();
+          },
+          {
+            publicCache: true,
+            freshForMs: 30 * 60 * 1000,
+            maxAgeMs: 24 * 60 * 60 * 1000,
+            onCached: (cached) => setFicha(cached),
+          }
+        ),
+        cargarConCacheAndroid<string[]>(
+          `paginas:hitomi:${id}`,
+          async (signal) => {
+            const resPaginas = await fetch(`/api/externo/hitomi/${id}/paginas`, { signal });
+            if (!resPaginas.ok) {
+              throw new Error("No se pudieron cargar las páginas de la galería");
+            }
+            const dataPaginas = await resPaginas.json();
+            return dataPaginas.paginas || [];
+          },
+          {
+            publicCache: true,
+            freshForMs: 5 * 60 * 1000,
+            maxAgeMs: 2 * 60 * 60 * 1000,
+            onCached: (cached) => {
+              if (cached.length > 0) setPaginas(cached);
+            },
+          }
+        ),
       ]);
 
-      if (!resFicha.ok) {
-        if (resFicha.status === 403) {
-          throw new Error("Contenido +18 no disponible en esta edición.");
-        }
-        throw new Error("No se pudo cargar la información de la galería");
-      }
-      if (!resPaginas.ok) {
-        throw new Error("No se pudieron cargar las páginas de la galería");
-      }
-
-      const dataFicha = await resFicha.json();
-      const dataPaginas = await resPaginas.json();
-
-      if (!dataPaginas.paginas || dataPaginas.paginas.length === 0) {
+      if (!listaPaginas || listaPaginas.length === 0) {
         throw new Error("Esta galería no contiene páginas");
       }
 
       setFicha(dataFicha);
-      setPaginas(dataPaginas.paginas);
+      setPaginas(listaPaginas);
     } catch (err) {
       setError(err);
     } finally {
@@ -71,7 +95,7 @@ function LectorHitomiContenido(props: {
     );
   }
 
-  if (cargando || !ficha) {
+  if ((cargando && (!ficha || paginas.length === 0)) || !ficha) {
     return (
       <p className="py-24 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">
         Cargando lector de Hitomi.la...

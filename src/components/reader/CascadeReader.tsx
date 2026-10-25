@@ -199,9 +199,11 @@ export function CascadeReader({
             src={p.url}
             alt={`Página ${p.pageNumber}`}
             className="block h-auto w-full select-none"
-            // primeras páginas y las cercanas al punto de entrada: carga inmediata;
-            // el resto lazy (el navegador precarga con margen las que vienen)
-            loading={Math.abs(i + 1 - initialPage) <= 3 ? "eager" : "lazy"}
+            // la página actual y la siguiente inmediata se cargan con prioridad;
+            // el resto en lazy para no saturar el ancho de banda en señal móvil débil (H+/3G)
+            loading={i + 1 === initialPage || i === initialPage ? "eager" : "lazy"}
+            fetchPriority={i + 1 === initialPage ? "high" : i === initialPage ? "auto" : "low"}
+            decoding="async"
             draggable={false}
             referrerPolicy="no-referrer"
             ref={(img) => {

@@ -19,7 +19,7 @@ export * from "./hitomiTipos";
 // -------------------------------------------------------------
 // Cachés en memoria para acelerar pedidos sucesivos
 // -------------------------------------------------------------
-const galleryCache = new Map<string, { info: FichaHitomi; vence: number }>();
+const galleryCache = new Map<string, { info: FichaHitomi; hashes: string[]; vence: number }>();
 let ggCache: { gg: any; vence: number } | null = null;
 let indexVersionCache: { version: string; vence: number } | null = null;
 
@@ -200,8 +200,8 @@ export async function obtenerGGFunc(forzar = false): Promise<any> {
   if (!res.ok) throw new Error("No se pudo obtener gg.js");
   const text = await res.text();
   const gg = new Function("var gg;" + text + "; return gg;")();
-  // gg.b rota cada ~60 minutos en Hitomi; conservarlo solo 60 segundos evita tokens vencidos
-  ggCache = { gg, vence: Date.now() + 60 * 1000 };
+  // gg.b rota cada ~60 minutos; se cachea 5 minutos y reconstruirUrlPaginaHitomi fuerza refresco si rota antes.
+  ggCache = { gg, vence: Date.now() + 5 * 60 * 1000 };
   return gg;
 }
 
@@ -342,10 +342,14 @@ export async function fichaHitomi(id: string): Promise<FichaHitomi> {
     return enCache.info;
   }
 
-  const res = await fetch(`${HITOMI_LTN}/galleries/${idLimpio}.js`, {
-    headers: { Referer: HITOMI_WEB },
-    next: { revalidate: 3600 },
-  });
+  // Pedir el archivo .js de la galería y gg.js en paralelo ahorra un viaje completo de red
+  const [res, gg] = await Promise.all([
+    fetch(`${HITOMI_LTN}/galleries/${idLimpio}.js`, {
+      headers: { Referer: HITOMI_WEB },
+      next: { revalidate: 3600 },
+    }),
+    obtenerGGFunc(),
+  ]);
 
   if (!res.ok) {
     throw new Error(`Hitomi respondió ${res.status} al consultar la galería`);
@@ -354,10 +358,13 @@ export async function fichaHitomi(id: string): Promise<FichaHitomi> {
   const text = await res.text();
   const jsonStr = text.replace(/^var\s+galleryinfo\s*=\s*/, "").replace(/;\s*$/, "");
   const info = JSON.parse(jsonStr);
-  const gg = await obtenerGGFunc();
 
-  const firstFile = info.files?.[0];
-  const thumb = firstFile?.hash ? construirUrlMiniatura(firstFile.hash, gg) : "";
+  const hashes: string[] = Array.isArray(info.files)
+    ? info.files.map((f: any) => f?.hash).filter((h: unknown): h is string => typeof h === "string" && h.length > 0)
+    : [];
+
+  const firstHash = hashes[0];
+  const thumb = firstHash ? construirUrlMiniatura(firstHash, gg) : "";
 
   const tags: string[] = [];
   if (Array.isArray(info.tags)) {
@@ -403,12 +410,16 @@ export async function fichaHitomi(id: string): Promise<FichaHitomi> {
     groups,
     parodys,
     tags,
-    filecount: Array.isArray(info.files) ? info.files.length : 0,
+    filecount: hashes.length,
     date: info.date || undefined,
     url_original: `${HITOMI_WEB}/galleries/${idLimpio}.html`,
   };
 
-  galleryCache.set(idLimpio, { info: ficha, vence: Date.now() + 2 * 60 * 60 * 1000 });
+  if (galleryCache.size >= 600) {
+    const first = galleryCache.keys().next().value;
+    if (first !== undefined) galleryCache.delete(first);
+  }
+  galleryCache.set(idLimpio, { info: ficha, hashes, vence: Date.now() + 2 * 60 * 60 * 1000 });
   return ficha;
 }
 
@@ -423,29 +434,40 @@ export async function paginasHitomi(id: string): Promise<string[]> {
   const idLimpio = String(id).replace(/[^0-9]/g, "");
   if (!idLimpio) throw new Error("ID de galería inválido");
 
-  const res = await fetch(`${HITOMI_LTN}/galleries/${idLimpio}.js`, {
-    headers: { Referer: HITOMI_WEB },
-    next: { revalidate: 3600 },
-  });
+  // Reutilizar los hashes ya descargados al ver el catálogo o la ficha (0 peticiones adicionales a galleries/{id}.js)
+  let hashes = galleryCache.get(idLimpio)?.hashes;
+  let gg: any;
 
-  if (!res.ok) {
-    throw new Error(`Hitomi respondió ${res.status} al solicitar páginas`);
+  if (hashes && hashes.length > 0) {
+    gg = await obtenerGGFunc();
+  } else {
+    const [res, ggRes] = await Promise.all([
+      fetch(`${HITOMI_LTN}/galleries/${idLimpio}.js`, {
+        headers: { Referer: HITOMI_WEB },
+        next: { revalidate: 3600 },
+      }),
+      obtenerGGFunc(),
+    ]);
+    if (!res.ok) {
+      throw new Error(`Hitomi respondió ${res.status} al solicitar páginas`);
+    }
+    const text = await res.text();
+    const jsonStr = text.replace(/^var\s+galleryinfo\s*=\s*/, "").replace(/;\s*$/, "");
+    const info = JSON.parse(jsonStr);
+    hashes = Array.isArray(info.files)
+      ? info.files.map((f: any) => f?.hash).filter((h: unknown): h is string => typeof h === "string" && h.length > 0)
+      : [];
+    gg = ggRes;
   }
 
-  const text = await res.text();
-  const jsonStr = text.replace(/^var\s+galleryinfo\s*=\s*/, "").replace(/;\s*$/, "");
-  const info = JSON.parse(jsonStr);
-  const gg = await obtenerGGFunc();
-
-  if (!Array.isArray(info.files) || info.files.length === 0) {
+  if (!hashes || hashes.length === 0) {
     return [];
   }
 
   const urls: string[] = [];
-  for (const f of info.files) {
-    if (!f.hash) continue;
+  for (const hash of hashes) {
     // Igual que reader.js oficial de Hitomi: todas las páginas se sirven en WebP desde w1/w2
-    const u = construirUrlPagina(f.hash, "webp", gg);
+    const u = construirUrlPagina(hash, "webp", gg);
     if (u) urls.push(u);
   }
 
@@ -492,24 +514,6 @@ async function leerNozomiRango(
   }
 }
 
-async function leerNozomiCompleto(nozomiUrl: string): Promise<number[] | null> {
-  try {
-    const res = await fetch(nozomiUrl, {
-      headers: { Referer: HITOMI_WEB },
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    const ids: number[] = [];
-    for (let i = 0; i + 4 <= buf.length; i += 4) {
-      ids.push(buf.readInt32BE(i));
-    }
-    return ids;
-  } catch {
-    return null;
-  }
-}
-
 function shuffleArray<T>(arr: T[]): T[] {
   const copia = [...arr];
   for (let i = copia.length - 1; i > 0; i--) {
@@ -517,6 +521,45 @@ function shuffleArray<T>(arr: T[]): T[] {
     [copia[i], copia[j]] = [copia[j], copia[i]];
   }
   return copia;
+}
+
+/**
+ * Obtiene una muestra aleatoria rápida de un archivo .nozomi usando Range HTTP
+ * en vez de descargar varios megabytes completos cuando el usuario elige orden "random".
+ */
+async function leerNozomiAleatorioRango(
+  nozomiUrl: string,
+  itemsPorPagina: number
+): Promise<{ ids: number[]; total: number } | null> {
+  try {
+    const probe = await leerNozomiRango(nozomiUrl, 1, itemsPorPagina);
+    if (!probe || probe.ids.length === 0) return null;
+    if (probe.total <= itemsPorPagina) {
+      return { ids: shuffleArray(probe.ids), total: probe.total };
+    }
+    const ventana = itemsPorPagina * 3;
+    const maxInicio = Math.max(0, probe.total - ventana);
+    const indiceInicio = Math.floor(Math.random() * (maxInicio + 1));
+    const startByte = indiceInicio * 4;
+    const endByte = startByte + ventana * 4 - 1;
+    const res = await fetch(nozomiUrl, {
+      headers: {
+        Referer: HITOMI_WEB,
+        Range: `bytes=${startByte}-${endByte}`,
+      },
+    });
+    if (!res.ok && res.status !== 206) {
+      return { ids: shuffleArray(probe.ids), total: probe.total };
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    const ids: number[] = [];
+    for (let i = 0; i + 4 <= buf.length; i += 4) {
+      ids.push(buf.readInt32BE(i));
+    }
+    return { ids: shuffleArray(ids).slice(0, itemsPorPagina), total: probe.total };
+  } catch {
+    return null;
+  }
 }
 
 function construirUrlsNozomiPorOrden(
@@ -583,8 +626,6 @@ function construirRutasCandidatasTag(tagLimpio: string): string[] {
   if (t.startsWith("tag:")) return [`tag/${t.replace(/^tag:/, "").trim()}`];
   if (t.startsWith("female:") || t.startsWith("male:")) return [`tag/${t}`];
 
-  // Si el usuario escribió un tag sin prefijo (ej: "maid", "milf", "full color", "blue archive", "netorare"),
-  // probamos en orden: tag general, female:, male:, series/, character/, artist/
   return [
     `tag/${t}`,
     `tag/female:${t}`,
@@ -630,31 +671,24 @@ export async function catalogoHitomi(opciones: {
   const tagLimpio = tag.trim().toLowerCase();
   const langCode = idioma === "todos" ? "all" : idioma.toLowerCase();
 
+  const consultarNozomiUrl = (nozomiUrl: string) =>
+    orden === "random"
+      ? leerNozomiAleatorioRango(nozomiUrl, ITEMS_POR_PAGINA)
+      : leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
+
   // Caso 1: Búsqueda por texto (ej. "naruto", "blue archive", etc.)
   if (queryLimpia) {
     const candidatosDirectos = construirRutasCandidatasTag(queryLimpia).slice(0, 4);
-    for (const ruta of candidatosDirectos) {
-      const urls = construirUrlsNozomiPorOrden(ruta, orden, langCode);
-      for (const nozomiUrl of urls) {
-        if (orden === "random") {
-          const todos = await leerNozomiCompleto(nozomiUrl);
-          if (todos && todos.length > 0) {
-            galleryIds = shuffleArray(todos);
-            totalResultados = todos.length;
-            yaPaginado = false;
-            break;
-          }
-        } else {
-          const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
-          if (resNozomi && resNozomi.ids.length > 0) {
-            galleryIds = resNozomi.ids;
-            totalResultados = resNozomi.total;
-            yaPaginado = true;
-            break;
-          }
-        }
-      }
-      if (galleryIds.length > 0) break;
+    const urlsPrimarias = candidatosDirectos.map(
+      (ruta) => construirUrlsNozomiPorOrden(ruta, orden, langCode)[0]
+    ).filter(Boolean);
+
+    const resultadosPrimarios = await Promise.all(urlsPrimarias.map((u) => consultarNozomiUrl(u)));
+    const primeroValido = resultadosPrimarios.find((r) => r && r.ids.length > 0);
+    if (primeroValido) {
+      galleryIds = primeroValido.ids;
+      totalResultados = primeroValido.total;
+      yaPaginado = true;
     }
 
     if (galleryIds.length === 0) {
@@ -674,26 +708,32 @@ export async function catalogoHitomi(opciones: {
     const idiomasIntento = langCode === "all" ? ["all"] : [langCode, "all"];
 
     busquedaTag: for (const codIdioma of idiomasIntento) {
-      for (const ruta of rutasCandidatas) {
-        const urls = construirUrlsNozomiPorOrden(ruta, orden, codIdioma);
+      // Si hay una sola ruta candidata (ej. female:..., male:..., series:...), probamos sus URLs
+      if (rutasCandidatas.length === 1) {
+        const urls = construirUrlsNozomiPorOrden(rutasCandidatas[0], orden, codIdioma);
         for (const nozomiUrl of urls) {
-          if (orden === "random") {
-            const todos = await leerNozomiCompleto(nozomiUrl);
-            if (todos && todos.length > 0) {
-              galleryIds = shuffleArray(todos);
-              totalResultados = todos.length;
-              yaPaginado = false;
-              break busquedaTag;
-            }
-          } else {
-            const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
-            if (resNozomi && resNozomi.ids.length > 0) {
-              galleryIds = resNozomi.ids;
-              totalResultados = resNozomi.total;
-              yaPaginado = true;
-              break busquedaTag;
-            }
+          const resNozomi = await consultarNozomiUrl(nozomiUrl);
+          if (resNozomi && resNozomi.ids.length > 0) {
+            galleryIds = resNozomi.ids;
+            totalResultados = resNozomi.total;
+            yaPaginado = true;
+            break busquedaTag;
           }
+        }
+      } else {
+        // Si no tiene prefijo, consultamos en paralelo las primeras URLs candidatas para no sumar latencia
+        const resultadosParalelos = await Promise.all(
+          rutasCandidatas.map((ruta) => {
+            const u = construirUrlsNozomiPorOrden(ruta, orden, codIdioma)[0];
+            return u ? consultarNozomiUrl(u) : Promise.resolve(null);
+          })
+        );
+        const encontrado = resultadosParalelos.find((r) => r && r.ids.length > 0);
+        if (encontrado) {
+          galleryIds = encontrado.ids;
+          totalResultados = encontrado.total;
+          yaPaginado = true;
+          break busquedaTag;
         }
       }
     }
@@ -719,22 +759,12 @@ export async function catalogoHitomi(opciones: {
         : construirUrlsNozomiPorOrden(null, orden, langCode);
 
     for (const nozomiUrl of urls) {
-      if (orden === "random" && tipo === "todos") {
-        const todos = await leerNozomiCompleto(nozomiUrl);
-        if (todos && todos.length > 0) {
-          galleryIds = shuffleArray(todos);
-          totalResultados = todos.length;
-          yaPaginado = false;
-          break;
-        }
-      } else {
-        const resNozomi = await leerNozomiRango(nozomiUrl, numPagina, ITEMS_POR_PAGINA);
-        if (resNozomi && resNozomi.ids.length > 0) {
-          galleryIds = resNozomi.ids;
-          totalResultados = resNozomi.total;
-          yaPaginado = true;
-          break;
-        }
+      const resNozomi = await consultarNozomiUrl(nozomiUrl);
+      if (resNozomi && resNozomi.ids.length > 0) {
+        galleryIds = resNozomi.ids;
+        totalResultados = resNozomi.total;
+        yaPaginado = true;
+        break;
       }
     }
   }
@@ -777,4 +807,3 @@ export async function catalogoHitomi(opciones: {
     hayMas: numPagina < totalPaginas,
   };
 }
-

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const offset = Math.min(parseInt(params.get("offset") ?? "0", 10) || 0, 9500);
   const limit = 24;
   // se piden de más porque después se descartan las series sin capítulos reales
-  const fetchLimit = 48;
+  const fetchLimit = 40;
 
   const langs = LANG_GROUPS[lang] ?? LANG_GROUPS.es;
 
@@ -72,13 +72,12 @@ export async function GET(req: NextRequest) {
   try {
     const data = await mdFetch<{ data: MdManga[]; total: number }>(
       `/manga?${qs.toString()}`,
-      q ? 30 : 300
+      q ? 60 : 300
     );
     // MangaDex sigue listando series licenciadas cuyos capítulos ya retiró:
     // declaran el idioma pero no hay nada para leer. Se comprueba serie por
-    // serie y se descartan las vacías (docs: fichas sin capítulos).
-    const withCounts = await withChapterCounts(data.data, langs, seeAdult);
-    const readable = withCounts.filter((item) => item.chapter_count !== 0);
+    // serie en lotes concurrentes y se detiene apenas se completan las 24.
+    const readable = await withChapterCounts(data.data, langs, seeAdult, limit);
 
     return NextResponse.json({
       series: readable.slice(0, limit),
@@ -95,25 +94,39 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** Cuántas series se consultan a la vez (la API de MangaDex limita el ritmo). */
-const CONCURRENCY = 6;
+/** Cuántas series se consultan a la vez. */
+const CONCURRENCY = 12;
+
+/** Caché en memoria de conteo de capítulos por (mangaId, idioma, rating). */
+const chapterCountCache = new Map<string, { count: number; expiresAt: number }>();
+const COUNT_TTL_MS = 60 * 60 * 1000;
 
 /**
- * Agrega a cada serie cuántos capítulos hay realmente en el idioma pedido.
- * `chapter_count` queda en null si la consulta falla, y en ese caso la serie
- * se conserva: ante la duda se muestra, nunca se esconde de más.
+ * Agrega a cada serie cuántos capítulos hay realmente en el idioma pedido
+ * usando miniaturas 256px para el catálogo, y corta en cuanto reúne `targetLimit`
+ * series legibles para no desperdiciar viajes de red.
  */
 async function withChapterCounts(
   mangas: MdManga[],
   langs: string[],
-  seeAdult: boolean
+  seeAdult: boolean,
+  targetLimit: number
 ): Promise<(ReturnType<typeof publicManga> & { chapter_count: number | null })[]> {
-  const result: (ReturnType<typeof publicManga> & { chapter_count: number | null })[] = [];
+  const readable: (ReturnType<typeof publicManga> & { chapter_count: number | null })[] = [];
+  const langKey = `${langs.join(",")}:${seeAdult ? "1" : "0"}`;
+  const now = Date.now();
 
   for (let i = 0; i < mangas.length; i += CONCURRENCY) {
+    if (readable.length >= targetLimit) break;
     const lote = mangas.slice(i, i + CONCURRENCY);
     const contados = await Promise.all(
       lote.map(async (m) => {
+        const cacheKey = `${m.id}:${langKey}`;
+        const cached = chapterCountCache.get(cacheKey);
+        if (cached && cached.expiresAt > now) {
+          return { ...publicManga(m, 256), chapter_count: cached.count };
+        }
+
         const qs = new URLSearchParams();
         qs.set("limit", "1"); // solo interesa el total que devuelve la respuesta
         qs.set("manga", m.id);
@@ -124,14 +137,23 @@ async function withChapterCounts(
         try {
           const res = await mdFetch<{ total: number }>(`/chapter?${qs.toString()}`, 3600);
           chapterCount = res.total;
+          if (chapterCountCache.size > 3000) {
+            const first = chapterCountCache.keys().next().value;
+            if (first !== undefined) chapterCountCache.delete(first);
+          }
+          chapterCountCache.set(cacheKey, { count: chapterCount, expiresAt: now + COUNT_TTL_MS });
         } catch {
           // rate limit o error puntual: se muestra igual
         }
-        return { ...publicManga(m), chapter_count: chapterCount };
+        return { ...publicManga(m, 256), chapter_count: chapterCount };
       })
     );
-    result.push(...contados);
+    for (const item of contados) {
+      if (item.chapter_count !== 0) {
+        readable.push(item);
+      }
+    }
   }
 
-  return result;
+  return readable;
 }
