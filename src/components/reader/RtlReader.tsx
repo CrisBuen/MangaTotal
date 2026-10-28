@@ -5,7 +5,7 @@ import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect } from "react";
 import { retryThroughProxy } from "./pageImage";
-import { cargarImagenNativa, esImagenIkigai } from "@/lib/imagenFuenteNativa";
+import { cargarImagenNativa, debeUsarPuenteNativo, esImagenIkigai } from "@/lib/imagenFuenteNativa";
 import type { ChapterLink, ReaderPage } from "./types";
 
 /**
@@ -62,7 +62,7 @@ export function RtlReader({
   useEffect(() => {
     for (let i = currentPage; i < Math.min(currentPage + 2, total); i++) {
       const nextUrl = pages[i].url;
-      if (esImagenIkigai(nextUrl)) {
+      if (esImagenIkigai(nextUrl) || debeUsarPuenteNativo(nextUrl)) {
         void cargarImagenNativa(nextUrl, { prioridad: 0 }).catch(() => {});
         continue;
       }

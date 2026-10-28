@@ -1,4 +1,9 @@
 import JSZip from "jszip";
+import {
+  cargarImagenNativa,
+  esImagenNativaSoportada,
+  tienePuenteImagenNativo,
+} from "@/lib/imagenFuenteNativa";
 
 /**
  * Limpia caracteres inválidos para nombres de archivos y carpetas en Windows/Android.
@@ -84,7 +89,20 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
     signal?.addEventListener("abort", onAbortExterno, { once: true });
 
     try {
-      // 1. Intento directo del cliente solo si el CDN no bloquea por Referer/CORS
+      // 1. En Android y Windows PC, priorizar descarga directa del CDN por el puente nativo (0 bytes en Vercel)
+      if (tienePuenteImagenNativo() && esImagenNativaSoportada(url)) {
+        try {
+          const blobNativo = await cargarImagenNativa(url, {
+            signal: ctrlIntento.signal,
+            prioridad: 1,
+          });
+          if (blobNativo.size > 200) return blobNativo;
+        } catch {
+          // Respaldo transparente a los canales siguientes si el binario nativo aún no está actualizado
+        }
+      }
+
+      // 2. Intento directo del cliente solo si el CDN no bloquea por Referer/CORS
       if (intento === 0 && !usarProxyDirecto) {
         try {
           const resDirecta = await fetch(url, {
@@ -100,7 +118,7 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
         }
       }
 
-      // 2. Canal de streaming idéntico (sin compresión ni paso por almacenamiento R2)
+      // 3. Canal de streaming idéntico de respaldo (sin compresión ni paso por almacenamiento R2)
       const proxyUrl = url.startsWith("/api/externo/imagen")
         ? url
         : `/api/externo/imagen?u=${encodeURIComponent(url)}`;

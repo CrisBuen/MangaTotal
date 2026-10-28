@@ -15,6 +15,41 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Windo
 /// coinciden, el permiso no sirve.
 const UA_NAVEGADOR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+const DOMINIOS_IMAGEN_FUENTES: [&str; 33] = [
+    "mangadex.network",
+    "mangadex.org",
+    "hath.network",
+    "ehgt.org",
+    "e-hentai.org",
+    "exhentai.org",
+    "gold-usergeneratedcontent.net",
+    "hitomi.la",
+    "olympusxyz.com",
+    "olympusbiblioteca.com",
+    "olympusscans.com",
+    "olympusv2.gg",
+    "olympusscanlation.com",
+    "storage.googleapis.com",
+    "zonatmo.com",
+    "zonatmo.net",
+    "zonatmo.to",
+    "zonatmo.org",
+    "visortmo.com",
+    "tumangaonline.site",
+    "tumangaonline.me",
+    "leercapitulo.com",
+    "leercapitulo.co",
+    "leercapitulo.site",
+    "leercapitulo.net",
+    "t34798ndc.com",
+    "catharsisfood.com",
+    "catharsisworks.com",
+    "dig-it.info",
+    "ikigaimangas.cloud",
+    "ikigaivs.org",
+    "ikigaimangas.com",
+];
+
 fn validar_imagen_ikigai(valor: &str) -> Result<url::Url, String> {
     let u = validar_url_fuente(valor)?;
     let host = u.host_str().unwrap_or_default();
@@ -27,33 +62,156 @@ fn validar_imagen_ikigai(valor: &str) -> Result<url::Url, String> {
     Ok(u)
 }
 
-/// Descarga binaria directa; la web no elige otros hosts, cookies o referencias.
+fn validar_imagen_fuente(valor: &str) -> Result<url::Url, String> {
+    if valor.is_empty() || valor.len() > 4096 {
+        return Err("Imagen de fuente no permitida".into());
+    }
+    let u = url::Url::parse(valor).map_err(|_| "Imagen de fuente no permitida".to_string())?;
+    if !u.username().is_empty() || u.password().is_some() {
+        return Err("Imagen de fuente no permitida".into());
+    }
+    let host = u.host_str().unwrap_or_default().to_ascii_lowercase();
+    if host == "image2.ikigaimangas.cloud" || host == "image3.ikigaimangas.cloud" {
+        return validar_imagen_ikigai(valor);
+    }
+    if let Ok(ip) = host.parse::<std::net::Ipv4Addr>() {
+        if ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified() {
+            return Err("Imagen de fuente no permitida".into());
+        }
+        if u.scheme() != "https" && u.scheme() != "http" {
+            return Err("Imagen de fuente no permitida".into());
+        }
+        return Ok(u);
+    }
+    let permitido = DOMINIOS_IMAGEN_FUENTES
+        .iter()
+        .any(|p| host == *p || host.ends_with(&format!(".{p}")));
+    let esquema_valido = u.scheme() == "https" || (u.scheme() == "http" && host.ends_with(".hath.network"));
+    if !permitido || !esquema_valido {
+        return Err("Imagen de fuente no permitida".into());
+    }
+    Ok(u)
+}
+
+fn aplicar_headers_imagen(pedido: reqwest::RequestBuilder, host: &str) -> reqwest::RequestBuilder {
+    let h = host.to_ascii_lowercase();
+    if h.contains("hath.network") || h.contains("e-hentai.org") || h.contains("exhentai.org")
+        || h.contains("ehgt.org") || h.parse::<std::net::Ipv4Addr>().is_ok() {
+        pedido.header("Cookie", "nw=1").header("Referer", "https://e-hentai.org/")
+    } else if h.contains("gold-usergeneratedcontent.net") || h.contains("hitomi.la") {
+        pedido.header("Referer", "https://hitomi.la/")
+    } else if h.contains("leercapitulo") || h.contains("t34798ndc.com") {
+        pedido.header("Referer", "https://www.leercapitulo.co/")
+    } else if h.contains("zonatmo") || h.contains("visortmo") || h.contains("tumangaonline") {
+        pedido.header("Referer", "https://visortmo.com/")
+    } else if h.contains("catharsisfood") || h.contains("catharsisworks") || h.contains("dig-it.info") {
+        pedido.header("Referer", "https://newcatharsis.dig-it.info/")
+    } else if h.contains("ikigai") {
+        pedido.header("Referer", "https://visorikigai.gettocaboca.com/").header("Sec-Fetch-Mode", "cors")
+    } else {
+        pedido
+    }
+}
+
+fn extraer_img_visor_ehentai(html: &str) -> Option<String> {
+    let marcador = "id=\"img\"";
+    let pos = html.find(marcador)?;
+    let inicio_tag = html[..pos].rfind("<img")?;
+    let fin_tag = html[inicio_tag..].find('>')? + inicio_tag;
+    let tag = &html[inicio_tag..=fin_tag];
+    let pos_src = tag.find("src=\"")?;
+    let resto = &tag[pos_src + 5..];
+    let fin_src = resto.find('"')?;
+    Some(resto[..fin_src].replace("&amp;", "&"))
+}
+
+/// Descarga binaria directa desde la conexión del dispositivo sin pasar por Vercel.
 #[tauri::command]
 async fn traer_imagen(url: String) -> Result<tauri::ipc::Response, String> {
-    let destino = validar_imagen_ikigai(&url)?;
+    let mut destino = validar_imagen_fuente(&url)?;
+    let host_inicial = destino.host_str().unwrap_or_default().to_ascii_lowercase();
+    let es_ikigai = host_inicial == "image2.ikigaimangas.cloud" || host_inicial == "image3.ikigaimangas.cloud";
     let http = cliente_sin_redirecciones(UA_NAVEGADOR)?;
-    let respuesta = http.get(destino.clone())
-        .timeout(Duration::from_secs(25))
-        .header("Referer", "https://visorikigai.gettocaboca.com/")
-        // Su CDN exige ambos encabezados; sin el modo devuelve un 302 al aviso.
-        .header("Sec-Fetch-Mode", "cors")
-        .header("Accept", "image/webp,image/png,image/jpeg,image/gif")
-        .send().await.map_err(|e| e.to_string())?;
-    let tipo = respuesta.headers().get("content-type").and_then(|h| h.to_str().ok())
-        .unwrap_or_default().split(';').next().unwrap_or_default().trim();
     let maximo = 20 * 1024 * 1024;
-    if respuesta.status().as_u16() != 200 || !["image/webp", "image/png", "image/jpeg", "image/gif"].contains(&tipo)
-        || respuesta.content_length().unwrap_or(0) > maximo {
-        return Err(format!("Ikigai no entregó la imagen original (HTTP {}, tipo {})", respuesta.status().as_u16(), tipo));
+
+    if es_ikigai {
+        let respuesta = http.get(destino)
+            .timeout(Duration::from_secs(25))
+            .header("Referer", "https://visorikigai.gettocaboca.com/")
+            // Su CDN exige ambos encabezados; sin el modo devuelve un 302 al aviso.
+            .header("Sec-Fetch-Mode", "cors")
+            .header("Accept", "image/webp,image/png,image/jpeg,image/gif")
+            .send().await.map_err(|e| e.to_string())?;
+        let tipo = respuesta.headers().get("content-type").and_then(|h| h.to_str().ok())
+            .unwrap_or_default().split(';').next().unwrap_or_default().trim();
+        if respuesta.status().as_u16() != 200 || !["image/webp", "image/png", "image/jpeg", "image/gif"].contains(&tipo)
+            || respuesta.content_length().unwrap_or(0) > maximo {
+            return Err(format!("Ikigai no entregó la imagen original (HTTP {}, tipo {})", respuesta.status().as_u16(), tipo));
+        }
+        let mut flujo = respuesta.bytes_stream();
+        let mut datos = Vec::new();
+        while let Some(trozo) = flujo.next().await {
+            let trozo = trozo.map_err(|e| e.to_string())?;
+            if datos.len() + trozo.len() > maximo as usize { return Err("Imagen demasiado grande".into()); }
+            datos.extend_from_slice(&trozo);
+        }
+        return Ok(tauri::ipc::Response::new(datos));
     }
-    let mut flujo = respuesta.bytes_stream();
-    let mut datos = Vec::new();
-    while let Some(trozo) = flujo.next().await {
-        let trozo = trozo.map_err(|e| e.to_string())?;
-        if datos.len() + trozo.len() > maximo as usize { return Err("Imagen demasiado grande".into()); }
-        datos.extend_from_slice(&trozo);
+
+    // Si es una URL de visor de E-Hentai (/s/{token}/{gid}-{page}), resolvemos la imagen directa
+    if (host_inicial == "e-hentai.org" || host_inicial.ends_with(".e-hentai.org")
+        || host_inicial == "exhentai.org" || host_inicial.ends_with(".exhentai.org"))
+        && destino.path().starts_with("/s/") {
+        let pedido_visor = aplicar_headers_imagen(
+            http.get(destino.clone()).timeout(Duration::from_secs(20)),
+            &host_inicial,
+        );
+        let resp_visor = pedido_visor.send().await.map_err(|e| e.to_string())?;
+        if !resp_visor.status().is_success() {
+            return Err(format!("Visor de E-Hentai respondió {}", resp_visor.status().as_u16()));
+        }
+        let html_visor = resp_visor.text().await.map_err(|e| e.to_string())?;
+        let img_directa = extraer_img_visor_ehentai(&html_visor)
+            .ok_or_else(|| "No se encontró la imagen en el visor de E-Hentai".to_string())?;
+        destino = validar_imagen_fuente(&img_directa)?;
     }
-    Ok(tauri::ipc::Response::new(datos))
+
+    for salto in 0..=3 {
+        let host_actual = destino.host_str().unwrap_or_default().to_string();
+        let pedido = aplicar_headers_imagen(
+            http.get(destino.clone())
+                .timeout(Duration::from_secs(25))
+                .header("Accept", "image/avif,image/webp,image/png,image/jpeg,image/gif,image/*,*/*;q=0.8"),
+            &host_actual,
+        );
+        let respuesta = pedido.send().await.map_err(|e| e.to_string())?;
+        if respuesta.status().is_redirection() {
+            let ubicacion = respuesta
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|h| h.to_str().ok())
+                .ok_or_else(|| "Redirección de imagen inválida".to_string())?;
+            if salto == 3 {
+                return Err("Demasiadas redirecciones de imagen".into());
+            }
+            let siguiente = destino.join(ubicacion).map_err(|e| e.to_string())?;
+            destino = validar_imagen_fuente(siguiente.as_str())?;
+            continue;
+        }
+        if respuesta.status().as_u16() != 200 || respuesta.content_length().unwrap_or(0) > maximo {
+            return Err(format!("La fuente no entregó la imagen (HTTP {})", respuesta.status().as_u16()));
+        }
+        let mut flujo = respuesta.bytes_stream();
+        let mut datos = Vec::new();
+        while let Some(trozo) = flujo.next().await {
+            let trozo = trozo.map_err(|e| e.to_string())?;
+            if datos.len() + trozo.len() > maximo as usize { return Err("Imagen demasiado grande".into()); }
+            datos.extend_from_slice(&trozo);
+        }
+        return Ok(tauri::ipc::Response::new(datos));
+    }
+
+    Err("No se pudo obtener la imagen".into())
 }
 
 /// Permisos de Cloudflare ya obtenidos, uno por dominio.

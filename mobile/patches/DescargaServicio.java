@@ -194,14 +194,58 @@ public class DescargaServicio extends Service {
             for (int intento = 0; intento < 3; intento++) {
                 HttpURLConnection conn = null;
                 try {
-                    String urlCandidata = urlOriginal;
+                    String urlDesenvuelta = urlOriginal;
+                    if (urlDesenvuelta.startsWith("/api/externo/imagen") || urlDesenvuelta.contains("/api/externo/imagen?")) {
+                        int idxU = urlDesenvuelta.indexOf("u=");
+                        if (idxU != -1) {
+                            String codificada = urlDesenvuelta.substring(idxU + 2);
+                            int idxAmp = codificada.indexOf('&');
+                            if (idxAmp != -1) codificada = codificada.substring(0, idxAmp);
+                            try {
+                                urlDesenvuelta = java.net.URLDecoder.decode(codificada, "UTF-8");
+                            } catch (Exception ignoredDec) {}
+                        }
+                    }
+
+                    String urlCandidata = urlDesenvuelta;
                     if (urlCandidata.startsWith("/")) {
                         urlCandidata = "https://www.mangatotal.com" + urlCandidata;
-                    } else if (intento >= 1 && !urlCandidata.contains("mangatotal.com/api/externo/imagen")) {
-                        urlCandidata = "https://www.mangatotal.com/api/externo/imagen?u=" + URLEncoder.encode(urlOriginal, "UTF-8");
+                    } else if (intento == 2 && !urlCandidata.contains("mangatotal.com/api/externo/imagen")) {
+                        urlCandidata = "https://www.mangatotal.com/api/externo/imagen?u=" + URLEncoder.encode(urlDesenvuelta, "UTF-8");
                     }
 
                     URL u = new URL(urlCandidata);
+                    String hostInicial = u.getHost() != null ? u.getHost().toLowerCase(Locale.ROOT) : "";
+                    if ((hostInicial.equals("e-hentai.org") || hostInicial.endsWith(".e-hentai.org") ||
+                         hostInicial.equals("exhentai.org") || hostInicial.endsWith(".exhentai.org")) &&
+                        u.getPath().startsWith("/s/")) {
+                        HttpURLConnection connVisor = (HttpURLConnection) u.openConnection();
+                        try {
+                            connVisor.setConnectTimeout(15000);
+                            connVisor.setReadTimeout(15000);
+                            connVisor.setInstanceFollowRedirects(true);
+                            connVisor.setRequestProperty("User-Agent", UA);
+                            connVisor.setRequestProperty("Cookie", "nw=1");
+                            connVisor.setRequestProperty("Referer", "https://e-hentai.org/");
+                            if (connVisor.getResponseCode() == 200) {
+                                java.io.ByteArrayOutputStream bosV = new java.io.ByteArrayOutputStream();
+                                try (InputStream inV = connVisor.getInputStream()) {
+                                    byte[] bufV = new byte[8192];
+                                    int rV;
+                                    while ((rV = inV.read(bufV)) != -1) bosV.write(bufV, 0, rV);
+                                }
+                                String htmlV = bosV.toString("UTF-8");
+                                java.util.regex.Matcher mV = java.util.regex.Pattern
+                                    .compile("<img[^>]+id=\"img\"[^>]+src=\"([^\"]+)\"")
+                                    .matcher(htmlV);
+                                if (mV.find()) {
+                                    u = new URL(mV.group(1).replace("&amp;", "&"));
+                                }
+                            }
+                        } finally {
+                            connVisor.disconnect();
+                        }
+                    }
 
                     for (int salto = 0; salto < 3; salto++) {
                         conn = (HttpURLConnection) u.openConnection();

@@ -82,43 +82,187 @@ public class FuentesPlugin extends Plugin {
         "image3.ikigaimangas.cloud",
     };
 
+    private static final String[] PERMITIDOS_IMAGEN = {
+        "mangadex.network",
+        "mangadex.org",
+        "hath.network",
+        "ehgt.org",
+        "e-hentai.org",
+        "exhentai.org",
+        "gold-usergeneratedcontent.net",
+        "hitomi.la",
+        "olympusxyz.com",
+        "olympusbiblioteca.com",
+        "olympusscans.com",
+        "olympusv2.gg",
+        "olympusscanlation.com",
+        "storage.googleapis.com",
+        "zonatmo.com",
+        "zonatmo.net",
+        "zonatmo.to",
+        "zonatmo.org",
+        "visortmo.com",
+        "tumangaonline.site",
+        "tumangaonline.me",
+        "leercapitulo.com",
+        "leercapitulo.co",
+        "leercapitulo.site",
+        "leercapitulo.net",
+        "t34798ndc.com",
+        "catharsisfood.com",
+        "catharsisworks.com",
+        "dig-it.info",
+        "ikigaimangas.cloud",
+        "ikigaivs.org",
+        "ikigaimangas.com",
+    };
+
     private static final int TIEMPO_ESPERA_MS = 20000;
     private static final int MAX_REDIRECCIONES = 5;
     private static final int MAX_RESPUESTA_BYTES = 20 * 1024 * 1024;
 
-    private static final java.util.concurrent.ExecutorService IMAGENES = java.util.concurrent.Executors.newFixedThreadPool(3);
+    private static final java.util.concurrent.ExecutorService IMAGENES = java.util.concurrent.Executors.newFixedThreadPool(6);
     private static final Object LOCK_GUARDADO = new Object();
 
-    /** Solo imágenes públicas de Ikigai, con referencia fija y sin intermediarios. */
+    private static boolean direccionImagenPermitida(URL destino) {
+        if (destino == null || destino.getUserInfo() != null) return false;
+        String proto = destino.getProtocol();
+        if (!"https".equalsIgnoreCase(proto) && !"http".equalsIgnoreCase(proto)) return false;
+        String host = destino.getHost();
+        if (host == null || host.isEmpty()) return false;
+        String normalizado = host.toLowerCase(Locale.ROOT);
+        if (normalizado.matches("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")) {
+            try {
+                java.net.InetAddress addr = java.net.InetAddress.getByName(normalizado);
+                return !addr.isLoopbackAddress() && !addr.isSiteLocalAddress() &&
+                    !addr.isLinkLocalAddress() && !addr.isAnyLocalAddress();
+            } catch (Exception e) {
+                return false;
+            }
+        }
+        if (!"https".equalsIgnoreCase(proto) && !normalizado.endsWith(".hath.network")) return false;
+        for (String p : PERMITIDOS_IMAGEN) {
+            if (normalizado.equals(p) || normalizado.endsWith("." + p)) return true;
+        }
+        return false;
+    }
+
+    private static void aplicarHeadersImagen(java.net.HttpURLConnection conexion, String host) {
+        conexion.setRequestProperty("User-Agent", UA_NAVEGADOR);
+        String h = host != null ? host.toLowerCase(Locale.ROOT) : "";
+        if (h.contains("hath.network") || h.contains("e-hentai.org") || h.contains("exhentai.org") ||
+            h.contains("ehgt.org") || h.matches("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")) {
+            conexion.setRequestProperty("Cookie", "nw=1");
+            conexion.setRequestProperty("Referer", "https://e-hentai.org/");
+        } else if (h.contains("gold-usergeneratedcontent.net") || h.contains("hitomi.la")) {
+            conexion.setRequestProperty("Referer", "https://hitomi.la/");
+        } else if (h.contains("leercapitulo") || h.contains("t34798ndc.com")) {
+            conexion.setRequestProperty("Referer", "https://www.leercapitulo.co/");
+        } else if (h.contains("zonatmo") || h.contains("visortmo") || h.contains("tumangaonline")) {
+            conexion.setRequestProperty("Referer", "https://visortmo.com/");
+        } else if (h.contains("catharsisfood") || h.contains("catharsisworks") || h.contains("dig-it.info")) {
+            conexion.setRequestProperty("Referer", "https://newcatharsis.dig-it.info/");
+        } else if (h.contains("ikigai")) {
+            conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
+            conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
+        }
+    }
+
+    /** Descarga directa de imágenes de fuentes integradas desde la conexión del dispositivo, sin pasar por Vercel. */
     @PluginMethod
     public void traerImagen(final PluginCall call) {
         final String direccion = call.getString("url", "");
         IMAGENES.execute(() -> {
-            HttpsURLConnection conexion = null;
+            java.net.HttpURLConnection conexion = null;
             try {
-                URL destino = new URL(direccion);
-                String host = destino.getHost().toLowerCase(Locale.ROOT);
-                if (!direccionPermitida(destino) || direccion.length() > 4096 ||
-                    !(host.equals("image2.ikigaimangas.cloud") || host.equals("image3.ikigaimangas.cloud")) ||
-                    destino.getQuery() != null || destino.getRef() != null ||
-                    !destino.getPath().matches("(?i).*\\.(webp|png|jpe?g|gif)$")) {
+                if (direccion == null || direccion.isEmpty() || direccion.length() > 4096) {
                     throw new IOException("Imagen de fuente no permitida");
                 }
-                conexion = (HttpsURLConnection) destino.openConnection();
-                conexion.setInstanceFollowRedirects(false);
-                conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
-                conexion.setReadTimeout(TIEMPO_ESPERA_MS);
-                conexion.setRequestProperty("User-Agent", UA_NAVEGADOR);
-                conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
-                // La referencia sola no basta: el CDN redirige al aviso sin este modo.
-                conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
-                conexion.setRequestProperty("Accept", "image/webp,image/png,image/jpeg,image/gif");
-                String tipo = conexion.getContentType();
-                if (tipo != null) tipo = tipo.split(";")[0].trim().toLowerCase(Locale.ROOT);
-                if (conexion.getResponseCode() != 200 || tipo == null ||
-                    !tipo.matches("image/(webp|png|jpeg|gif)") ||
-                    conexion.getContentLengthLong() > MAX_RESPUESTA_BYTES) {
-                    throw new IOException("Ikigai no entregó la imagen original");
+                URL destino = new URL(direccion);
+                String hostInicial = destino.getHost().toLowerCase(Locale.ROOT);
+                boolean esIkigai = hostInicial.equals("image2.ikigaimangas.cloud") || hostInicial.equals("image3.ikigaimangas.cloud");
+                if (esIkigai) {
+                    if (!direccionPermitida(destino) || destino.getQuery() != null || destino.getRef() != null ||
+                        !destino.getPath().matches("(?i).*\\.(webp|png|jpe?g|gif)$")) {
+                        throw new IOException("Imagen de fuente no permitida");
+                    }
+                    conexion = (HttpsURLConnection) destino.openConnection();
+                    conexion.setInstanceFollowRedirects(false);
+                    conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
+                    conexion.setReadTimeout(TIEMPO_ESPERA_MS);
+                    conexion.setRequestProperty("User-Agent", UA_NAVEGADOR);
+                    conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
+                    // La referencia sola no basta: el CDN redirige al aviso sin este modo.
+                    conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
+                    conexion.setRequestProperty("Accept", "image/webp,image/png,image/jpeg,image/gif");
+                    String tipo = conexion.getContentType();
+                    if (tipo != null) tipo = tipo.split(";")[0].trim().toLowerCase(Locale.ROOT);
+                    if (conexion.getResponseCode() != 200 || tipo == null ||
+                        !tipo.matches("image/(webp|png|jpeg|gif)") ||
+                        conexion.getContentLengthLong() > MAX_RESPUESTA_BYTES) {
+                        throw new IOException("Ikigai no entregó la imagen original");
+                    }
+                } else {
+                    if (!direccionImagenPermitida(destino)) {
+                        throw new IOException("Imagen de fuente no permitida");
+                    }
+                    // Si es una URL de visor de E-Hentai (/s/{token}/{gid}-{page}), resolver la imagen directa
+                    if ((hostInicial.equals("e-hentai.org") || hostInicial.endsWith(".e-hentai.org") ||
+                         hostInicial.equals("exhentai.org") || hostInicial.endsWith(".exhentai.org")) &&
+                        destino.getPath().startsWith("/s/")) {
+                        java.net.HttpURLConnection connVisor = (java.net.HttpURLConnection) destino.openConnection();
+                        try {
+                            connVisor.setInstanceFollowRedirects(true);
+                            connVisor.setConnectTimeout(TIEMPO_ESPERA_MS);
+                            connVisor.setReadTimeout(TIEMPO_ESPERA_MS);
+                            aplicarHeadersImagen(connVisor, hostInicial);
+                            connVisor.setRequestProperty("Accept", "text/html,application/xhtml+xml,*/*;q=0.8");
+                            if (connVisor.getResponseCode() != 200) {
+                                throw new IOException("No se pudo resolver el visor de E-Hentai");
+                            }
+                            String htmlVisor = leer(connVisor.getInputStream());
+                            java.util.regex.Matcher m = java.util.regex.Pattern
+                                .compile("<img[^>]+id=\"img\"[^>]+src=\"([^\"]+)\"")
+                                .matcher(htmlVisor);
+                            if (!m.find()) {
+                                throw new IOException("No se encontró la imagen en el visor de E-Hentai");
+                            }
+                            String imgDirecta = m.group(1).replace("&amp;", "&");
+                            destino = new URL(imgDirecta);
+                            if (!direccionImagenPermitida(destino)) {
+                                throw new IOException("Destino de imagen no permitido");
+                            }
+                        } finally {
+                            connVisor.disconnect();
+                        }
+                    }
+
+                    for (int salto = 0; salto <= 3; salto++) {
+                        if (!direccionImagenPermitida(destino)) {
+                            throw new IOException("Imagen de fuente no permitida");
+                        }
+                        conexion = (java.net.HttpURLConnection) destino.openConnection();
+                        conexion.setInstanceFollowRedirects(false);
+                        conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
+                        conexion.setReadTimeout(TIEMPO_ESPERA_MS);
+                        aplicarHeadersImagen(conexion, destino.getHost());
+                        conexion.setRequestProperty("Accept", "image/avif,image/webp,image/png,image/jpeg,image/gif,image/*,*/*;q=0.8");
+                        int estado = conexion.getResponseCode();
+                        if (esRedireccion(estado)) {
+                            String ubicacion = conexion.getHeaderField("Location");
+                            conexion.disconnect();
+                            conexion = null;
+                            if (ubicacion == null || ubicacion.trim().isEmpty() || salto == 3) {
+                                throw new IOException("Redirección de imagen inválida");
+                            }
+                            destino = new URL(destino, ubicacion);
+                            continue;
+                        }
+                        if (estado != 200 || conexion.getContentLengthLong() > MAX_RESPUESTA_BYTES) {
+                            throw new IOException("La fuente no entregó la imagen (" + estado + ")");
+                        }
+                        break;
+                    }
                 }
                 try (InputStream entrada = conexion.getInputStream();
                      ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {

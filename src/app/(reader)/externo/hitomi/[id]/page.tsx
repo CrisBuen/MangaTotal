@@ -8,6 +8,7 @@ import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 import { Surface } from "@/components/ui/Surface";
+import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { anotarHistorial } from "@/components/library/historial";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 import type { FichaHitomi } from "@/lib/hitomiTipos";
@@ -149,8 +150,7 @@ export default function SerieHitomiPage(props: {
         <div className="w-44 shrink-0 overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] sm:w-52">
           <div className="aspect-[2/3]">
             {portadaUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <ImagenFuente
                 src={portadaUrl}
                 alt={tituloLimpio}
                 className="h-full w-full object-cover"

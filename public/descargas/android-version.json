@@ -1,14 +1,14 @@
 {
-  "versionCode": 29,
-  "versionName": "1.9.16",
-  "date": "2026-10-25",
+  "versionCode": 30,
+  "versionName": "1.9.17",
+  "date": "2026-10-28",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "B29C5E9E8527E03E75E93D5F47F5611FAFB8567DF5C3C6336A9B99C0A2E36F79",
+  "sha256": "9BE2E0279C625036160A0C50395AF5FF02AFB3ECAA9F1C03C1656E0221ECCC43",
   "sizeMb": 4.1,
   "changes": [
-    "Corrección de descargas de capítulos en Android (versión local y Google Play): evita el bloqueo del selector de carpetas de escritorio en el WebView y pasa directo a la descarga nativa",
-    "Descarga paralela de 4 páginas en calidad original con escritura directa y respaldo MediaStore en MangaTotal/descargas",
-    "Limpieza automática de títulos largos y caracteres especiales para evitar errores de creación de carpeta en Android y Windows",
+    "Conexión directa al CDN de las fuentes desde el puente nativo en Android y PC (páginas, portadas y descargas sin intermediarios web)",
+    "Descargas nativas de capítulos en Android (versión local y Google Play) en MangaTotal/descargas con respaldo automático",
+    "Resolución nativa directa de páginas de E-Hentai, Hitomi, Ikigai, ZonaTMO, LeerCapítulo, Catharsis, Olympus y MangaDex",
     "Compatibilidad completa con todas las fuentes externas y contenido +18"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"

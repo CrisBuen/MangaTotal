@@ -3180,8 +3180,7 @@ export default function ExplorarPage() {
                     <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] bg-[var(--surface-raised)] border border-line transition-colors group-hover:border-line-strong">
                       <MarcaGuardada visible={guardada("hitomi", s.id, "adult")} />
                       {thumbUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <ImagenFuente
                           src={thumbUrl}
                           alt={s.title}
                           className="h-full w-full object-cover transition duration-500"
