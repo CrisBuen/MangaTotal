@@ -15,7 +15,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Windo
 /// coinciden, el permiso no sirve.
 const UA_NAVEGADOR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-const DOMINIOS_IMAGEN_FUENTES: [&str; 33] = [
+const DOMINIOS_IMAGEN_FUENTES: [&str; 32] = [
     "mangadex.network",
     "mangadex.org",
     "hath.network",

@@ -1,14 +1,14 @@
 {
-  "versionCode": 14,
-  "versionName": "1.13",
-  "date": "2026-10-17",
+  "versionCode": 15,
+  "versionName": "1.14",
+  "date": "2026-10-28",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "63927E6AECFBEBDCB5941C8C5CAA5BD926F1CD4570521DEB9C7B13780DCF76C5",
+  "sha256": "60DAB2FEE40B9A5C508C286226BEB1B42F8752EFBFA2C7382505418F16EDACB5",
   "sizeMb": 2.6,
   "changes": [
-    "Descarga local de capítulos en resolución original organizada por carpetas",
-    "Soporte para fuentes +18 con selector de idiomas y filtrado dinámico de tags",
-    "Separación en biblioteca e historial de contenido +18 con guardado de página leída",
-    "Reproductor optimizado para HentaiTV con menú de calidad y subtítulos sincronizados"
+    "Conexión directa al CDN de las fuentes desde el puente nativo de Windows (páginas, portadas y descargas de capítulos sin pasar por servidores intermedios)",
+    "Resolución nativa directa de páginas de E-Hentai, Hitomi, Ikigai, ZonaTMO, LeerCapítulo, Catharsis, Olympus y MangaDex",
+    "Descarga local de capítulos en calidad original FullHD organizada automáticamente por carpetas",
+    "Compatibilidad completa con todas las fuentes externas y búsqueda combinada de múltiples etiquetas"
   ]
 }
