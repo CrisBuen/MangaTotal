@@ -47,7 +47,8 @@ export function capituloHref(
   slug: string | null,
   type: string | null,
   chapterId: string,
-  page: number | null
+  page: number | null,
+  capituloNombre?: string | null
 ): string {
   const pagina = page && page > 1 ? `page=${page}` : "";
   const con = (base: string, extra = "") => {
@@ -56,9 +57,11 @@ export function capituloHref(
   };
 
   if (source === "olympus") {
+    const capParam = capituloNombre ? `cap=${encodeURIComponent(capituloNombre)}` : "";
+    const extra = [`slug=${slug ?? externalId}`, `tipo=${type ?? "comic"}`, capParam].filter(Boolean).join("&");
     return con(
       `/leer-externo/olympus/${chapterId}`,
-      `slug=${slug ?? externalId}&tipo=${type ?? "comic"}`
+      extra
     );
   }
   if (source === "ikigai") {
@@ -134,7 +137,7 @@ export function publico(e: SerieExternaFila) {
     href,
     // retomar la lectura exactamente donde quedó, si ya empezó
     href_continuar: e.lastChapterId
-      ? capituloHref(e.source, e.externalId, e.slug, e.type, e.lastChapterId, e.lastPageNumber)
+      ? capituloHref(e.source, e.externalId, e.slug, e.type, e.lastChapterId, e.lastPageNumber, e.lastChapterName)
       : href,
   };
 }

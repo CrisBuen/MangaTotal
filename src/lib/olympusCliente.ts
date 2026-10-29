@@ -1,5 +1,6 @@
 import { fuenteNativaDisponible, traerJson, traerTexto, DesafioPendiente } from "./fuenteNativa";
 import { OLYMPUS_WEB, type FiltrosOlympus } from "./olympus";
+import { aliasOlympus } from "./referenciasLectura";
 
 export interface SerieOlympus {
   id: number;
@@ -163,44 +164,31 @@ async function catalogoNativoDirecto(
   };
 }
 
-/** Consulta de la ficha y lista completa de capítulos mediante el puente nativo. */
-async function serieNativaDirecta(slug: string): Promise<{
-  serie: SerieOlympus & {
-    summary: string | null;
-    genres: string[];
-    team: string;
-    rating?: number | null;
-  };
-  chapters: CapituloOlympus[];
-}> {
-  const sDetalle = await traerJson<{ data: Record<string, unknown> }>(
-    `${OLYMPUS_WEB}/api/series/${encodeURIComponent(slug)}`
+let catalogoListCache: { data: { id: number; slug: string; type: string; name?: string }[]; expiresAt: number } | null = null;
+
+async function obtenerIndiceSeriesNativo(): Promise<{ id: number; slug: string; type: string; name?: string }[]> {
+  const ahora = Date.now();
+  if (catalogoListCache && catalogoListCache.expiresAt > ahora) {
+    return catalogoListCache.data;
+  }
+  const res = await traerJson<{ data: { id: number; slug: string; type: string; name?: string }[] }>(
+    `${OLYMPUS_WEB}/api/series/list`
   );
-  const d = sDetalle.data;
-  const serie = {
-    id: Number(d.id),
-    slug: String(d.slug ?? slug),
-    title: String(d.name ?? ""),
-    cover_url: typeof d.cover === "string" ? d.cover : null,
-    status:
-      d.status && typeof d.status === "object"
-        ? String((d.status as Record<string, unknown>).name ?? "")
-        : null,
-    chapter_count: typeof d.chapter_count === "number" ? d.chapter_count : null,
-    type: String(d.type || "comic"),
-    url_original: `${OLYMPUS_WEB}/series/${d.type || "comic"}-${d.slug}`,
-    summary: typeof d.summary === "string" ? d.summary : null,
-    genres: Array.isArray(d.genres)
-      ? d.genres
-          .filter((g): g is Record<string, unknown> => typeof g === "object" && g !== null)
-          .map((g) => String(g.name ?? ""))
-      : [],
-    team:
-      d.team && typeof d.team === "object"
-        ? String((d.team as Record<string, unknown>).name ?? "Olympus Scanlation")
-        : "Olympus Scanlation",
-    rating: typeof d.rating === "number" ? d.rating : null,
-  };
+  const data = Array.isArray(res?.data) ? res.data : [];
+  catalogoListCache = { data, expiresAt: ahora + 15 * 60_000 };
+  return data;
+}
+
+const capitulosNativosCache = new Map<string, { chapters: CapituloOlympus[]; expiresAt: number }>();
+
+async function obtenerCapitulosSerieNativo(slug: string, fresco = false): Promise<CapituloOlympus[]> {
+  const ahora = Date.now();
+  if (!fresco) {
+    const guardado = capitulosNativosCache.get(slug);
+    if (guardado && guardado.expiresAt > ahora) {
+      return guardado.chapters;
+    }
+  }
 
   const rCaps = await traerJson<{
     data: Record<string, unknown>[];
@@ -219,13 +207,20 @@ async function serieNativaDirecta(slug: string): Promise<{
 
   const totalPaginas = rCaps.meta?.last_page ?? 1;
   if (totalPaginas > 1) {
-    const paginasRestantes = Array.from({ length: totalPaginas - 1 }, (_, i) => i + 2);
-    for (const p of paginasRestantes) {
-      try {
-        const masCaps = await traerJson<{ data: Record<string, unknown>[] }>(
-          `${OLYMPUS_WEB}/api/series/${encodeURIComponent(slug)}/chapters?page=${p}`
+    const LOTE = 6;
+    for (let desde = 2; desde <= totalPaginas; desde += LOTE) {
+      const lote = [];
+      for (let p = desde; p < desde + LOTE && p <= totalPaginas; p++) {
+        lote.push(
+          traerJson<{ data: Record<string, unknown>[] }>(
+            `${OLYMPUS_WEB}/api/series/${encodeURIComponent(slug)}/chapters?page=${p}`
+          ).catch(() => null)
         );
-        for (const c of masCaps.data ?? []) {
+      }
+      const resultados = await Promise.all(lote);
+      for (const res of resultados) {
+        if (!res?.data) continue;
+        for (const c of res.data) {
           chapters.push({
             id: Number(c.id),
             name: String(c.name ?? ""),
@@ -236,9 +231,74 @@ async function serieNativaDirecta(slug: string): Promise<{
                 : "Olympus Scanlation",
           });
         }
-      } catch {}
+      }
     }
   }
+
+  if (capitulosNativosCache.size >= 200) {
+    const primero = capitulosNativosCache.keys().next().value;
+    if (primero !== undefined) capitulosNativosCache.delete(primero);
+  }
+  capitulosNativosCache.set(slug, { chapters, expiresAt: ahora + 10 * 60_000 });
+  return chapters;
+}
+
+/** Consulta de la ficha y lista completa de capítulos mediante el puente nativo. */
+async function serieNativaDirecta(slug: string, tipo?: string): Promise<{
+  serie: SerieOlympus & {
+    summary: string | null;
+    genres: string[];
+    team: string;
+    rating?: number | null;
+  };
+  chapters: CapituloOlympus[];
+}> {
+  let slugEfectivo = slug;
+  let d: Record<string, unknown>;
+
+  try {
+    const sDetalle = await traerJson<{ data: Record<string, unknown> }>(
+      `${OLYMPUS_WEB}/api/series/${encodeURIComponent(slug)}`
+    );
+    d = sDetalle.data;
+  } catch (err) {
+    // Si da 404, buscar alias en el listado de Olympus
+    const indice = await obtenerIndiceSeriesNativo().catch(() => []);
+    const candidata = aliasOlympus(slug, indice, tipo);
+    if (!candidata) throw err;
+    slugEfectivo = candidata.slug;
+    const sDetalle = await traerJson<{ data: Record<string, unknown> }>(
+      `${OLYMPUS_WEB}/api/series/${encodeURIComponent(slugEfectivo)}`
+    );
+    d = sDetalle.data;
+  }
+
+  const serie = {
+    id: Number(d.id),
+    slug: String(d.slug ?? slugEfectivo),
+    title: String(d.name ?? ""),
+    cover_url: typeof d.cover === "string" ? d.cover : null,
+    status:
+      d.status && typeof d.status === "object"
+        ? String((d.status as Record<string, unknown>).name ?? "")
+        : null,
+    chapter_count: typeof d.chapter_count === "number" ? d.chapter_count : null,
+    type: String(d.type || tipo || "comic"),
+    url_original: `${OLYMPUS_WEB}/series/${d.type || tipo || "comic"}-${d.slug ?? slugEfectivo}`,
+    summary: typeof d.summary === "string" ? d.summary : null,
+    genres: Array.isArray(d.genres)
+      ? d.genres
+          .filter((g): g is Record<string, unknown> => typeof g === "object" && g !== null)
+          .map((g) => String(g.name ?? ""))
+      : [],
+    team:
+      d.team && typeof d.team === "object"
+        ? String((d.team as Record<string, unknown>).name ?? "Olympus Scanlation")
+        : "Olympus Scanlation",
+    rating: typeof d.rating === "number" ? d.rating : null,
+  };
+
+  const chapters = await obtenerCapitulosSerieNativo(serie.slug);
 
   return { serie, chapters };
 }
@@ -247,47 +307,81 @@ async function serieNativaDirecta(slug: string): Promise<{
 async function capituloNativoDirecto(
   id: number,
   slug: string,
-  tipo: string = "comic"
+  tipo: string = "comic",
+  nombreCapitulo?: string
 ): Promise<CapituloDataOlympus> {
   const slugLimpio = slug.replace(/^(comic|novel)-/, "").trim();
+  let slugVigente = slugLimpio;
 
-  // 1. Probar por nombre de capítulo si tenemos slug
+  const pedirPorNombre = async (slugObjetivo: string, numCap: string) => {
+    const tipoParam = tipo === "novel" ? "novel" : "comic";
+    const r = await traerJson<Record<string, unknown>>(
+      `${OLYMPUS_WEB}/api/capitulo/${encodeURIComponent(slugObjetivo)}/${encodeURIComponent(numCap)}?type=${tipoParam}`
+    );
+    const d = (r.data ?? r) as Record<string, unknown>;
+    const ch = d.chapter as Record<string, unknown> | undefined;
+    if (ch && Array.isArray(ch.pages) && ch.pages.length > 0) {
+      const rawPages = ch.pages;
+      const prev = d.prev_chapter as Record<string, unknown> | null;
+      const next = d.next_chapter as Record<string, unknown> | null;
+      const comic = d.comic as Record<string, unknown> | null;
+      return {
+        id: Number(ch.id),
+        name: String(ch.name ?? numCap),
+        title: typeof ch.title === "string" ? ch.title : null,
+        pages: rawPages.filter((u): u is string => typeof u === "string" && u.startsWith("http")),
+        prev: prev ? { id: Number(prev.id), name: String(prev.name ?? "") } : null,
+        next: next ? { id: Number(next.id), name: String(next.name ?? "") } : null,
+        url_original: `${OLYMPUS_WEB}/series/${tipo === "novel" ? "novela" : tipo}-${slugObjetivo}/capitulo/${encodeURIComponent(numCap)}`,
+        slug: comic?.slug ? String(comic.slug) : slugObjetivo,
+      };
+    }
+    return null;
+  };
+
+  // 1. Si tenemos el nombre del capítulo directamente (pasado por parámetro o enlace)
+  if (slugLimpio && nombreCapitulo?.trim()) {
+    try {
+      const cap = await pedirPorNombre(slugLimpio, nombreCapitulo.trim());
+      if (cap) return cap;
+    } catch {
+      // Intentar resolver alias si el slug previo cambió
+      try {
+        const indice = await obtenerIndiceSeriesNativo().catch(() => []);
+        const candidata = aliasOlympus(slugLimpio, indice, tipo);
+        if (candidata) {
+          slugVigente = candidata.slug;
+          const cap = await pedirPorNombre(slugVigente, nombreCapitulo.trim());
+          if (cap) return cap;
+        }
+      } catch {}
+    }
+  }
+
+  // 2. Si no tenemos el nombre o falló, buscar el capítulo por ID en la lista completa
   if (slugLimpio) {
     try {
-      const caps = await traerJson<{ data: Record<string, unknown>[] }>(
-        `${OLYMPUS_WEB}/api/series/${encodeURIComponent(slugLimpio)}/chapters?page=1`
-      );
-      const cEncontrado = caps.data?.find((c) => Number(c.id) === id);
-      if (cEncontrado?.name) {
-        const nombreStr = String(cEncontrado.name).trim();
-        const r = await traerJson<Record<string, unknown>>(
-          `${OLYMPUS_WEB}/api/capitulo/${encodeURIComponent(slugLimpio)}/${encodeURIComponent(nombreStr)}?type=${tipo === "novel" ? "novel" : "comic"}`
-        );
-        const d = (r.data ?? r) as Record<string, unknown>;
-        const ch = d.chapter as Record<string, unknown> | undefined;
-        if (ch) {
-          const rawPages = Array.isArray(ch.pages) ? ch.pages : [];
-          const prev = d.prev_chapter as Record<string, unknown> | null;
-          const next = d.next_chapter as Record<string, unknown> | null;
-          const comic = d.comic as Record<string, unknown> | null;
-          return {
-            id: Number(ch.id),
-            name: String(ch.name ?? ""),
-            title: typeof ch.title === "string" ? ch.title : null,
-            pages: rawPages.filter((u): u is string => typeof u === "string" && u.startsWith("http")),
-            prev: prev ? { id: Number(prev.id), name: String(prev.name ?? "") } : null,
-            next: next ? { id: Number(next.id), name: String(next.name ?? "") } : null,
-            url_original: `${OLYMPUS_WEB}/series/${tipo === "novel" ? "novela" : tipo}-${slugLimpio}/capitulo/${encodeURIComponent(String(ch.name ?? "").trim())}`,
-            slug: comic?.slug ? String(comic.slug) : slugLimpio,
-          };
+      let lista = await obtenerCapitulosSerieNativo(slugVigente).catch(() => null);
+      if (!lista || !lista.some((c) => c.id === id)) {
+        const indice = await obtenerIndiceSeriesNativo().catch(() => []);
+        const candidata = aliasOlympus(slugLimpio, indice, tipo);
+        if (candidata) {
+          slugVigente = candidata.slug;
+          lista = await obtenerCapitulosSerieNativo(slugVigente).catch(() => null);
         }
+      }
+
+      const cEncontrado = lista?.find((c) => c.id === id);
+      if (cEncontrado?.name) {
+        const cap = await pedirPorNombre(slugVigente, cEncontrado.name.trim());
+        if (cap) return cap;
       }
     } catch {}
   }
 
-  // 2. Respaldo por ID
+  // 3. Respaldo por ID
   const r = await traerJson<Record<string, unknown>>(
-    `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(slugLimpio || "serie")}/${id}`
+    `${OLYMPUS_WEB}/api/capitulo/${tipo}-${encodeURIComponent(slugVigente || "serie")}/${id}`
   );
   const d = (r.data ?? r) as Record<string, unknown>;
   const ch = d.chapter as Record<string, unknown> | undefined;
@@ -304,8 +398,8 @@ async function capituloNativoDirecto(
     pages: rawPages.filter((u): u is string => typeof u === "string" && u.startsWith("http")),
     prev: prev ? { id: Number(prev.id), name: String(prev.name ?? "") } : null,
     next: next ? { id: Number(next.id), name: String(next.name ?? "") } : null,
-    url_original: `${OLYMPUS_WEB}/series/${tipo === "novel" ? "novela" : tipo}-${comic?.slug || slugLimpio}/capitulo/${encodeURIComponent(String(ch.name ?? "").trim())}`,
-    slug: comic?.slug ? String(comic.slug) : slugLimpio,
+    url_original: `${OLYMPUS_WEB}/series/${tipo === "novel" ? "novela" : tipo}-${comic?.slug || slugVigente}/capitulo/${encodeURIComponent(String(ch.name ?? "").trim())}`,
+    slug: comic?.slug ? String(comic.slug) : slugVigente,
   };
 }
 
@@ -365,7 +459,8 @@ export async function pedirCatalogoOlympus(
 export async function pedirSerieOlympus(
   slug: string,
   fresco = false,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  tipo?: string
 ): Promise<{
   serie: SerieOlympus & {
     summary: string | null;
@@ -393,7 +488,7 @@ export async function pedirSerieOlympus(
 
   if (fuenteNativaDisponible()) {
     try {
-      return await serieNativaDirecta(slug);
+      return await serieNativaDirecta(slug, tipo);
     } catch (err) {
       if (err instanceof DesafioPendiente) throw err;
       throw err;
@@ -412,11 +507,13 @@ export async function pedirCapituloOlympus(
   id: number,
   slug: string,
   tipo: string = "comic",
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  cap?: string
 ): Promise<CapituloDataOlympus> {
   const qs = new URLSearchParams({
     tipo,
     ...(slug ? { slug } : {}),
+    ...(cap ? { cap } : {}),
   });
 
   try {
@@ -431,7 +528,7 @@ export async function pedirCapituloOlympus(
 
   if (fuenteNativaDisponible()) {
     try {
-      return await capituloNativoDirecto(id, slug, tipo);
+      return await capituloNativoDirecto(id, slug, tipo, cap);
     } catch (err) {
       if (err instanceof DesafioPendiente) throw err;
       throw err;

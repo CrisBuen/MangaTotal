@@ -8,13 +8,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const id = parseInt(raw, 10);
   const slug = req.nextUrl.searchParams.get("slug")?.trim() || "";
   const tipo = req.nextUrl.searchParams.get("tipo")?.trim() || "comic";
+  const cap = req.nextUrl.searchParams.get("cap")?.trim() || "";
 
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
 
   try {
-    return NextResponse.json(await paginas(id, tipo, slug));
+    return NextResponse.json(await paginas(id, tipo, slug, cap));
   } catch (err) {
     console.error("[olympus] capítulo", id, err);
     return NextResponse.json({ error: "No se pudo cargar el capítulo" }, { status: 502 });

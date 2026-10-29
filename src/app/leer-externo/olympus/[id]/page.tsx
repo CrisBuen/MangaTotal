@@ -25,6 +25,7 @@ export default function LeerOlympusPage(props: { params: Promise<{ id: string }>
   const params = useSearchParams();
   const slugParam = params.get("slug")?.trim() ?? "";
   const tipo = params.get("tipo")?.trim() || "comic";
+  const capParam = params.get("cap")?.trim() ?? "";
   const paginaInicial = Number(params.get("page")) || 1;
 
   const [capitulo, setCapitulo] = useState<CapituloData | null>(null);
@@ -47,7 +48,7 @@ export default function LeerOlympusPage(props: { params: Promise<{ id: string }>
       const data = await cargarConCacheAndroid<CapituloData>(
         `capitulo:olympus:${id}`,
         async (signal) => {
-          return pedirCapituloOlympus(id, slugParam, tipo, signal);
+          return pedirCapituloOlympus(id, slugParam, tipo, signal, capParam);
         },
         {
           publicCache: true,
@@ -66,7 +67,7 @@ export default function LeerOlympusPage(props: { params: Promise<{ id: string }>
     } catch (err) {
       setError(err);
     }
-  }, [rawId, slugParam, tipo]);
+  }, [rawId, slugParam, tipo, capParam]);
 
   useEffect(() => {
     cargar();

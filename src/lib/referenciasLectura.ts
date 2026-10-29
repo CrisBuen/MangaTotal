@@ -25,7 +25,7 @@ export function aliasOlympus<T extends { id: number; slug: string; type: string 
 ): T | null {
   // Olympus agrega una fecha y nueve dígitos al slug al republicar su
   // catálogo. Se compara la base exacta; una coincidencia ambigua no sirve.
-  const base = (valor: string) => valor.replace(/-\d{8}-\d{9}$/, "");
+  const base = (valor: string) => valor.replace(/-\d{8}-\d+$/, "");
   const candidatos = catalogo.filter((s) =>
     base(s.slug) === base(slug) && (!tipo || s.type === tipo)
   );

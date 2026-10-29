@@ -16,7 +16,7 @@ export function buscarReferenciaBiblioteca<T extends ReferenciaBiblioteca>(
   if (exacta && exacta.saved !== false) return exacta;
   if (source !== "olympus") return exacta ?? null;
   // Misma regla que aliasOlympus: nunca por título, portada o parecido.
-  const base = (s: string) => s.replace(/-\d{8}-\d{9}$/, "");
+  const base = (s: string) => s.replace(/-\d{8}-\d+$/, "");
   const candidatas = compatibles.filter(e =>
     base(e.external_id) === base(externalId) ||
     (e.slug && base(e.slug) === base(externalId)));

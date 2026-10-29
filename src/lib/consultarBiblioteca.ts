@@ -138,8 +138,15 @@ export async function consultarBiblioteca(tipo: TipoCola, t: TareaBiblioteca, si
     const { serieCw } = await import("./catharsis");
     return resumirCapitulos((await serieCw(t.external_id, true)).capitulos, t.last_chapter_name);
   }
-  if (t.source === "olympus" || t.source === "mangadex") {
-    const url = t.source === "olympus" ? `/api/externo/olympus/series/${encodeURIComponent(t.slug || t.external_id)}` : `/api/externo/series/${encodeURIComponent(t.external_id)}?lang=es`;
+  if (t.source === "olympus") {
+    const { pedirSerieOlympus } = await import("./olympusCliente");
+    const slug = t.slug || t.external_id;
+    const f = await pedirSerieOlympus(slug, true, signal, t.type ?? undefined);
+    if (!Array.isArray(f.chapters)) throw new Error("La fuente no informó capítulos válidos");
+    return resumirCapitulos(f.chapters, t.last_chapter_name, f.serie?.status);
+  }
+  if (t.source === "mangadex") {
+    const url = `/api/externo/series/${encodeURIComponent(t.external_id)}?lang=es`;
     const f = await json(url, signal);
     if (!Array.isArray(f.chapters)) throw new Error("La fuente no informó capítulos válidos");
     return resumirCapitulos(f.chapters, t.last_chapter_name, f.serie?.status ?? f.series?.status ?? f.status);

@@ -420,7 +420,7 @@ export async function capitulos(slug: string, fresco = false) {
  * enlaza capítulos por id, se intenta primero la ruta vigente (aprovechando la
  * lista de capítulos en caché de la serie) y se conserva la ruta antigua como respaldo.
  */
-export async function paginas(chapterId: number, tipo: string = "comic", slug: string = "") {
+export async function paginas(chapterId: number, tipo: string = "comic", slug: string = "", cap: string = "") {
   interface RespuestaCapitulo {
     chapter: { id: number; name: string; title: string | null; pages: string[] };
     prev_chapter: { id: number; name: string } | null;
@@ -437,16 +437,16 @@ export async function paginas(chapterId: number, tipo: string = "comic", slug: s
   /** Forma actual: slug sin prefijo + número del capítulo + type. */
   const consultarPorNumero = async (): Promise<{ cuerpo: Cuerpo; slug: string }> => {
     if (!slugLimpio) throw new ErrorHttpOlympus(404, "capitulo sin slug");
-    // Intentar primero con el slug directo en paralelo; si hubo alias se resuelve con serie()
-    const [ficha, listaDirecta] = await Promise.all([
-      serie(slugLimpio, tipo),
-      capitulos(slugLimpio).catch(() => null),
-    ]);
-    const lista = listaDirecta && ficha.slug === slugLimpio ? listaDirecta : await capitulos(ficha.slug);
-    const encontrado = lista.chapters.find((c) => c.id === chapterId);
-    if (!encontrado) throw new ErrorHttpOlympus(404, "capitulo inexistente");
+    const ficha = await serie(slugLimpio, tipo);
+    let nombreCap = cap?.trim();
+    if (!nombreCap) {
+      const lista = await capitulos(ficha.slug);
+      const encontrado = lista.chapters.find((c) => c.id === chapterId);
+      if (!encontrado) throw new ErrorHttpOlympus(404, "capitulo inexistente");
+      nombreCap = encontrado.name.trim();
+    }
     const cuerpo = await olympusFetch<Cuerpo>(
-      `${OLYMPUS_WEB}/api/capitulo/${encodeURIComponent(ficha.slug)}/${encodeURIComponent(encontrado.name.trim())}?type=${tipo === "novel" ? "novel" : "comic"}`,
+      `${OLYMPUS_WEB}/api/capitulo/${encodeURIComponent(ficha.slug)}/${encodeURIComponent(nombreCap)}?type=${tipo === "novel" ? "novel" : "comic"}`,
       600
     );
     return { cuerpo, slug: ficha.slug };
@@ -459,7 +459,8 @@ export async function paginas(chapterId: number, tipo: string = "comic", slug: s
   if (slugLimpio) {
     try {
       const r = await consultarPorNumero();
-      if ((r.cuerpo.data ?? r.cuerpo)?.chapter?.id === chapterId) {
+      const capData = (r.cuerpo.data ?? r.cuerpo)?.chapter;
+      if (capData && (capData.id === chapterId || !chapterId || capData.name === cap?.trim())) {
         data = r.cuerpo;
         slugVigente = r.slug;
       }

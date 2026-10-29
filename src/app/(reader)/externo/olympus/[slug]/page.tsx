@@ -88,6 +88,14 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
     return () => { solicitud.current++; };
   }, [cargar]);
 
+  useEffect(() => {
+    if (serie?.slug && serie.slug !== slug && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.pathname = `/externo/olympus/${encodeURIComponent(serie.slug)}`;
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, [serie?.slug, slug]);
+
   if (error) {
     return (
       <Surface className="p-10 text-center">
@@ -233,7 +241,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
                       last_chapter_name: String(c.name),
                     })
                   }
-                  href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&cap=${encodeURIComponent(c.name)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
                   className="min-w-0 flex-1"
                 >
                   <p className="truncate text-sm font-semibold text-ink">
@@ -260,7 +268,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
                   capituloNombre={`Capítulo ${c.name}`}
                   obtenerPaginas={async () => {
                     const res = await fetch(
-                      `/api/externo/olympus/capitulo/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}`
+                      `/api/externo/olympus/capitulo/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&cap=${encodeURIComponent(c.name)}&tipo=${serie.type}`
                     );
                     if (!res.ok) throw new Error("No se pudieron cargar las páginas");
                     const data = await res.json();
@@ -276,7 +284,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
                       last_chapter_name: String(c.name),
                     })
                   }
-                  href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  href={`/leer-externo/olympus/${c.id}?slug=${encodeURIComponent(serie.slug || slug)}&cap=${encodeURIComponent(c.name)}&tipo=${serie.type}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
                   className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
                 >
                   Leer →
@@ -305,6 +313,12 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
         type={serie.type}
         capitulos={capitulos.map((c) => ({ id: c.id, name: c.name }))}
         cargando={!serie}
+        resolverHref={(capituloId, pagina) => {
+          const c = capitulos.find((item) => String(item.id) === capituloId);
+          const capParam = c?.name ? `&cap=${encodeURIComponent(c.name)}` : "";
+          const pagParam = pagina && pagina > 1 ? `&page=${pagina}` : "";
+          return `/leer-externo/olympus/${capituloId}?slug=${encodeURIComponent(serie.slug || slug)}&tipo=${serie.type}${capParam}${pagParam}`;
+        }}
       />
     </div>
   );

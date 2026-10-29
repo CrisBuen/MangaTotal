@@ -81,7 +81,8 @@ export function OlympusReader({
   const volverHref = hrefVolver ?? `/externo/olympus/${serie.slug}`;
   const capituloHref =
     hrefCapitulo ??
-    ((id: number | string) => `/leer-externo/olympus/${id}?slug=${serie.slug}&tipo=${serie.tipo}`);
+    ((id: number | string, capName?: string) =>
+      `/leer-externo/olympus/${id}?slug=${serie.slug}&tipo=${serie.tipo}${capName ? `&cap=${encodeURIComponent(capName)}` : ""}`);
 
   const changeMode = useCallback((next: ReadingMode) => {
     setMode(next);
@@ -246,7 +247,7 @@ export function OlympusReader({
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-3 px-4 pb-12 pt-2">
         {prevChapter && (
           <EnlaceCapitulo
-            href={capituloHref(prevChapter.id)}
+            href={capituloHref(prevChapter.id, prevChapter.name)}
             className="rounded-md border border-line bg-panel px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.1em] text-ink transition hover:border-line-strong"
           >
             ← Capítulo {prevChapter.name}
@@ -260,7 +261,7 @@ export function OlympusReader({
         </Link>
         {nextChapter && (
           <EnlaceCapitulo
-            href={capituloHref(nextChapter.id)}
+            href={capituloHref(nextChapter.id, nextChapter.name)}
             className="rounded-md border border-accent bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.1em] text-[var(--on-accent)] transition hover:opacity-90"
           >
             Capítulo {nextChapter.name} →

@@ -171,7 +171,8 @@ export function BotonFlotanteLectura({
       slug ?? null,
       type ?? null,
       targetId,
-      targetPage
+      targetPage,
+      targetName
     );
   }
 

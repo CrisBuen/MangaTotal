@@ -104,7 +104,8 @@ export function actualizarProgresoHistorialLocal(entrada: {
       actual.slug,
       actual.type,
       entrada.chapterId,
-      pagina
+      pagina,
+      nombreCapitulo ?? actual.last_chapter_name
     ),
     updated_at: ahora,
     paginas,
@@ -218,7 +219,8 @@ export async function anotarHistorial(serie: {
           slug,
           type,
           chapterId,
-          pageNumber
+          pageNumber,
+          serie.last_chapter_name ?? null
         )
       : href;
     const paginas = { ...(existente?.paginas ?? {}) };
