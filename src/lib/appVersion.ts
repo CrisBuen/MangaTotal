@@ -84,12 +84,12 @@ export function isDismissed(versionCode: number): boolean {
  * enlaces en el navegador del sistema, que sí sabe descargar el APK.
  */
 export function downloadUrlFor(release: AndroidRelease, inApp: boolean): string {
-  if (!inApp) return release.apkUrl;
-  // Desde la versión 3 la app descarga e instala por su cuenta, así que
-  // conviene el enlace del propio sitio. Las anteriores no sabían descargar:
-  // para esas se usa el dominio externo, que Capacitor manda al navegador.
-  if (installedVersionCode() >= 3) return release.apkUrl;
-  return release.apkExternalUrl ?? release.apkUrl;
+  const urlDirecta = release.apkUrl.startsWith("http")
+    ? release.apkUrl
+    : `https://www.mangatotal.com${release.apkUrl.startsWith("/") ? "" : "/"}${release.apkUrl}`;
+  if (!inApp) return urlDirecta;
+  if (installedVersionCode() >= 3) return urlDirecta;
+  return release.apkExternalUrl ?? urlDirecta;
 }
 
 // ── App de escritorio (Windows) ───────────────────────────────────────────

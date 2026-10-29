@@ -30,6 +30,40 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/descargas/MangaTotal-android.apk",
+        headers: [
+          {
+            key: "Content-Disposition",
+            value: 'attachment; filename="MangaTotal-android.apk"',
+          },
+          {
+            key: "Content-Type",
+            value: "application/vnd.android.package-archive",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=300, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/descargas/MangaTotal-windows-setup.exe",
+        headers: [
+          {
+            key: "Content-Disposition",
+            value: 'attachment; filename="MangaTotal-windows-setup.exe"',
+          },
+          {
+            key: "Content-Type",
+            value: "application/octet-stream",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=300, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: [
           { key: "Content-Security-Policy", value: contentSecurityPolicy },

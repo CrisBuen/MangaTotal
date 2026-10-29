@@ -1019,6 +1019,19 @@ public class FuentesPlugin extends Plugin {
         return "image/jpeg";
     }
 
+    @PluginMethod
+    public void iniciarDescargaActualizacion(PluginCall call) {
+        String direccion = call.getString("url", "");
+        getActivity().runOnUiThread(() -> {
+            if (MainActivity.instancia != null) {
+                MainActivity.instancia.descargarActualizacion(direccion);
+                call.resolve();
+            } else {
+                call.reject("MainActivity no disponible");
+            }
+        });
+    }
+
     /** Sin conexión el mensaje del sistema viene vacío, y así no se entiende. */
     private static String mensaje(Exception e) {
         String texto = e.getMessage();

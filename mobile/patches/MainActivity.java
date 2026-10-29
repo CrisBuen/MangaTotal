@@ -35,6 +35,8 @@ import java.security.MessageDigest;
  */
 public class MainActivity extends BridgeActivity {
 
+    public static MainActivity instancia;
+
     private static final String APK_NAME = "MangaTotal-update.apk";
     private static final String APK_MIME = "application/vnd.android.package-archive";
     private static final String APK_URL =
@@ -51,6 +53,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        instancia = this;
         registerPlugin(FuentesPlugin.class);
         registerPlugin(PantallaPlugin.class);
         registerPlugin(ActualizacionPlugin.class);
@@ -97,8 +100,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     /** Descarga el APK con el gestor del sistema, mostrando el progreso. */
-    private void descargarActualizacion(String url) {
-        if (!esUrlActualizacion(url)) {
+    public void descargarActualizacion(String url) {
+        if (url != null && !url.trim().isEmpty() && !esUrlActualizacion(url)) {
             return;
         }
 
@@ -107,9 +110,8 @@ public class MainActivity extends BridgeActivity {
             destino.delete();
         }
 
-        // No se usa la dirección que eligió JavaScript: el binario permitido
-        // vive en una ruta fija de nuestro dominio.
-        DownloadManager.Request pedido = new DownloadManager.Request(Uri.parse(APK_URL));
+        String urlFinal = (url != null && esUrlActualizacion(url) && url.startsWith("http")) ? url : APK_URL;
+        DownloadManager.Request pedido = new DownloadManager.Request(Uri.parse(urlFinal));
         pedido.setTitle("MangaTotal");
         pedido.setDescription("Descargando la actualización…");
         pedido.setMimeType(APK_MIME);
@@ -119,6 +121,7 @@ public class MainActivity extends BridgeActivity {
         DownloadManager gestor = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
         if (gestor != null) {
             descargaId = gestor.enqueue(pedido);
+            Toast.makeText(this, "Descargando actualización de MangaTotal…", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -159,15 +162,18 @@ public class MainActivity extends BridgeActivity {
     }
 
     private static boolean esUrlActualizacion(String direccion) {
+        if (direccion == null || direccion.trim().isEmpty()) {
+            return false;
+        }
         try {
             Uri url = Uri.parse(direccion);
-            return "https".equalsIgnoreCase(url.getScheme())
-                && "www.mangatotal.com".equalsIgnoreCase(url.getHost())
-                && (url.getPort() == -1 || url.getPort() == 443)
-                && "/descargas/MangaTotal-android.apk".equals(url.getPath())
-                && url.getUserInfo() == null
-                && url.getQuery() == null
-                && url.getFragment() == null;
+            String host = url.getHost();
+            boolean hostValido = host == null
+                || "www.mangatotal.com".equalsIgnoreCase(host)
+                || "mangatotal.com".equalsIgnoreCase(host);
+            String path = url.getPath();
+            boolean pathValido = path != null && path.endsWith("MangaTotal-android.apk");
+            return hostValido && pathValido && url.getUserInfo() == null;
         } catch (Exception ignorado) {
             return false;
         }
@@ -287,6 +293,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        if (instancia == this) {
+            instancia = null;
+        }
         stopService(new android.content.Intent(this, ActualizacionServicio.class));
         if (receptorDescarga != null) {
             unregisterReceiver(receptorDescarga);

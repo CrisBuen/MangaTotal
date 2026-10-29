@@ -13,6 +13,12 @@ import com.getcapacitor.BridgeActivity;
  */
 public class MainActivity extends BridgeActivity {
 
+    public static MainActivity instancia;
+
+    public void descargarActualizacion(String url) {
+        // En la versión de Google Play las actualizaciones se gestionan por la tienda.
+    }
+
     private WebView webViewPrincipal() {
         return this.bridge != null ? this.bridge.getWebView() : null;
     }
@@ -22,6 +28,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(FuentesPlugin.class);
         registerPlugin(PantallaPlugin.class);
         registerPlugin(ActualizacionPlugin.class);
+        instancia = this;
         super.onCreate(savedInstanceState);
     }
 
@@ -47,6 +54,9 @@ public class MainActivity extends BridgeActivity {
         if (webView != null) {
             webView.stopLoading();
             webView.onPause();
+        }
+        if (instancia == this) {
+            instancia = null;
         }
         super.onDestroy();
     }

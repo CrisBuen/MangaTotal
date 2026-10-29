@@ -28,6 +28,7 @@ interface Novedad {
  */
 export function AndroidUpdateBanner() {
   const [release, setRelease] = useState<Novedad | null>(null);
+  const [descargando, setDescargando] = useState(false);
 
   useEffect(() => {
     if (!isAndroidApp() || isPlayStoreApp()) return;
@@ -45,6 +46,28 @@ export function AndroidUpdateBanner() {
       });
     })();
   }, []);
+
+  const iniciarActualizacion = async () => {
+    if (!release || descargando) return;
+    setDescargando(true);
+
+    const urlObjetivo = release.descargaUrl.startsWith("http")
+      ? release.descargaUrl
+      : `https://www.mangatotal.com${release.descargaUrl.startsWith("/") ? "" : "/"}${release.descargaUrl}`;
+
+    // 1. Probar puente nativo de Capacitor si está disponible
+    try {
+      const fuentes = (window as unknown as { Capacitor?: { Plugins?: { Fuentes?: { iniciarDescargaActualizacion?: (args: { url: string }) => Promise<void> } } } })?.Capacitor?.Plugins?.Fuentes;
+      if (fuentes?.iniciarDescargaActualizacion) {
+        await fuentes.iniciarDescargaActualizacion({ url: urlObjetivo });
+        return;
+      }
+    } catch {}
+
+    // 2. Si no tiene el método nativo (en versiones anteriores instaladas),
+    // lanzar la descarga navegando a la URL absoluta con Content-Disposition attachment
+    window.location.href = urlObjetivo;
+  };
 
   if (!release) return null;
 
@@ -81,24 +104,53 @@ export function AndroidUpdateBanner() {
       </ul>
 
       <div className="flex gap-2">
-        <a
-          href={release.descargaUrl}
-          rel="noopener"
-          onClick={() => setRelease(null)}
-          className="flex-1 rounded-md border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
-        >
-          Actualizar
-        </a>
+        {descargando ? (
+          <button
+            type="button"
+            disabled
+            className="flex-1 rounded-md border border-accent bg-accent/80 px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] opacity-90 cursor-wait"
+          >
+            Descargando ({release.sizeMb} MB)…
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={iniciarActualizacion}
+            className="flex-1 rounded-md border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition-opacity hover:opacity-95 active:scale-[0.98]"
+          >
+            Actualizar
+          </button>
+        )}
         <button
+          type="button"
           onClick={() => {
-            dismissVersion(release.versionCode);
+            if (!descargando) dismissVersion(release.versionCode);
             setRelease(null);
           }}
-          className="rounded-md border border-line px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle"
+          className="rounded-md border border-line px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle hover:text-ink"
         >
-          Ahora no
+          {descargando ? "Cerrar" : "Ahora no"}
         </button>
       </div>
+
+      {descargando && (
+        <div className="mt-2.5 border-t border-line/60 pt-2 text-center">
+          <p className="text-[11px] leading-4 text-subtle">
+            Descargando con el gestor del sistema. La instalación se abrirá automáticamente.
+          </p>
+          <p className="mt-1 text-[11px] text-subtle">
+            ¿No inicia?{" "}
+            <a
+              href="https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent-ink underline"
+            >
+              Descargar en el navegador
+            </a>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

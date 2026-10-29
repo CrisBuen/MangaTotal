@@ -2,9 +2,9 @@
   "versionCode": 31,
   "versionName": "1.9.18",
   "date": "2026-10-29",
-  "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "9E581A1DA8977576F077FE987A5BE2813EDA201B5784E43E50468C2104483B72",
-  "sizeMb": 4.1,
+  "apkUrl": "https://www.mangatotal.com/descargas/MangaTotal-android.apk",
+  "sha256": "930A624060011F303A71C7B4D5728DE8386094E38B46D5FE4B5586542164FA7F",
+  "sizeMb": 4.2,
   "changes": [
     "Restauración y optimización de la fuente Olympus Scanlation con soporte para nuevos dominios de imágenes (imagesolymp.xyz y swordflake.com)",
     "Puente nativo directo para el catálogo, fichas y capítulos de Olympus sin depender de intermediarios web",
