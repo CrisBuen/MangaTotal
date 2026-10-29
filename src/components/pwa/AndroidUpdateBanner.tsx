@@ -28,7 +28,6 @@ interface Novedad {
  */
 export function AndroidUpdateBanner() {
   const [release, setRelease] = useState<Novedad | null>(null);
-  const [descargando, setDescargando] = useState(false);
 
   useEffect(() => {
     if (!isAndroidApp() || isPlayStoreApp()) return;
@@ -47,33 +46,22 @@ export function AndroidUpdateBanner() {
     })();
   }, []);
 
-  const iniciarActualizacion = async () => {
-    if (!release || descargando) return;
-    setDescargando(true);
-
-    const urlObjetivo = release.descargaUrl.startsWith("http")
-      ? release.descargaUrl
-      : `https://www.mangatotal.com${release.descargaUrl.startsWith("/") ? "" : "/"}${release.descargaUrl}`;
-
-    // 1. Probar puente nativo de Capacitor si está disponible
+  const iniciarActualizacion = () => {
+    if (!release) return;
+    dismissVersion(release.versionCode);
     try {
-      const fuentes = (window as unknown as { Capacitor?: { Plugins?: { Fuentes?: { iniciarDescargaActualizacion?: (args: { url: string }) => Promise<void> } } } })?.Capacitor?.Plugins?.Fuentes;
-      if (fuentes?.iniciarDescargaActualizacion) {
-        await fuentes.iniciarDescargaActualizacion({ url: urlObjetivo });
-        return;
-      }
+      window.open(release.descargaUrl, "_system");
     } catch {}
-
-    // 2. Si no tiene el método nativo (en versiones anteriores instaladas),
-    // lanzar la descarga navegando a la URL absoluta con Content-Disposition attachment
-    window.location.href = urlObjetivo;
+    setTimeout(() => {
+      setRelease(null);
+    }, 400);
   };
 
   if (!release) return null;
 
   return (
     <div
-      className="fixed inset-x-3 bottom-24 z-[60] rounded-[10px] border border-accent bg-panel p-4   lg:inset-x-auto lg:right-5 lg:bottom-5 lg:w-96"
+      className="fixed inset-x-3 bottom-24 z-[60] rounded-[10px] border border-accent bg-panel p-4 lg:inset-x-auto lg:right-5 lg:bottom-5 lg:w-96"
       style={{ marginBottom: "env(safe-area-inset-bottom)" }}
       role="status"
       data-od-id="android-update-banner"
@@ -104,53 +92,26 @@ export function AndroidUpdateBanner() {
       </ul>
 
       <div className="flex gap-2">
-        {descargando ? (
-          <button
-            type="button"
-            disabled
-            className="flex-1 rounded-md border border-accent bg-accent/80 px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] opacity-90 cursor-wait"
-          >
-            Descargando ({release.sizeMb} MB)…
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={iniciarActualizacion}
-            className="flex-1 rounded-md border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition-opacity hover:opacity-95 active:scale-[0.98]"
-          >
-            Actualizar
-          </button>
-        )}
+        <a
+          href={release.descargaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={iniciarActualizacion}
+          className="flex-1 rounded-md border border-accent bg-accent px-4 py-2.5 text-center font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition-opacity hover:opacity-95 active:scale-[0.98]"
+        >
+          Actualizar
+        </a>
         <button
           type="button"
           onClick={() => {
-            if (!descargando) dismissVersion(release.versionCode);
+            dismissVersion(release.versionCode);
             setRelease(null);
           }}
           className="rounded-md border border-line px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle hover:text-ink"
         >
-          {descargando ? "Cerrar" : "Ahora no"}
+          Ahora no
         </button>
       </div>
-
-      {descargando && (
-        <div className="mt-2.5 border-t border-line/60 pt-2 text-center">
-          <p className="text-[11px] leading-4 text-subtle">
-            Descargando con el gestor del sistema. La instalación se abrirá automáticamente.
-          </p>
-          <p className="mt-1 text-[11px] text-subtle">
-            ¿No inicia?{" "}
-            <a
-              href="https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent-ink underline"
-            >
-              Descargar en el navegador
-            </a>
-          </p>
-        </div>
-      )}
     </div>
   );
 }

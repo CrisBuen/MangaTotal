@@ -148,8 +148,14 @@ export function UpdateChecker() {
           ) : (
             <a
               href={release.descargaUrl}
-              rel="noopener"
-              className="inline-block rounded-md border border-accent bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)]"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                try {
+                  window.open(release.descargaUrl, "_system");
+                } catch {}
+              }}
+              className="inline-block rounded-md border border-accent bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition-opacity hover:opacity-95 active:scale-[0.98]"
             >
               Actualizar a v{release.versionName}
             </a>

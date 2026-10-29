@@ -80,16 +80,20 @@ export function isDismissed(versionCode: number): boolean {
 
 /**
  * Enlace de descarga que corresponde según dónde se esté.
- * Dentro de la app conviene el dominio externo: Capacitor abre esos
- * enlaces en el navegador del sistema, que sí sabe descargar el APK.
+ * Dentro de la app de Android (WebView de Capacitor), las descargas del propio
+ * dominio no disparan el gestor externo. Se utiliza el enlace externo
+ * (raw.githubusercontent.com) para que Capacitor lo delegue al sistema
+ * mediante Intent.ACTION_VIEW. Así el navegador/gestor del celular descarga
+ * el APK mostrando el progreso en las notificaciones del sistema y permitiendo
+ * que al pulsar se abra el instalador nativo.
  */
 export function downloadUrlFor(release: AndroidRelease, inApp: boolean): string {
-  const urlDirecta = release.apkUrl.startsWith("http")
+  if (inApp && release.apkExternalUrl) {
+    return release.apkExternalUrl;
+  }
+  return release.apkUrl.startsWith("http")
     ? release.apkUrl
     : `https://www.mangatotal.com${release.apkUrl.startsWith("/") ? "" : "/"}${release.apkUrl}`;
-  if (!inApp) return urlDirecta;
-  if (installedVersionCode() >= 3) return urlDirecta;
-  return release.apkExternalUrl ?? urlDirecta;
 }
 
 // ── App de escritorio (Windows) ───────────────────────────────────────────
