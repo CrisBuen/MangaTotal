@@ -65,7 +65,7 @@ export interface AndroidCacheOptions<T> {
 
 function disponible(opciones: { publicCache?: boolean; privateData?: boolean } = {}): boolean {
   return typeof window !== "undefined" && (
-    isAndroidApp() || !opciones.privateData || opciones.publicCache === true
+    isAndroidApp() || (opciones.publicCache === true && !opciones.privateData)
   );
 }
 

@@ -19,7 +19,7 @@ export function esImagenIkigai(src: string): boolean {
 }
 
 const HOSTS_IMAGEN_PERMITIDOS =
-  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la|olympusxyz\.com|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.(com|net|to|org)|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|t34798ndc\.com|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$/i;
+  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la|olympusxyz\.com|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|imagesolymp\.xyz|swordflake\.com|zonatmo\.(com|net|to|org)|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|t34798ndc\.com|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$/i;
 
 const IPV4_PUBLICA = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 

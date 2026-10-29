@@ -63,7 +63,8 @@ export interface FiltrosOlympus {
   q?: string;
 }
 
-const UA = "MangaTotal/1.0 (+https://www.mangatotal.com)";
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /** Capítulos con acceso anticipado: Olympus los reserva a quienes los apoyan. */
 const PREFIJO_PROTEGIDO = "/cp/";
@@ -88,8 +89,15 @@ async function olympusFetch<T>(url: string, revalidate: number): Promise<T> {
   }
 
   const res = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "application/json" },
-    ...(revalidate > 0 ? { next: { revalidate } } : { cache: "no-store" as const }),
+    headers: {
+      "User-Agent": UA,
+      Accept: "application/json, text/plain, */*",
+      "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+      Referer: `${OLYMPUS_WEB}/`,
+    },
+    ...(revalidate > 0
+      ? { next: { revalidate } }
+      : { next: { revalidate: 0 }, cache: "no-store" as const }),
   });
   if (!res.ok) throw new ErrorHttpOlympus(res.status, url);
   const data = (await res.json()) as T;
@@ -173,7 +181,21 @@ export async function catalogo(page: number, filtros: FiltrosOlympus = {}) {
   const sinFiltros = !filtros.q && !filtros.genero && !filtros.estado && !filtros.tipo;
   if (sinFiltros && filtros.orden === "novedades") {
     // todo el catálogo ordenado por lo último publicado, paginado como el suyo
-    return await novedades(page);
+    try {
+      return await novedades(page);
+    } catch (err) {
+      console.warn("[olympus] falló novedades, usando catálogo estándar como respaldo", err);
+      const data = await olympusFetch<{
+        data: { series: { current_page: number; last_page: number; total: number; data: OlySerieLista[] } };
+      }>(`${OLYMPUS_WEB}/api/series?page=${page}`, 300);
+      const s = data.data.series;
+      return {
+        series: s.data.map(serieResumen),
+        page: s.current_page,
+        last_page: s.last_page,
+        total: s.total,
+      };
+    }
   }
   if (sinFiltros && filtros.orden === "populares") {
     const home = await portada();
@@ -321,7 +343,11 @@ const paginaDeCapitulos = async (slug: string, page: number, fresco = false) => 
   const ruta = `/api/series/${encodeURIComponent(slug)}/chapters?page=${page}`;
   const valida = (r: PaginaCapitulos) => Array.isArray(r?.data) && Boolean(r?.meta);
   let ultimoError: unknown;
-  for (const base of [OLYMPUS_WEB, OLYMPUS_PANEL]) {
+  const bases: string[] = [OLYMPUS_WEB];
+  if (OLYMPUS_PANEL && (OLYMPUS_PANEL as string) !== (OLYMPUS_WEB as string) && !OLYMPUS_PANEL.includes("panel.olympusxyz.com")) {
+    bases.push(OLYMPUS_PANEL);
+  }
+  for (const base of bases) {
     try {
       const r = await olympusFetch<PaginaCapitulos>(`${base}${ruta}`, fresco ? 0 : 600);
       if (valida(r)) return r;
@@ -537,7 +563,11 @@ export async function novedades(page: number) {
   }
 
   const res = await fetch(`${OLYMPUS_WEB}/capitulos?page=${page}`, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; MangaTotal/1.0)" },
+    headers: {
+      "User-Agent": UA,
+      "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+      Referer: `${OLYMPUS_WEB}/`,
+    },
     next: { revalidate: 300 },
   });
   if (!res.ok) throw new Error(`Olympus respondió ${res.status} en sus novedades`);

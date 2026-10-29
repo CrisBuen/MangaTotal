@@ -1,11 +1,13 @@
 {
-  "versionCode": 15,
-  "versionName": "1.14",
-  "date": "2026-10-28",
+  "versionCode": 16,
+  "versionName": "1.15",
+  "date": "2026-10-29",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "60DAB2FEE40B9A5C508C286226BEB1B42F8752EFBFA2C7382505418F16EDACB5",
+  "sha256": "55154589F5A58DCFA942F3897292597C5A9DBCBB8B51E0342880DD7F3D14736B",
   "sizeMb": 2.6,
   "changes": [
+    "Restauración y compatibilidad completa con Olympus Scanlation mediante nuevo soporte de dominios de imágenes (imagesolymp.xyz y swordflake.com)",
+    "Puente nativo directo para el catálogo, fichas y capítulos de Olympus sin depender de intermediarios web",
     "Conexión directa al CDN de las fuentes desde el puente nativo de Windows (páginas, portadas y descargas de capítulos sin pasar por servidores intermedios)",
     "Resolución nativa directa de páginas de E-Hentai, Hitomi, Ikigai, ZonaTMO, LeerCapítulo, Catharsis, Olympus y MangaDex",
     "Descarga local de capítulos en calidad original FullHD organizada automáticamente por carpetas",

@@ -2,6 +2,15 @@
  QUÉ HACER SI OLYMPUS SCANLATION CAMBIA DE DOMINIO
 ===========================================================================
 
+29/10/2026: Olympus migró la entrega de imágenes (portadas y páginas) a
+media.imagesolymp.xyz (con paquetes en up.swordflake.com). Se habilitaron ambos
+dominios en las listas blancas (route.ts, imagenFuenteNativa.ts, FuentesPlugin.java
+y main.rs). Además, el subdominio panel.olympusxyz.com quedó sin resolución DNS
+(ENOTFOUND), por lo que se desactivó como fallback forzoso. Para garantizar que
+en las apps de Android y Windows el catálogo y capítulos funcionen incluso si
+Cloudflare bloquea IPs de centros de datos de Vercel, se integró el cliente
+nativo directo olympusCliente.ts utilizando el puente del dispositivo.
+
 18/10/2026 (Olympus anunció mantenimiento "hasta el lunes"): dos cambios que
 dejaban "No se pudo cargar la serie" y capítulos sin abrir, sin que el
 dominio hubiera cambiado.

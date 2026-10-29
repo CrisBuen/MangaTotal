@@ -65,6 +65,7 @@ public class FuentesPlugin extends Plugin {
 
     /** Solo las fuentes integradas: el puente no es un navegador de uso libre. */
     private static final String[] PERMITIDOS = {
+        "olympusxyz.com",
         "newcatharsis.dig-it.info",
         // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
         "catharsisfood.com",
@@ -96,6 +97,8 @@ public class FuentesPlugin extends Plugin {
         "olympusscans.com",
         "olympusv2.gg",
         "olympusscanlation.com",
+        "imagesolymp.xyz",
+        "swordflake.com",
         "storage.googleapis.com",
         "zonatmo.com",
         "zonatmo.net",
@@ -165,6 +168,8 @@ public class FuentesPlugin extends Plugin {
         } else if (h.contains("ikigai")) {
             conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
             conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
+        } else if (h.contains("imagesolymp") || h.contains("swordflake") || h.contains("olympus")) {
+            conexion.setRequestProperty("Referer", "https://olympusxyz.com/");
         }
     }
 
@@ -309,6 +314,9 @@ public class FuentesPlugin extends Plugin {
                         conexion.setReadTimeout(TIEMPO_ESPERA_MS);
                         conexion.setRequestProperty("User-Agent", ua);
                         conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
+                        if (destino.getHost() != null && destino.getHost().toLowerCase(Locale.ROOT).contains("olympus")) {
+                            conexion.setRequestProperty("Referer", "https://olympusxyz.com/");
+                        }
                         conexion.setRequestProperty(
                             "Accept",
                             "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,*/*;q=0.8"

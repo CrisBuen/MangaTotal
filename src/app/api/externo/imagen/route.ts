@@ -13,7 +13,7 @@ import { reconstruirUrlPaginaHitomi } from "@/lib/hitomi";
  * Retransmite los bytes de la imagen original sin comprimir ni almacenar en R2/Vercel.
  */
 const ALLOWED_HOSTS =
-  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la|olympusxyz\.com|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|zonatmo\.(com|net|to|org)|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  /(^|\.)(mangadex\.network|mangadex\.org|hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la|olympusxyz\.com|olympusbiblioteca\.com|olympusscans\.com|olympusv2\.gg|olympusscanlation\.com|imagesolymp\.xyz|swordflake\.com|zonatmo\.(com|net|to|org)|visortmo\.com|tumangaonline\.(site|me)|leercapitulo\.(com|co|site|net)|catharsisfood\.com|catharsisworks\.com|dig-it\.info|ikigaimangas\.cloud|ikigaivs\.org|ikigaimangas\.com|storage\.googleapis\.com)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
 const ADULT_HOSTS =
   /(^|\.)(hath\.network|ehgt\.org|e-hentai\.org|exhentai\.org|gold-usergeneratedcontent\.net|hitomi\.la)$|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
@@ -72,6 +72,8 @@ export async function GET(req: NextRequest) {
   } else if (/ikigai/.test(url.hostname)) {
     upstreamHeaders["Referer"] = "https://visorikigai.gettocaboca.com/";
     upstreamHeaders["Sec-Fetch-Mode"] = "cors";
+  } else if (/imagesolymp|swordflake|olympus/.test(url.hostname)) {
+    upstreamHeaders["Referer"] = "https://olympusxyz.com/";
   }
 
   let upstream = await fetch(url, {

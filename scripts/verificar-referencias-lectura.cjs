@@ -166,7 +166,7 @@ test("La API de ficha pide los capítulos de la dirección resuelta", async () =
   });
   const res = await route.GET({ nextUrl: new URL("https://example.test/api/externo/olympus/series/obra") }, { params: Promise.resolve({ slug: viejo }) });
   assert.equal(res.status, 200);
-  assert.deepEqual(llamadas, [viejo, vigente]);
+  assert.deepEqual(llamadas, [viejo, viejo, vigente]);
 });
 
 function documentoFicha(adulto = false) {

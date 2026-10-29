@@ -61,6 +61,7 @@ import {
   type HitomiTag,
   type SerieHitomi,
 } from "@/lib/hitomiTipos";
+import { pedirCatalogoOlympus } from "@/lib/olympusCliente";
 
 function decodificarHtml(texto: string): string {
   return texto
@@ -1080,19 +1081,24 @@ export default function ExplorarPage() {
     if (olyTipo) params.set("tipo", olyTipo);
     const fresco = pedirFresco.current;
     try {
-      const url = `/api/externo/olympus/series?${params}`;
       const data = await cargarConCacheAndroid<{
         series: SerieOlympus[];
         last_page: number;
       }>(
         `explorar:olympus:${params.toString()}`,
         async (signal) => {
-          const res = await fetch(url, {
-            cache: fresco ? "no-store" : "default",
-            signal,
-          });
-          if (!res.ok) throw new Error("fallo");
-          return res.json();
+          return pedirCatalogoOlympus(
+            olympusPage,
+            {
+              orden: olyOrden,
+              q: search.trim() || undefined,
+              genero: olyGenero ?? undefined,
+              estado: olyEstado ?? undefined,
+              tipo: olyTipo ?? undefined,
+            },
+            fresco,
+            signal
+          );
         },
         {
           publicCache: true,

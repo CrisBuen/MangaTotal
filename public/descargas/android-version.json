@@ -1,14 +1,15 @@
 {
-  "versionCode": 30,
-  "versionName": "1.9.17",
-  "date": "2026-10-28",
+  "versionCode": 31,
+  "versionName": "1.9.18",
+  "date": "2026-10-29",
   "apkUrl": "/descargas/MangaTotal-android.apk",
-  "sha256": "9BE2E0279C625036160A0C50395AF5FF02AFB3ECAA9F1C03C1656E0221ECCC43",
+  "sha256": "9E581A1DA8977576F077FE987A5BE2813EDA201B5784E43E50468C2104483B72",
   "sizeMb": 4.1,
   "changes": [
+    "Restauración y optimización de la fuente Olympus Scanlation con soporte para nuevos dominios de imágenes (imagesolymp.xyz y swordflake.com)",
+    "Puente nativo directo para el catálogo, fichas y capítulos de Olympus sin depender de intermediarios web",
     "Conexión directa al CDN de las fuentes desde el puente nativo en Android y PC (páginas, portadas y descargas sin intermediarios web)",
-    "Descargas nativas de capítulos en Android (versión local y Google Play) en MangaTotal/descargas con respaldo automático",
-    "Resolución nativa directa de páginas de E-Hentai, Hitomi, Ikigai, ZonaTMO, LeerCapítulo, Catharsis, Olympus y MangaDex",
+    "Descargas nativas de capítulos en Android (versión local y Google Play) con respaldo automático",
     "Compatibilidad completa con todas las fuentes externas y contenido +18"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"

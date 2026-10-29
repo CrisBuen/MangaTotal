@@ -15,7 +15,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Windo
 /// coinciden, el permiso no sirve.
 const UA_NAVEGADOR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-const DOMINIOS_IMAGEN_FUENTES: [&str; 32] = [
+const DOMINIOS_IMAGEN_FUENTES: &[&str] = &[
     "mangadex.network",
     "mangadex.org",
     "hath.network",
@@ -29,6 +29,10 @@ const DOMINIOS_IMAGEN_FUENTES: [&str; 32] = [
     "olympusscans.com",
     "olympusv2.gg",
     "olympusscanlation.com",
+    "imagesolymp.xyz",
+    "media.imagesolymp.xyz",
+    "swordflake.com",
+    "up.swordflake.com",
     "storage.googleapis.com",
     "zonatmo.com",
     "zonatmo.net",
@@ -108,6 +112,8 @@ fn aplicar_headers_imagen(pedido: reqwest::RequestBuilder, host: &str) -> reqwes
         pedido.header("Referer", "https://newcatharsis.dig-it.info/")
     } else if h.contains("ikigai") {
         pedido.header("Referer", "https://visorikigai.gettocaboca.com/").header("Sec-Fetch-Mode", "cors")
+    } else if h.contains("imagesolymp") || h.contains("swordflake") || h.contains("olympus") {
+        pedido.header("Referer", "https://olympusxyz.com/")
     } else {
         pedido
     }
@@ -239,7 +245,8 @@ struct ManifiestoActualizacion {
     sha256: String,
 }
 
-const DOMINIOS_FUENTES: [&str; 13] = [
+const DOMINIOS_FUENTES: &[&str] = &[
+    "olympusxyz.com",
     "newcatharsis.dig-it.info",
     // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
     "catharsisfood.com",
@@ -303,7 +310,11 @@ async fn traer_pagina(
 
         let mut pedido = http
             .get(destino.clone())
-            .header("Accept-Language", "es-ES,es;q=0.9");
+            .header("Accept-Language", "es-ES,es;q=0.9")
+            .header("Accept", "application/json, text/html, */*");
+        if host.contains("olympus") {
+            pedido = pedido.header("Referer", "https://olympusxyz.com/");
+        }
         if let Some(cookie) = permiso {
             pedido = pedido.header("Cookie", cookie);
         }

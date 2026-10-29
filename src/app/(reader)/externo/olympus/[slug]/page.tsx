@@ -13,6 +13,7 @@ import { cargarConCacheAndroid } from "@/lib/androidCache";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
+import { pedirSerieOlympus } from "@/lib/olympusCliente";
 
 interface SerieOlympus {
   id: number;
@@ -60,9 +61,10 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
       const data = await cargarConCacheAndroid<{ serie: SerieOlympus; chapters: CapituloOlympus[] }>(
         `ficha:olympus:${slug}`,
         async (signal) => {
-          const res = await fetch(`/api/externo/olympus/series/${encodeURIComponent(slug)}${fresco ? "?fresco=1" : ""}`, { signal, cache: fresco ? "no-store" : "default" });
-          if (!res.ok) throw new Error("fallo");
-          return res.json();
+          return (await pedirSerieOlympus(slug, fresco, signal)) as unknown as {
+            serie: SerieOlympus;
+            chapters: CapituloOlympus[];
+          };
         },
         {
           publicCache: true,

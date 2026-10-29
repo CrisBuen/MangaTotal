@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { OlympusReader } from "@/components/reader/OlympusReader";
 import { OLYMPUS_NOMBRE, urlSerieEnOlympus } from "@/lib/olympus";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { pedirCapituloOlympus } from "@/lib/olympusCliente";
 
 interface CapituloData {
   id: number;
@@ -46,12 +47,7 @@ export default function LeerOlympusPage(props: { params: Promise<{ id: string }>
       const data = await cargarConCacheAndroid<CapituloData>(
         `capitulo:olympus:${id}`,
         async (signal) => {
-          const res = await fetch(`/api/externo/olympus/capitulo/${id}?${qs.toString()}`, { signal });
-          if (!res.ok) {
-            const errJson = await res.json().catch(() => null);
-            throw new Error(errJson?.error || `Error ${res.status} al cargar el capítulo`);
-          }
-          return res.json();
+          return pedirCapituloOlympus(id, slugParam, tipo, signal);
         },
         {
           publicCache: true,
