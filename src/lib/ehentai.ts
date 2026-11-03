@@ -73,11 +73,34 @@ const EH_UA =
 const catalogoEhCache = new Map<string, { data: CatalogoEhentai; vence: number }>();
 const fichaEhCache = new Map<string, { data: FichaEhentai; vence: number }>();
 
-/** Namespaces reales del buscador de E-Hentai (incluye "mixed" y "other"). */
+/** Namespaces reales del buscador de E-Hentai (incluye "mixed", "other" y "location"). */
 const EH_NAMESPACES = new Set([
   "language", "parody", "character", "artist", "group", "cosplayer",
-  "female", "male", "mixed", "other", "reclass", "temp",
+  "female", "male", "mixed", "other", "reclass", "temp", "location",
 ]);
+
+/**
+ * Abreviaturas que E-Hentai acepta en su buscador (f:, m:, x:...). Sin esto,
+ * "f:maid" se mandaba como texto libre y no coincidía con ninguna etiqueta.
+ */
+const EH_ABREVIATURAS: Record<string, string> = {
+  l: "language", lang: "language", p: "parody", series: "parody",
+  c: "character", char: "character", a: "artist", g: "group", circle: "group",
+  cos: "cosplayer", f: "female", m: "male", x: "mixed", o: "other",
+  r: "reclass", loc: "location",
+};
+
+function normalizarComparable(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function capitalizarEtiqueta(nombre: string): string {
+  return nombre.replace(/\b([a-z])/g, (m) => m.toUpperCase());
+}
 
 /** Divide "tag, tag, tag" en etiquetas individuales sin vacíos ni repetidas. */
 export function separarEtiquetasEhentai(texto: string): string[] {
@@ -101,16 +124,18 @@ export function formatearEtiquetaEhentai(etiqueta: string): string {
   const dosPuntos = limpia.indexOf(":");
   if (dosPuntos > 0) {
     let ns = limpia.slice(0, dosPuntos).trim();
-    const valor = limpia.slice(dosPuntos + 1).trim().replace(/^"+|"+$/g, "").replace(/\$$/, "");
-    if (ns === "series") ns = "parody";
-    if (ns === "tag") return `"${valor}$"`;
+    const valor = limpia.slice(dosPuntos + 1).trim().replace(/^"+|"+$/g, "").replace(/\$$/, "").trim();
+    ns = EH_ABREVIATURAS[ns] ?? ns;
+    if (ns === "tag" || ns === "temp") return `"${valor}$"`;
     if (EH_NAMESPACES.has(ns) && valor) return `${ns}:"${valor}$"`;
   }
+  const comp = normalizarComparable(limpia);
   const conocida = EHENTAI_POPULAR_TAGS.find(
     (t) =>
       t.tag.toLowerCase() === limpia ||
-      t.label.toLowerCase() === limpia ||
-      t.tag.toLowerCase().endsWith(`:${limpia}`)
+      normalizarComparable(t.label) === comp ||
+      t.tag.toLowerCase().endsWith(`:${limpia}`) ||
+      t.aliases?.some((a) => normalizarComparable(a) === comp)
   );
   if (conocida) {
     const idx = conocida.tag.indexOf(":");
@@ -133,6 +158,97 @@ export function calcularFCats(categoriaId?: string): number {
   if (!encontrada) return 0;
   // f_cats es la máscara de las deshabilitadas
   return 1023 - encontrada.bit;
+}
+
+function extraerSeriesDeHtmlEhentai(html: string): SerieEhentai[] {
+  const series: SerieEhentai[] = [];
+  const vistos = new Set<string>();
+
+  const bloquesTr = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => m[1]);
+  // Respaldo defensivo si algún nodo sirve vista de miniaturas (<div class="gl1t">...)
+  const bloques =
+    bloquesTr.some((b) => /https:\/\/e-hentai\.org\/g\/\d+\/[a-f0-9]+\//.test(b))
+      ? bloquesTr
+      : html.split(/<div\s+class="gl1t">/i).slice(1);
+
+  for (const text of bloques) {
+    const linkMatch = text.match(/https:\/\/e-hentai\.org\/g\/(\d+)\/([a-f0-9]+)\//);
+    if (!linkMatch) continue;
+
+    const gid = linkMatch[1];
+    const token = linkMatch[2];
+    if (vistos.has(gid)) continue;
+    vistos.add(gid);
+
+    const titleMatch = text.match(/class="[^"]*\bglink\b[^"]*">([^<]+)<\/div>/);
+    const catMatch =
+      text.match(/class="cn ([^"]+)"[^>]*>([^<]+)<\/div>/) ||
+      text.match(/class="cs ([^"]+)"[^>]*>([^<]+)<\/div>/);
+    const thumbMatch =
+      text.match(/data-src="([^"]+)"/) ||
+      text.match(/src="(https:\/\/[^"]*(?:ehgt|exhentai)[^"]+)"/);
+
+    const pagesMatch = text.match(/<div>(\d+)\s+pages?<\/div>/i);
+    const uploaderTextMatch = text.match(/\/uploader\/[^"]+">([^<]+)<\/a>/);
+    const uploaderHrefMatch = text.match(/\/uploader\/([^"]+)"/);
+    let uploader: string | undefined;
+    if (uploaderTextMatch?.[1]) {
+      uploader = uploaderTextMatch[1].trim();
+    } else if (uploaderHrefMatch?.[1]) {
+      try {
+        uploader = decodeURIComponent(uploaderHrefMatch[1]);
+      } catch {
+        uploader = uploaderHrefMatch[1];
+      }
+    }
+    const postedMatch = text.match(/id="posted[^>]*>([^<]+)<\/div>/);
+
+    // En E-Hentai las etiquetas sólidas llevan class="gt", las punteadas "gtl" y las débiles "gtw".
+    const tagsMatches = [...text.matchAll(/class="gt[lw]?"[^>]*title="([^"]+)"/g)]
+      .map((m) => m[1].trim())
+      .filter(Boolean);
+
+    series.push({
+      gid,
+      token,
+      title: titleMatch ? titleMatch[1].trim() : `Galería #${gid}`,
+      category: catMatch ? catMatch[2].trim() : "Manga",
+      thumb: thumbMatch ? (thumbMatch[1] || thumbMatch[0]) : "",
+      filecount: pagesMatch ? parseInt(pagesMatch[1], 10) : 0,
+      uploader,
+      posted: postedMatch ? postedMatch[1] : undefined,
+      tags: tagsMatches,
+    });
+  }
+
+  return series;
+}
+
+/**
+ * Construye el enlace directo `/tag/{ns}:{valor}` que usa E-Hentai en sus fichas
+ * cuando se filtra por una única etiqueta sin categoría ni texto adicional.
+ * Ese índice B-tree evita el enfriamiento por IP de Sphinx (`/?f_search=`).
+ */
+function construirUrlTagDirecto(
+  etiquetaCruda: string,
+  opciones: { next?: string; prev?: string; pagina?: number }
+): string | null {
+  const limpia = etiquetaCruda.trim().toLowerCase().replace(/^"+|"+$/g, "").replace(/\$$/, "").trim();
+  const dp = limpia.indexOf(":");
+  let ns = "temp";
+  let valor = limpia;
+  if (dp > 0) {
+    ns = EH_ABREVIATURAS[limpia.slice(0, dp).trim()] ?? limpia.slice(0, dp).trim();
+    valor = limpia.slice(dp + 1).trim().replace(/^"+|"+$/g, "").replace(/\$$/, "").trim();
+  }
+  if (!valor || (!EH_NAMESPACES.has(ns) && ns !== "tag")) return null;
+  if (ns === "tag") ns = "temp";
+  const slugTag = `${ns}:${encodeURIComponent(valor).replace(/%20/g, "+")}`;
+  const u = new URL(`${EHENTAI_WEB}/tag/${slugTag}`);
+  if (opciones.next) u.searchParams.set("next", opciones.next);
+  else if (opciones.prev) u.searchParams.set("prev", opciones.prev);
+  else if (opciones.pagina && opciones.pagina > 0) u.searchParams.set("page", String(opciones.pagina));
+  return u.toString();
 }
 
 /**
@@ -179,12 +295,18 @@ export async function catalogoEhentai(opciones: {
     url.searchParams.set("f_cats", String(fCats));
   }
 
+  const etiquetasPedidas = tag && tag.trim() ? separarEtiquetasEhentai(tag) : [];
   const partesBusqueda: string[] = [];
   if (busqueda.trim()) {
     const qTexto = busqueda.trim();
     const primerDosPuntos = qTexto.indexOf(":");
     const prefijoPosible = primerDosPuntos > 0 ? qTexto.slice(0, primerDosPuntos).trim().toLowerCase() : "";
-    if (qTexto.includes(",") || EH_NAMESPACES.has(prefijoPosible) || prefijoPosible === "series") {
+    if (
+      qTexto.includes(",") ||
+      EH_NAMESPACES.has(prefijoPosible) ||
+      Object.hasOwn(EH_ABREVIATURAS, prefijoPosible) ||
+      prefijoPosible === "tag"
+    ) {
       for (const t of separarEtiquetasEhentai(qTexto)) {
         partesBusqueda.push(formatearEtiquetaEhentai(t));
       }
@@ -193,12 +315,8 @@ export async function catalogoEhentai(opciones: {
     }
   }
 
-  if (tag && tag.trim()) {
-    // Varias etiquetas separadas por coma: E-Hentai las combina con AND
-    // cuando van juntas en f_search, cada una con su sintaxis exacta.
-    for (const t of separarEtiquetasEhentai(tag)) {
-      partesBusqueda.push(formatearEtiquetaEhentai(t));
-    }
+  for (const t of etiquetasPedidas) {
+    partesBusqueda.push(formatearEtiquetaEhentai(t));
   }
 
   if (idioma && idioma !== "todos") {
@@ -212,6 +330,17 @@ export async function catalogoEhentai(opciones: {
     url.searchParams.set("f_search", partesBusqueda.join(" "));
   }
 
+  // En servidores de EE. UU. / centros de datos, E-Hentai aplica filtros por omisión
+  // para invitados (excluyendo p. ej. `other:ai generated` o `female:lolicon`) y
+  // responde "No unfiltered results" con lista vacía. `advsearch=1` + `f_sfl/f_sfu/f_sft=on`
+  // desactiva explícitamente los filtros por defecto de idioma, uploader y etiquetas.
+  if (partesBusqueda.length > 0 || fCats > 0) {
+    url.searchParams.set("advsearch", "1");
+    url.searchParams.set("f_sfl", "on");
+    url.searchParams.set("f_sfu", "on");
+    url.searchParams.set("f_sft", "on");
+  }
+
   const urlStr = url.toString();
   const ahora = Date.now();
   if (!fresco) {
@@ -221,56 +350,110 @@ export async function catalogoEhentai(opciones: {
     }
   }
 
-  const res = await fetch(urlStr, {
-    headers: {
-      Cookie: "nw=1",
-      "User-Agent": EH_UA,
-    },
-    ...(fresco ? { cache: "no-store" } : { next: { revalidate: 60 } }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`E-Hentai respondió ${res.status}`);
-  }
-
-  const html = await res.text();
-  const series: SerieEhentai[] = [];
-
-  // Recorrer filas de la tabla de galerías
-  const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)];
-  for (const row of rows) {
-    const text = row[1];
-    const linkMatch = text.match(/https:\/\/e-hentai\.org\/g\/(\d+)\/([a-f0-9]+)\//);
-    if (!linkMatch) continue;
-
-    const gid = linkMatch[1];
-    const token = linkMatch[2];
-
-    const titleMatch = text.match(/class="glink">([^<]+)<\/div>/);
-    const catMatch =
-      text.match(/class="cn ([^"]+)"[^>]*>([^<]+)<\/div>/) ||
-      text.match(/class="cs ([^"]+)"[^>]*>([^<]+)<\/div>/);
-    const thumbMatch =
-      text.match(/data-src="([^"]+)"/) ||
-      text.match(/src="(https:\/\/[^"]*ehgt[^"]+)"/);
-
-    const pagesMatch = text.match(/<div>(\d+)\s+pages<\/div>/i);
-    const uploaderMatch = text.match(/\/uploader\/([^"]+)"/);
-    const postedMatch = text.match(/id="posted[^>]*>([^<]+)<\/div>/);
-
-    const tagsMatches = [...text.matchAll(/class="gt"[^>]*title="([^"]+)"/g)].map((m) => m[1]);
-
-    series.push({
-      gid,
-      token,
-      title: titleMatch ? titleMatch[1].trim() : `Galería #${gid}`,
-      category: catMatch ? catMatch[2].trim() : "Manga",
-      thumb: thumbMatch ? (thumbMatch[1] || thumbMatch[0]) : "",
-      filecount: pagesMatch ? parseInt(pagesMatch[1], 10) : 0,
-      uploader: uploaderMatch ? uploaderMatch[1] : undefined,
-      posted: postedMatch ? postedMatch[1] : undefined,
-      tags: tagsMatches,
+  // `nw=1` salta la advertencia +18 y `sl=dm_2` fuerza la tabla extendida (`<tr>`),
+  // evitando que E-Hentai sirva el modo de cuadrícula (`gld`) sin filas `<tr>`.
+  const pedirHtml = async (destino: string) => {
+    const res = await fetch(destino, {
+      headers: {
+        Cookie: "nw=1; sl=dm_2",
+        "User-Agent": EH_UA,
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      cache: "no-store",
     });
+    if (!res.ok) {
+      throw new Error(`E-Hentai respondió ${res.status}`);
+    }
+    return res.text();
+  };
+
+  let html = await pedirHtml(urlStr);
+  let series = extraerSeriesDeHtmlEhentai(html);
+
+  // Si la consulta por etiqueta volvió vacía (sea por enfriamiento de `f_search` en IP
+  // compartida, por un alias/slave tag como "dragon maid" -> "parody:kobayashi-san-chi...",
+  // o por un término parcial escrito en el buscador de etiquetas), probamos en orden:
+  //   1. Índice directo `/tag/{ns}:{valor}` si es una sola etiqueta sin otros filtros.
+  //   2. Resolución del tag maestro canónico mediante la API oficial `tagsuggest`.
+  //   3. Variantes sin el ancla exacta `$` (búsqueda por prefijo / frase libre).
+  if (series.length === 0 && partesBusqueda.length > 0) {
+    // 1. Índice directo `/tag/...` cuando hay 1 sola etiqueta y sin categoría ni texto libre
+    if (etiquetasPedidas.length === 1 && !busqueda.trim() && fCats === 0 && idioma === "todos") {
+      const urlTag = construirUrlTagDirecto(etiquetasPedidas[0], { next, prev, pagina });
+      if (urlTag) {
+        const intentoTag = await pedirHtml(urlTag).catch(() => null);
+        if (intentoTag) {
+          const extraidas = extraerSeriesDeHtmlEhentai(intentoTag);
+          if (extraidas.length > 0) {
+            html = intentoTag;
+            series = extraidas;
+          }
+        }
+      }
+    }
+
+    // 2. Resolver alias/slave tags o nombres parciales vía `tagsuggest` (ej: "rin tohsaka" -> "character:rin tosaka",
+    // "furina" -> "character:focalors", "kobayashi" -> "parody:kobayashi-san-chi no maid dragon")
+    if (series.length === 0 && etiquetasPedidas.length > 0) {
+      const resueltas = await Promise.all(
+        etiquetasPedidas.map(async (cruda) => {
+          const sugs = await sugerirEtiquetasEhentai(cruda).catch(() => []);
+          if (sugs.length === 0) return formatearEtiquetaEhentai(cruda);
+          const limpia = cruda.trim().toLowerCase().replace(/^"+|"+$/g, "").replace(/\$$/, "").trim();
+          const sinNs = limpia.includes(":") ? limpia.slice(limpia.indexOf(":") + 1).trim() : limpia;
+          const exacta =
+            sugs.find((s) => s.tag.toLowerCase() === limpia) ??
+            sugs.find((s) => s.nombre.toLowerCase() === sinNs) ??
+            sugs[0];
+          return formatearEtiquetaEhentai(exacta.tag);
+        })
+      );
+      const partesCanonicas: string[] = [];
+      if (busqueda.trim()) partesCanonicas.push(busqueda.trim());
+      partesCanonicas.push(...resueltas);
+      if (idioma && idioma !== "todos") {
+        const idi = EHENTAI_IDIOMAS.find((i) => i.id === idioma);
+        if (idi?.tag && !partesCanonicas.some((p) => p.startsWith("language:"))) {
+          partesCanonicas.push(formatearEtiquetaEhentai(idi.tag));
+        }
+      }
+      const nuevaQuery = partesCanonicas.join(" ");
+      if (nuevaQuery !== partesBusqueda.join(" ")) {
+        const alterna = new URL(urlStr);
+        alterna.searchParams.set("f_search", nuevaQuery);
+        const intento = await pedirHtml(alterna.toString()).catch(() => null);
+        if (intento) {
+          const extraidas = extraerSeriesDeHtmlEhentai(intento);
+          if (extraidas.length > 0) {
+            html = intento;
+            series = extraidas;
+          }
+        }
+      }
+    }
+
+    // 3. Reintento sin `$` (y como frase/palabras libres si no tenía namespace)
+    if (series.length === 0 && html.includes("No hits found")) {
+      const sinDolar = partesBusqueda.map((p) => p.replace(/\$"/g, '"'));
+      const comoTextoLibre = partesBusqueda.map((p) =>
+        p.startsWith('"') ? p.replace(/^"+|(?:\$)?\"+$/g, "") : p.replace(/\$"/g, '"')
+      );
+      for (const variante of [sinDolar, comoTextoLibre]) {
+        const qVar = variante.join(" ").trim();
+        if (!qVar || qVar === partesBusqueda.join(" ")) continue;
+        const alterna = new URL(urlStr);
+        alterna.searchParams.set("f_search", qVar);
+        const intento = await pedirHtml(alterna.toString()).catch(() => null);
+        if (intento) {
+          const extraidas = extraerSeriesDeHtmlEhentai(intento);
+          if (extraidas.length > 0) {
+            html = intento;
+            series = extraidas;
+            break;
+          }
+        }
+      }
+    }
   }
 
   // Ordenar estrictamente de más nuevo a más viejo por fecha / GID cronológico descendente.
@@ -294,14 +477,17 @@ export async function catalogoEhentai(opciones: {
   const prevMatch = prevHref ? prevHref.match(/[?&](?:amp;)?prev=([^&"]+)/i) : null;
   const prevCursor = prevMatch ? prevMatch[1] : null;
 
-  // Si E-Hentai devolvió 200 OK sin tabla de resultados ni mensaje de "No hits",
-  // es una página de bloqueo temporal / anti-flood: lanzar error impide que el
-  // cliente guarde un falso "Sin resultados" en caché al volver de leer una serie.
+  // Si E-Hentai devolvió un mensaje de enfriamiento, baneo temporal de IP compartida
+  // o HTML sin estructura de resultados ni "No hits", lanzar error evita mostrar un
+  // falso "Sin resultados" cuando en realidad hubo límite temporal.
+  const bloqueadoPorFlood =
+    /Please wait a moment|automated queries|temporarily banned|too many requests|slow down/i.test(html);
   if (
     series.length === 0 &&
-    !html.includes("No hits found") &&
-    !html.includes("No unfiltered results") &&
-    !html.includes('class="itg')
+    (bloqueadoPorFlood ||
+      (!html.includes("No hits found") &&
+        !html.includes("No unfiltered results") &&
+        !html.includes('class="itg')))
   ) {
     throw new Error("E-Hentai limitó temporalmente las consultas, reintentá en unos segundos");
   }
@@ -327,6 +513,144 @@ export async function catalogoEhentai(opciones: {
   }
 
   return resultado;
+}
+
+export interface SugerenciaTagEhentai {
+  tag: string;
+  label: string;
+  ns: string;
+  nombre: string;
+}
+
+const PRIORIDAD_NS: Record<string, number> = {
+  parody: 1,
+  character: 2,
+  female: 3,
+  male: 4,
+  mixed: 5,
+  other: 6,
+  language: 7,
+  artist: 8,
+  group: 9,
+  cosplayer: 10,
+  location: 11,
+  reclass: 12,
+  temp: 13,
+};
+
+/**
+ * Sugerencias de etiquetas en tiempo real desde la base completa de E-Hentai
+ * (método oficial `tagsuggest` de `api.e-hentai.org`).
+ *
+ * Resuelve automáticamente etiquetas alias/slave (`mns`/`mtn`) hacia la etiqueta
+ * canónica real (p. ej. "dragon maid" -> `parody:kobayashi-san-chi no maid dragon`,
+ * "furina" -> `character:focalors`, "rin tohsaka" -> `character:rin tosaka`), y
+ * cuando no se filtra por namespace consulta también `parody:`, `character:` y
+ * `female:` en paralelo para que los cientos de miles de `artist:`/`group:` no
+ * oculten series, personajes o géneros.
+ */
+const sugerenciasCache = new Map<string, { data: SugerenciaTagEhentai[]; vence: number }>();
+
+interface EntradaRawTagSuggest {
+  ns?: string;
+  tn?: string;
+  mns?: string;
+  mtn?: string;
+}
+
+async function pedirTagSuggestRaw(consulta: string): Promise<EntradaRawTagSuggest[]> {
+  const res = await fetch(EHENTAI_API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "User-Agent": EH_UA },
+    body: JSON.stringify({ method: "tagsuggest", text: consulta }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`E-Hentai respondió ${res.status}`);
+  const json = (await res.json()) as { tags?: Record<string, EntradaRawTagSuggest> | unknown[] };
+  return json.tags && !Array.isArray(json.tags) ? Object.values(json.tags) : [];
+}
+
+export async function sugerirEtiquetasEhentai(
+  texto: string,
+  nsForzado = ""
+): Promise<SugerenciaTagEhentai[]> {
+  if (isPlayStoreApp()) return [];
+  let limpio = texto.trim().toLowerCase().replace(/^"+|"+$/g, "").replace(/\$$/, "").trim();
+  let nsFiltro = nsForzado && nsForzado !== "todos" ? (EH_ABREVIATURAS[nsForzado] ?? nsForzado) : "";
+
+  const dp = limpio.indexOf(":");
+  if (dp > 0) {
+    const pref = limpio.slice(0, dp).trim();
+    const mapeado = EH_ABREVIATURAS[pref] ?? pref;
+    if (EH_NAMESPACES.has(mapeado)) {
+      nsFiltro = mapeado;
+      limpio = limpio.slice(dp + 1).trim();
+    }
+  }
+  if (limpio.length < 2) return [];
+
+  const clave = `${nsFiltro}:${limpio}`;
+  const guardada = sugerenciasCache.get(clave);
+  if (guardada && guardada.vence > Date.now()) return guardada.data;
+
+  const consultas = nsFiltro
+    ? [`${nsFiltro}:${limpio}`]
+    : [limpio, `parody:${limpio}`, `character:${limpio}`, `female:${limpio}`];
+
+  const lotes = await Promise.all(
+    consultas.map((q) => pedirTagSuggestRaw(q).catch(() => [] as EntradaRawTagSuggest[]))
+  );
+
+  const mapa = new Map<string, SugerenciaTagEhentai & { exacto: boolean }>();
+  for (const lista of lotes) {
+    for (const item of lista) {
+      const nsReal = (item.mns || item.ns || "").trim().toLowerCase();
+      const tnReal = (item.mtn || item.tn || "").trim().toLowerCase();
+      if (!nsReal || !tnReal) continue;
+      if (nsFiltro && nsReal !== nsFiltro) continue;
+
+      const tagCanonico = `${nsReal}:${tnReal}`;
+      const aliasOriginal = item.tn?.trim().toLowerCase() ?? "";
+      const esExacto = tnReal === limpio || aliasOriginal === limpio;
+      const baseLabel = capitalizarEtiqueta(tnReal);
+      const label =
+        item.mtn && aliasOriginal && aliasOriginal !== tnReal
+          ? `${baseLabel} (${aliasOriginal})`
+          : baseLabel;
+
+      const previo = mapa.get(tagCanonico);
+      if (!previo || (esExacto && !previo.exacto)) {
+        mapa.set(tagCanonico, {
+          tag: tagCanonico,
+          label,
+          ns: nsReal,
+          nombre: tnReal,
+          exacto: esExacto,
+        });
+      }
+    }
+  }
+
+  const ordenadas = Array.from(mapa.values())
+    .sort((a, b) => {
+      if (a.exacto !== b.exacto) return a.exacto ? -1 : 1;
+      const aEmpieza = a.nombre.startsWith(limpio);
+      const bEmpieza = b.nombre.startsWith(limpio);
+      if (aEmpieza !== bEmpieza) return aEmpieza ? -1 : 1;
+      const pa = PRIORIDAD_NS[a.ns] ?? 99;
+      const pb = PRIORIDAD_NS[b.ns] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return a.nombre.localeCompare(b.nombre);
+    })
+    .slice(0, 30)
+    .map(({ tag, label, ns, nombre }) => ({ tag, label, ns, nombre }));
+
+  if (sugerenciasCache.size >= 400) {
+    const k = sugerenciasCache.keys().next().value;
+    if (k !== undefined) sugerenciasCache.delete(k);
+  }
+  sugerenciasCache.set(clave, { data: ordenadas, vence: Date.now() + 30 * 60_000 });
+  return ordenadas;
 }
 
 /**

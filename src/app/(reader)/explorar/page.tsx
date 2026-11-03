@@ -47,9 +47,12 @@ import {
   EHENTAI_CATEGORIAS,
   EHENTAI_IDIOMAS,
   type SerieEhentai,
+  type SugerenciaTagEhentai,
 } from "@/lib/ehentai";
 import {
+  EHENTAI_TAG_GRUPOS,
   buscarEtiquetasEhentai,
+  type EhentaiNamespace,
   type EhentaiTag,
 } from "@/lib/ehentaiTags";
 import {
@@ -221,8 +224,45 @@ export default function ExplorarPage() {
   const [ehTag, setEhTag] = useState<string | null>(null);
   const [ehModalTags, setEhModalTags] = useState(false);
   const [ehTagBusqueda, setEhTagBusqueda] = useState("");
+  const [ehTagNs, setEhTagNs] = useState<EhentaiNamespace>("todos");
+  const [ehTagsSugeridos, setEhTagsSugeridos] = useState<SugerenciaTagEhentai[]>([]);
+  const [ehBuscandoTags, setEhBuscandoTags] = useState(false);
   const ehCursors = useRef<Record<number, string | null>>({ 1: null });
   const [ehNextCursor, setEhNextCursor] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!ehModalTags) return;
+    const partes = ehTagBusqueda.split(",");
+    const q = (partes[partes.length - 1] ?? "").trim();
+    const sinPrefijo = q.includes(":") ? q.slice(q.indexOf(":") + 1).trim() : q;
+    if (sinPrefijo.length < 2) {
+      setEhTagsSugeridos([]);
+      setEhBuscandoTags(false);
+      return;
+    }
+    setEhBuscandoTags(true);
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const nsParam = ehTagNs !== "todos" ? `&ns=${encodeURIComponent(ehTagNs)}` : "";
+        const res = await fetch(`/api/externo/ehentai?suggest=${encodeURIComponent(q)}${nsParam}`, {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data?.tags)) {
+          setEhTagsSugeridos(data.tags);
+        }
+      } catch {
+      } finally {
+        if (!ctrl.signal.aborted) setEhBuscandoTags(false);
+      }
+    }, 220);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [ehModalTags, ehTagBusqueda, ehTagNs]);
 
   const [hitomiSeries, setHitomiSeries] = useState<SerieHitomi[] | null>(null);
   const [hitomiPage, setHitomiPage] = useState(1);
@@ -1214,7 +1254,7 @@ export default function ExplorarPage() {
       if (cursorActual) params.set("next", cursorActual);
       if (fresco) params.set("fresco", "1");
 
-      const cacheKey = `explorar:ehentai:v3:${ehPage}:${cursorActual ?? "inicio"}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`;
+      const cacheKey = `explorar:ehentai:v4:${ehPage}:${cursorActual ?? "inicio"}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`;
 
       const r = await cargarConCacheAndroid<{
         series: SerieEhentai[];
@@ -1267,7 +1307,7 @@ export default function ExplorarPage() {
   }, [ehPage, search, ehCat, ehLang, ehTag, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "ehentai" || !animeAdultoHabilitado) return;
+    if (!lecturaActiva || fuente !== "ehentai" || !animeAdultoHabilitado) return;
     const solicitud = nuevaSolicitud("ehentai");
     if (!pedirFresco.current) setEhGalleries(null);
     const t = setTimeout(() => void cargarEh(solicitud), search ? 400 : 0);
@@ -1275,7 +1315,7 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("ehentai", solicitud);
     };
-  }, [cargarEh, search, fuente, animeAdultoHabilitado, nuevaSolicitud, cancelarSolicitud]);
+  }, [cargarEh, search, fuente, lecturaActiva, animeAdultoHabilitado, nuevaSolicitud, cancelarSolicitud]);
 
   const prevEhFiltros = useRef<string | null>(null);
   useEffect(() => {
@@ -1648,7 +1688,12 @@ export default function ExplorarPage() {
           <>
             <select
               value={ehCat}
-              onChange={(e) => setEhCat(e.target.value)}
+              onChange={(e) => {
+                ehCursors.current = { 1: null };
+                setEhNextCursor(null);
+                setEhCat(e.target.value);
+                setEhPage(1);
+              }}
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
             >
               <option value="todos">Todas las categorías</option>
@@ -1661,7 +1706,12 @@ export default function ExplorarPage() {
 
             <select
               value={ehLang}
-              onChange={(e) => setEhLang(e.target.value)}
+              onChange={(e) => {
+                ehCursors.current = { 1: null };
+                setEhNextCursor(null);
+                setEhLang(e.target.value);
+                setEhPage(1);
+              }}
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
             >
               {EHENTAI_IDIOMAS.map((i) => (
@@ -1672,6 +1722,7 @@ export default function ExplorarPage() {
             </select>
 
             <button
+              type="button"
               onClick={() => setEhModalTags(true)}
               className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
                 ehTag
@@ -1679,11 +1730,17 @@ export default function ExplorarPage() {
                   : "border-line-strong text-subtle hover:border-ink hover:text-ink"
               }`}
             >
-              {ehTag ? `🏷️ Tag: ${ehTag}` : "🏷️ Etiquetas (+270)"}
+              {ehTag ? `🏷️ Tag: ${ehTag}` : "🏷️ Todas las etiquetas"}
             </button>
             {ehTag && (
               <button
-                onClick={() => setEhTag(null)}
+                type="button"
+                onClick={() => {
+                  ehCursors.current = { 1: null };
+                  setEhNextCursor(null);
+                  setEhTag(null);
+                  setEhPage(1);
+                }}
                 className="text-xs font-semibold text-danger hover:underline"
                 title="Quitar filtro de etiqueta"
               >
@@ -2608,6 +2665,8 @@ export default function ExplorarPage() {
                           key={t}
                           type="button"
                           onClick={() => {
+                            ehCursors.current = { 1: null };
+                            setEhNextCursor(null);
                             setEhTag(t);
                             setEhPage(1);
                             window.scrollTo({ top: 0, behavior: "instant" });
@@ -2672,9 +2731,12 @@ export default function ExplorarPage() {
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
               <div>
                 <h3 className="text-base font-bold text-ink">Etiquetas de E-Hentai</h3>
-                <p className="text-xs text-subtle">Filtrá por tag o escribí cualquier etiqueta específica</p>
+                <p className="text-xs text-subtle">
+                  Buscá en tiempo real cualquier serie, personaje, artista, grupo o etiqueta de E-Hentai
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => setEhModalTags(false)}
                 className="rounded-md p-1.5 text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                 aria-label="Cerrar modal"
@@ -2683,8 +2745,8 @@ export default function ExplorarPage() {
               </button>
             </div>
 
-            {/* Barra de búsqueda de tags */}
-            <div className="border-b border-line p-4 space-y-2">
+            {/* Barra de búsqueda de tags + pestañas de namespace */}
+            <div className="border-b border-line p-4 space-y-2.5">
               <input
                 type="text"
                 value={ehTagBusqueda}
@@ -2693,18 +2755,41 @@ export default function ExplorarPage() {
                   const limpio = ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
                   if (e.key === "Enter" && limpio) {
                     e.preventDefault();
+                    ehCursors.current = { 1: null };
+                    setEhNextCursor(null);
                     setEhTag(limpio);
                     setEhPage(1);
                     setEhModalTags(false);
                     window.scrollTo({ top: 0, behavior: "instant" });
                   }
                 }}
-                placeholder="Etiqueta o varias separadas por coma (ej: female:maid, other:full color, mixed:group)..."
+                placeholder="Serie, personaje, artista, grupo o etiqueta (ej: kobayashi, kanna, female:maid, full color)..."
                 className={`w-full ${fieldControlClass}`}
                 autoFocus
               />
+
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {EHENTAI_TAG_GRUPOS.map((grupo) => {
+                  const activo = ehTagNs === grupo.id;
+                  return (
+                    <button
+                      key={grupo.id}
+                      type="button"
+                      onClick={() => setEhTagNs(grupo.id)}
+                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        activo
+                          ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                          : "border-line bg-[var(--surface-raised)] text-subtle hover:border-line-strong hover:text-ink"
+                      }`}
+                    >
+                      {grupo.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim() && (
-                <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center justify-between gap-2 pt-0.5">
                   <span className="text-xs text-subtle">
                     Separalas con coma (tag, tag, tag) o pulsá Enter para buscar todas juntas:
                   </span>
@@ -2713,6 +2798,8 @@ export default function ExplorarPage() {
                     onClick={() => {
                       const limpio = ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
                       if (!limpio) return;
+                      ehCursors.current = { 1: null };
+                      setEhNextCursor(null);
                       setEhTag(limpio);
                       setEhPage(1);
                       setEhModalTags(false);
@@ -2748,6 +2835,8 @@ export default function ExplorarPage() {
                                 .split(",")
                                 .map((x) => x.trim())
                                 .filter((x) => x && x.toLowerCase() !== limpio.toLowerCase());
+                              ehCursors.current = { 1: null };
+                              setEhNextCursor(null);
                               setEhTag(restantes.length > 0 ? restantes.join(", ") : null);
                               setEhPage(1);
                             }}
@@ -2763,6 +2852,8 @@ export default function ExplorarPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      ehCursors.current = { 1: null };
+                      setEhNextCursor(null);
                       setEhTag(null);
                       setEhTagBusqueda("");
                       setEhPage(1);
@@ -2776,82 +2867,204 @@ export default function ExplorarPage() {
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2">
-                {buscarEtiquetasEhentai(ehTagBusqueda).map((t) => {
-                  const activas = (ehTag ?? "")
-                    .split(",")
-                    .map((x) => x.trim().toLowerCase())
-                    .filter(Boolean);
-                  const estaActiva = activas.includes(t.tag.toLowerCase());
-                  return (
-                    <div
-                      key={t.tag}
-                      className={`inline-flex items-stretch overflow-hidden rounded-lg border text-xs transition-colors ${
-                        estaActiva
-                          ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
-                          : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (ehTagBusqueda.includes(",")) {
-                            const previas = ehTagBusqueda
-                              .split(",")
-                              .slice(0, -1)
-                              .map((x) => x.trim())
-                              .filter(Boolean);
-                            const nuevaLista = Array.from(new Set([...previas, t.tag])).join(", ");
-                            setEhTag(nuevaLista);
-                            setEhTagBusqueda(`${nuevaLista}, `);
-                          } else {
-                            setEhTag(t.tag);
-                            setEhModalTags(false);
-                          }
-                          setEhPage(1);
-                          window.scrollTo({ top: 0, behavior: "instant" });
-                        }}
-                        className="px-3 py-1.5 text-left"
-                      >
-                        <span className="block font-medium">{t.label}</span>
-                        <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const base = ehTagBusqueda.includes(",")
-                            ? ehTagBusqueda
-                                .split(",")
-                                .slice(0, -1)
-                                .map((x) => x.trim())
-                                .filter(Boolean)
-                            : (ehTag ?? "")
-                                .split(",")
-                                .map((x) => x.trim())
-                                .filter(Boolean);
-                          const existe = base.some((x) => x.toLowerCase() === t.tag.toLowerCase());
-                          const nueva = existe
-                            ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
-                            : [...base, t.tag];
-                          const textoFinal = nueva.join(", ");
-                          setEhTag(textoFinal || null);
-                          setEhTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
-                          setEhPage(1);
-                        }}
-                        title={estaActiva ? `Quitar ${t.tag} de la combinación` : `Agregar ${t.tag} a la búsqueda múltiple`}
-                        className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
-                      >
-                        {estaActiva ? "✓" : "+"}
-                      </button>
+              {(ehBuscandoTags || ehTagsSugeridos.length > 0) && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-accent-ink">
+                      Sugerencias en tiempo real de E-Hentai
+                    </p>
+                    {ehBuscandoTags && (
+                      <span className="font-mono text-[10px] text-subtle">Buscando...</span>
+                    )}
+                  </div>
+                  {ehTagsSugeridos.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {ehTagsSugeridos.map((t) => {
+                        const activas = (ehTag ?? "")
+                          .split(",")
+                          .map((x) => x.trim().toLowerCase())
+                          .filter(Boolean);
+                        const estaActiva = activas.includes(t.tag.toLowerCase());
+                        return (
+                          <div
+                            key={`eh-sug-${t.tag}`}
+                            className={`inline-flex items-stretch overflow-hidden rounded-lg border text-xs transition-colors ${
+                              estaActiva
+                                ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                                : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                ehCursors.current = { 1: null };
+                                setEhNextCursor(null);
+                                if (ehTagBusqueda.includes(",")) {
+                                  const previas = ehTagBusqueda
+                                    .split(",")
+                                    .slice(0, -1)
+                                    .map((x) => x.trim())
+                                    .filter(Boolean);
+                                  const nuevaLista = Array.from(new Set([...previas, t.tag])).join(", ");
+                                  setEhTag(nuevaLista);
+                                  setEhTagBusqueda(`${nuevaLista}, `);
+                                } else {
+                                  setEhTag(t.tag);
+                                  setEhModalTags(false);
+                                }
+                                setEhPage(1);
+                                window.scrollTo({ top: 0, behavior: "instant" });
+                              }}
+                              className="px-3 py-1.5 text-left"
+                            >
+                              <span className="block font-medium">{t.label}</span>
+                              <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const base = ehTagBusqueda.includes(",")
+                                  ? ehTagBusqueda
+                                      .split(",")
+                                      .slice(0, -1)
+                                      .map((x) => x.trim())
+                                      .filter(Boolean)
+                                  : (ehTag ?? "")
+                                      .split(",")
+                                      .map((x) => x.trim())
+                                      .filter(Boolean);
+                                const existe = base.some((x) => x.toLowerCase() === t.tag.toLowerCase());
+                                const nueva = existe
+                                  ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
+                                  : [...base, t.tag];
+                                const textoFinal = nueva.join(", ");
+                                ehCursors.current = { 1: null };
+                                setEhNextCursor(null);
+                                setEhTag(textoFinal || null);
+                                setEhTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
+                                setEhPage(1);
+                              }}
+                              title={estaActiva ? `Quitar ${t.tag} de la combinación` : `Agregar ${t.tag} a la búsqueda múltiple`}
+                              className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
+                            >
+                              {estaActiva ? "✓" : "+"}
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              )}
+
+              {(() => {
+                const yaMostradas = new Set(ehTagsSugeridos.map((s) => s.tag.toLowerCase()));
+                const locales = buscarEtiquetasEhentai(ehTagBusqueda, ehTagNs).filter(
+                  (t) => !yaMostradas.has(t.tag.toLowerCase())
+                );
+                if (locales.length === 0) {
+                  if (!ehBuscandoTags && ehTagsSugeridos.length === 0) {
+                    return (
+                      <p className="py-6 text-center text-xs text-subtle">
+                        {ehTagNs === "artist" || ehTagNs === "group" || ehTagNs === "cosplayer"
+                          ? "Escribí al menos 2 letras arriba para buscar en tiempo real dentro de E-Hentai."
+                          : "No hay coincidencias exactas en esta pestaña. Escribí arriba o pulsá Enter para buscar en E-Hentai."}
+                      </p>
+                    );
+                  }
+                  return null;
+                }
+                return (
+                  <div className="space-y-2">
+                    {ehTagsSugeridos.length > 0 && (
+                      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-subtle">
+                        Etiquetas populares
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {locales.map((t) => {
+                        const activas = (ehTag ?? "")
+                          .split(",")
+                          .map((x) => x.trim().toLowerCase())
+                          .filter(Boolean);
+                        const estaActiva = activas.includes(t.tag.toLowerCase());
+                        return (
+                          <div
+                            key={t.tag}
+                            className={`inline-flex items-stretch overflow-hidden rounded-lg border text-xs transition-colors ${
+                              estaActiva
+                                ? "border-accent bg-[var(--accent-soft)] text-accent-ink font-semibold"
+                                : "border-line bg-panel text-ink hover:border-line-strong hover:bg-[var(--surface-raised)]"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                ehCursors.current = { 1: null };
+                                setEhNextCursor(null);
+                                if (ehTagBusqueda.includes(",")) {
+                                  const previas = ehTagBusqueda
+                                    .split(",")
+                                    .slice(0, -1)
+                                    .map((x) => x.trim())
+                                    .filter(Boolean);
+                                  const nuevaLista = Array.from(new Set([...previas, t.tag])).join(", ");
+                                  setEhTag(nuevaLista);
+                                  setEhTagBusqueda(`${nuevaLista}, `);
+                                } else {
+                                  setEhTag(t.tag);
+                                  setEhModalTags(false);
+                                }
+                                setEhPage(1);
+                                window.scrollTo({ top: 0, behavior: "instant" });
+                              }}
+                              className="px-3 py-1.5 text-left"
+                            >
+                              <span className="block font-medium">{t.label}</span>
+                              <span className="block font-mono text-[10px] text-faint">{t.tag}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const base = ehTagBusqueda.includes(",")
+                                  ? ehTagBusqueda
+                                      .split(",")
+                                      .slice(0, -1)
+                                      .map((x) => x.trim())
+                                      .filter(Boolean)
+                                  : (ehTag ?? "")
+                                      .split(",")
+                                      .map((x) => x.trim())
+                                      .filter(Boolean);
+                                const existe = base.some((x) => x.toLowerCase() === t.tag.toLowerCase());
+                                const nueva = existe
+                                  ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
+                                  : [...base, t.tag];
+                                const textoFinal = nueva.join(", ");
+                                ehCursors.current = { 1: null };
+                                setEhNextCursor(null);
+                                setEhTag(textoFinal || null);
+                                setEhTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
+                                setEhPage(1);
+                              }}
+                              title={estaActiva ? `Quitar ${t.tag} de la combinación` : `Agregar ${t.tag} a la búsqueda múltiple`}
+                              className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
+                            >
+                              {estaActiva ? "✓" : "+"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Pie del modal */}
             <div className="flex justify-end border-t border-line px-5 py-3">
               <button
+                type="button"
                 onClick={() => setEhModalTags(false)}
                 className="rounded-md border border-line px-4 py-1.5 text-xs font-medium text-subtle hover:border-line-strong hover:text-ink"
               >

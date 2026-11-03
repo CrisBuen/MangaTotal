@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { contenidoAdultoPermitido } from "@/lib/contentAccess";
-import { catalogoEhentai } from "@/lib/ehentai";
+import { catalogoEhentai, sugerirEtiquetasEhentai } from "@/lib/ehentai";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Catálogo y búsqueda de E-Hentai.
+ * Catálogo, sugerencias en tiempo real de etiquetas y búsqueda de E-Hentai.
  * Requiere estrictamente que el usuario tenga el contenido +18 activado
  * y no esté usando la versión de Google Play Store.
  */
@@ -18,6 +18,17 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = req.nextUrl;
+  const suggest = searchParams.get("suggest");
+  if (suggest !== null) {
+    const ns = searchParams.get("ns") ?? "";
+    try {
+      const tags = await sugerirEtiquetasEhentai(suggest, ns);
+      return NextResponse.json({ tags });
+    } catch {
+      return NextResponse.json({ tags: [] });
+    }
+  }
+
   const busqueda = searchParams.get("q") ?? "";
   const categoria = searchParams.get("cat") ?? "todos";
   const idioma = searchParams.get("lang") ?? "todos";
