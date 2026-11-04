@@ -6,6 +6,7 @@ import { OlympusReader } from "@/components/reader/OlympusReader";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 import type { FichaEhentai } from "@/lib/ehentai";
+import { pedirFichaEhentai, pedirPaginasEhentai } from "@/lib/ehentaiCliente";
 
 function LectorEhentaiContenido(props: {
   params: Promise<{ gid: string; token: string }>;
@@ -25,16 +26,7 @@ function LectorEhentaiContenido(props: {
       const [dataFicha, listaPaginas] = await Promise.all([
         cargarConCacheAndroid<FichaEhentai>(
           `ficha:ehentai:${gid}:${token}`,
-          async (signal) => {
-            const resFicha = await fetch(`/api/externo/ehentai/${gid}/${token}`, { signal });
-            if (!resFicha.ok) {
-              if (resFicha.status === 403) {
-                throw new Error("Contenido +18 no disponible en esta edición.");
-              }
-              throw new Error("No se pudo cargar la información de la galería");
-            }
-            return resFicha.json();
-          },
+          (signal) => pedirFichaEhentai(gid, token, signal),
           {
             publicCache: true,
             freshForMs: 30 * 60 * 1000,
@@ -43,15 +35,8 @@ function LectorEhentaiContenido(props: {
           }
         ),
         cargarConCacheAndroid<string[]>(
-          `paginas:ehentai:${gid}:${token}`,
-          async (signal) => {
-            const resPaginas = await fetch(`/api/externo/ehentai/${gid}/${token}/paginas`, { signal });
-            if (!resPaginas.ok) {
-              throw new Error("No se pudieron cargar las páginas de la galería");
-            }
-            const dataPaginas = await resPaginas.json();
-            return dataPaginas.paginas || [];
-          },
+          `paginas:ehentai:v2:${gid}:${token}`,
+          (signal) => pedirPaginasEhentai(gid, token, signal),
           {
             publicCache: true,
             freshForMs: 30 * 60 * 1000,

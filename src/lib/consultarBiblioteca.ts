@@ -154,8 +154,8 @@ export async function consultarBiblioteca(tipo: TipoCola, t: TareaBiblioteca, si
   if (t.source === "ehentai") {
     if (isPlayStoreApp()) throw new Error("Fuente no disponible en esta edición");
     const [gid, token] = t.external_id.split("/");
-    const { fichaEhentai } = await import("./ehentai");
-    const f = await fichaEhentai(gid, token);
+    const { pedirFichaEhentai } = await import("./ehentaiCliente");
+    const f = await pedirFichaEhentai(gid, token, signal);
     return resumirCapitulos([{ name: "1", published_at: f.posted ?? "" }], t.last_chapter_name, "completed");
   }
   throw new Error("Fuente no disponible");

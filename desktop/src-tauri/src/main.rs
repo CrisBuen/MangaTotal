@@ -247,6 +247,7 @@ struct ManifiestoActualizacion {
 
 const DOMINIOS_FUENTES: &[&str] = &[
     "olympusxyz.com",
+    "e-hentai.org",
     "newcatharsis.dig-it.info",
     // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
     "catharsisfood.com",
@@ -300,6 +301,7 @@ async fn traer_pagina(
     // Ikigai usa una redirección legítima entre dos dominios autorizados.
     for _ in 0..=5 {
         let host = destino.host_str().unwrap_or_default().to_string();
+        let es_ehentai = host == "e-hentai.org" || host.ends_with(".e-hentai.org");
         let permiso = app
             .state::<Permisos>()
             .0
@@ -310,12 +312,22 @@ async fn traer_pagina(
 
         let mut pedido = http
             .get(destino.clone())
-            .header("Accept-Language", "es-ES,es;q=0.9")
+            .header(
+                "Accept-Language",
+                if es_ehentai { "en-US,en;q=0.9" } else { "es-ES,es;q=0.9" },
+            )
             .header("Accept", "application/json, text/html, */*");
         if host.contains("olympus") {
             pedido = pedido.header("Referer", "https://olympusxyz.com/");
         }
-        if let Some(cookie) = permiso {
+        if es_ehentai {
+            // `nw=1` salta la advertencia +18 y `sl=dm_2` fuerza la tabla extendida (`<tr>`).
+            let cookie_eh = match permiso {
+                Some(c) if !c.is_empty() => format!("nw=1; sl=dm_2; {c}"),
+                _ => "nw=1; sl=dm_2".to_string(),
+            };
+            pedido = pedido.header("Cookie", cookie_eh);
+        } else if let Some(cookie) = permiso {
             pedido = pedido.header("Cookie", cookie);
         }
 
@@ -347,9 +359,9 @@ async fn traer_pagina(
     Err("La fuente hizo demasiadas redirecciones".into())
 }
 
-/// POST restringido que replica el buscador oficial de Ikigai.
+/// POST restringido para el buscador oficial de Ikigai (Qwik) o la API JSON de E-Hentai.
 ///
-/// La web no puede hacerlo por CORS y su servidor bloquea a Vercel. La URL
+/// La web no puede hacerlo por CORS y así no pasa tráfico por Vercel. La URL
 /// sigue pasando por la misma lista blanca que las páginas normales.
 #[tauri::command]
 async fn enviar_json(
@@ -361,12 +373,14 @@ async fn enviar_json(
 ) -> Result<String, String> {
     let destino = validar_url_fuente(&url)?;
     let host = destino.host_str().unwrap_or_default().to_string();
+    let es_json_ehentai =
+        qrl.is_empty() && (host == "api.e-hentai.org" || host == "e-hentai.org");
     let qrl_valido = !qrl.is_empty()
         && qrl.len() <= 128
         && qrl
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
-    if !qrl_valido {
+    if !es_json_ehentai && !qrl_valido {
         return Err("Identificador de búsqueda inválido".into());
     }
     if body.len() > 128 * 1024 {
@@ -381,13 +395,20 @@ async fn enviar_json(
         .get(&host)
         .cloned();
     let http = cliente_sin_redirecciones(ua_de(&user_agent))?;
-    let mut pedido = http
-        .post(destino)
-        .header("Accept-Language", "es-ES,es;q=0.9")
-        .header("Content-Type", "application/qwik-json")
-        .header("Accept", "application/json, application/qwik-json, text/plain")
-        .header("X-QRL", qrl)
-        .body(body);
+    let mut pedido = if es_json_ehentai {
+        http.post(destino)
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .body(body)
+    } else {
+        http.post(destino)
+            .header("Accept-Language", "es-ES,es;q=0.9")
+            .header("Content-Type", "application/qwik-json")
+            .header("Accept", "application/json, application/qwik-json, text/plain")
+            .header("X-QRL", qrl)
+            .body(body)
+    };
     if let Some(cookie) = permiso {
         pedido = pedido.header("Cookie", cookie);
     }
@@ -729,6 +750,9 @@ mod tests {
 
     #[test]
     fn las_fuentes_exigen_https_y_un_dominio_realmente_permitido() {
+        assert!(validar_url_fuente("https://e-hentai.org/?advsearch=1").is_ok());
+        assert!(validar_url_fuente("https://api.e-hentai.org/api.php").is_ok());
+        assert!(validar_url_fuente("https://e-hentai.org.evil.example/").is_err());
         assert!(validar_url_fuente("https://leercapitulo.co/serie").is_ok());
         assert!(validar_url_fuente("https://lc3-cdn.t34798ndc.com/pagina.webp").is_ok());
         assert!(validar_url_fuente("https://viralikigai.milkchoco.online/capitulo/1/").is_ok());

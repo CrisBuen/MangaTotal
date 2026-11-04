@@ -7,33 +7,46 @@ Dominio oficial: https://e-hentai.org
 QUE CONSUME MANGATOTAL
 ----------------------
 
-- Catalogo y busqueda avanzada por parametros GET:
-  https://e-hentai.org/?f_cats={bitmask}&f_search={query}+language:{idioma}
-- Desafio de advertencia para mayores omitido con cabecera `Cookie: nw=1`.
+- Catalogo y busqueda avanzada sin exclusiones de invitado por parametros GET:
+  https://e-hentai.org/?f_cats={bitmask}&f_search={query}&advsearch=1&f_sfl=on&f_sfu=on&f_sft=on
+  Respaldo directo al indice de etiqueta `/tag/{ns}:{valor}` cuando se filtra por 1 sola etiqueta.
+- Desafio de advertencia +18 y modo de tabla extendida con `Cookie: nw=1; sl=dm_2`.
+- Autocompletado en tiempo real de toda la base de etiquetas con `tagsuggest`:
+  POST https://api.e-hentai.org/api.php con payload JSON { method: "tagsuggest", text: consulta }
 - Ficha de galeria y metadatos con la API JSON oficial `gdata`:
   POST https://api.e-hentai.org/api.php con payload JSON { method: "gdata", gidlist: [[gid, token]], namespace: 1 }
-- URLs de las paginas leidas desde el HTML de la galeria (.gdtm / .gdtl a href).
+- URLs de las paginas leidas desde el HTML de la galeria (?p=0..N).
 - Resolucion de la imagen directa leyendo la etiqueta <img id="img"> de cada pagina del lector.
 - Las imagenes se sirven desde la red distribuida Hath (*.hath.network:* / *.ehgt.org).
+
+PUENTE NATIVO DIRECTO (0 CUOTA VERCEL / R2)
+-------------------------------------------
+
+- En Android (APK local) y Windows PC (`src/lib/ehentaiCliente.ts`), todas las peticiones
+  (catalogo, autocompletado de tags, fichas `gdata`, indice de paginas e imagenes del lector/descargas)
+  salen primero directo desde la conexion del dispositivo via `FuentesPlugin` / comandos Tauri
+  sin consumir invocaciones ni ancho de banda de Vercel ni almacenamiento R2.
+- En navegador web o binarios nativos antiguos cae de forma transparente a `/api/externo/ehentai`.
 
 ACCESO ADULTO Y GOOGLE PLAY STORE
 ---------------------------------
 
 - La fuente SOLO aparece cuando el usuario tiene activado "Mostrar contenido +18" en Ajustes -> Seguridad y Privacidad.
 - Todas sus rutas de API (/api/externo/ehentai/...) comprueban `contenidoAdultoPermitido()`.
-- La edicion Google Play Store (detectada via User-Agent con `isPlayStoreApp()`) NUNCA muestra ni sirve catalogo, galeria o paginas de E-Hentai. Responde 404 de inmediato para proteger la publicacion.
+- La edicion Google Play Store (detectada via User-Agent con `isPlayStoreApp()` y permisos nativos)
+  NUNCA muestra ni sirve catalogo, galeria o paginas de E-Hentai.
 
 DESCARGA LOCAL DE CAPITULOS
 ---------------------------
 
 - La descarga se ejecuta 100% del lado del cliente sin pasar por almacenamiento ni base de datos de MangaTotal / R2.
 - En PC: utiliza la File System Access API para guardar directamente en MangaTotal/descargas/{fuente}/{serie}/{capitulo}/{001.ext}, o paquete ZIP con la misma estructura como respaldo.
-- En Android: se apoya en el puente nativo `FuentesPlugin.guardarCapitulo` guardando en la carpeta publica Descargas (Download/MangaTotal/descargas/...).
+- En Android: se apoya en el puente nativo `FuentesPlugin.guardarArchivo` / `DescargaServicio` guardando en MangaTotal/descargas/...
 - Mantiene calidad FullHD original sin compresion.
 
 SI CAMBIA EL DOMINIO O LA API
 -----------------------------
 
-1. Cambiar `EHENTAI_BASE` o `EHENTAI_API` en `src/lib/ehentai.ts`.
-2. Si cambian los hosts de los nodos de imagen Hath, actualizar la lista blanca `ALLOWED_HOSTS` en `src/app/api/externo/imagen/route.ts`.
-3. Comprobar catalogo, filtros de categoria, selector de idioma, ficha de galeria y lector.
+1. Cambiar `EHENTAI_WEB` o `EHENTAI_API` en `src/lib/ehentai.ts` y actualizar `PERMITIDOS` / `DOMINIOS_FUENTES` en `mobile/patches/FuentesPlugin.java` y `desktop/src-tauri/src/main.rs`.
+2. Si cambian los hosts de los nodos de imagen Hath, actualizar `HOSTS_IMAGEN_PERMITIDOS` en `src/lib/imagenFuenteNativa.ts` y `ALLOWED_HOSTS` en `src/app/api/externo/imagen/route.ts`.
+3. Comprobar catalogo, filtros de categoria, selector de idioma, autocompletado de tags, ficha de galeria y lector.

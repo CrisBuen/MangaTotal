@@ -50,6 +50,10 @@ import {
   type SugerenciaTagEhentai,
 } from "@/lib/ehentai";
 import {
+  pedirCatalogoEhentai,
+  pedirSugerenciasEhentai,
+} from "@/lib/ehentaiCliente";
+import {
   EHENTAI_TAG_GRUPOS,
   buscarEtiquetasEhentai,
   type EhentaiNamespace,
@@ -244,14 +248,9 @@ export default function ExplorarPage() {
     const ctrl = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const nsParam = ehTagNs !== "todos" ? `&ns=${encodeURIComponent(ehTagNs)}` : "";
-        const res = await fetch(`/api/externo/ehentai?suggest=${encodeURIComponent(q)}${nsParam}`, {
-          signal: ctrl.signal,
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (Array.isArray(data?.tags)) {
-          setEhTagsSugeridos(data.tags);
+        const sugeridas = await pedirSugerenciasEhentai(q, ehTagNs, ctrl.signal);
+        if (!ctrl.signal.aborted) {
+          setEhTagsSugeridos(sugeridas);
         }
       } catch {
       } finally {
@@ -1246,15 +1245,7 @@ export default function ExplorarPage() {
         anotarCursor(ehPage, cursorActual);
       }
 
-      const params = new URLSearchParams();
-      if (search.trim()) params.set("q", search.trim());
-      if (ehCat && ehCat !== "todos") params.set("cat", ehCat);
-      if (ehLang && ehLang !== "todos") params.set("lang", ehLang);
-      if (ehTag && ehTag.trim()) params.set("tag", ehTag.trim());
-      if (cursorActual) params.set("next", cursorActual);
-      if (fresco) params.set("fresco", "1");
-
-      const cacheKey = `explorar:ehentai:v4:${ehPage}:${cursorActual ?? "inicio"}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`;
+      const cacheKey = `explorar:ehentai:v5:${ehPage}:${cursorActual ?? "inicio"}:${ehCat}:${ehLang}:${ehTag ?? ""}:${search.trim()}`;
 
       const r = await cargarConCacheAndroid<{
         series: SerieEhentai[];
@@ -1263,17 +1254,16 @@ export default function ExplorarPage() {
         prevCursor?: string | null;
       }>(
         cacheKey,
-        async (signal) => {
-          const res = await fetch(`/api/externo/ehentai?${params.toString()}`, {
-            cache: fresco ? "no-store" : "default",
+        (signal) =>
+          pedirCatalogoEhentai({
+            busqueda: search.trim(),
+            categoria: ehCat,
+            idioma: ehLang,
+            tag: ehTag ?? "",
+            next: cursorActual ?? undefined,
+            fresco,
             signal,
-          });
-          if (!res.ok) {
-            const errJson = await res.json().catch(() => null);
-            throw new Error(errJson?.error || "Error al cargar E-Hentai");
-          }
-          return res.json();
-        },
+          }),
         {
           publicCache: true,
           force: fresco,

@@ -186,11 +186,12 @@ export async function traerTexto(url: string): Promise<string> {
 }
 
 /**
- * Envía el pequeño sobre JSON que usa la búsqueda oficial de Ikigai.
+ * Envía el pequeño sobre JSON que usa la búsqueda oficial de Ikigai (con `qrl`)
+ * o una API JSON autorizada en la lista blanca (como `api.e-hentai.org`, con `qrl: ""`).
  *
  * Se hace en el puente nativo porque el navegador no puede cruzar su CORS y
- * Vercel está bloqueado por la fuente. La URL sigue pasando por la misma
- * lista blanca estricta de dominios que el resto de los pedidos.
+ * así no pasa tráfico por Vercel. La URL sigue pasando por la misma lista blanca
+ * estricta de dominios que el resto de los pedidos.
  */
 export async function enviarJsonNativo(
   url: string,
@@ -239,13 +240,19 @@ export async function enviarJsonNativo(
     }
 
     if (tauri?.http?.fetch) {
+      const headers: Record<string, string> = qrl
+        ? {
+            "Content-Type": "application/qwik-json",
+            Accept: "application/json, application/qwik-json, text/plain",
+            "X-QRL": qrl,
+          }
+        : {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          };
       const res = await tauri.http.fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/qwik-json",
-          Accept: "application/json, application/qwik-json, text/plain",
-          "X-QRL": qrl,
-        },
+        headers,
         body,
       });
       if (!res.ok) throw new Error("La fuente respondió " + res.status);
@@ -254,6 +261,12 @@ export async function enviarJsonNativo(
   }
 
   throw new Error("Actualizá MangaTotal para usar la búsqueda global de esta fuente");
+}
+
+/** Envía un cuerpo JSON estándar (`application/json`) por el puente nativo y devuelve el JSON parseado. */
+export async function postJsonNativo<T>(url: string, payload: unknown): Promise<T> {
+  const texto = await enviarJsonNativo(url, JSON.stringify(payload), "");
+  return JSON.parse(texto) as T;
 }
 
 /** Pide un JSON y lo devuelve ya parseado. */

@@ -66,6 +66,7 @@ public class FuentesPlugin extends Plugin {
     /** Solo las fuentes integradas: el puente no es un navegador de uso libre. */
     private static final String[] PERMITIDOS = {
         "olympusxyz.com",
+        "e-hentai.org",
         "newcatharsis.dig-it.info",
         // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
         "catharsisfood.com",
@@ -303,7 +304,9 @@ public class FuentesPlugin extends Plugin {
                     URL destino = new URL(direccion);
                     boolean reintentar = false;
                     for (int salto = 0; salto <= MAX_REDIRECCIONES; salto++) {
-                        if (!direccionPermitida(destino)) {
+                        String hostDestino = destino.getHost() != null ? destino.getHost().toLowerCase(Locale.ROOT) : "";
+                        boolean esEhentai = hostDestino.equals("e-hentai.org") || hostDestino.endsWith(".e-hentai.org");
+                        if (!direccionPermitida(destino) || (esEhentai && !solicitaPermisoAccesoTotal())) {
                             call.reject("Dirección de fuente no permitida");
                             return;
                         }
@@ -313,8 +316,8 @@ public class FuentesPlugin extends Plugin {
                         conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
                         conexion.setReadTimeout(TIEMPO_ESPERA_MS);
                         conexion.setRequestProperty("User-Agent", ua);
-                        conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
-                        if (destino.getHost() != null && destino.getHost().toLowerCase(Locale.ROOT).contains("olympus")) {
+                        conexion.setRequestProperty("Accept-Language", esEhentai ? "en-US,en;q=0.9" : "es-ES,es;q=0.9");
+                        if (hostDestino.contains("olympus")) {
                             conexion.setRequestProperty("Referer", "https://olympusxyz.com/");
                         }
                         conexion.setRequestProperty(
@@ -325,7 +328,14 @@ public class FuentesPlugin extends Plugin {
                         // el permiso de Cloudflare vive en el almacén de cookies del
                         // sistema: lo dejó ahí la ventana de verificación
                         String cookies = CookieManager.getInstance().getCookie(destino.toString());
-                        if (cookies != null && !cookies.isEmpty()) {
+                        if (esEhentai) {
+                            // `nw=1` salta la advertencia +18 y `sl=dm_2` fuerza la tabla extendida (`<tr>`).
+                            String baseEh = "nw=1; sl=dm_2";
+                            conexion.setRequestProperty(
+                                "Cookie",
+                                (cookies != null && !cookies.isEmpty()) ? (baseEh + "; " + cookies) : baseEh
+                            );
+                        } else if (cookies != null && !cookies.isEmpty()) {
                             conexion.setRequestProperty("Cookie", cookies);
                         }
 
@@ -396,7 +406,19 @@ public class FuentesPlugin extends Plugin {
             call.reject("Dirección de fuente no permitida");
             return;
         }
-        if (!qrl.matches("[A-Za-z0-9_-]{1,128}")) {
+        String hostPost = "";
+        try {
+            URL uPost = new URL(direccion);
+            hostPost = uPost.getHost() != null ? uPost.getHost().toLowerCase(Locale.ROOT) : "";
+        } catch (Exception ignored) {}
+        final boolean esJsonEhentai =
+            (qrl == null || qrl.isEmpty()) &&
+            (hostPost.equals("api.e-hentai.org") || hostPost.equals("e-hentai.org"));
+        if (esJsonEhentai && !solicitaPermisoAccesoTotal()) {
+            call.reject("Dirección de fuente no permitida");
+            return;
+        }
+        if (!esJsonEhentai && (qrl == null || !qrl.matches("[A-Za-z0-9_-]{1,128}"))) {
             call.reject("Identificador de búsqueda inválido");
             return;
         }
@@ -419,10 +441,16 @@ public class FuentesPlugin extends Plugin {
                 conexion.setDoOutput(true);
                 conexion.setFixedLengthStreamingMode(bytes.length);
                 conexion.setRequestProperty("User-Agent", ua);
-                conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
-                conexion.setRequestProperty("Content-Type", "application/qwik-json");
-                conexion.setRequestProperty("Accept", "application/json, application/qwik-json, text/plain");
-                conexion.setRequestProperty("X-QRL", qrl);
+                if (esJsonEhentai) {
+                    conexion.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+                    conexion.setRequestProperty("Content-Type", "application/json");
+                    conexion.setRequestProperty("Accept", "application/json");
+                } else {
+                    conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
+                    conexion.setRequestProperty("Content-Type", "application/qwik-json");
+                    conexion.setRequestProperty("Accept", "application/json, application/qwik-json, text/plain");
+                    conexion.setRequestProperty("X-QRL", qrl);
+                }
 
                 String cookies = CookieManager.getInstance().getCookie(destino.toString());
                 if (cookies != null && !cookies.isEmpty()) {

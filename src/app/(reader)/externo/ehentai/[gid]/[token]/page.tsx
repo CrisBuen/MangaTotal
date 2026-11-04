@@ -11,6 +11,7 @@ import { Surface } from "@/components/ui/Surface";
 import { anotarHistorial } from "@/components/library/historial";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 import type { FichaEhentai } from "@/lib/ehentai";
+import { pedirFichaEhentai, pedirPaginasEhentai } from "@/lib/ehentaiCliente";
 
 function decodificarHtml(texto: string): string {
   return texto
@@ -34,13 +35,8 @@ export default function SerieEhentaiPage(props: {
 
   const obtenerPaginas = useCallback(async (): Promise<string[]> => {
     return cargarConCacheAndroid<string[]>(
-      `paginas:ehentai:${gid}:${token}`,
-      async (signal) => {
-        const res = await fetch(`/api/externo/ehentai/${gid}/${token}/paginas`, { signal });
-        if (!res.ok) throw new Error("No se pudieron obtener las páginas de esta galería");
-        const data = await res.json();
-        return data.paginas || [];
-      },
+      `paginas:ehentai:v2:${gid}:${token}`,
+      (signal) => pedirPaginasEhentai(gid, token, signal),
       {
         publicCache: true,
         freshForMs: 30 * 60 * 1000,
@@ -55,16 +51,7 @@ export default function SerieEhentaiPage(props: {
     try {
       const data = await cargarConCacheAndroid<FichaEhentai>(
         `ficha:ehentai:${gid}:${token}`,
-        async (signal) => {
-          const res = await fetch(`/api/externo/ehentai/${gid}/${token}`, { signal });
-          if (!res.ok) {
-            if (res.status === 403) {
-              throw new Error("Contenido +18 no disponible. Podés activarlo en Más → Ajustes → Seguridad.");
-            }
-            throw new Error(`No se pudo cargar la galería (${res.status})`);
-          }
-          return res.json();
-        },
+        (signal) => pedirFichaEhentai(gid, token, signal),
         {
           publicCache: true,
           freshForMs: 30 * 60 * 1000,
@@ -81,7 +68,7 @@ export default function SerieEhentaiPage(props: {
     } finally {
       setCargando(false);
     }
-  }, [gid, token, obtenerPaginas]);
+  }, [gid, token]);
 
   useEffect(() => {
     cargar();

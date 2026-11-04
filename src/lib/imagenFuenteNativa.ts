@@ -112,7 +112,7 @@ export function debeUsarPuenteNativo(src: string): boolean {
   if (src.startsWith("/api/externo/imagen") || src.includes("/api/externo/imagen?")) {
     return true;
   }
-  return /gold-usergeneratedcontent\.net|hitomi\.la|e-hentai\.org\/s\/|exhentai\.org\/s\/|ikigaimangas\.cloud/i.test(
+  return /gold-usergeneratedcontent\.net|hitomi\.la|e-hentai\.org\/s\/|exhentai\.org\/s\/|ikigaimangas\.cloud|^http:\/\/[^/]*\.hath\.network/i.test(
     real
   );
 }

@@ -18,6 +18,7 @@ import {
 } from "@/lib/ikigai";
 import { isPlayStoreApp } from "@/lib/appVersion";
 import { EHENTAI_CATEGORIAS, EHENTAI_IDIOMAS, type SerieEhentai } from "@/lib/ehentai";
+import { pedirCatalogoEhentai } from "@/lib/ehentaiCliente";
 import { HITOMI_POPULAR_TAGS, HITOMI_TIPOS } from "@/lib/hitomiTipos";
 
 function decodificarHtml(texto: string): string {
@@ -1164,80 +1165,85 @@ export function ReadingDiscover() {
           <UniversalRail
             title="Populares en español · E-Hentai"
             href="/explorar?fuente=ehentai&eh_lang=spanish"
-            fetchUrl="/api/externo/ehentai?cat=todos&lang=spanish"
             isSaved={(item) => guardada("ehentai", item.id)}
-            mapResponse={(data) =>
-              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: `${item.gid}/${item.token}`,
-                title: decodificarHtml(item.title),
-                cover_url: item.thumb,
-                href: `/externo/ehentai/${item.gid}/${item.token}`,
-                meta: `${item.category} · ${item.filecount} págs.`,
-              }))
+            loader={(signal) =>
+              pedirCatalogoEhentai({ categoria: "todos", idioma: "spanish", signal }).then((data) =>
+                (Array.isArray(data?.series) ? data.series : []).map((item: SerieEhentai) => ({
+                  id: `${item.gid}/${item.token}`,
+                  title: decodificarHtml(item.title),
+                  cover_url: item.thumb,
+                  href: `/externo/ehentai/${item.gid}/${item.token}`,
+                  meta: `${item.category} · ${item.filecount} págs.`,
+                }))
+              )
             }
           />
 
           <UniversalRail
             title="Doujinshis destacados · E-Hentai"
             href="/explorar?fuente=ehentai&eh_cat=doujinshi&eh_lang=spanish"
-            fetchUrl="/api/externo/ehentai?cat=doujinshi&lang=spanish"
             isSaved={(item) => guardada("ehentai", item.id)}
-            mapResponse={(data) =>
-              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: `${item.gid}/${item.token}`,
-                title: decodificarHtml(item.title),
-                cover_url: item.thumb,
-                href: `/externo/ehentai/${item.gid}/${item.token}`,
-                meta: `${item.filecount} págs.`,
-              }))
+            loader={(signal) =>
+              pedirCatalogoEhentai({ categoria: "doujinshi", idioma: "spanish", signal }).then((data) =>
+                (Array.isArray(data?.series) ? data.series : []).map((item: SerieEhentai) => ({
+                  id: `${item.gid}/${item.token}`,
+                  title: decodificarHtml(item.title),
+                  cover_url: item.thumb,
+                  href: `/externo/ehentai/${item.gid}/${item.token}`,
+                  meta: `${item.filecount} págs.`,
+                }))
+              )
             }
           />
 
           <UniversalRail
             title="Manga en español · E-Hentai"
             href="/explorar?fuente=ehentai&eh_cat=manga&eh_lang=spanish"
-            fetchUrl="/api/externo/ehentai?cat=manga&lang=spanish"
             isSaved={(item) => guardada("ehentai", item.id)}
-            mapResponse={(data) =>
-              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: `${item.gid}/${item.token}`,
-                title: decodificarHtml(item.title),
-                cover_url: item.thumb,
-                href: `/externo/ehentai/${item.gid}/${item.token}`,
-                meta: `${item.filecount} págs.`,
-              }))
+            loader={(signal) =>
+              pedirCatalogoEhentai({ categoria: "manga", idioma: "spanish", signal }).then((data) =>
+                (Array.isArray(data?.series) ? data.series : []).map((item: SerieEhentai) => ({
+                  id: `${item.gid}/${item.token}`,
+                  title: decodificarHtml(item.title),
+                  cover_url: item.thumb,
+                  href: `/externo/ehentai/${item.gid}/${item.token}`,
+                  meta: `${item.filecount} págs.`,
+                }))
+              )
             }
           />
 
           <UniversalRail
             title="Artist CG e Ilustraciones · E-Hentai"
             href="/explorar?fuente=ehentai&eh_cat=artistcg"
-            fetchUrl="/api/externo/ehentai?cat=artistcg&lang=todos"
             isSaved={(item) => guardada("ehentai", item.id)}
-            mapResponse={(data) =>
-              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: `${item.gid}/${item.token}`,
-                title: decodificarHtml(item.title),
-                cover_url: item.thumb,
-                href: `/externo/ehentai/${item.gid}/${item.token}`,
-                meta: `${item.filecount} págs.`,
-              }))
+            loader={(signal) =>
+              pedirCatalogoEhentai({ categoria: "artistcg", idioma: "todos", signal }).then((data) =>
+                (Array.isArray(data?.series) ? data.series : []).map((item: SerieEhentai) => ({
+                  id: `${item.gid}/${item.token}`,
+                  title: decodificarHtml(item.title),
+                  cover_url: item.thumb,
+                  href: `/externo/ehentai/${item.gid}/${item.token}`,
+                  meta: `${item.filecount} págs.`,
+                }))
+              )
             }
           />
 
           <UniversalRail
             title="Cosplay · E-Hentai"
             href="/explorar?fuente=ehentai&eh_cat=cosplay"
-            fetchUrl="/api/externo/ehentai?cat=cosplay&lang=todos"
             isSaved={(item) => guardada("ehentai", item.id)}
-            mapResponse={(data) =>
-              (Array.isArray(data?.series) ? data.series : []).map((item: any) => ({
-                id: `${item.gid}/${item.token}`,
-                title: decodificarHtml(item.title),
-                cover_url: item.thumb,
-                href: `/externo/ehentai/${item.gid}/${item.token}`,
-                meta: `${item.filecount} págs.`,
-              }))
+            loader={(signal) =>
+              pedirCatalogoEhentai({ categoria: "cosplay", idioma: "todos", signal }).then((data) =>
+                (Array.isArray(data?.series) ? data.series : []).map((item: SerieEhentai) => ({
+                  id: `${item.gid}/${item.token}`,
+                  title: decodificarHtml(item.title),
+                  cover_url: item.thumb,
+                  href: `/externo/ehentai/${item.gid}/${item.token}`,
+                  meta: `${item.filecount} págs.`,
+                }))
+              )
             }
           />
         </>
