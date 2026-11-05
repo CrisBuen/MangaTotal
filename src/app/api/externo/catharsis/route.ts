@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server";
 import {
+  abrirCapituloCw,
   catalogoCwServidor,
   normalizarCw,
   novedadesCwServidor,
   numeroCw,
+  obtenerImagenPaginaCw,
+  obtenerTicketPaginaCw,
   pedirCw,
-  type ArchivoCw,
+  resolverMangaV3,
+  serieCwServidor,
   type CarpetaCw,
 } from "@/lib/catharsisServidor";
 
 /**
- * Puente del servidor hacia Catharsis World (integrada con su permiso).
+ * Puente del servidor hacia Catharsis World (Catharsis v3).
  *
- * Su web no se puede leer desde un servidor: Cloudflare le pide a cada
- * visitante que compruebe que es una persona, y además dibuja las páginas en
- * un lienzo, así que en el documento no queda ninguna dirección de imagen.
- *
- * Pero el sitio guarda todo en un Directus, y ese sí contesta a cualquiera.
- * Cómo está organizado su almacén está en src/lib/catharsisServidor.ts y, con
- * más detalle, en CAMBIO-DE-DOMINIO-CATHARSIS.txt.
+ * Su nueva web corre sobre un backend protegido por Cap PoW y pases de
+ * lectura firmados por IP. El servidor consulta su API pública para armar
+ * el catálogo completo en memoria, resolver los UUID antiguos de las series
+ * guardadas por los usuarios y generar los tickets de lectura bajo demanda.
  */
 
 const POR_PAGINA = 24;
-
-const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -56,30 +55,15 @@ export async function GET(request: Request) {
     }
 
     if (accion === "serie") {
-      const id = params.get("id") ?? "";
-      if (!ES_UUID.test(id)) {
+      const id = params.get("id")?.trim() ?? "";
+      if (!id) {
         return NextResponse.json({ error: "Serie inválida" }, { status: 400 });
       }
 
-      const [carpetas, series] = await Promise.all([
-        pedirCw<{ data: CarpetaCw[] }>(
-          `/folders?filter[parent][_eq]=${id}&fields=id,name&limit=-1`,
-          fresco ? 0 : 300
-        ),
-        catalogoCwServidor(),
-      ]);
+      const titulo = params.get("titulo")?.trim();
+      const ficha = await serieCwServidor(id, fresco, titulo);
 
-      const capitulos = carpetas.data
-        .map((c) => ({ id: c.id, numero: numeroCw(c.name), etiqueta: c.name }))
-        .sort((a, b) => a.numero - b.numero);
-
-      const serie = series.find((s) => s.id === id);
-      const respuesta = NextResponse.json({
-        id,
-        nombre: serie?.nombre ?? "",
-        portada: serie?.portada ?? null,
-        capitulos,
-      });
+      const respuesta = NextResponse.json(ficha);
       if (fresco) {
         respuesta.headers.set("Cache-Control", "no-store");
       } else {
@@ -89,41 +73,91 @@ export async function GET(request: Request) {
     }
 
     if (accion === "capitulo") {
-      const id = params.get("id") ?? "";
-      if (!ES_UUID.test(id)) {
+      const id = params.get("id")?.trim() ?? "";
+      const serie = params.get("serie")?.trim() ?? "";
+      if (!id) {
         return NextResponse.json({ error: "Capítulo inválido" }, { status: 400 });
       }
 
-      // El visitante puede leer; las rutas de biblioteca no cambian sus permisos.
+      let mangaId = "";
+      let capNum = "";
 
-      const archivos = await pedirCw<{ data: ArchivoCw[] }>(
-        `/files?filter[folder][_eq]=${id}&fields=id,title,width,height&limit=-1`,
-        fresco ? 0 : 3600
-      );
+      if (id.includes("-cap-")) {
+        const partes = id.split("-cap-");
+        mangaId = partes[0];
+        capNum = partes[1];
+      } else if (id.includes("/")) {
+        const partes = id.split("/");
+        mangaId = partes[0];
+        capNum = partes[1];
+      } else if (serie) {
+        const { v3Manga } = await resolverMangaV3(serie);
+        mangaId = String(v3Manga.id);
+        const esUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        if (esUuid) {
+          try {
+            const f = await pedirCw<{ data: CarpetaCw }>(`/folders/${id}`, 3600);
+            capNum = String(numeroCw(f?.data?.name ?? "") || 1);
+          } catch {
+            capNum = "1";
+          }
+        } else {
+          capNum = String(numeroCw(id) || id);
+        }
+      } else {
+        return NextResponse.json({ error: "Se requiere serie para este capítulo" }, { status: 400 });
+      }
 
-      // el título de cada archivo termina en "Tira 7", que es el número de
-      // página. Nunca hay que confiar en el orden en que llegan: vienen
-      // mezcladas, y sin esto el capítulo se lee salteado.
-      const paginas = archivos.data
-        .map((a, i) => ({
-          orden: a.title ? numeroCw(a.title.split(" - ").pop() ?? "") || i + 1 : i + 1,
-          id: a.id,
-          ancho: a.width ?? 0,
-          alto: a.height ?? 0,
-        }))
-        .sort((a, b) => a.orden - b.orden)
-        .map((p, i) => ({ numero: i + 1, id: p.id, ancho: p.ancho, alto: p.alto }));
+      const session = await abrirCapituloCw(mangaId, capNum);
+      const paginas = session.paginas.map((p, idx) => ({
+        numero: idx + 1,
+        id: `${mangaId}/${capNum}/${p.index}`,
+        ancho: 0,
+        alto: 0,
+      }));
 
-      const respuesta = NextResponse.json({ id, paginas });
-      respuesta.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+      const respuesta = NextResponse.json({
+        id,
+        mangaId,
+        capNum,
+        paginas,
+      });
+      respuesta.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
       return respuesta;
     }
 
+    if (accion === "ticket") {
+      const p = params.get("p")?.trim() ?? "";
+      const [mangaId, capNum, pIdxStr] = p.split("/");
+      if (!mangaId || !capNum || pIdxStr === undefined) {
+        return NextResponse.json({ error: "Parámetros de página inválidos" }, { status: 400 });
+      }
+
+      const ticket = await obtenerTicketPaginaCw(mangaId, capNum, Number(pIdxStr));
+      const respuesta = NextResponse.json(ticket);
+      respuesta.headers.set("Cache-Control", "no-store");
+      return respuesta;
+    }
+
+    if (accion === "imagen") {
+      const p = params.get("p")?.trim() ?? "";
+      const [mangaId, capNum, pIdxStr] = p.split("/");
+      if (!mangaId || !capNum || pIdxStr === undefined) {
+        return new Response("Parámetros de imagen inválidos", { status: 400 });
+      }
+
+      const { buffer, contentType } = await obtenerImagenPaginaCw(mangaId, capNum, Number(pIdxStr));
+      return new Response(buffer as unknown as BodyInit, {
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=86400, s-maxage=86400",
+        },
+      });
+    }
+
     return NextResponse.json({ error: "Acción desconocida" }, { status: 400 });
-  } catch {
-    return NextResponse.json(
-      { error: "No se pudo contactar con Catharsis World", bloqueado: true },
-      { status: 502 }
-    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "No se pudo contactar con Catharsis World";
+    return NextResponse.json({ error: msg, bloqueado: true }, { status: 502 });
   }
 }

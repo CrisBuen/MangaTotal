@@ -12,7 +12,7 @@ export function buscarReferenciaBiblioteca<T extends ReferenciaBiblioteca>(
 ): T | null {
   const compatibles = lista.filter(e => e.source === source &&
     (source !== "olympus" || !tipo || !e.type || tipo === e.type));
-  const exacta = compatibles.find(e => e.external_id === externalId);
+  const exacta = compatibles.find(e => e.external_id === externalId || (source === "catharsis" && Boolean(e.slug) && e.slug === externalId));
   if (exacta && exacta.saved !== false) return exacta;
   if (source !== "olympus") return exacta ?? null;
   // Misma regla que aliasOlympus: nunca por título, portada o parecido.

@@ -131,9 +131,22 @@ export function BotonFlotanteLectura({
   if (cargando) return null;
   if (!tieneProgreso && !primerCap) return null;
 
-  const targetId = tieneProgreso
+  let targetId = tieneProgreso
     ? String(progreso.ultimoId)
     : String(primerCap!.id);
+
+  if (tieneProgreso && capitulos.length > 0 && !capitulos.some((c) => String(c.id) === targetId)) {
+    const match =
+      (progreso.ultimoNumero != null
+        ? capitulos.find((c) => c.number === progreso.ultimoNumero || String(c.name) === String(progreso.ultimoNumero))
+        : undefined) ??
+      (progreso.ultimoNombre
+        ? capitulos.find((c) => String(c.name) === String(progreso.ultimoNombre))
+        : undefined);
+    if (match) {
+      targetId = String(match.id);
+    }
+  }
 
   const targetPage = tieneProgreso
     ? progreso.ultimaPagina && progreso.ultimaPagina > 0

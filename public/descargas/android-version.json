@@ -1,16 +1,16 @@
 {
-  "versionCode": 32,
-  "versionName": "1.9.19",
-  "date": "2026-11-04",
+  "versionCode": 33,
+  "versionName": "1.9.20",
+  "date": "2026-11-05",
   "apkUrl": "https://www.mangatotal.com/descargas/MangaTotal-android.apk",
-  "sha256": "864EC04FAF2A74FB6E545A917DDE9D08C654A4109F630326204DCCD383BF6EDE",
+  "sha256": "78A2DBB8D713270B29AEBE556DACFE11705850A322872C4296691A139014EE8F",
   "sizeMb": 4.1,
   "changes": [
-    "Puente nativo directo para E-Hentai (catálogo, autocompletado de toda la base de etiquetas, fichas y lector sin intermediarios web)",
-    "Catálogo completo de E-Hentai sin exclusiones ocultas de invitado en portada, paginación y filtros de etiquetas",
-    "Conexión directa al CDN de las fuentes desde el puente nativo en Android y PC (páginas, portadas y descargas sin intermediarios web)",
-    "Descargas nativas de capítulos en Android con respaldo automático",
-    "Compatibilidad completa con todas las fuentes externas y contenido +18"
+    "Restauración e integración completa de Catharsis World v3 con soporte directo nativo para su nueva API REST y desbarajado acelerado por hardware",
+    "Puente nativo directo para el catálogo, fichas, capítulos y páginas de Catharsis v3 en Android sin intermediarios web",
+    "Compatibilidad retroactiva total con las series y capítulos guardados de Catharsis en biblioteca",
+    "Conexión directa al CDN de las fuentes desde el puente nativo en Android (páginas, portadas y descargas sin intermediarios web)",
+    "Descargas nativas de capítulos en Android con respaldo automático"
   ],
   "apkExternalUrl": "https://raw.githubusercontent.com/CrisBuen/MangaTotal/main/public/descargas/MangaTotal-android.apk"
 }

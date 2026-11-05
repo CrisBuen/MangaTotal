@@ -119,9 +119,10 @@ export async function descargarBlobOriginal(url: string, signal?: AbortSignal): 
       }
 
       // 3. Canal de streaming idéntico de respaldo (sin compresión ni paso por almacenamiento R2)
-      const proxyUrl = url.startsWith("/api/externo/imagen")
-        ? url
-        : `/api/externo/imagen?u=${encodeURIComponent(url)}`;
+      const proxyUrl =
+        url.startsWith("/api/externo/imagen") || url.startsWith("/api/externo/catharsis")
+          ? url
+          : `/api/externo/imagen?u=${encodeURIComponent(url)}`;
       const resProxy = await fetch(proxyUrl, { signal: ctrlIntento.signal });
       if (resProxy.ok) {
         const blob = await resProxy.blob();

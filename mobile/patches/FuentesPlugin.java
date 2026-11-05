@@ -68,6 +68,7 @@ public class FuentesPlugin extends Plugin {
         "olympusxyz.com",
         "e-hentai.org",
         "newcatharsis.dig-it.info",
+        "catharsisworld.com",
         // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
         "catharsisfood.com",
         "leercapitulo.co",
@@ -115,6 +116,7 @@ public class FuentesPlugin extends Plugin {
         "t34798ndc.com",
         "catharsisfood.com",
         "catharsisworks.com",
+        "catharsisworld.com",
         "dig-it.info",
         "ikigaimangas.cloud",
         "ikigaivs.org",
@@ -164,8 +166,9 @@ public class FuentesPlugin extends Plugin {
             conexion.setRequestProperty("Referer", "https://www.leercapitulo.co/");
         } else if (h.contains("zonatmo") || h.contains("visortmo") || h.contains("tumangaonline")) {
             conexion.setRequestProperty("Referer", "https://visortmo.com/");
-        } else if (h.contains("catharsisfood") || h.contains("catharsisworks") || h.contains("dig-it.info")) {
+        } else if (h.contains("catharsisfood") || h.contains("catharsisworks") || h.contains("dig-it.info") || h.contains("catharsisworld")) {
             conexion.setRequestProperty("Referer", "https://newcatharsis.dig-it.info/");
+            conexion.setRequestProperty("X-Catharsis-Reader", "1");
         } else if (h.contains("ikigai")) {
             conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
             conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
@@ -319,6 +322,10 @@ public class FuentesPlugin extends Plugin {
                         conexion.setRequestProperty("Accept-Language", esEhentai ? "en-US,en;q=0.9" : "es-ES,es;q=0.9");
                         if (hostDestino.contains("olympus")) {
                             conexion.setRequestProperty("Referer", "https://olympusxyz.com/");
+                        } else if (hostDestino.contains("dig-it.info") || hostDestino.contains("catharsisworld") || hostDestino.contains("catharsisfood")) {
+                            conexion.setRequestProperty("Referer", "https://newcatharsis.dig-it.info/");
+                            conexion.setRequestProperty("System", "catharsis");
+                            conexion.setRequestProperty("X-FK-Sistema", "3");
                         }
                         conexion.setRequestProperty(
                             "Accept",
@@ -414,11 +421,16 @@ public class FuentesPlugin extends Plugin {
         final boolean esJsonEhentai =
             (qrl == null || qrl.isEmpty()) &&
             (hostPost.equals("api.e-hentai.org") || hostPost.equals("e-hentai.org"));
+        final boolean esJsonCatharsis =
+            (qrl == null || qrl.isEmpty()) &&
+            (hostPost.equals("newcatharsis.dig-it.info") || hostPost.endsWith(".dig-it.info") ||
+             hostPost.equals("catharsisworld.com") || hostPost.endsWith(".catharsisworld.com") ||
+             hostPost.equals("catharsisfood.com") || hostPost.endsWith(".catharsisfood.com"));
         if (esJsonEhentai && !solicitaPermisoAccesoTotal()) {
             call.reject("Dirección de fuente no permitida");
             return;
         }
-        if (!esJsonEhentai && (qrl == null || !qrl.matches("[A-Za-z0-9_-]{1,128}"))) {
+        if (!esJsonEhentai && !esJsonCatharsis && (qrl == null || !qrl.matches("[A-Za-z0-9_-]{1,128}"))) {
             call.reject("Identificador de búsqueda inválido");
             return;
         }
@@ -445,6 +457,14 @@ public class FuentesPlugin extends Plugin {
                     conexion.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
                     conexion.setRequestProperty("Content-Type", "application/json");
                     conexion.setRequestProperty("Accept", "application/json");
+                } else if (esJsonCatharsis) {
+                    conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
+                    conexion.setRequestProperty("Content-Type", "application/json");
+                    conexion.setRequestProperty("Accept", "application/json, text/plain, */*");
+                    conexion.setRequestProperty("System", "catharsis");
+                    conexion.setRequestProperty("X-FK-Sistema", "3");
+                    conexion.setRequestProperty("Referer", "https://newcatharsis.dig-it.info/");
+                    conexion.setRequestProperty("Origin", "https://newcatharsis.dig-it.info");
                 } else {
                     conexion.setRequestProperty("Accept-Language", "es-ES,es;q=0.9");
                     conexion.setRequestProperty("Content-Type", "application/qwik-json");

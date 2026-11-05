@@ -86,7 +86,13 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
     cover_url: ficha.portada ? imagenCw(ficha.portada, 400) : null,
   };
   const primero = ficha.capitulos[0];
-  const continuar = ficha.capitulos.find((c) => c.id === progreso.ultimoId);
+  const continuar =
+    ficha.capitulos.find((c) => c.id === progreso.ultimoId) ??
+    (progreso.ultimoNumero !== null
+      ? ficha.capitulos.find((c) => c.numero === progreso.ultimoNumero)
+      : progreso.ultimoNombre
+        ? ficha.capitulos.find((c) => c.etiqueta === progreso.ultimoNombre)
+        : undefined);
   const arranque = continuar ?? primero;
 
   const hrefCapitulo = (capId: string) => {
@@ -136,7 +142,25 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
             <p className="mt-4 font-mono text-[11px] tracking-[0.06em] text-subtle">
               {ficha.capitulos.length} {ficha.capitulos.length === 1 ? "capítulo" : "capítulos"}
               {progreso.ultimoNumero !== null && ` · vas por el ${progreso.ultimoNumero}`}
+              {ficha.estado && ` · ${ficha.estado}`}
             </p>
+            {ficha.generos && ficha.generos.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {ficha.generos.map((g) => (
+                  <span
+                    key={g}
+                    className="rounded bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] font-semibold text-subtle"
+                  >
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
+            {ficha.descripcion && (
+              <p className="mt-3 text-sm text-subtle line-clamp-3 leading-relaxed">
+                {ficha.descripcion}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -190,7 +214,9 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
         ) : (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
             {capitulos.map((c) => {
-              const esActual = c.id === progreso.ultimoId;
+              const esActual =
+                c.id === progreso.ultimoId ||
+                (progreso.ultimoNumero !== null && c.numero === progreso.ultimoNumero);
               const esLeido = capituloLeido(progreso, String(c.id), c.numero);
 
               return (
@@ -223,7 +249,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
                     className="!h-6 !w-6 scale-90 opacity-70 group-hover:opacity-100"
                     obtenerPaginas={async () => {
                       const { paginasCw, imagenCw } = await import("@/lib/catharsis");
-                      const cap = await paginasCw(c.id);
+                      const cap = await paginasCw(c.id, false, id);
                       return cap.paginas.map((p) => imagenCw(p.id));
                     }}
                   />
@@ -252,7 +278,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
         externalId={id}
         title={ficha.nombre}
         coverUrl={ficha.portada ? imagenCw(ficha.portada, 400) : null}
-        capitulos={ficha.capitulos.map((c) => ({ id: c.id, name: c.etiqueta }))}
+        capitulos={ficha.capitulos.map((c) => ({ id: c.id, name: c.etiqueta, number: c.numero }))}
         cargando={!ficha}
       />
     </div>

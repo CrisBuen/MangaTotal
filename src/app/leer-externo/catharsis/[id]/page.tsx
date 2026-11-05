@@ -39,7 +39,7 @@ export default function LeerCwPage(props: { params: Promise<{ id: string }> }) {
       const [capitulo, ficha] = await Promise.all([
         cargarConCacheAndroid(
           `capitulo:catharsis:${id}`,
-          () => paginasCw(id),
+          () => paginasCw(id, false, serieId),
           {
             publicCache: true,
             freshForMs: 30 * 60 * 1000,
@@ -95,7 +95,13 @@ export default function LeerCwPage(props: { params: Promise<{ id: string }> }) {
     );
   }
 
-  const donde = capitulos.findIndex((c) => c.id === id);
+  let donde = capitulos.findIndex((c) => c.id === id);
+  if (donde === -1) {
+    const numBuscado = id.includes("-cap-") ? parseFloat(id.split("-cap-")[1]) : parseFloat(id);
+    if (Number.isFinite(numBuscado)) {
+      donde = capitulos.findIndex((c) => c.numero === numBuscado);
+    }
+  }
   const anterior = donde > 0 ? capitulos[donde - 1] : null;
   const siguiente = donde >= 0 && donde < capitulos.length - 1 ? capitulos[donde + 1] : null;
   const actual = donde >= 0 ? capitulos[donde] : null;

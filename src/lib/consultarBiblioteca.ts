@@ -136,7 +136,8 @@ export async function consultarBiblioteca(tipo: TipoCola, t: TareaBiblioteca, si
   }
   if (t.source === "catharsis") {
     const { serieCw } = await import("./catharsis");
-    return resumirCapitulos((await serieCw(t.external_id, true)).capitulos, t.last_chapter_name);
+    const f = await serieCw(t.external_id, true);
+    return resumirCapitulos(f.capitulos, t.last_chapter_name, f.estado);
   }
   if (t.source === "olympus") {
     const { pedirSerieOlympus } = await import("./olympusCliente");

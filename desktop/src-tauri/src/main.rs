@@ -48,6 +48,7 @@ const DOMINIOS_IMAGEN_FUENTES: &[&str] = &[
     "t34798ndc.com",
     "catharsisfood.com",
     "catharsisworks.com",
+    "catharsisworld.com",
     "dig-it.info",
     "ikigaimangas.cloud",
     "ikigaivs.org",
@@ -108,8 +109,8 @@ fn aplicar_headers_imagen(pedido: reqwest::RequestBuilder, host: &str) -> reqwes
         pedido.header("Referer", "https://www.leercapitulo.co/")
     } else if h.contains("zonatmo") || h.contains("visortmo") || h.contains("tumangaonline") {
         pedido.header("Referer", "https://visortmo.com/")
-    } else if h.contains("catharsisfood") || h.contains("catharsisworks") || h.contains("dig-it.info") {
-        pedido.header("Referer", "https://newcatharsis.dig-it.info/")
+    } else if h.contains("catharsisfood") || h.contains("catharsisworks") || h.contains("dig-it.info") || h.contains("catharsisworld") {
+        pedido.header("Referer", "https://newcatharsis.dig-it.info/").header("X-Catharsis-Reader", "1")
     } else if h.contains("ikigai") {
         pedido.header("Referer", "https://visorikigai.gettocaboca.com/").header("Sec-Fetch-Mode", "cors")
     } else if h.contains("imagesolymp") || h.contains("swordflake") || h.contains("olympus") {
@@ -249,6 +250,7 @@ const DOMINIOS_FUENTES: &[&str] = &[
     "olympusxyz.com",
     "e-hentai.org",
     "newcatharsis.dig-it.info",
+    "catharsisworld.com",
     // donde Catharsis guarda sus imágenes (direct-new-catha, ...)
     "catharsisfood.com",
     "leercapitulo.co",
@@ -319,6 +321,11 @@ async fn traer_pagina(
             .header("Accept", "application/json, text/html, */*");
         if host.contains("olympus") {
             pedido = pedido.header("Referer", "https://olympusxyz.com/");
+        } else if host.contains("dig-it.info") || host.contains("catharsisworld") || host.contains("catharsisfood") {
+            pedido = pedido
+                .header("Referer", "https://newcatharsis.dig-it.info/")
+                .header("System", "catharsis")
+                .header("X-FK-Sistema", "3");
         }
         if es_ehentai {
             // `nw=1` salta la advertencia +18 y `sl=dm_2` fuerza la tabla extendida (`<tr>`).
@@ -375,12 +382,19 @@ async fn enviar_json(
     let host = destino.host_str().unwrap_or_default().to_string();
     let es_json_ehentai =
         qrl.is_empty() && (host == "api.e-hentai.org" || host == "e-hentai.org");
+    let es_json_catharsis = qrl.is_empty()
+        && (host == "newcatharsis.dig-it.info"
+            || host.ends_with(".dig-it.info")
+            || host == "catharsisworld.com"
+            || host.ends_with(".catharsisworld.com")
+            || host == "catharsisfood.com"
+            || host.ends_with(".catharsisfood.com"));
     let qrl_valido = !qrl.is_empty()
         && qrl.len() <= 128
         && qrl
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
-    if !es_json_ehentai && !qrl_valido {
+    if !es_json_ehentai && !es_json_catharsis && !qrl_valido {
         return Err("Identificador de búsqueda inválido".into());
     }
     if body.len() > 128 * 1024 {
@@ -400,6 +414,16 @@ async fn enviar_json(
             .header("Accept-Language", "en-US,en;q=0.9")
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
+            .body(body)
+    } else if es_json_catharsis {
+        http.post(destino)
+            .header("Accept-Language", "es-ES,es;q=0.9")
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/plain, */*")
+            .header("System", "catharsis")
+            .header("X-FK-Sistema", "3")
+            .header("Referer", "https://newcatharsis.dig-it.info/")
+            .header("Origin", "https://newcatharsis.dig-it.info")
             .body(body)
     } else {
         http.post(destino)

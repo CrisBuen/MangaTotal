@@ -152,7 +152,7 @@ export async function GET(req: NextRequest) {
           sourceNombre: "Catharsis World",
           items: coincidencias.map((s): ItemResultadoMigracion => ({
             id: s.id,
-            slug: null,
+            slug: s.slug ?? null,
             title: s.nombre ?? "Sin título",
             coverUrl: s.portada ? imagenCw(s.portada, 256) : null,
             source: "catharsis",

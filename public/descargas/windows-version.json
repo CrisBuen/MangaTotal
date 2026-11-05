@@ -1,15 +1,15 @@
 {
-  "versionCode": 17,
-  "versionName": "1.16",
-  "date": "2026-11-04",
+  "versionCode": 18,
+  "versionName": "1.17",
+  "date": "2026-11-05",
   "installerUrl": "/descargas/MangaTotal-windows-setup.exe",
-  "sha256": "29FF4D0491BC5DA72ED1345F74B1202962D57584D99266CE8E1FB5D67107AFA0",
+  "sha256": "E9C5573DB0DF5E7A5F8A2D60503703B3DE782F220937520481C6901E1141F98A",
   "sizeMb": 2.6,
   "changes": [
-    "Puente nativo directo para E-Hentai (catálogo, autocompletado de toda la base de etiquetas, fichas y lector sin intermediarios web)",
-    "Catálogo completo de E-Hentai sin exclusiones ocultas de invitado en portada, paginación y filtros de etiquetas",
+    "Restauración e integración completa de Catharsis World v3 con soporte directo nativo para su nueva API REST y desbarajado acelerado por hardware",
+    "Puente nativo directo para el catálogo, fichas, capítulos y páginas de Catharsis v3 en Windows sin intermediarios web",
+    "Compatibilidad retroactiva total con las series y capítulos guardados de Catharsis en biblioteca",
     "Conexión directa al CDN de las fuentes desde el puente nativo de Windows (páginas, portadas y descargas de capítulos sin pasar por servidores intermedios)",
-    "Resolución nativa directa de páginas de E-Hentai, Hitomi, Ikigai, ZonaTMO, LeerCapítulo, Catharsis, Olympus y MangaDex",
     "Descarga local de capítulos en calidad original FullHD organizada automáticamente por carpetas"
   ]
 }
