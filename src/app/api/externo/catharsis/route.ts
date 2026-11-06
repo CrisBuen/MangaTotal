@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   abrirCapituloCw,
+  paginasCapituloCw,
   catalogoCwServidor,
   normalizarCw,
   novedadesCwServidor,
@@ -108,13 +109,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Se requiere serie para este capítulo" }, { status: 400 });
       }
 
-      const session = await abrirCapituloCw(mangaId, capNum);
-      const paginas = session.paginas.map((p, idx) => ({
-        numero: idx + 1,
-        id: `${mangaId}/${capNum}/${p.index}`,
-        ancho: 0,
-        alto: 0,
-      }));
+      const { paginas } = await paginasCapituloCw(mangaId, capNum);
 
       const respuesta = NextResponse.json({
         id,

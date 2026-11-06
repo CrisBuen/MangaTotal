@@ -495,7 +495,10 @@ export async function obtenerReaderPassCw(fresco = false): Promise<string> {
     },
     body: JSON.stringify({ token: redeemed.token, sitekey: sys.cap_sitekey }),
   });
-  if (!passRes.ok) throw new Error("Catharsis rechazó el pase de lectura");
+  if (!passRes.ok) {
+    const errorDetalle = await passRes.text().catch(() => "");
+    throw new Error(`Catharsis rechazó el pase de lectura (${passRes.status}): ${errorDetalle}`);
+  }
   const passDto = (await passRes.json()) as { pass: string; expiresAt?: number };
 
   const vence = passDto.expiresAt ? passDto.expiresAt - 60_000 : Date.now() + VIDA_PASES_MS;
@@ -576,6 +579,45 @@ export async function abrirCapituloCw(
   };
   chapterSessions.set(clave, sessionData);
   return sessionData;
+}
+
+export async function paginasCapituloCw(
+  mangaId: string | number,
+  capNum: string | number
+): Promise<{ paginas: Array<{ numero: number; id: string; ancho: number; alto: number }> }> {
+  try {
+    const res = await fetch(`${CW_API_V3}/mangas/${mangaId}`, {
+      headers: CW_HEADERS,
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const detalle = (await res.json()) as { capitulos?: Array<{ numero: number | string; n_paginas?: number }> };
+      const numBuscado = parseFloat(String(capNum));
+      const cap = detalle.capitulos?.find(
+        (c) => c.numero === numBuscado || String(c.numero) === String(capNum)
+      );
+      if (cap && typeof cap.n_paginas === "number" && cap.n_paginas > 0) {
+        return {
+          paginas: Array.from({ length: cap.n_paginas }, (_, idx) => ({
+            numero: idx + 1,
+            id: `${mangaId}/${capNum}/${idx}`,
+            ancho: 0,
+            alto: 0,
+          })),
+        };
+      }
+    }
+  } catch {}
+
+  const session = await abrirCapituloCw(mangaId, capNum);
+  return {
+    paginas: session.paginas.map((p, idx) => ({
+      numero: idx + 1,
+      id: `${mangaId}/${capNum}/${p.index}`,
+      ancho: 0,
+      alto: 0,
+    })),
+  };
 }
 
 export interface TicketPaginaCw {
