@@ -5,7 +5,7 @@ import {
   normalizarCw,
   novedadesCwServidor,
   numeroCw,
-  obtenerImagenPaginaCw,
+  obtenerBytesPaginaCw,
   obtenerTicketPaginaCw,
   pedirCw,
   resolverMangaV3,
@@ -146,11 +146,16 @@ export async function GET(request: Request) {
         return new Response("Parámetros de imagen inválidos", { status: 400 });
       }
 
-      const { buffer, contentType } = await obtenerImagenPaginaCw(mangaId, capNum, Number(pIdxStr));
-      return new Response(buffer as unknown as BodyInit, {
+      // Solo se retransmiten los bytes crudos: el XOR y el reordenamiento los
+      // deshace el dispositivo (ver obtenerBytesPaginaCw). La clave viaja en
+      // cabeceras para que la caché del navegador guarde ambas cosas juntas.
+      const { bytes, ticket } = await obtenerBytesPaginaCw(mangaId, capNum, Number(pIdxStr));
+      return new Response(bytes, {
         headers: {
-          "Content-Type": contentType,
-          "Cache-Control": "public, max-age=86400, s-maxage=86400",
+          "Content-Type": "application/octet-stream",
+          "X-Cw-Key": ticket.scrambleKey ?? "",
+          "X-Cw-Xor": String(ticket.xorByte ?? 0),
+          "Cache-Control": "private, max-age=86400",
         },
       });
     }

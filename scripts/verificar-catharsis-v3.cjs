@@ -83,7 +83,7 @@ test("Integración viva con Catharsis v3: Catálogo, Ficha y Lector", async () =
     crypto: require("node:crypto"),
   }, { filename: ruta });
 
-  const { novedadesCwServidor, catalogoCwServidor, serieCwServidor, obtenerTicketPaginaCw, descrambleBuffer } = salida;
+  const { novedadesCwServidor, catalogoCwServidor, serieCwServidor, obtenerTicketPaginaCw, obtenerBytesPaginaCw } = salida;
 
   // 1. Catálogo Novedades
   const nov = await novedadesCwServidor(false);
@@ -117,27 +117,9 @@ test("Integración viva con Catharsis v3: Catálogo, Ficha y Lector", async () =
   assert.ok(ticket.signedToken, "El ticket debe tener signedToken");
   assert.ok(ticket.scrambleKey, "El ticket debe tener scrambleKey");
 
-  // Descarga y descifrado de la imagen
-  const imgRes = await fetch(`https://newcatharsis.dig-it.info/api/mangas/pages/${ticket.signedToken}`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      "X-Catharsis-Reader": "1",
-      Referer: `https://newcatharsis.dig-it.info/manga/${koori.v3Id || koori.id}/chapter/${primerCap.numero}`,
-      "Sec-Fetch-Site": "same-origin",
-      "Sec-Fetch-Mode": "no-cors",
-      "Sec-Fetch-Dest": "image",
-    },
-  });
-  assert.equal(imgRes.status, 200, "La descarga de la página debe responder 200");
-  const rawBytes = Buffer.from(await imgRes.arrayBuffer());
-  if (ticket.xorByte) {
-    for (let i = 0; i < rawBytes.length; i++) rawBytes[i] ^= ticket.xorByte;
-  }
-  const descrambled = await descrambleBuffer(rawBytes, ticket.scrambleKey);
-  assert.ok(descrambled.length > 1000, "La imagen descifrada debe tener tamaño suficiente");
-  // Verificar cabecera WebP: "RIFF....WEBP"
-  const riff = descrambled.subarray(0, 4).toString("ascii");
-  const webp = descrambled.subarray(8, 12).toString("ascii");
-  assert.equal(riff, "RIFF", "Debe ser contenedor RIFF");
-  assert.equal(webp, "WEBP", "Debe ser formato WEBP");
+  // El servidor solo retransmite bytes crudos (sin sharp, para no gastar
+  // CPU de Vercel); el descifrado lo hace el dispositivo con Canvas
+  const { bytes, ticket: t2 } = await obtenerBytesPaginaCw(koori.v3Id || koori.id, primerCap.numero, 1);
+  assert.ok(bytes.byteLength > 1000, "La página cruda debe tener tamaño suficiente");
+  assert.ok(t2.scrambleKey, "La clave de reordenamiento viaja junto a los bytes");
 });

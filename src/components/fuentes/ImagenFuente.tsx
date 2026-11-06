@@ -1,6 +1,7 @@
 "use client";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ImgHTMLAttributes } from "react";
 import { cargarImagenNativa, debeUsarPuenteNativo, esImagenIkigai } from "@/lib/imagenFuenteNativa";
+import { cargarPaginaCw, esPaginaCw } from "@/lib/catharsis";
 
 /** Prioriza el puente nativo en Android y PC para no pasar por Vercel; conserva medidas y eventos del img. */
 export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLImageElement>>(
@@ -8,6 +9,10 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
     const elemento = useRef<HTMLImageElement>(null);
     useImperativeHandle(forwardedRef, () => elemento.current!);
     const esIkigai = typeof src === "string" && esImagenIkigai(src);
+    // Las páginas de Catharsis llegan barajadas: nunca se pueden mostrar tal
+    // cual, así que no tienen respaldo "web" y siempre pasan por el descifrado
+    const esCw = typeof src === "string" && esPaginaCw(src);
+    const sinRespaldo = esIkigai || esCw;
     const [cargada, setCargada] = useState<{
       src: string;
       url?: string;
@@ -19,7 +24,7 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
     const usarNativo =
       typeof src === "string" &&
       !resultado?.fallbackWeb &&
-      (esIkigai || debeUsarPuenteNativo(src));
+      (sinRespaldo || debeUsarPuenteNativo(src));
 
     useEffect(() => {
       if (!usarNativo || typeof src !== "string") return;
@@ -29,16 +34,18 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
       let observador: IntersectionObserver | undefined;
       const cargar = async () => {
         try {
-          const blob = await cargarImagenNativa(src, {
-            signal: controlador.signal,
-            prioridad: loading === "lazy" ? 0 : 1,
-          });
+          const blob = esCw
+            ? await cargarPaginaCw(src, controlador.signal)
+            : await cargarImagenNativa(src, {
+                signal: controlador.signal,
+                prioridad: loading === "lazy" ? 0 : 1,
+              });
           if (cancelado) return;
           objeto = URL.createObjectURL(blob);
           setCargada({ src, url: objeto });
         } catch (error) {
           if (cancelado) return;
-          if (!esIkigai) {
+          if (!sinRespaldo) {
             // Respaldo transparente a /api/externo/imagen si el binario nativo aún no está actualizado
             // o si Hitomi acaba de rotar su prefijo gg.b.
             setCargada({ src, fallbackWeb: true });
@@ -70,7 +77,7 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
         observador?.disconnect();
         if (objeto) URL.revokeObjectURL(objeto);
       };
-    }, [src, usarNativo, esIkigai, loading, intento]);
+    }, [src, usarNativo, esIkigai, esCw, sinRespaldo, loading, intento]);
 
     return (
       <>
@@ -86,16 +93,16 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
           onError={
             usarNativo
               ? () => {
-                  if (!esIkigai) {
+                  if (!sinRespaldo) {
                     setCargada({ src: String(src), fallbackWeb: true });
                   } else {
-                    setCargada({ src: String(src), error: "No se pudo mostrar la imagen de Ikigai." });
+                    setCargada({ src: String(src), error: "No se pudo mostrar la imagen." });
                   }
                 }
               : props.onError
           }
         />
-        {esIkigai && resultado?.error && (
+        {sinRespaldo && resultado?.error && (
           <span role="alert" className="relative z-20 block p-2 text-xs text-subtle">
             {resultado.error}{" "}
             <button

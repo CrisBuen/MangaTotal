@@ -292,3 +292,52 @@ export async function descrambleCanvas(
     return plainBlob;
   }
 }
+
+// ── Carga de páginas sin gastar CPU del servidor ───────────────────────────
+
+const PREFIJO_PAGINA_CW = "/api/externo/catharsis?accion=imagen";
+
+export function esPaginaCw(src: string): boolean {
+  return src.startsWith(PREFIJO_PAGINA_CW);
+}
+
+/**
+ * Trae una página de Catharsis y la devuelve ya descifrada.
+ *
+ * En Android y Windows: el servidor solo entrega el ticket (un JSON chico) y
+ * los bytes los baja el puente nativo directo de Catharsis, 0 bytes por
+ * Vercel. En el navegador Catharsis rechaza pedidos de otro origen (403), así
+ * que el servidor retransmite los bytes crudos sin tocarlos. En los dos
+ * casos el XOR y el reordenamiento se hacen acá, en el dispositivo: hacerlo
+ * en el servidor agotó la CPU del plan gratis de Vercel y pausó la cuenta.
+ */
+export async function cargarPaginaCw(src: string, signal?: AbortSignal): Promise<Blob> {
+  const p = new URL(src, "https://mangatotal.local").searchParams.get("p") ?? "";
+  const { tienePuenteImagenNativo, cargarImagenNativa } = await import("./imagenFuenteNativa");
+
+  if (tienePuenteImagenNativo()) {
+    try {
+      const r = await fetch(`/api/externo/catharsis?accion=ticket&p=${encodeURIComponent(p)}`, { signal });
+      if (r.ok) {
+        const t = (await r.json()) as { signedToken: string; scrambleKey: string | null; xorByte: number };
+        const blob = await cargarImagenNativa(`https://newcatharsis.dig-it.info/api/mangas/pages/${t.signedToken}`, {
+          signal,
+          prioridad: 1,
+        });
+        return descrambleCanvas(new Uint8Array(await blob.arrayBuffer()), t.scrambleKey, t.xorByte);
+      }
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      // binario viejo sin el dominio permitido: sigue por el relevo del servidor
+    }
+  }
+
+  const res = await fetch(src, { signal });
+  if (!res.ok) {
+    const cuerpo = await res.json().catch(() => null);
+    throw new Error((cuerpo as { error?: string } | null)?.error ?? `${CW_NOMBRE} respondió ${res.status}`);
+  }
+  const clave = res.headers.get("X-Cw-Key") || null;
+  const xor = Number(res.headers.get("X-Cw-Xor")) || 0;
+  return descrambleCanvas(new Uint8Array(await res.arrayBuffer()), clave, xor);
+}

@@ -11,7 +11,6 @@
  */
 
 import crypto from "crypto";
-import sharp from "sharp";
 
 export const CW_API_V3 = "https://newcatharsis.dig-it.info/api";
 export const CW_DIRECTUS = "https://direct-new-catha.catharsisfood.com";
@@ -627,123 +626,20 @@ export async function obtenerTicketPaginaCw(
   throw new Error("Límite de lectura de Catharsis alcanzado. Reintentá en unos segundos.");
 }
 
-function seededRandom(key: string): () => number {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) hash = (Math.imul(hash, 31) + key.charCodeAt(i)) | 0;
-  let state = hash | 0;
-  return function () {
-    state = (state + 1831565813) | 0;
-    let y = state;
-    y = Math.imul(y ^ (y >>> 15), y | 1);
-    y = y ^ ((y + Math.imul(y ^ (y >>> 7), y | 61)) | 0);
-    return ((y ^ (y >>> 14)) >>> 0) / 4294967296.0;
-  };
-}
-
-/** Descifra en memoria los bloques 8x8 reordenados usando sharp en alto rendimiento. */
-export async function descrambleBuffer(inputBuffer: Buffer, key: string): Promise<Buffer> {
-  const { data, info } = await sharp(inputBuffer).raw().toBuffer({ resolveWithObject: true });
-  const { width: w, height: h, channels } = info;
-  if (w < 200 || h < 200) return inputBuffer;
-
-  const rand = seededRandom(key);
-  const cols = 8;
-  const rows = 8;
-
-  const colBounds = new Int32Array(cols + 1);
-  colBounds[0] = 0;
-  colBounds[cols] = w;
-  const baseColW = Math.floor(w / cols);
-  let x = 0;
-  for (let i = 0; i < cols - 1; i++) {
-    let cw = baseColW + Math.round((rand() * 0.7 - 0.35) * baseColW);
-    const remaining = cols - 1 - i;
-    const maxW = w - x - remaining * 16;
-    cw = Math.max(16, Math.min(Math.max(16, maxW), cw));
-    x += cw;
-    colBounds[i + 1] = x;
-  }
-
-  const rowBounds = new Int32Array(rows + 1);
-  rowBounds[0] = 0;
-  rowBounds[rows] = h;
-  const baseRowH = Math.floor(h / rows);
-  let yy = 0;
-  for (let i = 0; i < rows - 1; i++) {
-    let rh = baseRowH + Math.round((rand() * 0.7 - 0.35) * baseRowH);
-    const remaining = rows - 1 - i;
-    const maxH = h - yy - remaining * 16;
-    rh = Math.max(16, Math.min(Math.max(16, maxH), rh));
-    yy += rh;
-    rowBounds[i + 1] = yy;
-  }
-
-  const colPerm = new Int32Array(cols);
-  for (let i = 0; i < cols; i++) colPerm[i] = i;
-  for (let i = cols - 1; i >= 1; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    const tmp = colPerm[i];
-    colPerm[i] = colPerm[j];
-    colPerm[j] = tmp;
-  }
-
-  const rowPerm = new Int32Array(rows);
-  for (let i = 0; i < rows; i++) rowPerm[i] = i;
-  for (let i = rows - 1; i >= 1; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    const tmp = rowPerm[i];
-    rowPerm[i] = rowPerm[j];
-    rowPerm[j] = tmp;
-  }
-
-  const invCol = new Int32Array(cols);
-  for (let i = 0; i < cols; i++) invCol[colPerm[i]] = i;
-  const invRow = new Int32Array(rows);
-  for (let i = 0; i < rows; i++) invRow[rowPerm[i]] = i;
-
-  const shuffledColPos = new Int32Array(cols + 1);
-  shuffledColPos[0] = 0;
-  for (let i = 0; i < cols; i++) {
-    const shuffledIdx = colPerm[i];
-    shuffledColPos[i + 1] = shuffledColPos[i] + (colBounds[shuffledIdx + 1] - colBounds[shuffledIdx]);
-  }
-
-  const shuffledRowPos = new Int32Array(rows + 1);
-  shuffledRowPos[0] = 0;
-  for (let i = 0; i < rows; i++) {
-    const shuffledIdx = rowPerm[i];
-    shuffledRowPos[i + 1] = shuffledRowPos[i] + (rowBounds[shuffledIdx + 1] - rowBounds[shuffledIdx]);
-  }
-
-  const out = Buffer.alloc(data.length);
-  const rowStride = w * channels;
-
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const dx = colBounds[col];
-      const dy = rowBounds[row];
-      const dw = colBounds[col + 1] - colBounds[col];
-      const dh = rowBounds[row + 1] - rowBounds[row];
-      const sx = shuffledColPos[invCol[col]];
-      const sy = shuffledRowPos[invRow[row]];
-
-      const copyBytesPerRow = dw * channels;
-      for (let r = 0; r < dh; r++) {
-        const srcOffset = (sy + r) * rowStride + sx * channels;
-        const dstOffset = (dy + r) * rowStride + dx * channels;
-        data.copy(out, dstOffset, srcOffset, srcOffset + copyBytesPerRow);
-      }
-    }
-  }
-
-  return sharp(out, { raw: { width: w, height: h, channels } }).webp({ quality: 90 }).toBuffer();
-}
-
-export async function obtenerImagenPaginaCw(
+/**
+ * Trae los bytes crudos (todavía con XOR y barajados) de una página.
+ *
+ * Antes el servidor deshacía el XOR y reordenaba los 64 mosaicos con sharp:
+ * ~300 ms de CPU por página, y eso agotó las 4 horas de "Fluid Active CPU"
+ * del plan gratis de Vercel y pausó la cuenta entera. Ahora el servidor solo
+ * retransmite (esperar la red no cuenta como CPU activa) y el descifrado lo
+ * hace el dispositivo del usuario con Canvas en `descrambleCanvas`.
+ */
+export async function obtenerBytesPaginaCw(
   mangaId: number | string,
   capNum: string | number,
   pageIndex: number
-): Promise<{ buffer: Buffer; contentType: string }> {
+): Promise<{ bytes: ArrayBuffer; ticket: TicketPaginaCw }> {
   const ticket = await obtenerTicketPaginaCw(mangaId, capNum, pageIndex);
   const capReferer = `https://newcatharsis.dig-it.info/manga/${mangaId}/chapter/${capNum}`;
 
@@ -765,15 +661,5 @@ export async function obtenerImagenPaginaCw(
   if (!imgRes.ok) {
     throw new Error(`Catharsis rechazó la descarga de la página (${imgRes.status})`);
   }
-
-  let buf: Buffer = Buffer.from(await imgRes.arrayBuffer());
-  if (ticket.xorByte) {
-    for (let i = 0; i < buf.length; i++) buf[i] ^= ticket.xorByte;
-  }
-
-  if (ticket.scrambleKey) {
-    buf = await descrambleBuffer(buf, ticket.scrambleKey);
-  }
-
-  return { buffer: buf, contentType: "image/webp" };
+  return { bytes: await imgRes.arrayBuffer(), ticket };
 }

@@ -77,6 +77,11 @@ const REQUIERE_PROXY_REFERER =
  * el flujo binario idéntico sin comprimir.
  */
 export async function descargarBlobOriginal(url: string, signal?: AbortSignal): Promise<Blob> {
+  // Catharsis llega barajada: se descifra en el dispositivo, igual que en el lector
+  if (url.startsWith("/api/externo/catharsis?accion=imagen")) {
+    const { cargarPaginaCw } = await import("./catharsis");
+    return cargarPaginaCw(url, signal);
+  }
   let ultimoError: unknown = null;
   const usarProxyDirecto =
     url.startsWith("/api/externo/imagen") || REQUIERE_PROXY_REFERER.test(url);
