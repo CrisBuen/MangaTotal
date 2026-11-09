@@ -86,6 +86,7 @@ function decodificarHtml(texto: string): string {
 const cargandoAnime = () => <p role="status" className="py-12 text-center text-subtle">Cargando catálogo de anime...</p>;
 const AnimeDiscover = dynamic(() => import("@/components/discover/AnimeDiscover").then((m) => m.AnimeDiscover), { loading: cargandoAnime });
 const HentaitvCatalog = dynamic(() => import("@/components/anime/HentaitvCatalog").then((m) => m.HentaitvCatalog), { loading: cargandoAnime });
+const MundodonghuaCatalog = dynamic(() => import("@/components/anime/MundodonghuaCatalog").then((m) => m.MundodonghuaCatalog), { loading: cargandoAnime });
 
 interface ExternalSeries {
   id: string;
@@ -147,7 +148,7 @@ interface Genre {
 }
 
 type SeccionExplorar = "lectura" | "animada";
-type FuenteAnime = "jkanime" | "tioanime" | "hentaitv";
+type FuenteAnime = "jkanime" | "tioanime" | "mundodonghua" | "hentaitv";
 
 function MarcaGuardada({ visible }: { visible: boolean }) {
   if (!visible) return null;
@@ -735,7 +736,7 @@ export default function ExplorarPage() {
     const leer = (k: string) => p.get(k) || null;
 
     const fuenteAnime = leer("anime_fuente");
-    if (fuenteAnime === "tioanime" || fuenteAnime === "hentaitv") setAnimeFuente(fuenteAnime);
+    if (fuenteAnime === "tioanime" || fuenteAnime === "mundodonghua" || fuenteAnime === "hentaitv") setAnimeFuente(fuenteAnime);
     const f = leer("fuente") || (typeof window !== "undefined" ? sessionStorage.getItem("mangatotal:fuente-lectura") : null);
     if (f) setFuente(f);
     const q = leer("q");
@@ -1455,14 +1456,14 @@ export default function ExplorarPage() {
             <span className="mr-1 font-mono text-[11px] font-medium text-faint">
               Fuente
             </span>
-            {(["jkanime", "tioanime"] as const).map((source) => (
+            {(["jkanime", "tioanime", "mundodonghua"] as const).map((source) => (
               <Chip
                 type="button"
                 key={source}
                 onClick={() => cambiarFuenteAnime(source)}
                 selected={animeFuente === source}
               >
-                {source === "jkanime" ? "JKAnime" : "TioAnime"}
+                {source === "jkanime" ? "JKAnime" : source === "tioanime" ? "TioAnime" : "MundoDonghua"}
               </Chip>
             ))}
           </div>
@@ -1485,6 +1486,8 @@ export default function ExplorarPage() {
 
         {animeFuente === "hentaitv" && animeAdultoHabilitado ? (
           <HentaitvCatalog />
+        ) : animeFuente === "mundodonghua" ? (
+          <MundodonghuaCatalog />
         ) : (
           <AnimeDiscover key={animeFuente} source={animeFuente === "tioanime" ? "tioanime" : "jkanime"} />
         )}

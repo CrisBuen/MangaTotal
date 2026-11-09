@@ -79,6 +79,7 @@ export async function PUT(req: NextRequest) {
   try {
     if (source === "jkanime") isAdult = await esAdultoJkanime(slug);
     if (source === "tioanime") isAdult = await esAdultoTioanime(slug);
+    if (source === "mundodonghua") isAdult = false;
   } catch (error) {
     const status = error instanceof ErrorJkanime || error instanceof ErrorTioanime ? error.status : 502;
     const message = error instanceof Error ? error.message : "No se pudo verificar el anime";

@@ -15,6 +15,7 @@ export default function robots(): MetadataRoute.Robots {
         "/estadisticas",
         "/explorar/jkanime/",
         "/explorar/tioanime/",
+        "/explorar/mundodonghua/",
         "/explorar/hentaitv/",
         "/leer/",
         "/leer-externo/",

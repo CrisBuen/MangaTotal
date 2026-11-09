@@ -71,8 +71,8 @@ const PUBLIC_PREFIXES = [
 function lecturaPublica(path: string, method: string): boolean {
   if (method !== "GET" && method !== "HEAD") return false;
   return path.startsWith("/leer/") || path.startsWith("/leer-externo/") ||
-    /^\/(explorar|anime)\/(jkanime|tioanime)\//.test(path) ||
-    /^\/api\/anime\/(jkanime|tioanime)(\/|$)/.test(path) ||
+    /^\/(explorar|anime)\/(jkanime|tioanime|mundodonghua)\//.test(path) ||
+    /^\/api\/anime\/(jkanime|tioanime|mundodonghua)(\/|$)/.test(path) ||
     /^\/api\/chapters\/\d+\/pages$/.test(path) ||
     path.startsWith("/api/externo/capitulos/") || path === "/api/externo/generos";
 }

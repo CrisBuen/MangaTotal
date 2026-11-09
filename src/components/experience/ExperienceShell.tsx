@@ -16,7 +16,7 @@ export function ExperienceShell({ user, animeEnabled, children }: { user: Experi
   const path = usePathname();
   const params = useSearchParams();
   const [previous, setPrevious] = useState<ExperienceMode>("lectura");
-  const animeRoute = /^\/(explorar|anime)\/(jkanime|tioanime|hentaitv)(\/|$)/.test(path) || (path === "/explorar" && params.get("seccion") === "animada");
+  const animeRoute = /^\/(explorar|anime)\/(jkanime|tioanime|mundodonghua|hentaitv)(\/|$)/.test(path) || (path === "/explorar" && params.get("seccion") === "animada");
   const readingRoute = readingTab(path, params) !== null;
   const mode = animeRoute ? "anime" : readingRoute ? "lectura" : previous;
   useEffect(() => {

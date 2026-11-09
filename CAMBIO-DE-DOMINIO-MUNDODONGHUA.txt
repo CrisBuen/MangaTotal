@@ -1,0 +1,45 @@
+MUNDODONGHUA — CONTRATO DE INTEGRACIÓN
+======================================
+
+Sitio oficial: https://www.mundodonghua.com
+Tipo de contenido: Animación china (Donghua) en sub español
+
+QUÉ USA MANGATOTAL
+------------------
+
+- Directorio:
+  /lista-donghuas (todas las series)
+  /lista-donghuas-emision (en emisión)
+  /lista-donghuas-finalizados (finalizadas)
+  /lista-donghuas-recopilados (recopilaciones)
+  /genero/{genero} (filtrado por género)
+- Búsqueda:
+  /busquedas/{query}
+- Ficha:
+  /donghua/{slug}. De su HTML se extraen título, portada, sinopsis, géneros, estado y la lista de episodios /ver/{slug}/{numero}.
+- Episodio:
+  /ver/{slug}/{episodio}.
+  Desempaqueta los bloques empaquetados con Dean Edwards Packer:
+  eval(function(p,a,c,k,e,d)...)
+  para extraer los reproductores oficiales: VOE, Filemoon (bysekoze.com), VidHide y StreamWish (embedwish.com).
+- Prioridad de servidores:
+  VOE > Filemoon > VidHide > StreamWish.
+  Todas las fuentes se ejecutan dentro de un iframe aislado con sandbox estricto:
+  sandbox="allow-same-origin allow-scripts allow-forms allow-presentation allow-downloads"
+  (omitiendo intencionalmente allow-popups y allow-top-navigation).
+  Esto bloquea las ventanas emergentes, redirecciones y descargas no deseadas de los hosts externos, garantizando una reproducción fluida sin trabas ni congelamiento.
+
+SEGUIMIENTO DE MINUTOS EXACTOS Y BIBLIOTECA
+-------------------------------------------
+
+- MangaTotal no descarga, procesa ni retransmite los videos en sus funciones de Vercel (protege el consumo de CPU).
+- Cuando el usuario abre un episodio de MundoDonghua, se registra de inmediato la apertura en /api/anime/externo/progreso y se habilita "Continuar viendo" desde la biblioteca o la ficha.
+- Durante la reproducción en el reproductor embebido, el temporizador registra los segundos reales visualizados y sincroniza periódicamente con la base de datos (cada 10 segundos y al cambiar o cerrar la pestaña).
+- Se puede guardar la obra en la biblioteca del usuario con el botón "Guardar en biblioteca" en la ficha del donghua (/explorar/mundodonghua/{slug}).
+
+SI CAMBIA EL DOMINIO O LA ESTRUCTURA DE LA PÁGINA
+-------------------------------------------------
+
+1. Actualizar MUNDODONGHUA_WEB y los selectores en src/lib/mundodonghua.ts.
+2. Ejecutar scripts/verificar-mundodonghua.cjs para comprobar catálogo, búsqueda, ficha y reproducción.
+3. Verificar que los enlaces a fichas y reproductor sigan el esquema /explorar/mundodonghua/{slug} y /explorar/mundodonghua/{slug}/{episodio}.

@@ -76,7 +76,10 @@ export function MobileNav() {
 
   const isAnime = mode === "anime";
   const animeSource = params.get("anime_fuente");
-  const sourceSuffix = animeSource === "tioanime" || animeSource === "jkanime" ? `&anime_fuente=${animeSource}` : "";
+  const sourceSuffix =
+    animeSource === "tioanime" || animeSource === "jkanime" || animeSource === "mundodonghua"
+      ? `&anime_fuente=${animeSource}`
+      : "";
 
   const items = isAnime
     ? ANIME_ITEMS.map(it => it.href.includes("?") ? { ...it, href: it.href + sourceSuffix } : it)

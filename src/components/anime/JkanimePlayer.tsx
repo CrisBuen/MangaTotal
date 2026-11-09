@@ -471,6 +471,27 @@ export function ReproductorAnimeExterno({
     };
   }, [data, guardarProgreso, source, startPosition]);
 
+  // Para reproductores embebidos (iframes en sandbox), registramos el tiempo
+  // transcurrido mientras la pestaña está visible y sincronizamos periódicamente
+  // para conservar los minutos exactos y el historial al igual que en HLS.
+  useEffect(() => {
+    if (!data || data.playback.kind !== "embed" || !mediaReady) return;
+    progresoListoRef.current = true;
+    const duracionEstimada = durationRef.current > 0 ? durationRef.current : 24 * 60;
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      currentRef.current += 1;
+      setCurrentTime(currentRef.current);
+      if (currentRef.current % GUARDAR_CADA_SEGUNDOS === 0) {
+        guardarProgreso(currentRef.current, duracionEstimada);
+      }
+    }, 1000);
+    return () => {
+      clearInterval(timer);
+      guardarProgreso(currentRef.current, duracionEstimada);
+    };
+  }, [data, mediaReady, guardarProgreso]);
+
 
 
   useEffect(() => {
@@ -855,6 +876,25 @@ export function ReproductorAnimeExterno({
               className="font-mono text-[11px] font-bold text-white underline"
             >
               Reintentar
+            </button>
+          </div>
+        )}
+
+        {!esNativo && (
+          <div className="flex items-center justify-between gap-3 pb-1">
+            <span className="font-mono text-[11px] tabular-nums text-white/75">
+              Tiempo en reproducción: {reloj(currentTime)}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                guardarProgreso(24 * 60, 24 * 60);
+                router.push(`/explorar/${source}/${slug}`);
+              }}
+              className="rounded border border-white/20 bg-white/10 px-2.5 py-1 font-mono text-[11px] font-bold text-white/90 hover:border-line-strong hover:bg-white/20"
+              title="Marcar este episodio como terminado"
+            >
+              ✓ Marcar visto
             </button>
           </div>
         )}

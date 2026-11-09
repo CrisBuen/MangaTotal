@@ -105,7 +105,7 @@ export async function consultarBiblioteca(tipo: TipoCola, t: TareaBiblioteca, si
     return { ultimo: null, sinLeer: 0, comprobado: Date.now(), obtenido: Date.now(), anilist };
   }
   if (tipo === "anime") {
-    if (!["jkanime", "tioanime", "hentaitv"].includes(t.source) || (t.source === "hentaitv" && isPlayStoreApp())) throw new Error("Fuente no disponible en esta edición");
+    if (!["jkanime", "tioanime", "mundodonghua", "hentaitv"].includes(t.source) || (t.source === "hentaitv" && isPlayStoreApp())) throw new Error("Fuente no disponible en esta edición");
     const base = `/api/anime/${t.source}/${encodeURIComponent(t.slug || t.external_id)}`;
     const ficha = await json(base, signal);
     let episodios: Capitulo[] = ficha.episodes ?? [];
