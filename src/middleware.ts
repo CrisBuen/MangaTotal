@@ -60,6 +60,8 @@ const PUBLIC_PREFIXES = [
   "/api/externo/ehentai",
   "/api/externo/hitomi",
   "/api/externo/imagen",
+  // Catálogo, episodios y reproductor de MundoDonghua
+  "/api/anime/mundodonghua/",
   // la ruleta sortea entre los catálogos, que son públicos
   "/api/aleatorio",
   // el top de la semana se ve en Inicio, que es pública

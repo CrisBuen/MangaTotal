@@ -11,17 +11,20 @@ import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { SaveExternalAnimeButton } from "@/components/anime/SaveExternalAnimeButton";
 import type { FichaJkanime } from "@/lib/jkanime";
 import type { FichaTioanime } from "@/lib/tioanime";
+import type { FichaMundodonghua } from "@/lib/mundodonghua";
 
 const JkanimeCatalog = dynamic(() => import("@/components/anime/JkanimeCatalog").then(m => m.JkanimeCatalog));
 const TioanimeCatalog = dynamic(() => import("@/components/anime/TioanimeCatalog").then(m => m.TioanimeCatalog));
+const MundodonghuaCatalog = dynamic(() => import("@/components/anime/MundodonghuaCatalog").then(m => m.MundodonghuaCatalog));
 const MiLista = dynamic(() => import("@/components/library/SeccionAnimeExterno").then(m => m.SeccionAnimeExterno));
-type Source = "jkanime" | "tioanime";
+type Source = "jkanime" | "tioanime" | "mundodonghua";
 type Series = { slug: string; title: string; cover_url: string | null; type: string | null; status: string | null };
 type Catalog = { series: Series[] };
 type Saved = Series & { source: string; external_id: string; href: string; resume_href: string | null; last_episode_number: string | null; last_position_seconds: number; last_duration_seconds: number; completed: boolean };
 type Progress = { episode_number: string; position_seconds: number; duration_seconds: number; completed: boolean };
-type Detail = FichaJkanime | FichaTioanime;
-const SOURCE_NAMES = { jkanime: "JKAnime", tioanime: "TioAnime" };
+type Detail = FichaJkanime | FichaTioanime | FichaMundodonghua;
+const SOURCE_NAMES = { jkanime: "JKAnime", tioanime: "TioAnime", mundodonghua: "MundoDonghua" };
+const DONGHUA_GENRES: Record<string, string> = { "accion": "Acción", "aventura": "Aventura", "comedia": "Comedia", "drama": "Drama", "fantasia": "Fantasía", "romance": "Romance", "sci-fi": "Ciencia Ficción", "sobrenatural": "Sobrenatural", "misterio": "Misterio" };
 const TIO_GENRES: Record<string, string> = { "sci-fi": "ciencia-ficcion", "cosas-de-la-vida": "recuentos-de-la-vida", thriller: "suspenso" };
 const ANILIST_GENRES_ES: Record<string, string> = {
   Action: "Acción", Adventure: "Aventura", Comedy: "Comedia", Drama: "Drama",
@@ -271,7 +274,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
 
   // Cargamos animes aleatorios de la temporada actual desde AniList con arte oficial verificado
   useEffect(() => {
-    if (directory || personalView) return;
+    if (directory || personalView || source === "mundodonghua") return;
     const controller = new AbortController();
     fetch("/api/anime?season=actual&sort=trending", { signal: controller.signal })
       .then(r => (r.ok ? r.json() : null))
@@ -356,7 +359,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
   );
   const continuing = historyItems.filter(entry => !entry.completed && entry.resume_href);
   const title = SOURCE_NAMES[source];
-  const genre = (id: string) => source === "tioanime" ? TIO_GENRES[id] ?? id : id;
+  const genre = (id: string) => source === "tioanime" ? TIO_GENRES[id] ?? id : source === "mundodonghua" ? DONGHUA_GENRES[id] ?? id : id;
 
   const heroItems: HeroItem[] | null = (seasonalHeroes && seasonalHeroes.length > 0)
     ? seasonalHeroes
@@ -368,7 +371,7 @@ export function AnimeDiscover({ source }: { source: Source }) {
           poster: true,
           artworkTitle: item.title,
           backdrop: backdrop(source, item.cover_url),
-          badges: ["RECIÉN SALIDO", item.type?.toUpperCase() ?? "SERIE"],
+          badges: [source === "mundodonghua" ? "DONGHUA DESTACADO" : "RECIÉN SALIDO", item.type?.toUpperCase() ?? "SERIE"],
           meta: [title, item.type, item.status].filter(Boolean).join(" · "),
           href: `/explorar/${source}/${item.slug}`,
           action: "Ver serie",
@@ -380,14 +383,15 @@ export function AnimeDiscover({ source }: { source: Source }) {
       <a aria-current={!directory && !personalView ? "page" : undefined} href={`/explorar?seccion=animada&anime_fuente=${source}`}>Descubrir</a>
       <a aria-current={directory && (!initial.sort || initial.sort === "recent") && !initial.status ? "page" : undefined} href={catalogUrl(source)}>Todos los títulos</a>
       {source === "jkanime" && <a aria-current={directory && initial.sort === "popularidad" ? "page" : undefined} href={catalogUrl(source, { sort: "popularidad" })}>Populares</a>}
-      <a aria-current={directory && initial.status ? "page" : undefined} href={catalogUrl(source, { status: source === "jkanime" ? "emision" : "1" })}>En emisión</a>
+      <a aria-current={directory && initial.status === (source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision") ? "page" : undefined} href={catalogUrl(source, { status: source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision" })}>En emisión</a>
+      {source === "mundodonghua" && <a aria-current={directory && initial.status === "finalizados" ? "page" : undefined} href={catalogUrl(source, { status: "finalizados" })}>Finalizadas</a>}
       {source === "jkanime" && <a aria-current={directory && initial.sort === "nombre" ? "page" : undefined} href={catalogUrl(source, { sort: "nombre" })}>A–Z</a>}
       <a aria-current={personalView ? "page" : undefined} href={listUrl}>Mi lista</a>
     </nav>
     {personalView ? <>
       <div className="mb-5 flex justify-end"><a className="od-outline" href={historyView ? listUrl : historyUrl}>{historyView ? "← Volver a Mi lista" : "Ver historial"}</a></div>
       <MiLista busqueda={initial.q ?? ""} soloGuardados={myList} soloHistorial={historyView} />
-    </> : directory ? <>{source === "jkanime" ? <JkanimeCatalog initial={initial} /> : <TioanimeCatalog initial={initial} />}</> : <>
+    </> : directory ? <>{source === "jkanime" ? <JkanimeCatalog initial={initial} /> : source === "tioanime" ? <TioanimeCatalog initial={initial} /> : <MundodonghuaCatalog initial={initial} />}</> : <>
       {heroItems?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={heroItems} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
       <form className="od-discover-tools mt-4 md:mt-6" action="/explorar" role="search" aria-label={`Buscar en ${title}`}>
         <input type="hidden" name="seccion" value="animada" /><input type="hidden" name="anime_fuente" value={source} /><input type="hidden" name="vista" value="catalogo" />
@@ -411,11 +415,13 @@ export function AnimeDiscover({ source }: { source: Source }) {
       {recent && <MediaRail title={`Novedades de ${title}`} href={catalogUrl(source)}>{recent.map(item => <Poster key={item.slug} item={item} onPreview={setSelected} saved={isItemSaved(item)} />)}</MediaRail>}
       <section className="od-genres" aria-labelledby="od-genres-title"><h2 id="od-genres-title">¿Qué te gustaría ver?</h2><p>Elegí un género y explorá su catálogo completo.</p><div className="od-genre-grid">{DISCOVER_GENRES.map(([id, label]) => <a key={id} href={catalogUrl(source, { genre: genre(id) })}>{label}<span aria-hidden="true">↗</span></a>)}</div></section>
       {recent && source === "jkanime" && <LazyRail title="Populares en JKAnime" source={source} query="sort=popularidad" load={load} onPreview={setSelected} isSaved={isItemSaved} />}
-      {recent && <LazyRail title="En emisión" source={source} query={`status=${source === "jkanime" ? "emision" : "1"}`} load={load} onPreview={setSelected} isSaved={isItemSaved} />}
+      {recent && <LazyRail title="En emisión" source={source} query={`status=${source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision"}`} load={load} onPreview={setSelected} isSaved={isItemSaved} />}
+      {recent && source === "mundodonghua" && <LazyRail title="Series finalizadas" source={source} query="status=finalizados" load={load} onPreview={setSelected} isSaved={isItemSaved} />}
+      {recent && source === "mundodonghua" && <LazyRail title="Cultivación y Artes Marciales" source={source} query="genre=Cultivación" load={load} onPreview={setSelected} isSaved={isItemSaved} />}
       {library.length > 0 && <MediaRail title="Tu lista" href={listUrl}>{library.map(item => <Poster key={item.external_id} item={item} saved onPreview={setSelected} />)}</MediaRail>}
       {recent && [["accion", "Acción sin pausa"], ["fantasia", "Mundos de fantasía"], ["romance", "Historias de romance"], ["comedia", "Un momento de comedia"], ["sci-fi", "Ciencia ficción"]].map(([id, label]) => <LazyRail key={id} title={label} source={source} query={`genre=${genre(id)}`} load={load} onPreview={setSelected} isSaved={isItemSaved} />)}
       <div className="od-catalog-cta"><h2>Hay mucho más por descubrir</h2><p>Todos los títulos, filtros por género y episodios disponibles en {title}.</p><a href={catalogUrl(source)} className="od-primary">Explorar catálogo completo →</a></div>
-      <p className="od-source-credit">Catálogo, fichas y episodios de <a href={source === "jkanime" ? "https://jkanime.net/" : "https://tioanime.com/"} target="_blank" rel="noopener noreferrer">{title} ↗</a>, con su permiso. Disponibilidad según la fuente.</p>
+      <p className="od-source-credit">Catálogo, fichas y episodios de <a href={source === "jkanime" ? "https://jkanime.net/" : source === "tioanime" ? "https://tioanime.com/" : "https://www.mundodonghua.com/"} target="_blank" rel="noopener noreferrer">{title} ↗</a>, con su permiso. Disponibilidad según la fuente.</p>
     </>}
     {selected && <AnimeSheet key={selected.slug} source={source} item={selected} close={() => setSelected(null)} onLibraryChange={() => setAccountVersion(value => value + 1)} />}
   </div>;

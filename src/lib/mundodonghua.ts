@@ -117,6 +117,25 @@ function urlAbsoluta(rutaOUrl: string): string {
   return `${MUNDODONGHUA_WEB}${rutaOUrl.startsWith("/") ? "" : "/"}${rutaOUrl}`;
 }
 
+/** Limpia entidades HTML frecuentes (&#039;, &quot;, &amp;, etc.). */
+export function decodificarEntidades(texto: string): string {
+  if (!texto) return "";
+  return texto
+    .replace(/&#0*39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, dec) => {
+      try {
+        return String.fromCharCode(Number(dec));
+      } catch {
+        return "";
+      }
+    });
+}
+
 /** Desempaqueta bloques protegidos con el compresor Dean Edwards Packer. */
 export function desempaquetarDeanEdwards(texto: string): string[] {
   const bloques: string[] = [];
@@ -224,7 +243,7 @@ export async function catalogoMundodonghua(
       cuerpo.match(/<img[^>]*alt=["']([^"']+)["']/i);
     const badgeMatch = cuerpo.match(/<span[^>]*class=["'][^"']*md-card-badge[^"']*["'][^>]*>([^<]+)<\/span>/i);
 
-    const title = titleMatch ? titleMatch[1].trim() : slug;
+    const title = titleMatch ? decodificarEntidades(titleMatch[1].trim()) : slug;
     const cover_url = imgMatch ? urlAbsoluta(imgMatch[1]) : null;
     const type = badgeMatch ? badgeMatch[1].trim() : "Donghua";
 
@@ -295,7 +314,7 @@ export async function fichaMundodonghua(
   const titleMatch =
     html.match(/<h1[^>]*class=["'][^"']*md-detail-title[^"']*["'][^>]*>([^<]+)<\/h1>/i) ||
     html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-  const title = titleMatch ? titleMatch[1].trim() : limpio;
+  const title = titleMatch ? decodificarEntidades(titleMatch[1].trim()) : limpio;
 
   // Portada
   const posterMatch =
@@ -306,10 +325,12 @@ export async function fichaMundodonghua(
   // Sinopsis
   const synMatch = html.match(/<p class="md-detail-synopsis">([\s\S]*?)<\/p>/i);
   const description = synMatch
-    ? synMatch[1]
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<[^>]+>/g, "")
-        .trim()
+    ? decodificarEntidades(
+        synMatch[1]
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<[^>]+>/g, "")
+          .trim()
+      )
     : null;
 
   // Estado y tipo
@@ -441,10 +462,10 @@ export async function reproduccionMundodonghua(
   const titleMatch =
     html.match(/<h1[^>]*class=["'][^"']*md-player-episode-title[^"']*["'][^>]*>([^<]+)<\/h1>/i) ||
     html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-  const episode_title = titleMatch ? titleMatch[1].trim() : `Episodio ${limpioEp}`;
+  const episode_title = titleMatch ? decodificarEntidades(titleMatch[1].trim()) : `Episodio ${limpioEp}`;
 
   const seriesLinkMatch = html.match(/<a[^>]*class=["'][^"']*md-player-back[^"']*["'][^>]*>[\s\S]*?<span>([^<]+)<\/span>/i);
-  const series_title = seriesLinkMatch ? seriesLinkMatch[1].trim() : limpioSlug;
+  const series_title = seriesLinkMatch ? decodificarEntidades(seriesLinkMatch[1].trim()) : limpioSlug;
 
   // Desempaquetado de scripts para extraer reproductores si se usan funciones dinámicas
   const bloquesDesempaquetados = desempaquetarDeanEdwards(html);
@@ -518,7 +539,15 @@ export async function reproduccionMundodonghua(
     selected_source: seleccionada.id,
     playback: {
       kind: "embed",
-      url: seleccionada.url,
+      url: (() => {
+        if (seleccionada.id === "filemoon") {
+          const codeMatch = seleccionada.url.match(/\/e\/([a-zA-Z0-9_-]+)/i);
+          if (codeMatch) {
+            return `/api/anime/mundodonghua/embed/filemoon/${codeMatch[1]}`;
+          }
+        }
+        return seleccionada.url;
+      })(),
     },
     url_original: url,
   };

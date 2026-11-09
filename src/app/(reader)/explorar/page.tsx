@@ -86,7 +86,6 @@ function decodificarHtml(texto: string): string {
 const cargandoAnime = () => <p role="status" className="py-12 text-center text-subtle">Cargando catálogo de anime...</p>;
 const AnimeDiscover = dynamic(() => import("@/components/discover/AnimeDiscover").then((m) => m.AnimeDiscover), { loading: cargandoAnime });
 const HentaitvCatalog = dynamic(() => import("@/components/anime/HentaitvCatalog").then((m) => m.HentaitvCatalog), { loading: cargandoAnime });
-const MundodonghuaCatalog = dynamic(() => import("@/components/anime/MundodonghuaCatalog").then((m) => m.MundodonghuaCatalog), { loading: cargandoAnime });
 
 interface ExternalSeries {
   id: string;
@@ -1486,10 +1485,11 @@ export default function ExplorarPage() {
 
         {animeFuente === "hentaitv" && animeAdultoHabilitado ? (
           <HentaitvCatalog />
-        ) : animeFuente === "mundodonghua" ? (
-          <MundodonghuaCatalog />
         ) : (
-          <AnimeDiscover key={animeFuente} source={animeFuente === "tioanime" ? "tioanime" : "jkanime"} />
+          <AnimeDiscover
+            key={animeFuente}
+            source={animeFuente === "mundodonghua" ? "mundodonghua" : animeFuente === "tioanime" ? "tioanime" : "jkanime"}
+          />
         )}
       </div>
     );

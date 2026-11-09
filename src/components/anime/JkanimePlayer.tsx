@@ -790,7 +790,7 @@ export function ReproductorAnimeExterno({
             className="h-full w-full border-0"
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             sandbox="allow-same-origin allow-scripts allow-forms allow-presentation allow-downloads"
-            referrerPolicy="strict-origin-when-cross-origin"
+            referrerPolicy="no-referrer"
             allowFullScreen
             onLoad={() => setMediaReady(true)}
           />
