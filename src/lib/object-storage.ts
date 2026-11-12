@@ -153,8 +153,12 @@ const r2StorageAdapter: ObjectStorage = {
     );
   },
 
-  async getPublicUrl() {
-    return null; // bucket privado: siempre se sirve vía /api/images
+  async getPublicUrl(key: string) {
+    if (process.env.R2_PUBLIC_URL) {
+      const base = process.env.R2_PUBLIC_URL.replace(/\/+$/, "");
+      return `${base}/${key}`;
+    }
+    return null; // bucket privado sin URL pública: se sirve vía /api/images con caché edge
   },
 
   async readObject(key) {

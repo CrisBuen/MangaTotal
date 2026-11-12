@@ -79,28 +79,45 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
       };
     }, [src, usarNativo, esIkigai, esCw, sinRespaldo, loading, intento]);
 
+    const urlFinal = usarNativo
+      ? resultado?.url
+      : resultado?.fallbackWeb && typeof src === "string" && !src.startsWith("/api/externo/imagen")
+      ? `/api/externo/imagen?u=${encodeURIComponent(src)}`
+      : src;
+
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           {...props}
           ref={elemento}
-          src={usarNativo ? resultado?.url : src}
+          src={urlFinal}
           alt={alt}
           loading={loading}
           aria-busy={usarNativo && !resultado?.url && !resultado?.error ? true : undefined}
           style={{ ...props.style, ...(usarNativo && !resultado?.url ? { visibility: "hidden" } : {}) }}
-          onError={
-            usarNativo
-              ? () => {
-                  if (!sinRespaldo) {
-                    setCargada({ src: String(src), fallbackWeb: true });
-                  } else {
-                    setCargada({ src: String(src), error: "No se pudo mostrar la imagen." });
-                  }
-                }
-              : props.onError
-          }
+          onError={(e) => {
+            if (usarNativo) {
+              if (!sinRespaldo) {
+                setCargada({ src: String(src), fallbackWeb: true });
+              } else {
+                setCargada({ src: String(src), error: "No se pudo mostrar la imagen." });
+              }
+            } else if (
+              !sinRespaldo &&
+              typeof src === "string" &&
+              !resultado?.fallbackWeb &&
+              !src.startsWith("/api/externo/imagen") &&
+              !src.startsWith("blob:") &&
+              !src.startsWith("data:")
+            ) {
+              // Respaldo en la web: si la imagen directa del CDN fue bloqueada por hotlinking
+              // o política de Referer del navegador, reintenta transparentemente vía /api/externo/imagen.
+              setCargada({ src: String(src), fallbackWeb: true });
+            } else {
+              props.onError?.(e);
+            }
+          }}
         />
         {sinRespaldo && resultado?.error && (
           <span role="alert" className="relative z-20 block p-2 text-xs text-subtle">

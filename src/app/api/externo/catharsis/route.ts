@@ -150,7 +150,9 @@ export async function GET(request: Request) {
           "Content-Type": "application/octet-stream",
           "X-Cw-Key": ticket.scrambleKey ?? "",
           "X-Cw-Xor": String(ticket.xorByte ?? 0),
-          "Cache-Control": "private, max-age=86400",
+          "Cache-Control": "public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable",
+          "CDN-Cache-Control": "public, max-age=31536000, immutable",
+          "Vercel-CDN-Cache-Control": "public, max-age=31536000, immutable",
         },
       });
     }

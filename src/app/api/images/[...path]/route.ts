@@ -29,8 +29,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ path: strin
     return NextResponse.redirect(publicUrl, {
       status: 302,
       headers: {
-        // el archivo nunca cambia una vez subido (docs/07 §7.4)
-        "Cache-Control": "private, max-age=31536000, immutable",
+        // Redirección directa al CDN externo (ej. Cloudflare R2 público) sin consumir ancho de banda de Vercel
+        "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable",
       },
     });
   }
@@ -42,8 +42,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ path: strin
     headers: {
       "Content-Type": contentType,
       "Content-Length": String(data.length),
-      // el archivo nunca cambia una vez subido (docs/07 §7.4)
-      "Cache-Control": "private, max-age=31536000, immutable",
+      // el archivo nunca cambia una vez subido (docs/07 §7.4).
+      // s-maxage permite que la CDN de Vercel Edge cachee la imagen y no retransfiera
+      // los bytes desde la función serverless en cada petición (ahorro de Fast Origin Transfer).
+      "Cache-Control": "public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable",
+      "CDN-Cache-Control": "public, max-age=31536000, immutable",
+      "Vercel-CDN-Cache-Control": "public, max-age=31536000, immutable",
     },
   });
 }

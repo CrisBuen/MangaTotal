@@ -123,9 +123,7 @@ function LectorHitomiContenido(props: {
       hrefCapitulo={() => volverA}
       pages={paginas.map((url, i) => ({
         pageNumber: i + 1,
-        url: url.startsWith("/api/externo/imagen")
-          ? url
-          : `/api/externo/imagen?u=${encodeURIComponent(url)}`,
+        url,
         width: 0,
         height: 0,
       }))}

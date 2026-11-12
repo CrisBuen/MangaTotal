@@ -107,8 +107,12 @@ export async function GET(req: NextRequest) {
       "Content-Type": upstream.headers.get("content-type") ?? "image/jpeg",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-      // las páginas de un capítulo publicado no cambian
-      "Cache-Control": "public, max-age=86400, immutable",
+      // Las páginas de un capítulo publicado no cambian.
+      // s-maxage permite que la CDN de Vercel Edge cachee la imagen y no retransfiera
+      // los bytes desde la función serverless en cada petición (ahorro de Fast Origin Transfer).
+      "Cache-Control": "public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable",
+      "CDN-Cache-Control": "public, max-age=31536000, immutable",
+      "Vercel-CDN-Cache-Control": "public, max-age=31536000, immutable",
     },
   });
 }

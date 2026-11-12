@@ -920,14 +920,14 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
   }
 
   // 2. Resolver solo las primeras 4 páginas para que el lector abra al instante
-  // y delegar el resto a resolución bajo demanda en /api/externo/imagen?u=<viewerUrl>
-  // a medida que el usuario hace scroll. Descargar los 200 visores de golpe activaba
-  // el límite anti-flood de E-Hentai y hacía fallar el catálogo al volver atrás.
+  // y dejar las restantes en sus URLs de visor de E-Hentai (`https://e-hentai.org/s/...`).
+  // En Android y PC, el puente nativo resuelve cada visor bajo demanda directo al CDN Hath
+  // sin consumir cuota de Vercel. En navegador web, ImagenFuente cae a /api/externo/imagen si falla.
   const EAGER_COUNT = Math.min(4, linksValidos.length);
   const primerasResueltas = await Promise.all(
     linksValidos.slice(0, EAGER_COUNT).map(async (vUrl) => {
       const directa = await resolverImagenVisorEhentai(vUrl);
-      return directa || `/api/externo/imagen?u=${encodeURIComponent(vUrl)}`;
+      return directa || vUrl;
     })
   );
 
@@ -935,7 +935,7 @@ export async function paginasEhentai(gid: string, token: string): Promise<string
     if (idx < EAGER_COUNT) return primerasResueltas[idx];
     const yaEnCache = visorImagenCache.get(vUrl);
     if (yaEnCache && yaEnCache.vence > Date.now()) return yaEnCache.imgUrl;
-    return `/api/externo/imagen?u=${encodeURIComponent(vUrl)}`;
+    return vUrl;
   });
 
   paginasCache.set(claveCache, {

@@ -213,8 +213,9 @@ export function construirUrlMiniatura(hash: string, gg: any): string {
   const tnPath = `${lastChar}/${prevTwo}/${hash}`;
   const g = parseInt(lastChar + prevTwo, 16);
   const sub = String.fromCharCode(97 + gg.m(g)) + "tn";
-  const rawUrl = `https://${sub}.gold-usergeneratedcontent.net/webpbigtn/${tnPath}.webp`;
-  return `/api/externo/imagen?u=${encodeURIComponent(rawUrl)}`;
+  // Devuelve la URL directa del CDN. El puente nativo (Android y PC) la descarga
+  // con Referer sin pasar por Vercel; en la web ImagenFuente recurre a /api/externo/imagen si falla.
+  return `https://${sub}.gold-usergeneratedcontent.net/webpbigtn/${tnPath}.webp`;
 }
 
 export function construirUrlPagina(hash: string, ext: string, gg: any): string {
