@@ -124,8 +124,33 @@ export function AppHeader({
                 </Link>
               )}
               {mode !== "admin" && user.isAdmin && (
-                <Link href="/admin/subir" className={buttonStyles({ variant: "secondary", size: "sm", className: "hidden sm:inline-flex" })}>
-                  Subir
+                <Link
+                  href="/admin"
+                  prefetch={false}
+                  className={buttonStyles({
+                    variant: "secondary",
+                    size: "sm",
+                    className:
+                      "border-accent/50 bg-[var(--accent-soft)] text-accent-ink hover:border-accent hover:bg-accent hover:text-white",
+                  })}
+                  data-od-id="admin-panel-link"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-3.5 w-3.5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="3" y="3" width="7" height="9" rx="1" />
+                    <rect x="14" y="3" width="7" height="5" rx="1" />
+                    <rect x="14" y="12" width="7" height="9" rx="1" />
+                    <rect x="3" y="16" width="7" height="5" rx="1" />
+                  </svg>
+                  <span>Panel</span>
                 </Link>
               )}
               {mode === "admin" && (

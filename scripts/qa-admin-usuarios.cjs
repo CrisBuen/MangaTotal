@@ -11,7 +11,7 @@ const raiz = path.join(__dirname, "..");
     stdin: { contents: `
       import React from 'react';
       import { createRoot } from 'react-dom/client';
-      import Usuarios from './src/app/(admin)/admin/usuarios/page';
+      import { AdminUsersClient } from './src/components/admin/AdminUsersClient';
       let users = [
         { id: 1, nickname: 'AdminQA', is_admin: true, email: null },
         { id: 2, nickname: 'AmigoQA', is_admin: false, email: 'prueba@example.com' },
@@ -33,7 +33,7 @@ const raiz = path.join(__dirname, "..");
         if (options.method === 'DELETE') { users = users.filter(u => u.id !== id); return new Response(null, { status: 204 }); }
         throw new Error('Método no simulado');
       };
-      createRoot(document.getElementById('app')).render(<Usuarios />);
+      createRoot(document.getElementById('app')).render(<AdminUsersClient initialUsers={users} currentUserId={1} />);
     `, resolveDir: raiz, loader: "tsx" },
     bundle: true, write: false, platform: "browser", jsx: "automatic",
     define: { "process.env.NODE_ENV": '"development"' },

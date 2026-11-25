@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";
 import { fieldControlClass } from "@/components/ui/Field";
-import { SectionHeading } from "@/components/ui/Surface";
 
 interface Announcement {
   id: number;
@@ -20,16 +19,17 @@ export default function AdminNoticiasPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/announcements");
+    const res = await fetch("/api/announcements", { cache: "no-store" });
     if (res.ok) setNews(await res.json());
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   function startEdit(n: Announcement) {
@@ -44,6 +44,7 @@ export default function AdminNoticiasPage() {
     setEditingId(null);
     setTitle("");
     setBody("");
+    setError(null);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -76,89 +77,161 @@ export default function AdminNoticiasPage() {
   async function remove(n: Announcement) {
     if (!window.confirm(`¿Borrar la noticia "${n.title}"?`)) return;
     await fetch(`/api/announcements/${n.id}`, { method: "DELETE" });
+    if (editingId === n.id) reset();
     await load();
   }
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return news ?? [];
+    return (news ?? []).filter(
+      (n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q)
+    );
+  }, [news, query]);
+
   return (
-    <div className="space-y-10" data-od-id="admin-news-page">
-      <SectionHeading eyebrow="Comunicación" title="Noticias" description="Anuncios y novedades que aparecen en la pestaña Todo de la biblioteca." />
+    <div className="space-y-6" data-od-id="admin-news-page">
+      <div className="border-b border-line pb-6">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-ink">
+          Comunicación
+        </p>
+        <h1 className="mt-1 font-display text-3xl font-bold tracking-[-0.03em] text-ink sm:text-4xl">
+          Noticias y anuncios
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-subtle">
+          Publicá novedades, avisos de mantenimiento o nuevas series visibles para los lectores.
+        </p>
+      </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="space-y-5 rounded-[10px] border border-line bg-panel p-6"
-      >
-        <h2 className="text-3xl text-ink">
-          {editingId ? "Editar noticia" : "Publicar noticia nueva"}
-        </h2>
-        <div>
-          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Título</label>
-          <input
-            className={inputClass}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder='ej: "¡Nueva serie en camino!"'
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-[13px] font-bold tracking-[0.08em] text-ink">Contenido</label>
-          <textarea
-            className={inputClass}
-            rows={4}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Contale a los lectores qué se viene..."
-          />
-        </div>
-        {error && <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{error}</p>}
-        <div className="flex gap-2">
-          <Button
-            disabled={busy}
-            variant="primary"
-          >
-            {editingId ? "Guardar cambios" : "Publicar"}
-          </Button>
-          {editingId && (
-            <Button
-              type="button"
-              onClick={reset}
-              variant="secondary"
-            >
-              Cancelar
-            </Button>
+      <div className="grid gap-6 lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.35fr)] lg:items-start">
+        {/* Compositor */}
+        <form
+          onSubmit={onSubmit}
+          className={`space-y-5 rounded-xl border bg-panel p-5 sm:p-6 lg:sticky lg:top-20 ${
+            editingId ? "border-accent/60" : "border-line"
+          }`}
+        >
+          <div>
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent-ink">
+              {editingId ? "Editando anuncio" : "Nueva publicación"}
+            </p>
+            <h2 className="mt-0.5 text-xl font-bold text-ink">
+              {editingId ? "Editar noticia" : "Publicar noticia"}
+            </h2>
+          </div>
+
+          <div>
+            <label className="mb-2 block font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-subtle">
+              Título
+            </label>
+            <input
+              className={inputClass}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder='ej: "¡Nueva fuente integrada!"'
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-subtle">
+              Contenido
+            </label>
+            <textarea
+              className={inputClass}
+              rows={5}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Contale a los lectores qué novedades hay…"
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-2.5 text-sm text-danger" role="alert">
+              {error}
+            </p>
           )}
-        </div>
-      </form>
 
-      {news === null ? (
-        <p className="py-6 text-center text-sm text-subtle">Cargando…</p>
-      ) : news.length === 0 ? (
-        <EmptyState title="No publicaste noticias" description="La próxima publicación aparecerá aquí y en la biblioteca." />
-      ) : (
-        <div className="border-b border-line">
-          {news.map((n) => (
-            <article key={n.id} className="border-t border-line py-5">
-              <div className="mb-1 flex items-baseline justify-between gap-3">
-                <h3 className="text-xl text-ink">{n.title}</h3>
-                <span className="shrink-0 font-mono text-[11px] text-subtle">
-                  {new Date(n.created_at).toLocaleDateString("es-AR")}
-                </span>
-              </div>
-              <p className="mb-3 whitespace-pre-line text-sm text-subtle">{n.body}</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => startEdit(n)}
-                  className="min-h-11 text-[13px] font-bold text-ink underline underline-offset-4"
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={busy} loading={busy} variant="primary" className="rounded-lg">
+              {editingId ? "Guardar cambios" : "Publicar"}
+            </Button>
+            {editingId && (
+              <Button type="button" onClick={reset} variant="secondary" className="rounded-lg">
+                Cancelar
+              </Button>
+            )}
+          </div>
+        </form>
+
+        {/* Listado publicado */}
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-mono text-xs text-subtle">
+              {news === null ? "Cargando…" : `${news.length} ${news.length === 1 ? "noticia" : "noticias"}`}
+            </p>
+            {(news?.length ?? 0) > 0 && (
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filtrar noticias…"
+                aria-label="Filtrar noticias"
+                className="min-h-9 w-full rounded-lg border border-line bg-panel px-3 text-xs text-ink placeholder:text-faint focus:border-accent focus:outline-none sm:w-56"
+              />
+            )}
+          </div>
+
+          {news === null ? (
+            <div className="rounded-xl border border-line bg-panel p-8 text-center text-sm text-subtle">
+              Cargando noticias…
+            </div>
+          ) : news.length === 0 ? (
+            <EmptyState
+              title="No publicaste noticias"
+              description="La próxima publicación aparecerá aquí y en la biblioteca."
+            />
+          ) : filtered.length === 0 ? (
+            <div className="rounded-xl border border-line bg-panel p-8 text-center text-sm text-subtle">
+              Sin coincidencias para &ldquo;{query}&rdquo;.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((n) => (
+                <article
+                  key={n.id}
+                  className={`rounded-xl border bg-panel p-5 transition-colors ${
+                    editingId === n.id ? "border-accent/60" : "border-line hover:border-line-strong"
+                  }`}
                 >
-                  Editar
-                </button>
-                <button onClick={() => remove(n)} className="min-h-11 text-[13px] font-bold text-danger underline underline-offset-4">
-                  Borrar
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h3 className="text-lg font-bold text-ink">{n.title}</h3>
+                    <span className="rounded-md border border-line bg-[var(--surface-soft)] px-2 py-0.5 font-mono text-[11px] text-subtle">
+                      {new Date(n.created_at).toLocaleDateString("es-AR")}
+                    </span>
+                  </div>
+                  <p className="mt-2.5 whitespace-pre-line text-sm leading-6 text-subtle">{n.body}</p>
+                  <div className="mt-4 flex items-center gap-2 border-t border-line/70 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(n)}
+                      className="rounded-lg border border-line bg-[var(--surface-soft)] px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-accent hover:text-accent-ink"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(n)}
+                      className="rounded-lg border border-danger/40 bg-transparent px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger hover:text-white"
+                    >
+                      Borrar
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

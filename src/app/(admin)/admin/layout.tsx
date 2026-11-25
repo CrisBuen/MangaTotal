@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { getSessionUser } from "@/lib/auth";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -8,17 +8,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user.isAdmin) redirect("/biblioteca");
 
   return (
-    <div className="od-shell min-h-screen bg-canvas">
-      <AppHeader
-        mode="admin"
-        user={{ nickname: user.nickname, avatarPath: user.avatarPath, isAdmin: user.isAdmin }}
-      />
-      <main
-        className="mx-auto max-w-app px-4 py-8 sm:px-6 sm:py-10 lg:px-8"
-        data-od-id="admin-content"
-      >
-        {children}
-      </main>
-    </div>
+    <AdminShell user={{ nickname: user.nickname, avatarPath: user.avatarPath }}>
+      {children}
+    </AdminShell>
   );
 }
