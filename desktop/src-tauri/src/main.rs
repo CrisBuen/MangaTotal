@@ -112,7 +112,7 @@ fn aplicar_headers_imagen(pedido: reqwest::RequestBuilder, host: &str) -> reqwes
     } else if h.contains("catharsisfood") || h.contains("catharsisworks") || h.contains("dig-it.info") || h.contains("catharsisworld") {
         pedido.header("Referer", "https://newcatharsis.dig-it.info/").header("X-Catharsis-Reader", "1")
     } else if h.contains("ikigai") {
-        pedido.header("Referer", "https://visorikigai.gettocaboca.com/").header("Sec-Fetch-Mode", "cors")
+        pedido.header("Referer", "https://visualikigai.cmpunjabrashancard.pk/").header("Sec-Fetch-Mode", "cors")
     } else if h.contains("imagesolymp") || h.contains("swordflake") || h.contains("olympus") {
         pedido.header("Referer", "https://olympusxyz.com/")
     } else {
@@ -144,7 +144,7 @@ async fn traer_imagen(url: String) -> Result<tauri::ipc::Response, String> {
     if es_ikigai {
         let respuesta = http.get(destino)
             .timeout(Duration::from_secs(25))
-            .header("Referer", "https://visorikigai.gettocaboca.com/")
+            .header("Referer", "https://visualikigai.cmpunjabrashancard.pk/")
             // Su CDN exige ambos encabezados; sin el modo devuelve un 302 al aviso.
             .header("Sec-Fetch-Mode", "cors")
             .header("Accept", "image/webp,image/png,image/jpeg,image/gif")
@@ -263,6 +263,9 @@ const DOMINIOS_FUENTES: &[&str] = &[
     "viralikigai.radiot.space",
     "visualikigai.treefy.online",
     "visualikigai.cmpunjabrashancard.pk",
+    "zonaikigai.gamesview.shop",
+    "visualikigai.sakanamenu.online",
+    "visualikigai.aplikando.com",
     "image2.ikigaimangas.cloud",
     "image3.ikigaimangas.cloud",
 ];

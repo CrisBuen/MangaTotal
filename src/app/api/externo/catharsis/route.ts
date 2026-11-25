@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import {
-  abrirCapituloCw,
   paginasCapituloCw,
   catalogoCwServidor,
   normalizarCw,
@@ -13,6 +13,26 @@ import {
   serieCwServidor,
   type CarpetaCw,
 } from "@/lib/catharsisServidor";
+
+const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Directus (/folders) pasó a responder 401 el 25/11/2026. Si una persona abre
+ * una serie vieja de Catharsis guardada por UUID, recuperamos su título desde
+ * nuestra propia tabla de biblioteca para seguir enlazándola con v3 sin perder nada.
+ */
+async function buscarTituloGuardadoCw(externalId: string): Promise<string | null> {
+  if (!ES_UUID.test(externalId)) return null;
+  try {
+    const guardada = await db.externalSeries.findFirst({
+      where: { source: "catharsis", externalId },
+      select: { title: true },
+    });
+    return guardada?.title ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Puente del servidor hacia Catharsis World (Catharsis v3).
@@ -61,7 +81,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Serie inválida" }, { status: 400 });
       }
 
-      const titulo = params.get("titulo")?.trim();
+      const titulo = params.get("titulo")?.trim() || (await buscarTituloGuardadoCw(id));
       const ficha = await serieCwServidor(id, fresco, titulo);
 
       const respuesta = NextResponse.json(ficha);
@@ -92,7 +112,8 @@ export async function GET(request: Request) {
         mangaId = partes[0];
         capNum = partes[1];
       } else if (serie) {
-        const { v3Manga } = await resolverMangaV3(serie);
+        const tituloSerie = await buscarTituloGuardadoCw(serie);
+        const { v3Manga } = await resolverMangaV3(serie, tituloSerie);
         mangaId = String(v3Manga.id);
         const esUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
         if (esUuid) {

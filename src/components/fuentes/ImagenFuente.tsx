@@ -3,9 +3,23 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ImgH
 import { cargarImagenNativa, debeUsarPuenteNativo, esImagenIkigai } from "@/lib/imagenFuenteNativa";
 import { cargarPaginaCw, esPaginaCw } from "@/lib/catharsis";
 
+const CW_DIRECTUS_ASSETS_HEREDADO = "https://direct-new-catha.catharsisfood.com/assets/";
+
+function normalizarSrcImagen(
+  src: ImgHTMLAttributes<HTMLImageElement>["src"]
+): ImgHTMLAttributes<HTMLImageElement>["src"] {
+  // Directus cerró /assets con 401 el 25/11/2026; reescribir aquí cura al vuelo las
+  // portadas de Catharsis ya guardadas en biblioteca/historial sin tocar la BD.
+  if (typeof src === "string" && src.startsWith(CW_DIRECTUS_ASSETS_HEREDADO)) {
+    return `https://newcatharsis.dig-it.info/assets/${src.slice(CW_DIRECTUS_ASSETS_HEREDADO.length)}`;
+  }
+  return src;
+}
+
 /** Prioriza el puente nativo en Android y PC para no pasar por Vercel; conserva medidas y eventos del img. */
 export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLImageElement>>(
-  function ImagenFuente({ src, loading, alt, ...props }, forwardedRef) {
+  function ImagenFuente({ src: rawSrc, loading, alt, ...props }, forwardedRef) {
+    const src = normalizarSrcImagen(rawSrc);
     const elemento = useRef<HTMLImageElement>(null);
     useImperativeHandle(forwardedRef, () => elemento.current!);
     const esIkigai = typeof src === "string" && esImagenIkigai(src);

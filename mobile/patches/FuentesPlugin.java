@@ -81,6 +81,9 @@ public class FuentesPlugin extends Plugin {
         "viralikigai.radiot.space",
         "visualikigai.treefy.online",
         "visualikigai.cmpunjabrashancard.pk",
+        "zonaikigai.gamesview.shop",
+        "visualikigai.sakanamenu.online",
+        "visualikigai.aplikando.com",
         "image2.ikigaimangas.cloud",
         "image3.ikigaimangas.cloud",
     };
@@ -170,7 +173,7 @@ public class FuentesPlugin extends Plugin {
             conexion.setRequestProperty("Referer", "https://newcatharsis.dig-it.info/");
             conexion.setRequestProperty("X-Catharsis-Reader", "1");
         } else if (h.contains("ikigai")) {
-            conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
+            conexion.setRequestProperty("Referer", "https://visualikigai.cmpunjabrashancard.pk/");
             conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
         } else if (h.contains("imagesolymp") || h.contains("swordflake") || h.contains("olympus")) {
             conexion.setRequestProperty("Referer", "https://olympusxyz.com/");
@@ -200,7 +203,7 @@ public class FuentesPlugin extends Plugin {
                     conexion.setConnectTimeout(TIEMPO_ESPERA_MS);
                     conexion.setReadTimeout(TIEMPO_ESPERA_MS);
                     conexion.setRequestProperty("User-Agent", UA_NAVEGADOR);
-                    conexion.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
+                    conexion.setRequestProperty("Referer", "https://visualikigai.cmpunjabrashancard.pk/");
                     // La referencia sola no basta: el CDN redirige al aviso sin este modo.
                     conexion.setRequestProperty("Sec-Fetch-Mode", "cors");
                     conexion.setRequestProperty("Accept", "image/webp,image/png,image/jpeg,image/gif");

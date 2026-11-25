@@ -7,7 +7,21 @@ serie y en cada capítulo.
 
 Sitio:      https://newcatharsis.dig-it.info
 API v3:     https://newcatharsis.dig-it.info/api
-Directus:   https://direct-new-catha.catharsisfood.com (solo mapeo de carpetas)
+Portadas:   https://newcatharsis.dig-it.info/assets/{uuid}
+Directus:   https://direct-new-catha.catharsisfood.com (cerrado con 401 desde 25/11/2026)
+
+25/11/2026:
+- Directus (direct-new-catha.catharsisfood.com) cerró /assets y /folders con HTTP 401.
+  Las portadas ahora se sirven públicamente desde https://newcatharsis.dig-it.info/assets/{uuid}
+  (HTTP 200 image/webp). ImagenFuente e imagenCw reescriben al vuelo las URLs heredadas de
+  Directus guardadas en bibliotecas/historiales sin modificar la BD, y /api/externo/catharsis
+  recupera el título desde ExternalSeries cuando recibe un UUID heredado.
+- Catharsis retiró POST /api/mangas/reader-pass y GET /api/mangas/{id}/{capNum} (404 Not Found)
+  y migró su lector web a un esquema cerrado detrás de verificación Cloudflare Turnstile,
+  puerta de anuncios (reward_gate_enabled) y módulo DRM WebAssembly con cabeceras firmadas por build.
+  MangaTotal dejó de ejecutar solveCap hacia rutas 404 (evitando consumo inútil de CPU en Vercel)
+  y muestra un enlace directo al capítulo oficial en Catharsis World + opción de migrar obra
+  hasta contar con acceso oficial de partner por parte de Catharsis World.
 
 
 ---------------------------------------------------------------------------

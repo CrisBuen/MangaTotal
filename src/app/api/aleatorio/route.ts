@@ -73,7 +73,7 @@ async function deCatharsis(): Promise<SerieAlAzar | null> {
     fuenteNombre: "Catharsis World",
     titulo: s.nombre,
     portada: s.portada
-      ? `https://direct-new-catha.catharsisfood.com/assets/${s.portada}?width=400&quality=75&format=webp`
+      ? `https://newcatharsis.dig-it.info/assets/${s.portada}?width=400&quality=75&format=webp`
       : null,
     href: `/externo/catharsis/${s.id}`,
     nota: `${s.capitulos} capítulos`,
@@ -212,7 +212,7 @@ async function deOlympus(): Promise<SerieAlAzar | null> {
 async function deIkigai(): Promise<SerieAlAzar | null> {
   const pagina = 1 + Math.floor(Math.random() * 12);
   const res = await fetch(
-    `https://visorikigai.gettocaboca.com/series/${pagina > 1 ? `?pagina=${pagina}` : ""}`,
+    `https://visualikigai.cmpunjabrashancard.pk/series/${pagina > 1 ? `?pagina=${pagina}` : ""}`,
     {
       headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" },
       next: { revalidate: 600 },

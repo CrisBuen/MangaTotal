@@ -68,7 +68,7 @@ test("Integración viva con Catharsis v3: Catálogo, Ficha y Lector", async () =
       if (mod === "@/lib/catharsis") {
         return {
           CW_WEB: "https://newcatharsis.dig-it.info",
-          imagenCw: (id) => `https://direct-new-catha.catharsisfood.com/assets/${id}`,
+          imagenCw: (id) => `https://newcatharsis.dig-it.info/assets/${id}`,
         };
       }
       return require(mod);
@@ -106,20 +106,14 @@ test("Integración viva con Catharsis v3: Catálogo, Ficha y Lector", async () =
   assert.ok(ficha.capitulos[0].id, "El capítulo debe tener ID");
   assert.ok(ficha.capitulos[0].numero, "El capítulo debe tener número");
 
-  // 4. Ticket de página y descifrado de imagen con serie pública sin restricción de login
-  const koori = catalogo.find((s) => s.v3Id === 1038 || s.nombre.toLowerCase().includes("koori no jouheki"));
-  assert.ok(koori, "Debe existir la serie pública Koori no Jouheki");
-  const fichaKoori = await serieCwServidor(koori.id);
-  const primerCap = fichaKoori.capitulos.find((c) => c.numero === "1" || c.numero === 1) || fichaKoori.capitulos[0];
-  assert.ok(primerCap, "Debe existir un capítulo 1 o inicial");
+  // 4. Portada pública directa desde newcatharsis.dig-it.info/assets/
+  const resPortada = await fetch(`https://newcatharsis.dig-it.info/assets/${primera.portada}?width=256&quality=72&format=webp`);
+  assert.equal(resPortada.status, 200, "La portada debe responder HTTP 200 desde newcatharsis.dig-it.info/assets");
+  assert.match(resPortada.headers.get("content-type") || "", /^image\//, "La portada debe ser una imagen");
 
-  const ticket = await obtenerTicketPaginaCw(koori.v3Id || koori.id, primerCap.numero, 0);
-  assert.ok(ticket.signedToken, "El ticket debe tener signedToken");
-  assert.ok(ticket.scrambleKey, "El ticket debe tener scrambleKey");
-
-  // El servidor solo retransmite bytes crudos (sin sharp, para no gastar
-  // CPU de Vercel); el descifrado lo hace el dispositivo con Canvas
-  const { bytes, ticket: t2 } = await obtenerBytesPaginaCw(koori.v3Id || koori.id, primerCap.numero, 1);
-  assert.ok(bytes.byteLength > 1000, "La página cruda debe tener tamaño suficiente");
-  assert.ok(t2.scrambleKey, "La clave de reordenamiento viaja junto a los bytes");
+  // 5. El visor v3 cerrado (Turnstile + DRM WebAssembly) falla rápido sin quemar CPU PoW
+  await assert.rejects(
+    () => obtenerTicketPaginaCw(ballet.v3Id || ballet.id, ficha.capitulos[0].numero, 0),
+    /Turnstile|WebAssembly|pase de lectura/i
+  );
 });

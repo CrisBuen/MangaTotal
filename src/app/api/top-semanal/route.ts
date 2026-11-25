@@ -128,7 +128,7 @@ async function deCatharsis(): Promise<SerieDelTop[]> {
       fuenteNombre: "Catharsis World",
       titulo: s.nombre,
       portada: s.portada
-        ? `https://direct-new-catha.catharsisfood.com/assets/${s.portada}?width=400&quality=75&format=webp`
+        ? `https://newcatharsis.dig-it.info/assets/${s.portada}?width=400&quality=75&format=webp`
         : null,
       href: `/externo/catharsis/${s.id}`,
       nota: `${s.capitulos} capítulos`,

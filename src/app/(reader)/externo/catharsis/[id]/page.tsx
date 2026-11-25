@@ -181,6 +181,14 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
             )}
 
             <SaveExternalButton serie={serieGuardable} />
+            <a
+              href={ficha.slug || ficha.v3Id ? `${CW_WEB}/manga/${ficha.slug ?? ficha.v3Id}` : CW_WEB}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex min-h-11 items-center rounded-md border border-accent bg-[var(--accent-soft)] px-4 font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink transition hover:opacity-90"
+            >
+              Ver en {CW_NOMBRE} ↗
+            </a>
             <BotonMigrar fuente="catharsis" externalId={id} slug={id} titulo={ficha.nombre} />
 
           </div>
@@ -263,7 +271,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
       <p className="border-t border-line pt-6 text-[13px] text-subtle">
         Publicado por{" "}
         <a
-          href={CW_WEB}
+          href={ficha.slug || ficha.v3Id ? `${CW_WEB}/manga/${ficha.slug ?? ficha.v3Id}` : CW_WEB}
           target="_blank"
           rel="noreferrer noopener"
           className="text-accent-ink hover:underline"

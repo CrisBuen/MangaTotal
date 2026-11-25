@@ -10,7 +10,7 @@ const FUENTES = [
   { nombre: "MangaDex", web: "https://mangadex.org" },
   { nombre: "Olympus Scanlation", web: "https://olympusxyz.com" },
   { nombre: "ZonaTMO", web: "https://zonatmo.net" },
-  { nombre: "Ikigai Mangas", web: "https://visorikigai.gettocaboca.com" },
+  { nombre: "Ikigai Mangas", web: "https://visualikigai.cmpunjabrashancard.pk" },
   { nombre: "Catharsis World", web: "https://newcatharsis.dig-it.info" },
 ];
 

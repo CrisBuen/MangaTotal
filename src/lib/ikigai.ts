@@ -24,7 +24,9 @@ import { recuperarIdIkigai } from "./referenciasLectura";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "./androidCache";
 import { adultoDelEstadoIkigai, paginasDelEstadoIkigai } from "./ikigaiPaginas";
 
-export const IKIGAI_WEB = "https://visorikigai.gettocaboca.com";
+// visorikigai.gettocaboca.com quedó con error 526 (SSL de origen vencido) el 25/11/2026;
+// visualikigai.cmpunjabrashancard.pk responde 200 directo y ya está en los puentes nativos instalados.
+export const IKIGAI_WEB = "https://visualikigai.cmpunjabrashancard.pk";
 const IKIGAI_IMAGENES = "https://image2.ikigaimangas.cloud";
 export const IKIGAI_NOMBRE = "Ikigai Mangas";
 

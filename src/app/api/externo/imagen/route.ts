@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   } else if (/zonatmo|visortmo|tumangaonline/.test(url.hostname)) {
     upstreamHeaders["Referer"] = "https://visortmo.com/";
   } else if (/ikigai/.test(url.hostname)) {
-    upstreamHeaders["Referer"] = "https://visorikigai.gettocaboca.com/";
+    upstreamHeaders["Referer"] = "https://visualikigai.cmpunjabrashancard.pk/";
     upstreamHeaders["Sec-Fetch-Mode"] = "cors";
   } else if (/imagesolymp|swordflake|olympus/.test(url.hostname)) {
     upstreamHeaders["Referer"] = "https://olympusxyz.com/";

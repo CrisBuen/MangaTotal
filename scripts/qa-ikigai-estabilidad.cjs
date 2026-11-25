@@ -21,7 +21,7 @@ ${(siguiente ? [Math.min(3, pagina + 1)] : [1, 2, 3]).map(n => `<a href="/series
     const page = await browser.newPage();
     await page.exposeFunction("textoFuente", async url => {
       const allowed = new URL(url);
-      assert.equal(allowed.origin, "https://visorikigai.gettocaboca.com");
+      assert.equal(allowed.origin, "https://visualikigai.cmpunjabrashancard.pk");
       const r = await fetch(url, { signal: AbortSignal.timeout(30000) });
       assert.equal(r.status, 200);
       const html = await r.text();

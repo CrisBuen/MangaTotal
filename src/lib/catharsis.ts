@@ -10,8 +10,13 @@
 export const CW_NOMBRE = "Catharsis World";
 export const CW_WEB = "https://newcatharsis.dig-it.info";
 
-/** De donde salen las portadas e imágenes de assets. Acepta recortes. */
-const CW_ASSETS = "https://direct-new-catha.catharsisfood.com/assets";
+/**
+ * De donde salen las portadas e imágenes de assets. Acepta recortes.
+ * Directus (direct-new-catha.catharsisfood.com/assets) pasó a responder 401 el 25/11/2026;
+ * las portadas se sirven públicamente desde el propio dominio de Catharsis v3.
+ */
+const CW_ASSETS = "https://newcatharsis.dig-it.info/assets";
+const CW_DIRECTUS_ASSETS_HEREDADO = "https://direct-new-catha.catharsisfood.com/assets/";
 
 export interface SerieCw {
   id: string;
@@ -62,8 +67,11 @@ export type OrdenCw = "nombre" | "novedades" | "capitulos";
  */
 export function imagenCw(id: string, ancho?: number): string {
   if (!id) return "";
+  if (id.startsWith(CW_DIRECTUS_ASSETS_HEREDADO)) {
+    return `${CW_ASSETS}/${id.slice(CW_DIRECTUS_ASSETS_HEREDADO.length)}`;
+  }
   if (id.startsWith("http://") || id.startsWith("https://")) return id;
-  // Si es un UUID de portada o asset en Directus:
+  // Si es un UUID de portada o asset:
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     if (!ancho) return `${CW_ASSETS}/${id}`;
     return `${CW_ASSETS}/${id}?width=${ancho}&quality=72&format=webp`;

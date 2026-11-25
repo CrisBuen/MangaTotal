@@ -5,6 +5,17 @@
 Integrada con su permiso. Su nombre y un enlace a su sitio aparecen en cada
 serie y en cada capítulo.
 
+25/11/2026: visorikigai.gettocaboca.com devolvió HTTP 526 (certificado SSL de
+origen inválido en Cloudflare). Se verificó que visualikigai.com ->
+zonaikigai.gamesview.shop -> visualikigai.treefy.online redirigen hacia
+visualikigai.cmpunjabrashancard.pk, que responde HTTP 200 directo en catálogo,
+búsqueda Qwik, fichas y capítulos (y viralikigai.radiot.space redirige sus
+capítulos allí). Se cambió IKIGAI_WEB a https://visualikigai.cmpunjabrashancard.pk
+—host ya permitido en los binarios Android y Windows instalados, por lo que la
+fuente vuelve a operar sin pérdida de guardados ni reinstalación forzosa— y se
+sumaron los espejos exactos confirmados (zonaikigai.gamesview.shop,
+visualikigai.sakanamenu.online y visualikigai.aplikando.com) a los puentes.
+
 10/10/2026 (rama de preview experiencia-lectura-anime): el visor Qwik nuevo
 puede no pintar q:key con páginas en el SSR. ikigaiPaginas.ts lee únicamente
 el registro cuyo Long coincide con el capítulo solicitado y su array pages,

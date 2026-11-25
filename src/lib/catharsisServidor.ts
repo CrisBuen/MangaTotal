@@ -10,15 +10,15 @@
  * entre los UUID de carpeta heredados de Directus y los identificadores v3.
  */
 
-import crypto from "crypto";
-
 export const CW_API_V3 = "https://newcatharsis.dig-it.info/api";
 export const CW_DIRECTUS = "https://direct-new-catha.catharsisfood.com";
 export const CARPETA_MANGAS = "cf1f897d-9735-49f7-a96c-77a8c72d2124";
 
+export const ERROR_LECTOR_CATHARSIS_BLOQUEADO =
+  "Catharsis World cambió su visor de capítulos (cerró el pase de lectura v3 y activó verificación anti-bot Turnstile + DRM WebAssembly). Podés leer el capítulo directamente en la web oficial de Catharsis World o migrar la obra a otra fuente sin perder tu progreso.";
+
 const VIDA_CATALOGO_MS = 30 * 60 * 1000;
 const VIDA_NOVEDADES_MS = 5 * 60 * 1000;
-const VIDA_PASES_MS = 5 * 60 * 60 * 1000;
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -413,97 +413,17 @@ export async function serieCwServidor(
   };
 }
 
-// ── Protocolo de lectura v3 (Cap PoW, Reader Pass, Page Ticket, Descramble) ─
+// ── Protocolo de lectura v3 ────────────────────────────────────────────────
+// El 25/11/2026 Catharsis World retiró `/api/mangas/reader-pass` y
+// `/api/mangas/{id}/{capNum}` (ambos responden 404 Not Found) y movió el visor
+// a un esquema cerrado detrás de verificación Cloudflare Turnstile, puerta de
+// anuncios y módulo DRM WebAssembly. No intentamos resolver ni sortear esas
+// barreras (y tampoco gastamos CPU de Vercel corriendo PoW hacia rutas 404):
+// el catálogo, las fichas, las portadas y la biblioteca siguen andando y los
+// capítulos enlazan al lector oficial de Catharsis World.
 
-let passCache: { pass: string; vence: number } | null = null;
-
-function capPrng(seed: string, length: number): string {
-  let state = -0x7ee3623b | 0;
-  for (let i = 0; i < seed.length; i++) {
-    state = Math.imul(state ^ seed.charCodeAt(i), 0x01000193);
-  }
-  let out = "";
-  while (out.length < length) {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    out += (state >>> 0).toString(16).padStart(8, "0");
-  }
-  return out.slice(0, length);
-}
-
-function solveCap(salt: string, target: string): number {
-  for (let n = 0; ; n++) {
-    const hex = crypto.createHash("sha256").update(`${salt}${n}`).digest("hex");
-    if (hex.startsWith(target)) return n;
-  }
-}
-
-export async function obtenerReaderPassCw(fresco = false): Promise<string> {
-  if (!fresco && passCache && Date.now() < passCache.vence) {
-    return passCache.pass;
-  }
-
-  const sysRes = await fetch(`${CW_API_V3}/system`, { headers: CW_HEADERS });
-  if (!sysRes.ok) throw new Error("No se pudo obtener la configuración de Catharsis World");
-  const sys = (await sysRes.json()) as { cap_sitekey: string; cap_api_endpoint: string };
-
-  const capBase = sys.cap_api_endpoint.endsWith("/") ? sys.cap_api_endpoint : `${sys.cap_api_endpoint}/`;
-  const chalRes = await fetch(`${capBase}challenge`, {
-    method: "POST",
-    headers: {
-      "User-Agent": UA,
-      Origin: "https://newcatharsis.dig-it.info",
-      Referer: "https://newcatharsis.dig-it.info/",
-      "Sec-Fetch-Site": "cross-site",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Dest": "empty",
-    },
-  });
-  if (!chalRes.ok) throw new Error("No se pudo iniciar la verificación de Catharsis World");
-  const chal = (await chalRes.json()) as { challenge: { c: number; s: number; d: number }; token: string };
-
-  const solutions: number[] = [];
-  for (let i = 1; i <= chal.challenge.c; i++) {
-    const salt = capPrng(`${chal.token}${i}`, chal.challenge.s);
-    const target = capPrng(`${chal.token}${i}d`, chal.challenge.d);
-    solutions.push(solveCap(salt, target));
-  }
-
-  const redeemRes = await fetch(`${capBase}redeem`, {
-    method: "POST",
-    headers: {
-      "User-Agent": UA,
-      "Content-Type": "application/json",
-      Origin: "https://newcatharsis.dig-it.info",
-      Referer: "https://newcatharsis.dig-it.info/",
-      "Sec-Fetch-Site": "cross-site",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Dest": "empty",
-    },
-    body: JSON.stringify({ token: chal.token, solutions }),
-  });
-  if (!redeemRes.ok) throw new Error("No se pudo validar la verificación de Catharsis World");
-  const redeemed = (await redeemRes.json()) as { success: boolean; token: string };
-
-  const passRes = await fetch(`${CW_API_V3}/mangas/reader-pass`, {
-    method: "POST",
-    headers: {
-      ...CW_HEADERS,
-      "Content-Type": "application/json",
-      Origin: "https://newcatharsis.dig-it.info",
-    },
-    body: JSON.stringify({ token: redeemed.token, sitekey: sys.cap_sitekey }),
-  });
-  if (!passRes.ok) {
-    const errorDetalle = await passRes.text().catch(() => "");
-    throw new Error(`Catharsis rechazó el pase de lectura (${passRes.status}): ${errorDetalle}`);
-  }
-  const passDto = (await passRes.json()) as { pass: string; expiresAt?: number };
-
-  const vence = passDto.expiresAt ? passDto.expiresAt - 60_000 : Date.now() + VIDA_PASES_MS;
-  passCache = { pass: passDto.pass, vence };
-  return passDto.pass;
+export async function obtenerReaderPassCw(_fresco = false): Promise<string> {
+  throw new Error(ERROR_LECTOR_CATHARSIS_BLOQUEADO);
 }
 
 interface ChapterSessionCache {
@@ -512,112 +432,19 @@ interface ChapterSessionCache {
   paginas: Array<{ index: number; pageId: string }>;
   vence: number;
 }
-const chapterSessions = new Map<string, ChapterSessionCache>();
 
 export async function abrirCapituloCw(
-  mangaId: number | string,
-  capNum: string | number
+  _mangaId: number | string,
+  _capNum: string | number
 ): Promise<ChapterSessionCache> {
-  const clave = `${mangaId}/${capNum}`;
-  const enCache = chapterSessions.get(clave);
-  if (enCache && Date.now() < enCache.vence) return enCache;
-
-  let pass = await obtenerReaderPassCw();
-  const capReferer = `https://newcatharsis.dig-it.info/manga/${mangaId}/chapter/${capNum}`;
-
-  let res = await fetch(`${CW_API_V3}/mangas/${mangaId}/${capNum}`, {
-    headers: {
-      ...CW_HEADERS,
-      "X-Catharsis-Reader-Pass": pass,
-      Referer: capReferer,
-    },
-  });
-
-  if (res.status === 403) {
-    const cuerpo = (await res.json().catch(() => null)) as { code?: string; message?: string } | null;
-    if (cuerpo?.code === "EARLY_ACCESS") {
-      throw new Error(cuerpo.message || "Este capítulo está en acceso anticipado en Catharsis World.");
-    }
-    if (cuerpo?.code === "READER_PASS_REQUIRED") {
-      passCache = null;
-      pass = await obtenerReaderPassCw(true);
-      res = await fetch(`${CW_API_V3}/mangas/${mangaId}/${capNum}`, {
-        headers: {
-          ...CW_HEADERS,
-          "X-Catharsis-Reader-Pass": pass,
-          Referer: capReferer,
-        },
-      });
-    }
-  }
-
-  if (res.status === 401) {
-    throw new Error("Este capítulo requiere iniciar sesión en Catharsis World.");
-  }
-  if (!res.ok) {
-    throw new Error(`No se pudo abrir el capítulo en Catharsis World (${res.status})`);
-  }
-
-  const dto = (await res.json()) as {
-    paginas?: Array<{ index: number; pageId: string }>;
-    chapterSessionToken?: string;
-  };
-
-  if (!dto.chapterSessionToken) {
-    throw new Error("Catharsis no entregó la clave de sesión del capítulo");
-  }
-
-  const payload = JSON.parse(
-    Buffer.from(dto.chapterSessionToken.split(".")[0], "base64url").toString("utf8")
-  ) as { cid: number; exp?: number };
-
-  const sessionData: ChapterSessionCache = {
-    sessionToken: dto.chapterSessionToken,
-    cid: payload.cid,
-    paginas: Array.isArray(dto.paginas) ? dto.paginas : [],
-    vence: payload.exp ? payload.exp * 1000 - 60_000 : Date.now() + 30 * 60 * 1000,
-  };
-  chapterSessions.set(clave, sessionData);
-  return sessionData;
+  throw new Error(ERROR_LECTOR_CATHARSIS_BLOQUEADO);
 }
 
 export async function paginasCapituloCw(
-  mangaId: string | number,
-  capNum: string | number
+  _mangaId: string | number,
+  _capNum: string | number
 ): Promise<{ paginas: Array<{ numero: number; id: string; ancho: number; alto: number }> }> {
-  try {
-    const res = await fetch(`${CW_API_V3}/mangas/${mangaId}`, {
-      headers: CW_HEADERS,
-      next: { revalidate: 3600 },
-    });
-    if (res.ok) {
-      const detalle = (await res.json()) as { capitulos?: Array<{ numero: number | string; n_paginas?: number }> };
-      const numBuscado = parseFloat(String(capNum));
-      const cap = detalle.capitulos?.find(
-        (c) => c.numero === numBuscado || String(c.numero) === String(capNum)
-      );
-      if (cap && typeof cap.n_paginas === "number" && cap.n_paginas > 0) {
-        return {
-          paginas: Array.from({ length: cap.n_paginas }, (_, idx) => ({
-            numero: idx + 1,
-            id: `${mangaId}/${capNum}/${idx}`,
-            ancho: 0,
-            alto: 0,
-          })),
-        };
-      }
-    }
-  } catch {}
-
-  const session = await abrirCapituloCw(mangaId, capNum);
-  return {
-    paginas: session.paginas.map((p, idx) => ({
-      numero: idx + 1,
-      id: `${mangaId}/${capNum}/${p.index}`,
-      ancho: 0,
-      alto: 0,
-    })),
-  };
+  throw new Error(ERROR_LECTOR_CATHARSIS_BLOQUEADO);
 }
 
 export interface TicketPaginaCw {
@@ -627,81 +454,17 @@ export interface TicketPaginaCw {
 }
 
 export async function obtenerTicketPaginaCw(
-  mangaId: number | string,
-  capNum: string | number,
-  pageIndex: number
+  _mangaId: number | string,
+  _capNum: string | number,
+  _pageIndex: number
 ): Promise<TicketPaginaCw> {
-  const capReferer = `https://newcatharsis.dig-it.info/manga/${mangaId}/chapter/${capNum}`;
-  let session = await abrirCapituloCw(mangaId, capNum);
-
-  for (let intento = 0; intento < 3; intento++) {
-    const res = await fetch(`${CW_API_V3}/mangas/chapters/${session.cid}/page-ticket`, {
-      method: "POST",
-      headers: {
-        ...CW_HEADERS,
-        "Content-Type": "application/json",
-        Origin: "https://newcatharsis.dig-it.info",
-        Referer: capReferer,
-      },
-      body: JSON.stringify({ pageIndex, sessionToken: session.sessionToken }),
-    });
-
-    if (res.status === 429) {
-      const waitDto = (await res.json().catch(() => null)) as { retryAfterMs?: number } | null;
-      const ms = waitDto?.retryAfterMs ? waitDto.retryAfterMs + 200 : 2000;
-      await new Promise((r) => setTimeout(r, ms));
-      continue;
-    }
-
-    if (res.status === 401) {
-      chapterSessions.delete(`${mangaId}/${capNum}`);
-      session = await abrirCapituloCw(mangaId, capNum);
-      continue;
-    }
-
-    if (!res.ok) {
-      throw new Error(`No se pudo obtener el permiso de página (${res.status})`);
-    }
-
-    return (await res.json()) as TicketPaginaCw;
-  }
-  throw new Error("Límite de lectura de Catharsis alcanzado. Reintentá en unos segundos.");
+  throw new Error(ERROR_LECTOR_CATHARSIS_BLOQUEADO);
 }
 
-/**
- * Trae los bytes crudos (todavía con XOR y barajados) de una página.
- *
- * Antes el servidor deshacía el XOR y reordenaba los 64 mosaicos con sharp:
- * ~300 ms de CPU por página, y eso agotó las 4 horas de "Fluid Active CPU"
- * del plan gratis de Vercel y pausó la cuenta entera. Ahora el servidor solo
- * retransmite (esperar la red no cuenta como CPU activa) y el descifrado lo
- * hace el dispositivo del usuario con Canvas en `descrambleCanvas`.
- */
 export async function obtenerBytesPaginaCw(
-  mangaId: number | string,
-  capNum: string | number,
-  pageIndex: number
+  _mangaId: number | string,
+  _capNum: string | number,
+  _pageIndex: number
 ): Promise<{ bytes: ArrayBuffer; ticket: TicketPaginaCw }> {
-  const ticket = await obtenerTicketPaginaCw(mangaId, capNum, pageIndex);
-  const capReferer = `https://newcatharsis.dig-it.info/manga/${mangaId}/chapter/${capNum}`;
-
-  const imgRes = await fetch(`${CW_API_V3}/mangas/pages/${ticket.signedToken}`, {
-    headers: {
-      "User-Agent": UA,
-      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-      "X-Catharsis-Reader": "1",
-      Referer: capReferer,
-      "Sec-CH-UA": CW_HEADERS["Sec-CH-UA"],
-      "Sec-CH-UA-Mobile": "?0",
-      "Sec-CH-UA-Platform": '"Windows"',
-      "Sec-Fetch-Site": "same-origin",
-      "Sec-Fetch-Mode": "no-cors",
-      "Sec-Fetch-Dest": "image",
-    },
-  });
-
-  if (!imgRes.ok) {
-    throw new Error(`Catharsis rechazó la descarga de la página (${imgRes.status})`);
-  }
-  return { bytes: await imgRes.arrayBuffer(), ticket };
+  throw new Error(ERROR_LECTOR_CATHARSIS_BLOQUEADO);
 }

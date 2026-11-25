@@ -276,7 +276,7 @@ public class DescargaServicio extends Service {
                         } else if (host.contains("leercapitulo")) {
                             conn.setRequestProperty("Referer", "https://www.leercapitulo.co/");
                         } else if (host.contains("ikigai")) {
-                            conn.setRequestProperty("Referer", "https://visorikigai.gettocaboca.com/");
+                            conn.setRequestProperty("Referer", "https://visualikigai.cmpunjabrashancard.pk/");
                             conn.setRequestProperty("Sec-Fetch-Mode", "cors");
                         } else if (host.contains("zonatmo") || host.contains("visortmo") || host.contains("tumangaonline")) {
                             conn.setRequestProperty("Referer", "https://visortmo.com/");

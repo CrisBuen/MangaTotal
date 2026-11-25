@@ -15,7 +15,7 @@ const output = fs.mkdtempSync(path.join(os.tmpdir(), "mangatotal-ikigai-real-"))
       page.on("pageerror", err => errors.push(err.message));
       await page.exposeFunction("qaPagina", async url => {
         const u = new URL(url);
-        assert.equal(u.origin, "https://visorikigai.gettocaboca.com");
+        assert.equal(u.origin, "https://visualikigai.cmpunjabrashancard.pk");
         const r = await fetch(url, { signal: AbortSignal.timeout(30000) });
         assert.equal(r.status, 200); calls.push({ kind: "html", status: r.status });
         return { status: r.status, data: await r.text() };
@@ -24,7 +24,7 @@ const output = fs.mkdtempSync(path.join(os.tmpdir(), "mangatotal-ikigai-real-"))
         const u = new URL(url);
         assert.ok(["image2.ikigaimangas.cloud", "image3.ikigaimangas.cloud"].includes(u.hostname));
         assert.equal(u.protocol, "https:"); assert.equal(u.search, "");
-        const r = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(30000), headers: { Referer: "https://visorikigai.gettocaboca.com/", "Sec-Fetch-Mode": "cors" } });
+        const r = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(30000), headers: { Referer: "https://visualikigai.cmpunjabrashancard.pk/", "Sec-Fetch-Mode": "cors" } });
         assert.equal(r.status, 200);
         const bytes = Buffer.from(await r.arrayBuffer()); assert.ok(bytes.length < 20 * 1024 * 1024);
         calls.push({ kind: "image", status: r.status, bytes: bytes.length });
