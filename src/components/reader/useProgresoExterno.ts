@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { actualizarProgresoHistorialLocal } from "@/components/library/historial";
 import {
   claveHistorialPendiente,
-  escribirUrlHistorial,
   esperarHistorialPendiente,
   guardarPosicionLector,
   registrarFlusherProgreso,
@@ -145,12 +144,14 @@ export function useProgresoExterno(entrada: {
     try {
       const url = new URL(window.location.href);
       const actualUrl = url.searchParams.get("page");
+      // Conservamos window.history.state intacto para que Next.js no re-renderice
+      // useSearchParams() ni la página del lector en cada salto de página al scrollear.
       if (pag > 1 && actualUrl !== String(pag)) {
         url.searchParams.set("page", String(pag));
-        escribirUrlHistorial(url, "replace");
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
       } else if (pag === 1 && actualUrl && actualUrl !== "1") {
         url.searchParams.set("page", "1");
-        escribirUrlHistorial(url, "replace");
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
       }
     } catch {}
 

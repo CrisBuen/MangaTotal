@@ -21,6 +21,8 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
   function ImagenFuente({ src: rawSrc, loading, alt, ...props }, forwardedRef) {
     const src = normalizarSrcImagen(rawSrc);
     const elemento = useRef<HTMLImageElement>(null);
+    const loadingRef = useRef(loading);
+    loadingRef.current = loading;
     useImperativeHandle(forwardedRef, () => elemento.current!);
     const esIkigai = typeof src === "string" && esImagenIkigai(src);
     // Las páginas de Catharsis llegan barajadas: nunca se pueden mostrar tal
@@ -52,7 +54,7 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
             ? await cargarPaginaCw(src, controlador.signal)
             : await cargarImagenNativa(src, {
                 signal: controlador.signal,
-                prioridad: loading === "lazy" ? 0 : 1,
+                prioridad: loadingRef.current === "lazy" ? 0 : 1,
               });
           if (cancelado) return;
           objeto = URL.createObjectURL(blob);
@@ -71,7 +73,7 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
           }
         }
       };
-      if (loading === "lazy" && typeof IntersectionObserver !== "undefined" && elemento.current) {
+      if (loadingRef.current === "lazy" && typeof IntersectionObserver !== "undefined" && elemento.current) {
         observador = new IntersectionObserver(
           (entradas) => {
             if (entradas.some((e) => e.isIntersecting)) {
@@ -91,7 +93,9 @@ export const ImagenFuente = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLI
         observador?.disconnect();
         if (objeto) URL.revokeObjectURL(objeto);
       };
-    }, [src, usarNativo, esIkigai, esCw, sinRespaldo, loading, intento]);
+      // `loading` queda fuera de dependencias a propósito: cambiar entre "eager" y "lazy"
+      // durante el scroll jamás debe revocar el blob: ya pintado (causaba parpadeo negro).
+    }, [src, usarNativo, esIkigai, esCw, sinRespaldo, intento]);
 
     const urlFinal = usarNativo
       ? resultado?.url

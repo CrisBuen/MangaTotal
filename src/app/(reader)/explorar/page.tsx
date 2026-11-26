@@ -21,8 +21,10 @@ import {
   guardarUltimoExplorar,
   leerEstadoFuente,
   leerUltimaFuente,
+  limpiarRestauracionPendiente,
   marcarScrollArriba,
   normalizarClaveRuta,
+  normalizarUrlRelativa,
   useRestaurarScroll,
 } from "@/lib/navegacionEstado";
 import {
@@ -971,6 +973,96 @@ export default function ExplorarPage() {
                   ? hitomiPage
                   : Math.floor(offset / 24) + 1;
 
+  const queryLecturaCanonica = useMemo(() => {
+    const sp = new URLSearchParams();
+    const poner = (k: string, v: string | number | null | undefined) => {
+      if (v !== null && v !== undefined && v !== "" && v !== 0) {
+        sp.set(k, String(v));
+      }
+    };
+
+    poner("fuente", fuente === "mangadex" ? null : fuente);
+    poner("q", search.trim() || null);
+    poner("p", paginaActivaLectura > 1 ? paginaActivaLectura : null);
+
+    if (fuente === "mangadex") {
+      poner("md_order", order === "latest" ? null : order);
+      poner("md_lang", lang === "es" ? null : lang);
+      for (const genre of selectedGenres) sp.append("md_genre", genre);
+      for (const s of status) sp.append("md_status", s);
+      for (const o of origin) sp.append("md_origin", o);
+    } else if (fuente === "olympus") {
+      poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
+      poner("oly_genero", olyGenero);
+      poner("oly_estado", olyEstado);
+      poner("oly_tipo", olyTipo);
+    } else if (fuente === "tmo") {
+      poner("tmo_tipo", tmoTipo);
+      poner("tmo_demo", tmoDemo);
+      poner("tmo_estado", tmoEstado);
+      poner("tmo_genero", tmoGenero);
+      poner("tmo_orden", tmoOrden);
+    } else if (fuente === "ikigai") {
+      poner("iki_tipo", ikiTipo);
+      poner("iki_genero", ikiGenero);
+      poner("iki_orden", ikiOrden === "recientes" ? null : ikiOrden);
+    } else if (fuente === "leercapitulo") {
+      poner("lc_genero", lcGenero);
+      poner("lc_inicial", lcInicial);
+      poner("lc_lista", lcLista || null);
+    } else if (fuente === "catharsis") {
+      poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
+    } else if (fuente === "ehentai") {
+      poner("eh_cat", ehCat === "todos" ? null : ehCat);
+      poner("eh_lang", ehLang === "todos" ? null : ehLang);
+      poner("eh_tag", ehTag);
+      poner(
+        "eh_next",
+        ehPage > 1 ? (ehNextCursor || ehCursors.current[ehPage] || null) : null
+      );
+    } else if (fuente === "hitomi") {
+      poner("hitomi_tipo", hitomiTipo === "todos" ? null : hitomiTipo);
+      poner("hitomi_orden", hitomiOrden === "date_added" ? null : hitomiOrden);
+      poner("hitomi_lang", hitomiLang === "spanish" ? null : hitomiLang);
+      poner("hitomi_tag", hitomiTag);
+    }
+    return sp.toString();
+  }, [
+    fuente,
+    search,
+    paginaActivaLectura,
+    order,
+    lang,
+    selectedGenres,
+    origin,
+    status,
+    olyOrden,
+    olyGenero,
+    olyEstado,
+    olyTipo,
+    tmoTipo,
+    tmoDemo,
+    tmoEstado,
+    tmoGenero,
+    tmoOrden,
+    ikiTipo,
+    ikiGenero,
+    ikiOrden,
+    lcGenero,
+    lcInicial,
+    lcLista,
+    cwOrden,
+    ehCat,
+    ehLang,
+    ehTag,
+    ehPage,
+    ehNextCursor,
+    hitomiTipo,
+    hitomiOrden,
+    hitomiLang,
+    hitomiTag,
+  ]);
+
   // Reflejar el estado de Lectura en la URL (sin contaminar nunca la sección Anime).
   useEffect(() => {
     if (!restaurado || seccion === "animada") return;
@@ -1017,57 +1109,10 @@ export default function ExplorarPage() {
       "hi_tag",
     ];
     for (const k of clavesLectura) url.searchParams.delete(k);
-
-    const poner = (k: string, v: string | number | null | undefined) => {
-      if (v === null || v === undefined || v === "" || v === 0) url.searchParams.delete(k);
-      else url.searchParams.set(k, String(v));
-    };
-
-    poner("fuente", fuente === "mangadex" ? null : fuente);
-    poner("q", search.trim() || null);
-    poner("p", paginaActivaLectura > 1 ? paginaActivaLectura : null);
-
-    if (fuente === "mangadex") {
-      poner("md_order", order === "latest" ? null : order);
-      poner("md_lang", lang === "es" ? null : lang);
-      for (const genre of selectedGenres) url.searchParams.append("md_genre", genre);
-      for (const s of status) url.searchParams.append("md_status", s);
-      for (const o of origin) url.searchParams.append("md_origin", o);
-    } else if (fuente === "olympus") {
-      poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
-      poner("oly_genero", olyGenero);
-      poner("oly_estado", olyEstado);
-      poner("oly_tipo", olyTipo);
-    } else if (fuente === "tmo") {
-      poner("tmo_tipo", tmoTipo);
-      poner("tmo_demo", tmoDemo);
-      poner("tmo_estado", tmoEstado);
-      poner("tmo_genero", tmoGenero);
-      poner("tmo_orden", tmoOrden);
-    } else if (fuente === "ikigai") {
-      poner("iki_tipo", ikiTipo);
-      poner("iki_genero", ikiGenero);
-      poner("iki_orden", ikiOrden === "recientes" ? null : ikiOrden);
-    } else if (fuente === "leercapitulo") {
-      poner("lc_genero", lcGenero);
-      poner("lc_inicial", lcInicial);
-      poner("lc_lista", lcLista || null);
-    } else if (fuente === "catharsis") {
-      poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
-    } else if (fuente === "ehentai") {
-      poner("eh_cat", ehCat === "todos" ? null : ehCat);
-      poner("eh_lang", ehLang === "todos" ? null : ehLang);
-      poner("eh_tag", ehTag);
-      poner(
-        "eh_next",
-        ehPage > 1 ? (ehNextCursor || ehCursors.current[ehPage] || null) : null
-      );
-    } else if (fuente === "hitomi") {
-      poner("hitomi_tipo", hitomiTipo === "todos" ? null : hitomiTipo);
-      poner("hitomi_orden", hitomiOrden === "date_added" ? null : hitomiOrden);
-      poner("hitomi_lang", hitomiLang === "spanish" ? null : hitomiLang);
-      poner("hitomi_tag", hitomiTag);
-    }
+    const canonicos = new URLSearchParams(queryLecturaCanonica);
+    canonicos.forEach((valor, clave) => {
+      url.searchParams.append(clave, valor);
+    });
 
     const rutaRelativa = url.pathname + url.search;
     const nuevaClaveUrl = normalizarClaveRuta(url.pathname, url.search);
@@ -1124,8 +1169,8 @@ export default function ExplorarPage() {
   }, [
     restaurado,
     seccion,
+    queryLecturaCanonica,
     fuente,
-    search,
     paginaActivaLectura,
     order,
     lang,
@@ -1151,17 +1196,19 @@ export default function ExplorarPage() {
     ehCat,
     ehLang,
     ehTag,
-    ehPage,
-    ehNextCursor,
     hitomiTipo,
     hitomiOrden,
     hitomiLang,
     hitomiTag,
   ]);
 
+  // Usamos la URL canónica derivada del estado de Lectura para no quedar
+  // desfasados con useSearchParams() cuando restauramos una fuente guardada.
   const claveRutaLectura = useMemo(() => {
-    return normalizarClaveRuta("/explorar", searchParamsStr);
-  }, [searchParamsStr]);
+    return normalizarUrlRelativa(
+      queryLecturaCanonica ? `/explorar?${queryLecturaCanonica}` : "/explorar"
+    );
+  }, [queryLecturaCanonica]);
 
   const hayItemsLectura =
     (fuente === "mangadex" && series !== null && series.length > 0) ||
@@ -1173,13 +1220,19 @@ export default function ExplorarPage() {
     (fuente === "ehentai" && ehGalleries !== null && ehGalleries.length > 0) ||
     (fuente === "hitomi" && hitomiSeries !== null && hitomiSeries.length > 0);
 
-  useRestaurarScroll(claveRutaLectura, hayItemsLectura, lecturaActiva);
+  useRestaurarScroll(claveRutaLectura, hayItemsLectura, restaurado && lecturaActiva);
 
   const guardarScrollActual = useCallback(() => {
-    if (typeof window !== "undefined") {
-      guardarScrollRuta(normalizarClaveRuta(window.location.pathname, window.location.search), window.scrollY);
+    if (typeof window === "undefined") return;
+    const y = window.scrollY;
+    const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
+    limpiarRestauracionPendiente(claveVentana);
+    guardarScrollRuta(claveVentana, y);
+    if (lecturaActiva && restaurado && claveRutaLectura && claveRutaLectura !== claveVentana) {
+      limpiarRestauracionPendiente(claveRutaLectura);
+      guardarScrollRuta(claveRutaLectura, y);
     }
-  }, []);
+  }, [lecturaActiva, restaurado, claveRutaLectura]);
 
   const load = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("mangadex", solicitud)) return;

@@ -368,6 +368,78 @@ test("unit: esRutaExclusivaLectura no fuerza Lectura en rutas compartidas ni Ani
   }
 });
 
+test("unit: restauracionPendiente protege scroll guardado al volver y navegarAtrasInteligente pasa scroll:false", () => {
+  const env = createWindowEnv("https://mangatotal.test/explorar?fuente=hitomi");
+  const nav = cargarTs("src/lib/navegacionEstado.ts", { window: env.windowObj });
+
+  nav.guardarScrollRuta("/explorar?fuente=hitomi", 1420);
+  assert.equal(nav.leerScrollRuta("/explorar?fuente=hitomi"), 1420);
+
+  // Al marcar restauración pendiente (regreso antes de que carguen tarjetas), un y=0 NO borra el scroll.
+  nav.marcarRestauracionPendiente("/explorar?fuente=hitomi");
+  assert.equal(nav.esRestauracionPendiente("/explorar?fuente=hitomi"), true);
+  nav.guardarScrollRuta("/explorar?fuente=hitomi", 0);
+  assert.equal(nav.leerScrollRuta("/explorar?fuente=hitomi"), 1420);
+
+  // Cuando el usuario sí interactúa/limpia pendiente, volver arriba a y=0 sí limpia el scroll.
+  nav.limpiarRestauracionPendiente("/explorar?fuente=hitomi");
+  nav.guardarScrollRuta("/explorar?fuente=hitomi", 0);
+  assert.equal(nav.leerScrollRuta("/explorar?fuente=hitomi"), 0);
+
+  // Fallback de navegarAtrasInteligente preserva scroll pasando { scroll: false } y marcando pendiente.
+  nav.guardarScrollRuta("/explorar?fuente=olympus", 980);
+  nav.registrarVisitaRuta("/leer-externo/olympus/10?slug=demo");
+  nav.registrarVisitaRuta("/externo/olympus/demo");
+  env.setUrl("https://mangatotal.test/externo/olympus/demo");
+  const calls = [];
+  nav.navegarAtrasInteligente(
+    {
+      push: (href, opts) => calls.push(["push", href, opts]),
+      replace: (href, opts) => calls.push(["replace", href, opts]),
+    },
+    "/explorar?fuente=olympus",
+    { evitarLector: true }
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "push");
+  assert.equal(calls[0][1], "/explorar?fuente=olympus");
+  assert.equal(calls[0][2]?.scroll, false);
+  assert.equal(nav.esRestauracionPendiente("/explorar?fuente=olympus"), true);
+});
+
+test("estático: lectores y ImagenFuente no revocan blobs ni disparan App Router al scrollear", () => {
+  const imgFuente = fs.readFileSync(path.join(RAIZ, "src/components/fuentes/ImagenFuente.tsx"), "utf8");
+  const depsMatch = imgFuente.match(/\}\s*,\s*\[([^\]]+)\]\s*\);/);
+  assert.ok(depsMatch, "No se encontró el array de dependencias de ImagenFuente");
+  assert.equal(/\bloading\b/.test(depsMatch[1]), false, "ImagenFuente no debe depender de `loading` (revoca blobs al scrollear)");
+
+  for (const rel of [
+    "src/components/reader/OlympusReader.tsx",
+    "src/components/reader/ExternalReader.tsx",
+    "src/components/reader/Reader.tsx",
+  ]) {
+    const src = fs.readFileSync(path.join(RAIZ, rel), "utf8");
+    assert.equal(
+      /initialPage=\{currentPage\}/.test(src),
+      false,
+      `${rel} no debe pasar initialPage={currentPage} a CascadeReader`
+    );
+    assert.ok(src.includes("initialPage={cascadeInitialPage}"), `${rel} debe pasar initialPage={cascadeInitialPage}`);
+  }
+
+  for (const rel of [
+    "src/components/reader/useProgresoExterno.ts",
+    "src/components/reader/Reader.tsx",
+  ]) {
+    const src = fs.readFileSync(path.join(RAIZ, rel), "utf8");
+    assert.equal(
+      src.includes("escribirUrlHistorial"),
+      false,
+      `${rel} no debe llamar escribirUrlHistorial en cada cambio de página al scrollear`
+    );
+  }
+});
+
 // ── 2. Chequeos estáticos de integridad (AGENTS.md y parches Android) ──────
 
 function contarBalanceJava(codigo, archivo) {

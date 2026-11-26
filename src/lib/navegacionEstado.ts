@@ -36,6 +36,8 @@ let siguienteEsReemplazo = false;
 let restaurandoScrollActivo = false;
 let timerRestaurando: ReturnType<typeof setTimeout> | null = null;
 const clavesParaIrArriba = new Set<string>();
+const restauracionesPendientes = new Map<string, number>();
+const RESTAURACION_PENDIENTE_MS = 8000;
 const rutaSubscribers = new Set<(nuevaRuta: string, anteriorRuta: string | null, modo: "push" | "replace") => void>();
 const flushersProgreso = new Set<() => void>();
 const historialesPendientes = new Map<string, Promise<unknown>>();
@@ -296,6 +298,39 @@ export function estaRestaurandoScroll(): boolean {
   return restaurandoScrollActivo;
 }
 
+/**
+ * Marca una ruta con scroll guardado pendiente de restaurar mientras sus datos
+ * todavía están cargando (evita que eventos scroll en y=0 por colapso de altura
+ * o reinicio de Next.js borren la posición guardada antes de montar las tarjetas).
+ */
+export function marcarRestauracionPendiente(clave: string): void {
+  if (!clave) return;
+  restauracionesPendientes.set(clave, Date.now() + RESTAURACION_PENDIENTE_MS);
+}
+
+export function esRestauracionPendiente(clave: string): boolean {
+  if (!clave) return false;
+  const vence = restauracionesPendientes.get(clave);
+  if (!vence) return false;
+  if (Date.now() > vence) {
+    restauracionesPendientes.delete(clave);
+    return false;
+  }
+  return true;
+}
+
+export function limpiarRestauracionPendiente(clave?: string): void {
+  if (!clave) {
+    restauracionesPendientes.clear();
+    return;
+  }
+  restauracionesPendientes.delete(clave);
+}
+
+export function esScrollArribaPendiente(clave: string): boolean {
+  return Boolean(clave && clavesParaIrArriba.has(clave));
+}
+
 function finalizarRestauracionScroll(): void {
   restaurandoScrollActivo = false;
   if (timerRestaurando) {
@@ -306,7 +341,7 @@ function finalizarRestauracionScroll(): void {
 
 export function guardarScrollRuta(clave: string, y: number): void {
   if (!clave || !enCliente()) return;
-  if (restaurandoScrollActivo) return;
+  if (restaurandoScrollActivo || esRestauracionPendiente(clave)) return;
   const valor = Math.round(y);
   if (valor <= 2) {
     borrarSession(PREFIJO_SCROLL + clave);
@@ -335,6 +370,7 @@ export function limpiarScrollRuta(clave: string): void {
  */
 export function marcarScrollArriba(clave: string): void {
   if (!clave) return;
+  limpiarRestauracionPendiente(clave);
   limpiarScrollRuta(clave);
   clavesParaIrArriba.add(clave);
   if (enCliente()) {
@@ -352,8 +388,9 @@ export function getRutaActivaMemoria(): string | null {
 
 /**
  * Restaura el scroll guardado para `clave` una única vez por llegada,
- * esperando a que `listo === true` y reintentando brevemente ante cambios de altura
- * por hidratación o carga de imágenes sin pelear nunca con el desplazamiento manual.
+ * esperando a que `listo === true` y sosteniendo brevemente el objetivo ante
+ * reinicios diferidos del router de Next.js o cambios de altura por tarjetas/portadas,
+ * soltando de inmediato en cuanto el usuario toca o scrollea manualmente.
  */
 export function useRestaurarScroll(
   clave: string,
@@ -374,62 +411,81 @@ export function useRestaurarScroll(
     claveRestauradaRef.current = clave;
     if (clavesParaIrArriba.has(clave)) {
       clavesParaIrArriba.delete(clave);
+      limpiarRestauracionPendiente(clave);
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
       return;
     }
 
     const objetivo = leerScrollRuta(clave);
-    if (objetivo <= 2) return;
+    if (objetivo <= 2) {
+      limpiarRestauracionPendiente(clave);
+      return;
+    }
 
     let cancelado = false;
+    let estableDesde: number | null = null;
     restaurandoScrollActivo = true;
+    marcarRestauracionPendiente(clave);
     if (timerRestaurando) clearTimeout(timerRestaurando);
 
     const detener = () => {
       if (cancelado) return;
       cancelado = true;
       observer?.disconnect();
+      window.removeEventListener("scroll", alScrollDuranteRestore);
       window.removeEventListener("wheel", detener);
       window.removeEventListener("touchmove", detener);
       window.removeEventListener("pointerdown", detener);
       window.removeEventListener("keydown", detener);
+      limpiarRestauracionPendiente(clave);
       finalizarRestauracionScroll();
     };
 
     const intentar = () => {
       if (cancelado) return;
       window.scrollTo({ top: objetivo, behavior: "instant" as ScrollBehavior });
-      if (Math.abs(window.scrollY - objetivo) <= 4 && document.documentElement.scrollHeight >= objetivo + 40) {
-        // Confirmamos en el siguiente frame para no soltar antes del render final.
-        requestAnimationFrame(() => {
-          if (!cancelado && Math.abs(window.scrollY - objetivo) <= 8) {
-            detener();
-          }
-        });
+      const altoNecesario = objetivo + Math.min(window.innerHeight * 0.5, 200);
+      const altoOk = document.documentElement.scrollHeight >= altoNecesario;
+      if (Math.abs(window.scrollY - objetivo) <= 8 && altoOk) {
+        if (estableDesde === null) {
+          estableDesde = Date.now();
+        } else if (Date.now() - estableDesde >= 350) {
+          detener();
+        }
+      } else {
+        estableDesde = null;
       }
     };
 
+    const alScrollDuranteRestore = () => {
+      if (cancelado) return;
+      if (Math.abs(window.scrollY - objetivo) > 8) {
+        estableDesde = null;
+        window.scrollTo({ top: objetivo, behavior: "instant" as ScrollBehavior });
+      }
+    };
+
+    window.addEventListener("scroll", alScrollDuranteRestore, { passive: true });
     window.addEventListener("wheel", detener, { passive: true });
     window.addEventListener("touchmove", detener, { passive: true });
     window.addEventListener("pointerdown", detener, { passive: true });
     window.addEventListener("keydown", detener);
 
     let observer: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined" && document.body) {
+    if (typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(() => intentar());
-      observer.observe(document.body);
+      if (document.body) observer.observe(document.body);
+      if (document.documentElement) observer.observe(document.documentElement);
     }
 
     const raf = requestAnimationFrame(() => intentar());
-    const t1 = setTimeout(() => intentar(), 120);
-    const t2 = setTimeout(() => intentar(), 320);
-    const tFin = setTimeout(() => detener(), 1800);
+    const intervalo = setInterval(() => intentar(), 80);
+    const tFin = setTimeout(() => detener(), 3500);
     timerRestaurando = tFin;
 
     return () => {
       cancelAnimationFrame(raf);
-      clearTimeout(t1);
-      clearTimeout(t2);
+      clearInterval(intervalo);
       clearTimeout(tFin);
       detener();
     };
@@ -520,7 +576,10 @@ export function puedeVolverInterno(filtro?: (anterior: string) => boolean): bool
 }
 
 export function navegarAtrasInteligente(
-  router: { push: (href: string) => void; replace?: (href: string) => void },
+  router: {
+    push: (href: string, opts?: { scroll?: boolean }) => void;
+    replace?: (href: string, opts?: { scroll?: boolean }) => void;
+  },
   fallbackHref: string,
   opciones?: {
     evitarLector?: boolean;
@@ -539,14 +598,23 @@ export function navegarAtrasInteligente(
     (!opciones?.evitarLector || !esRutaLectorOPlayer(anterior!));
 
   if (puede) {
+    if (anterior && leerScrollRuta(anterior) > 2 && !esScrollArribaPendiente(anterior)) {
+      marcarRestauracionPendiente(anterior);
+    }
     window.history.back();
     return;
   }
+
+  const claveDestino = normalizarUrlRelativa(fallbackHref);
+  const tieneScrollGuardado = leerScrollRuta(claveDestino) > 2 && !esScrollArribaPendiente(claveDestino);
+  if (tieneScrollGuardado) {
+    marcarRestauracionPendiente(claveDestino);
+  }
   if (opciones?.replaceFallback && router.replace) {
     marcarSiguienteComoReemplazo();
-    router.replace(fallbackHref);
+    router.replace(fallbackHref, tieneScrollGuardado ? { scroll: false } : undefined);
   } else {
-    router.push(fallbackHref);
+    router.push(fallbackHref, tieneScrollGuardado ? { scroll: false } : undefined);
   }
 }
 

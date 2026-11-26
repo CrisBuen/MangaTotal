@@ -5,11 +5,16 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   consumirMarcaReemplazo,
   ejecutarFlushProgresoGlobal,
+  esRestauracionPendiente,
   esRutaLectorOPlayer,
+  esScrollArribaPendiente,
   estaRestaurandoScroll,
   getRutaActivaMemoria,
   guardarScrollRuta,
   guardarUltimaRutaMundo,
+  leerScrollRuta,
+  limpiarRestauracionPendiente,
+  marcarRestauracionPendiente,
   normalizarClaveRuta,
   registrarVisitaRuta,
   setRutaActivaMemoria,
@@ -80,13 +85,49 @@ function TrackerInterno() {
   const rutaActivaRef = useRef<string | null>(null);
   const ultimaPosicionRef = useRef<{ clave: string; y: number } | null>(null);
   const huboPopStateRef = useRef(false);
+  const usuarioScrolleoEnRutaRef = useRef(false);
 
   // Registro global para flush de progreso (p. ej. Android MainActivity.onPause y app backgrounding)
   // y captura fiable de scroll antes de navegar o salir.
   useEffect(() => {
     window.__mtFlushProgress = ejecutarFlushProgresoGlobal;
+    // Evita que la restauración automática del navegador / WebView compita con
+    // useRestaurarScroll y dispare un scroll en y=0 mientras cargan los catálogos.
+    try {
+      if ("scrollRestoration" in window.history) {
+        window.history.scrollRestoration = "manual";
+      }
+    } catch {}
 
     let timerScroll: ReturnType<typeof setTimeout> | null = null;
+
+    const prepararPendienteSiAplica = (clave: string) => {
+      if (leerScrollRuta(clave) > 2 && !esScrollArribaPendiente(clave)) {
+        marcarRestauracionPendiente(clave);
+        return true;
+      }
+      return false;
+    };
+
+    const marcarInteraccionScroll = () => {
+      usuarioScrolleoEnRutaRef.current = true;
+      const clave = rutaActivaRef.current ?? getRutaActivaMemoria();
+      if (clave) limpiarRestauracionPendiente(clave);
+    };
+
+    const alTeclaScroll = (ev: KeyboardEvent) => {
+      if (
+        ev.key === "ArrowUp" ||
+        ev.key === "ArrowDown" ||
+        ev.key === "PageUp" ||
+        ev.key === "PageDown" ||
+        ev.key === "Home" ||
+        ev.key === "End" ||
+        ev.key === " "
+      ) {
+        marcarInteraccionScroll();
+      }
+    };
 
     const guardarPosicionActual = () => {
       if (estaRestaurandoScroll()) return;
@@ -94,10 +135,15 @@ function TrackerInterno() {
         rutaActivaRef.current ??
         getRutaActivaMemoria() ??
         normalizarClaveRuta(window.location.pathname, window.location.search);
+      if (esRestauracionPendiente(claveActual)) return;
       // Solo leemos window.scrollY si window.location sigue correspondiendo a claveActual.
       const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
       if (claveVentana === claveActual) {
         const y = window.scrollY;
+        // No borrar un scroll guardado por un y=0 pasivo antes de que el usuario scrollee.
+        if (y <= 2 && !usuarioScrolleoEnRutaRef.current && leerScrollRuta(claveActual) > 2) {
+          return;
+        }
         ultimaPosicionRef.current = { clave: claveActual, y };
         guardarScrollRuta(claveActual, y);
       } else if (ultimaPosicionRef.current?.clave === claveActual) {
@@ -110,7 +156,14 @@ function TrackerInterno() {
       const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
       const claveActual = rutaActivaRef.current ?? getRutaActivaMemoria() ?? claveVentana;
       if (claveVentana !== claveActual) return;
-      ultimaPosicionRef.current = { clave: claveActual, y: window.scrollY };
+      if (esRestauracionPendiente(claveActual)) return;
+      const y = window.scrollY;
+      if (y > 10) {
+        usuarioScrolleoEnRutaRef.current = true;
+      } else if (y <= 2 && !usuarioScrolleoEnRutaRef.current && leerScrollRuta(claveActual) > 2) {
+        return;
+      }
+      ultimaPosicionRef.current = { clave: claveActual, y };
       if (timerScroll) clearTimeout(timerScroll);
       timerScroll = setTimeout(guardarPosicionActual, 110);
     };
@@ -122,16 +175,18 @@ function TrackerInterno() {
 
     const alPopState = () => {
       const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
-      // Solo marcamos popstate de ruta si cambió pathname+search; un Back de hash
-      // (p. ej. #ficha-anime o #etiquetas-hitomi) no debe afectar la siguiente ruta.
-      if (claveVentana !== rutaActivaRef.current) {
-        huboPopStateRef.current = true;
-      }
       if (ultimaPosicionRef.current) {
         guardarScrollRuta(ultimaPosicionRef.current.clave, ultimaPosicionRef.current.y);
         if (esRutaLectorOPlayer(ultimaPosicionRef.current.clave)) {
           ejecutarFlushProgresoGlobal();
         }
+      }
+      // Solo marcamos popstate de ruta si cambió pathname+search; un Back de hash
+      // (p. ej. #ficha-anime o #etiquetas-hitomi) no debe afectar la siguiente ruta.
+      if (claveVentana !== rutaActivaRef.current) {
+        huboPopStateRef.current = true;
+        usuarioScrolleoEnRutaRef.current = false;
+        prepararPendienteSiAplica(claveVentana);
       }
     };
 
@@ -148,14 +203,24 @@ function TrackerInterno() {
     };
 
     const desuscribirManual = suscribirCambioRutaManual((nuevaClave, anteriorClave) => {
-      if (anteriorClave && ultimaPosicionRef.current?.clave === anteriorClave && !estaRestaurandoScroll()) {
+      if (
+        anteriorClave &&
+        ultimaPosicionRef.current?.clave === anteriorClave &&
+        !estaRestaurandoScroll() &&
+        !esRestauracionPendiente(anteriorClave)
+      ) {
         guardarScrollRuta(anteriorClave, ultimaPosicionRef.current.y);
       }
       rutaActivaRef.current = nuevaClave;
-      ultimaPosicionRef.current = { clave: nuevaClave, y: window.scrollY };
+      usuarioScrolleoEnRutaRef.current = false;
+      const pendiente = prepararPendienteSiAplica(nuevaClave);
+      ultimaPosicionRef.current = pendiente ? null : { clave: nuevaClave, y: window.scrollY };
     });
 
     window.addEventListener("scroll", alHacerScroll, { passive: true });
+    window.addEventListener("wheel", marcarInteraccionScroll, { passive: true });
+    window.addEventListener("touchmove", marcarInteraccionScroll, { passive: true });
+    window.addEventListener("keydown", alTeclaScroll);
     document.addEventListener("click", alInteractuarNavegacion, true);
     document.addEventListener("submit", alInteractuarNavegacion, true);
     window.addEventListener("popstate", alPopState);
@@ -167,6 +232,9 @@ function TrackerInterno() {
       desuscribirManual();
       if (timerScroll) clearTimeout(timerScroll);
       window.removeEventListener("scroll", alHacerScroll);
+      window.removeEventListener("wheel", marcarInteraccionScroll);
+      window.removeEventListener("touchmove", marcarInteraccionScroll);
+      window.removeEventListener("keydown", alTeclaScroll);
       document.removeEventListener("click", alInteractuarNavegacion, true);
       document.removeEventListener("submit", alInteractuarNavegacion, true);
       window.removeEventListener("popstate", alPopState);
@@ -180,15 +248,26 @@ function TrackerInterno() {
   useEffect(() => {
     const claveNueva = normalizarClaveRuta(pathname, searchStr);
     const urlRelativa = searchStr ? `${pathname}?${searchStr}` : pathname;
+    const tieneGuardado = leerScrollRuta(claveNueva) > 2 && !esScrollArribaPendiente(claveNueva);
 
     if (rutaActivaRef.current === null) {
       rutaActivaRef.current = claveNueva;
       setRutaActivaMemoria(claveNueva);
       registrarVisitaRuta(urlRelativa);
-      ultimaPosicionRef.current = { clave: claveNueva, y: window.scrollY };
+      usuarioScrolleoEnRutaRef.current = false;
+      if (tieneGuardado) {
+        marcarRestauracionPendiente(claveNueva);
+        ultimaPosicionRef.current = null;
+      } else {
+        ultimaPosicionRef.current = { clave: claveNueva, y: window.scrollY };
+      }
     } else if (rutaActivaRef.current !== claveNueva) {
       const claveAnterior = rutaActivaRef.current;
-      if (ultimaPosicionRef.current?.clave === claveAnterior && !estaRestaurandoScroll()) {
+      if (
+        ultimaPosicionRef.current?.clave === claveAnterior &&
+        !estaRestaurandoScroll() &&
+        !esRestauracionPendiente(claveAnterior)
+      ) {
         guardarScrollRuta(claveAnterior, ultimaPosicionRef.current.y);
       }
       const esPop = huboPopStateRef.current;
@@ -198,9 +277,15 @@ function TrackerInterno() {
       registrarVisitaRuta(urlRelativa, { esPop, reemplazar });
       rutaActivaRef.current = claveNueva;
       setRutaActivaMemoria(claveNueva);
-      // Al llegar vía popstate la página suele abrir en y=0 antes de que useRestaurarScroll
-      // recupere la posición guardada; no pisar ese valor si el usuario sale antes.
-      ultimaPosicionRef.current = esPop ? null : { clave: claveNueva, y: window.scrollY };
+      usuarioScrolleoEnRutaRef.current = false;
+      if (tieneGuardado) {
+        marcarRestauracionPendiente(claveNueva);
+        ultimaPosicionRef.current = null;
+      } else {
+        // Al llegar vía popstate la página suele abrir en y=0 antes de que useRestaurarScroll
+        // recupere la posición guardada; no pisar ese valor si el usuario sale antes.
+        ultimaPosicionRef.current = esPop ? null : { clave: claveNueva, y: window.scrollY };
+      }
     }
 
     const mundo = mundoDeRuta(pathname, searchParams);

@@ -64,6 +64,7 @@ export function ExternalReader({
 
   const [mode, setMode] = useState<ReadingMode>(initialMode);
   const [currentPage, setCurrentPage] = useState(paginaSegura);
+  const [cascadeInitialPage, setCascadeInitialPage] = useState(paginaSegura);
   const [cascadeKey, setCascadeKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
@@ -76,6 +77,7 @@ export function ExternalReader({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentPageRef = useRef(paginaSegura);
 
   useEffect(() => {
     setMode(leerModoLecturaPreferido(initialMode));
@@ -85,7 +87,9 @@ export function ExternalReader({
       if (local && local.page > 1) {
         const clamped = Math.min(maxPage, local.page);
         if (clamped > 1) {
+          currentPageRef.current = clamped;
           setCurrentPage(clamped);
+          setCascadeInitialPage(clamped);
           setCascadeKey((k) => k + 1);
         }
       }
@@ -93,11 +97,19 @@ export function ExternalReader({
   }, [initialMode, maxPage, paginaSegura, progressKey]);
 
   const onPageChange = useCallback(
-    (pageNumber: number) => setCurrentPage(Math.min(maxPage, Math.max(1, Math.trunc(pageNumber || 1)))),
+    (pageNumber: number) => {
+      const clamped = Math.min(maxPage, Math.max(1, Math.trunc(pageNumber || 1)));
+      currentPageRef.current = clamped;
+      setCurrentPage(clamped);
+    },
     [maxPage]
   );
 
   const changeMode = useCallback((next: ReadingMode) => {
+    if (next === "cascade") {
+      setCascadeInitialPage(currentPageRef.current);
+      setCascadeKey((k) => k + 1);
+    }
     setMode(next);
     guardarModoLecturaPreferido(next);
     fetch("/api/auth/me", {
@@ -237,7 +249,7 @@ export function ExternalReader({
           <CascadeReader
             key={cascadeKey}
             pages={pages}
-            initialPage={currentPage}
+            initialPage={cascadeInitialPage}
             nextChapter={null}
             seriesSlug=""
             seriesHref={backHref}

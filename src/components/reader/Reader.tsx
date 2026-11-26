@@ -7,7 +7,6 @@ import { FullscreenToggle } from "./FullscreenToggle";
 import { AjustesLectura, BotonAjustes } from "./AjustesLectura";
 import {
   esCambioCapituloLector,
-  escribirUrlHistorial,
   guardarModoLecturaPreferido,
   guardarPosicionLector,
   leerModoLecturaPreferido,
@@ -48,6 +47,7 @@ export function Reader({
 
   const [mode, setMode] = useState<ReadingMode>(initialMode);
   const [currentPage, setCurrentPage] = useState(paginaSegura);
+  const [cascadeInitialPage, setCascadeInitialPage] = useState(paginaSegura);
   const [cascadeKey, setCascadeKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
@@ -74,6 +74,7 @@ export function Reader({
         if (clamped > 1) {
           currentPageRef.current = clamped;
           setCurrentPage(clamped);
+          setCascadeInitialPage(clamped);
           setCascadeKey((k) => k + 1);
         }
       }
@@ -112,7 +113,8 @@ export function Reader({
         const url = new URL(window.location.href);
         if (url.searchParams.get("page") !== String(clamped) && (clamped > 1 || url.searchParams.has("page"))) {
           url.searchParams.set("page", String(clamped));
-          escribirUrlHistorial(url, "replace");
+          // Conservamos history.state intacto para no disparar re-renders del App Router al scrollear.
+          window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
         }
       } catch {}
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -142,6 +144,10 @@ export function Reader({
 
   // ── modo de lectura: cambiarlo lo recuerda como preferencia ────────────
   const changeMode = useCallback((next: ReadingMode) => {
+    if (next === "cascade") {
+      setCascadeInitialPage(currentPageRef.current);
+      setCascadeKey((k) => k + 1);
+    }
     setMode(next);
     guardarModoLecturaPreferido(next);
     fetch("/api/auth/me", {
@@ -279,7 +285,7 @@ export function Reader({
           <CascadeReader
             key={cascadeKey}
             pages={pages}
-            initialPage={currentPage}
+            initialPage={cascadeInitialPage}
             nextChapter={nextChapter}
             seriesSlug={series.slug}
             onPageVisible={onPageChange}
