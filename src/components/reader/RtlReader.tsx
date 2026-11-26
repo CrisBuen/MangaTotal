@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BotonVolver } from "./BotonVolver";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect } from "react";
@@ -93,12 +93,18 @@ export function RtlReader({
       {/* zonas de click: derecha = siguiente, izquierda = anterior */}
       <button
         aria-label="Página siguiente"
-        onClick={goNext}
+        onClick={(e) => {
+          e.stopPropagation();
+          goNext();
+        }}
         className="absolute inset-y-0 right-0 w-1/2 cursor-w-resize"
       />
       <button
         aria-label="Página anterior"
-        onClick={goPrev}
+        onClick={(e) => {
+          e.stopPropagation();
+          goPrev();
+        }}
         className="absolute inset-y-0 left-0 w-1/2 cursor-e-resize"
       />
 
@@ -114,12 +120,12 @@ export function RtlReader({
                 ← Capítulo {nextChapter.number}
               </EnlaceCapitulo>
             )}
-            <Link
+            <BotonVolver
               href={seriesHref ?? `/serie/${seriesSlug}`}
               className="inline-flex min-h-11 items-center rounded-md border border-line bg-panel px-4 text-[13px] font-bold tracking-[0.08em] text-ink transition hover:border-line-strong hover:bg-[var(--surface-raised)]"
             >
               Volver a la serie
-            </Link>
+            </BotonVolver>
           </div>
         </div>
       )}

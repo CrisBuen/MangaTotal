@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
-import type { SerieJkanime } from "@/lib/jkanime";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import type { SerieJkanime } from "@/lib/jkanime";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  guardarEstadoFuente,
+  guardarScrollRuta,
+  guardarUltimaFuente,
+  guardarUltimoExplorar,
+  marcarScrollArriba,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 
 const GENRES = [
   ["accion", "Acción"], ["aventura", "Aventura"], ["autos", "Autos"],
@@ -55,6 +67,48 @@ const EMPTY_FILTERS: Record<FilterKey, string> = {
   type: "", status: "", year: "", season: "", order: "",
 };
 
+const FILTER_KEYS = Object.keys(EMPTY_FILTERS) as FilterKey[];
+
+function leerEstadoJkanime(getParam: (key: string) => string | null) {
+  const filters = Object.fromEntries(
+    FILTER_KEYS.map((key) => [key, getParam(key) ?? ""])
+  ) as Record<FilterKey, string>;
+  const rawPage = Number(getParam("anime_page") ?? getParam("page") ?? "1");
+  return {
+    search: getParam("q") ?? "",
+    sort: getParam("sort") ?? "",
+    filters,
+    page: Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1,
+  };
+}
+
+function construirUrlJkanime(
+  pathname: string,
+  baseSearch: string,
+  estado: { search: string; sort: string; filters: Record<FilterKey, string>; page: number }
+): string {
+  const sp = new URLSearchParams(baseSearch);
+  sp.set("seccion", "animada");
+  sp.set("anime_fuente", "jkanime");
+  sp.set("vista", "catalogo");
+  sp.delete("page");
+
+  for (const key of FILTER_KEYS) {
+    const val = estado.filters[key];
+    if (val) sp.set(key, val);
+    else sp.delete(key);
+  }
+  if (estado.search.trim()) sp.set("q", estado.search);
+  else sp.delete("q");
+  if (estado.sort) sp.set("sort", estado.sort);
+  else sp.delete("sort");
+  if (estado.page > 1) sp.set("anime_page", String(estado.page));
+  else sp.delete("anime_page");
+
+  const qs = sp.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
+}
+
 interface CatalogResponse {
   series: SerieJkanime[];
   page: number;
@@ -65,18 +119,29 @@ interface CatalogResponse {
 }
 
 export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, string> }) {
+  const pathname = usePathname() || "/explorar";
+  const searchParams = useSearchParams();
+  const searchParamsStr = searchParams.toString();
+
+  const estadoInicial = useMemo(
+    () => leerEstadoJkanime((key) => initial[key] ?? null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const [series, setSeries] = useState<SerieJkanime[] | null>(null);
-  const [search, setSearch] = useState(initial.q ?? "");
-  const sort = initial.sort ?? "";
-  const [filters, setFilters] = useState(() => Object.fromEntries(Object.keys(EMPTY_FILTERS).map(key => [key, initial[key] ?? ""])) as typeof EMPTY_FILTERS);
-  const [showFilters, setShowFilters] = useState(Boolean(initial.genre || initial.status));
-  const [page, setPage] = useState(() => Math.max(1, Math.floor(Number(initial.anime_page) || 1)));
+  const [search, setSearch] = useState(estadoInicial.search);
+  const [sort, setSort] = useState(estadoInicial.sort);
+  const [filters, setFilters] = useState(estadoInicial.filters);
+  const [showFilters, setShowFilters] = useState(Boolean(estadoInicial.filters.genre || estadoInicial.filters.status));
+  const [page, setPage] = useState(estadoInicial.page);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
   const [adultEnabled, setAdultEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [claveCargada, setClaveCargada] = useState("");
   const [guardadas, setGuardadas] = useState<{ slug?: string | null; external_id: string; title?: string }[]>([]);
   const reloadBiblioteca = useCallback(() => {
     let vigente = true;
@@ -106,16 +171,38 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
 
   const fresh = useRef(false);
   const requestId = useRef(0);
-  const lastFilters = useRef(JSON.stringify([filters, search, sort]));
+  const modoUrlRef = useRef<"skip" | "push" | "replace">("skip");
 
-  const load = useCallback(async () => {
-    const id = ++requestId.current;
+  const estadoActual = useMemo(
+    () => ({ search, sort, filters, page }),
+    [search, sort, filters, page]
+  );
+
+  const claveConsultaActual = useMemo(() => {
     const params = new URLSearchParams({ page: String(page) });
     if (search.trim()) params.set("q", search.trim());
     if (sort) params.set("sort", sort);
     for (const [key, value] of Object.entries(filters)) {
       if (value) params.set(key, value);
     }
+    return params.toString();
+  }, [filters, page, search, sort]);
+
+  const claveRutaActual = useMemo(() => {
+    const url = construirUrlJkanime(pathname, searchParamsStr, estadoActual);
+    const idx = url.indexOf("?");
+    return normalizarClaveRuta(pathname, idx >= 0 ? url.slice(idx + 1) : "");
+  }, [pathname, searchParamsStr, estadoActual]);
+
+  useRestaurarScroll(
+    claveRutaActual,
+    series !== null && series.length > 0 && claveCargada === claveConsultaActual,
+    true
+  );
+
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    const params = new URLSearchParams(claveConsultaActual);
     if (fresh.current) params.set("fresh", "1");
 
     setError(null);
@@ -123,7 +210,7 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
     try {
       const fresco = fresh.current;
       const data = await cargarConCacheAndroid<CatalogResponse>(
-        `explorar:jkanime:${params.toString().replace(/&?fresh=1/, "")}`,
+        `explorar:jkanime:${claveConsultaActual}`,
         async (signal) => {
           const res = await fetch(`/api/anime/jkanime?${params}`, { signal });
           const respuesta = (await res.json()) as CatalogResponse;
@@ -136,47 +223,97 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
           onCached: (guardado) => {
             if (id !== requestId.current) return;
             setSeries(guardado.series);
-            setPage(guardado.page);
             setLastPage(guardado.lastPage);
             setTotal(guardado.total);
             setAdultEnabled(guardado.adult_enabled);
+            setClaveCargada(claveConsultaActual);
           },
         }
       );
       if (id !== requestId.current) return;
       setSeries(data.series);
-      setPage(data.page);
+      if (data.page > 0 && data.page !== page) setPage(data.page);
       setLastPage(data.lastPage);
       setTotal(data.total);
       setAdultEnabled(data.adult_enabled);
+      setClaveCargada(claveConsultaActual);
     } catch (err) {
       if (id !== requestId.current) return;
       setSeries([]);
+      setClaveCargada(claveConsultaActual);
       setError(err instanceof Error ? err.message : "No se pudo cargar JKAnime");
     } finally {
       if (id === requestId.current) { fresh.current = false; setRefreshing(false); }
     }
-  }, [filters, page, reload, search, sort]);
+  }, [claveConsultaActual, page, reload]);
 
   useEffect(() => {
     const timer = setTimeout(load, search ? 350 : 0);
     return () => { clearTimeout(timer); requestId.current++; };
   }, [load, search]);
 
-  useEffect(() => {
-    const key = JSON.stringify([filters, search, sort]);
-    if (key !== lastFilters.current) { lastFilters.current = key; setPage(1); }
-  }, [filters, search, sort]);
+  // Sincronizamos cambios externos de URL (pestañas móvil/desktop o botón Atrás/Adelante).
+  const aplicarParams = useCallback((sp: URLSearchParams, limpiarLista: boolean) => {
+    if (sp.get("seccion") !== "animada" || sp.get("vista") !== "catalogo") return;
+    const f = sp.get("anime_fuente");
+    if (f && f !== "jkanime") return;
+    const next = leerEstadoJkanime((k) => sp.get(k));
+    modoUrlRef.current = "skip";
+    if (limpiarLista) setSeries(null);
+    setSearch(next.search);
+    setSort(next.sort);
+    setFilters(next.filters);
+    if (next.filters.genre || next.filters.status) setShowFilters(true);
+    setPage(next.page);
+  }, []);
 
   useEffect(() => {
-    // Volver desde una serie conserva también página y filtros del directorio.
-    const url = new URL(location.href);
-    if (url.searchParams.get("vista") !== "catalogo") return;
-    for (const [key, value] of Object.entries({ ...filters, q: search, sort, anime_page: String(page) })) {
-      if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+    if (fueEscritaPorNosotros(pathname, searchParamsStr)) return;
+    const sp = new URLSearchParams(searchParamsStr);
+    aplicarParams(sp, false);
+  }, [pathname, searchParamsStr, aplicarParams]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      aplicarParams(new URLSearchParams(window.location.search), true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [aplicarParams]);
+
+  // Escribimos URL e historial de la fuente sin provocar re-renders en loop.
+  useEffect(() => {
+    const currentUrl = new URL(location.href);
+    if (currentUrl.searchParams.get("vista") !== "catalogo") return;
+    const urlRelativa = construirUrlJkanime(pathname, currentUrl.search, estadoActual);
+    const claveDestino = normalizarClaveRuta(
+      pathname,
+      urlRelativa.includes("?") ? urlRelativa.slice(urlRelativa.indexOf("?") + 1) : ""
+    );
+    const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
+
+    guardarUltimaFuente("anime", "jkanime");
+    guardarEstadoFuente("anime", "jkanime", urlRelativa);
+    guardarUltimoExplorar("anime", urlRelativa);
+
+    const modo = modoUrlRef.current;
+    modoUrlRef.current = "skip";
+    if (modo !== "skip" && claveDestino !== claveVentana) {
+      escribirUrlHistorial(urlRelativa, modo);
     }
-    history.replaceState(history.state, "", url);
-  }, [filters, search, sort, page]);
+  }, [pathname, estadoActual]);
+
+  const prepararNavegacionPaso = useCallback(
+    (siguienteEstado: { search: string; sort: string; filters: Record<FilterKey, string>; page: number }, modo: "push" | "replace") => {
+      guardarScrollRuta(claveRutaActual, window.scrollY);
+      const urlDestino = construirUrlJkanime(pathname, window.location.search, siguienteEstado);
+      const qsDestino = urlDestino.includes("?") ? urlDestino.slice(urlDestino.indexOf("?") + 1) : "";
+      const claveDestino = normalizarClaveRuta(pathname, qsDestino);
+      if (modo === "push") marcarScrollArriba(claveDestino);
+      modoUrlRef.current = modo;
+    },
+    [claveRutaActual, pathname]
+  );
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
   const filterGroups: { key: FilterKey; label: string; options: readonly (readonly [string, string])[] }[] = [
@@ -217,7 +354,12 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
         </button>
         <input
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            const nextSearch = event.target.value;
+            prepararNavegacionPaso({ search: nextSearch, sort, filters, page: 1 }, "replace");
+            setSearch(nextSearch);
+            setPage(1);
+          }}
           placeholder="Buscar anime..."
           className="ml-auto w-full max-w-sm rounded-md border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
         />
@@ -232,9 +374,12 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
               </span>
               <select
                 value={filters[group.key]}
-                onChange={(event) =>
-                  setFilters((current) => ({ ...current, [group.key]: event.target.value }))
-                }
+                onChange={(event) => {
+                  const nextFilters = { ...filters, [group.key]: event.target.value };
+                  prepararNavegacionPaso({ search, sort, filters: nextFilters, page: 1 }, "push");
+                  setFilters(nextFilters);
+                  setPage(1);
+                }}
                 disabled={Boolean(search.trim())}
                 className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent disabled:opacity-40"
               >
@@ -247,7 +392,11 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
           ))}
           {activeFilters > 0 && (
             <button
-              onClick={() => setFilters(EMPTY_FILTERS)}
+              onClick={() => {
+                prepararNavegacionPaso({ search, sort, filters: EMPTY_FILTERS, page: 1 }, "push");
+                setFilters(EMPTY_FILTERS);
+                setPage(1);
+              }}
               className="self-end justify-self-start font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
             >
               × Limpiar filtros
@@ -330,7 +479,11 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
           <button
             disabled={page <= 1}
-            onClick={() => setPage((value) => value - 1)}
+            onClick={() => {
+              const siguiente = Math.max(1, page - 1);
+              prepararNavegacionPaso({ search, sort, filters, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
             className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
           >
             ← Anterior
@@ -340,7 +493,11 @@ export function JkanimeCatalog({ initial = {} }: { initial?: Record<string, stri
           </span>
           <button
             disabled={page >= lastPage}
-            onClick={() => setPage((value) => value + 1)}
+            onClick={() => {
+              const siguiente = page + 1;
+              prepararNavegacionPaso({ search, sort, filters, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
             className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
           >
             Siguiente →

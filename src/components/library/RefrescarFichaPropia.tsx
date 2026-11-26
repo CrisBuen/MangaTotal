@@ -1,12 +1,31 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRefrescoSerie } from "./useRefrescoSerie";
 
 /** La ficha propia lee la base al refrescar la ruta; no consulta fuentes externas. */
 export function RefrescarFichaPropia({ children, slug }: { children: React.ReactNode; slug: string }) {
   const router = useRouter();
+  const ultimoRefresco = useRef(0);
+
+  useEffect(() => {
+    const refrescar = () => {
+      const ahora = Date.now();
+      if (ahora - ultimoRefresco.current < 1500) return;
+      ultimoRefresco.current = ahora;
+      router.refresh();
+    };
+    window.addEventListener("focus", refrescar);
+    window.addEventListener("pageshow", refrescar);
+    window.addEventListener("popstate", refrescar);
+    return () => {
+      window.removeEventListener("focus", refrescar);
+      window.removeEventListener("pageshow", refrescar);
+      window.removeEventListener("popstate", refrescar);
+    };
+  }, [router]);
+
   const cargar = useCallback(async () => {
     const controlador = new AbortController();
     const temporizador = setTimeout(() => controlador.abort(), 19_000);

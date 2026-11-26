@@ -25,7 +25,7 @@ export function MediaRail({ title, href, action = "Ver todo", onAction, wide = f
   };
   return <section className="od-rail" aria-labelledby={id}>
     <div className="od-rail-heading"><h2 id={id}>{title}</h2>
-      {onAction ? <button onClick={onAction}>{action} ›</button> : href && (href.startsWith("/explorar?") ? <a href={href}>{action} ›</a> : <Link href={href} prefetch={false}>{action} ›</Link>)}
+      {onAction ? <button onClick={onAction}>{action} ›</button> : href && <Link href={href} prefetch={false}>{action} ›</Link>}
     </div>
     <div className="od-rail-body">
       <button className="od-rail-arrow prev" disabled={ends[0]} onClick={() => scroll(-1)} aria-label={`Anterior en ${title}`}>‹</button>

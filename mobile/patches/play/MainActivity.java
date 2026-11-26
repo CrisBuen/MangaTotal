@@ -2,6 +2,7 @@ package app.mangatotal.android;
 
 import android.os.Bundle;
 import android.webkit.WebView;
+import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
 
 /**
@@ -30,6 +31,29 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ActualizacionPlugin.class);
         instancia = this;
         super.onCreate(savedInstanceState);
+        // En Play Store (targetSdk 36) el gesto predictivo ignora onBackPressed().
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                WebView webView = webViewPrincipal();
+                if (webView != null && webView.canGoBack()) {
+                    webView.goBack();
+                    return;
+                }
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
+    }
+
+    @Override
+    public void onPause() {
+        WebView webView = webViewPrincipal();
+        if (webView != null) {
+            webView.evaluateJavascript("window.__mtFlushProgress && window.__mtFlushProgress();", null);
+        }
+        super.onPause();
     }
 
     @Override
@@ -59,15 +83,5 @@ public class MainActivity extends BridgeActivity {
             instancia = null;
         }
         super.onDestroy();
-    }
-
-    @Override
-    public void onBackPressed() {
-        WebView webView = webViewPrincipal();
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-            return;
-        }
-        super.onBackPressed();
     }
 }

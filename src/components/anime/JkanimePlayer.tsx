@@ -4,6 +4,7 @@ import Hls from "hls.js";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FuenteAnimeExterna } from "@/lib/animeExternos";
+import { navegarAtrasInteligente, registrarFlusherProgreso } from "@/lib/navegacionEstado";
 import {
   activarReproductorHorizontalAndroid,
   activarPantallaCompleta,
@@ -192,15 +193,15 @@ export function ReproductorAnimeExterno({
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [androidPlayer, setAndroidPlayer] = useState(false);
 
-  const guardarProgreso = useCallback((position: number, total: number, apertura = false) => {
+  const guardarProgreso = useCallback((position: number, total: number, apertura = false): Promise<void> => {
     const info = dataRef.current;
     // load()/destroy() también emiten pause y timeupdate en cero. Hasta
     // restaurar el reloj no deben reemplazar el progreso que vino de la API.
-    if (!info || info.guest || (!progresoListoRef.current && !apertura)) return;
+    if (!info || info.guest || (!progresoListoRef.current && !apertura)) return Promise.resolve();
     const pos = Math.max(0, Math.round(position));
     const dur = Math.max(0, Math.round(total));
     lastSavedRef.current = pos;
-    fetch("/api/anime/externo/progreso", {
+    return fetch("/api/anime/externo/progreso", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -217,7 +218,9 @@ export function ReproductorAnimeExterno({
         duration_seconds: dur,
       }),
       keepalive: true,
-    }).catch(() => {});
+    })
+      .then(() => undefined)
+      .catch(() => undefined);
   }, [source]);
 
   const cargar = useCallback(
@@ -520,9 +523,18 @@ export function ReproductorAnimeExterno({
   }, []);
 
   useEffect(() => {
-    const flush = () => guardarProgreso(currentRef.current, durationRef.current);
+    const flush = () => {
+      void guardarProgreso(currentRef.current, durationRef.current);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    const quitarFlusher = registrarFlusherProgreso(flush);
+    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", flush);
     return () => {
+      quitarFlusher();
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flush);
       flush();
     };
@@ -673,10 +685,13 @@ export function ReproductorAnimeExterno({
   };
 
   const volver = async () => {
-    guardarProgreso(currentRef.current, durationRef.current);
+    await Promise.race([
+      guardarProgreso(currentRef.current, durationRef.current),
+      new Promise<void>((resolve) => setTimeout(resolve, 600)),
+    ]);
     if (androidPlayer) await salirReproductorHorizontalAndroid();
     else await salirPantallaCompleta();
-    router.push(`/explorar/${source}/${slug}`);
+    navegarAtrasInteligente(router, `/explorar/${source}/${slug}`, { evitarLector: true });
   };
 
   const esNativo = data?.playback.kind === "hls" || data?.playback.kind === "mp4";
@@ -887,9 +902,14 @@ export function ReproductorAnimeExterno({
             </span>
             <button
               type="button"
-              onClick={() => {
-                guardarProgreso(24 * 60, 24 * 60);
-                router.push(`/explorar/${source}/${slug}`);
+              onClick={async () => {
+                await Promise.race([
+                  guardarProgreso(24 * 60, 24 * 60),
+                  new Promise<void>((resolve) => setTimeout(resolve, 600)),
+                ]);
+                if (androidPlayer) await salirReproductorHorizontalAndroid();
+                else await salirPantallaCompleta();
+                navegarAtrasInteligente(router, `/explorar/${source}/${slug}`, { evitarLector: true });
               }}
               className="rounded border border-white/20 bg-white/10 px-2.5 py-1 font-mono text-[11px] font-bold text-white/90 hover:border-line-strong hover:bg-white/20"
               title="Marcar este episodio como terminado"

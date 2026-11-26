@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useExperience } from "@/components/experience/ExperienceShell";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { isAndroidApp } from "@/lib/appVersion";
 
@@ -116,17 +117,22 @@ const SECCIONES: {
 ];
 
 export default function MasPage() {
+  const { animeEnabled } = useExperience();
   const [android, setAndroid] = useState(false);
 
   useEffect(() => {
     setAndroid(isAndroidApp());
   }, []);
 
+  const seccionesVisibles = SECCIONES.filter(
+    (seccion) => animeEnabled || seccion.titulo !== "Experiencia"
+  );
+
   return (
     <div className="space-y-10" data-od-id="more-page">
       <SectionHeading eyebrow="MangaTotal" title="Más" description="Todo lo demás, en un solo lugar." />
 
-      {SECCIONES.map((seccion) => (
+      {seccionesVisibles.map((seccion) => (
         <section key={seccion.titulo}>
           <h2 className="mb-4 font-mono text-[11px] font-bold tracking-[0.16em] text-subtle">
             {seccion.titulo}

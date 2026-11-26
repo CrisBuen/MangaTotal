@@ -67,6 +67,7 @@ export default function LeerLcPage(props: { params: Promise<{ id: string }> }) {
 
   return (
     <OlympusReader
+      key={`${serieId}:${slug}:${numero}`}
       chapter={{ id: numero, name: capitulo.numero, urlOriginal: capitulo.url_original }}
       serie={{
         slug: `${serieId}/${slug}`,

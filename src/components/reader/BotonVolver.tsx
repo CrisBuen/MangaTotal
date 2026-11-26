@@ -2,44 +2,38 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import type { MouseEvent, ReactNode } from "react";
+import { navegarAtrasInteligente } from "@/lib/navegacionEstado";
 
 /**
  * "Volver" del lector.
  *
- * Devuelve a la pantalla anterior de verdad: si entraste desde Biblioteca,
- * vuelve a Biblioteca; si entraste desde la ficha, vuelve a la ficha. Solo
- * cuando no hay nada atrás (un enlace abierto directo) va a la ficha.
+ * Devuelve a la pantalla anterior real usando navegarAtrasInteligente para evitar
+ * bucles hacia otros capítulos o lectores si se encadenaron sustituciones.
  */
 export function BotonVolver({
   href,
   className,
   children = "← Volver",
 }: {
-  /** A dónde ir cuando no hay pantalla anterior. */
+  /** A dónde ir cuando no hay pantalla anterior válida. */
   href: string;
   className?: string;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   const router = useRouter();
-  const [hayAtras, setHayAtras] = useState(false);
 
-  useEffect(() => {
-    // history.length es 1 cuando la pestaña se abrió directamente acá
-    setHayAtras(window.history.length > 1);
-  }, []);
-
-  if (!hayAtras) {
-    return (
-      <Link href={href} className={className}>
-        {children}
-      </Link>
-    );
-  }
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+      return;
+    }
+    e.preventDefault();
+    navegarAtrasInteligente(router, href, { evitarLector: true });
+  };
 
   return (
-    <button type="button" onClick={() => router.back()} className={className}>
+    <Link href={href} prefetch={false} onClick={handleClick} className={className}>
       {children}
-    </button>
+    </Link>
   );
 }

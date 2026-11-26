@@ -1,11 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BotonVolver } from "./BotonVolver";
 import { CascadeReader } from "./CascadeReader";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { AjustesLectura, BotonAjustes } from "./AjustesLectura";
+import {
+  esCambioCapituloLector,
+  escribirUrlHistorial,
+  guardarModoLecturaPreferido,
+  guardarPosicionLector,
+  leerModoLecturaPreferido,
+  leerPosicionLector,
+  registrarFlusherProgreso,
+} from "@/lib/navegacionEstado";
 import {
   activarPantallaCompleta,
   pantallaCompletaEsTotal,
@@ -34,8 +42,13 @@ export function Reader({
   initialPage: number;
   initialMode: ReadingMode;
 }) {
+  const maxPage = Math.max(1, pages.length);
+  const paginaSegura = Math.min(maxPage, Math.max(1, Math.trunc(initialPage || 1)));
+  const progressKey = `cap:local:${chapter.id}`;
+
   const [mode, setMode] = useState<ReadingMode>(initialMode);
-  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [currentPage, setCurrentPage] = useState(paginaSegura);
+  const [cascadeKey, setCascadeKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
   // en Android el puente esconde además las barras del sistema
@@ -49,46 +62,88 @@ export function Reader({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(0);
-  const currentPageRef = useRef(initialPage);
+  const currentPageRef = useRef(paginaSegura);
+
+  useEffect(() => {
+    setMode(leerModoLecturaPreferido(initialMode));
+    const sp = new URLSearchParams(window.location.search);
+    if (!sp.has("page") && paginaSegura <= 1) {
+      const local = leerPosicionLector(progressKey);
+      if (local && local.page > 1) {
+        const clamped = Math.min(maxPage, local.page);
+        if (clamped > 1) {
+          currentPageRef.current = clamped;
+          setCurrentPage(clamped);
+          setCascadeKey((k) => k + 1);
+        }
+      }
+    }
+  }, [initialMode, maxPage, paginaSegura, progressKey]);
 
   // ── progreso: PATCH /api/progress con debounce ─────────────────────────
   const saveProgress = useCallback(
     (pageNumber: number) => {
-      if (pageNumber === lastSavedRef.current) return;
-      lastSavedRef.current = pageNumber;
+      const clamped = Math.min(maxPage, Math.max(1, Math.trunc(pageNumber || 1)));
+      if (clamped === lastSavedRef.current) return;
+      guardarPosicionLector(progressKey, {
+        page: clamped,
+        chapterId: String(chapter.id),
+      });
       fetch("/api/progress", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapterId: chapter.id, pageNumber }),
+        body: JSON.stringify({ chapterId: chapter.id, pageNumber: clamped }),
         keepalive: true,
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (res.ok) lastSavedRef.current = clamped;
+        })
+        .catch(() => {});
     },
-    [chapter.id]
+    [chapter.id, maxPage, progressKey]
   );
 
   const onPageChange = useCallback(
     (pageNumber: number) => {
-      setCurrentPage(pageNumber);
-      currentPageRef.current = pageNumber;
+      const clamped = Math.min(maxPage, Math.max(1, Math.trunc(pageNumber || 1)));
+      setCurrentPage(clamped);
+      currentPageRef.current = clamped;
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get("page") !== String(clamped) && (clamped > 1 || url.searchParams.has("page"))) {
+          url.searchParams.set("page", String(clamped));
+          escribirUrlHistorial(url, "replace");
+        }
+      } catch {}
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => saveProgress(pageNumber), PROGRESS_SAVE_MS);
+      saveTimerRef.current = setTimeout(() => saveProgress(clamped), PROGRESS_SAVE_MS);
     },
-    [saveProgress]
+    [maxPage, saveProgress]
   );
 
-  // guardar al salir/desmontar
+  // guardar al ocultar/salir/desmontar
   useEffect(() => {
     const flush = () => saveProgress(currentPageRef.current);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    const quitarFlusher = registrarFlusherProgreso(flush);
+    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
     return () => {
-      window.removeEventListener("pagehide", flush);
       flush();
+      quitarFlusher();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
     };
   }, [saveProgress]);
 
   // ── modo de lectura: cambiarlo lo recuerda como preferencia ────────────
   const changeMode = useCallback((next: ReadingMode) => {
     setMode(next);
+    guardarModoLecturaPreferido(next);
     fetch("/api/auth/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -129,7 +184,7 @@ export function Reader({
     setControlsVisible(false);
 
     return () => {
-      salirPantallaCompleta();
+      if (!esCambioCapituloLector(true)) salirPantallaCompleta();
     };
   }, []);
 
@@ -222,11 +277,13 @@ export function Reader({
       <div onClick={revealControls}>
         {mode === "cascade" ? (
           <CascadeReader
+            key={cascadeKey}
             pages={pages}
-            initialPage={initialPage}
+            initialPage={currentPage}
             nextChapter={nextChapter}
             seriesSlug={series.slug}
             onPageVisible={onPageChange}
+            progressKey={progressKey}
           />
         ) : (
           <RtlReader

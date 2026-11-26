@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { EmptyState, Skeleton } from "@/components/ui/Feedback";
 import { cargarConCacheAndroid, fetchConLimiteAndroid, guardarCacheAndroid } from "@/lib/androidCache";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 import { EstadoActualizacion, useActualizaciones } from "./ActualizacionesBiblioteca";
 import { FavoritoBiblioteca, MenuBiblioteca, grillaBiblioteca, useOpcionesBiblioteca } from "./MenuBiblioteca";
 import { fechaBiblioteca, ordenarBiblioteca, serieFinalizada } from "@/lib/opcionesBiblioteca";
@@ -238,6 +245,9 @@ function BloqueProgreso({
 
 /** Biblioteca, historial y continuación de anime reproducible. */
 export function SeccionAnimeExterno({ busqueda, soloGuardados = false, soloHistorial = false }: { busqueda: string; soloGuardados?: boolean; soloHistorial?: boolean }) {
+  const pathname = usePathname() || "/explorar";
+  const searchParams = useSearchParams();
+  const searchParamsStr = searchParams.toString();
   const { usuario, trabajos, iniciar } = useActualizaciones();
   const { opciones, cambiar, favorito } = useOpcionesBiblioteca("anime");
   const [consulta, setConsulta] = useState(busqueda);
@@ -249,14 +259,55 @@ export function SeccionAnimeExterno({ busqueda, soloGuardados = false, soloHisto
   const [quitando, setQuitando] = useState(false);
   const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
   const [historialModificado, setHistorialModificado] = useState(false);
+  const omitirEscrituraRef = useRef(true);
+
+  useEffect(() => {
+    if (fueEscritaPorNosotros(pathname, searchParamsStr)) return;
+    const sp = new URLSearchParams(searchParamsStr);
+    const qUrl = sp.get("q") ?? "";
+    setConsulta((actual) => {
+      if (actual === qUrl) return actual;
+      omitirEscrituraRef.current = true;
+      return qUrl;
+    });
+  }, [pathname, searchParamsStr]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const qUrl = sp.get("q") ?? "";
+      omitirEscrituraRef.current = true;
+      setConsulta(qUrl);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     if (!soloGuardados && !soloHistorial) return;
+    if (omitirEscrituraRef.current) {
+      omitirEscrituraRef.current = false;
+      return;
+    }
     const url = new URL(location.href);
     if (consulta.trim()) url.searchParams.set("q", consulta.trim());
     else url.searchParams.delete("q");
-    history.replaceState(history.state, "", url);
+    const destino = normalizarClaveRuta(url.pathname, url.search);
+    const actual = normalizarClaveRuta(window.location.pathname, window.location.search);
+    if (destino !== actual) {
+      escribirUrlHistorial(url, "replace");
+    }
   }, [consulta, soloGuardados, soloHistorial]);
+
+  const claveRuta = useMemo(
+    () => normalizarClaveRuta(pathname, searchParamsStr),
+    [pathname, searchParamsStr]
+  );
+  useRestaurarScroll(
+    claveRuta,
+    entradas !== null && (soloGuardados || !cargandoProgreso),
+    true
+  );
 
   // Solo persistimos una eliminación confirmada, fuera del actualizador de React.
   useEffect(() => {

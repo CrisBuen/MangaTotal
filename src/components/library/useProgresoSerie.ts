@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buscarHistorialLocal } from "@/components/library/historial";
+import { leerPosicionLector } from "@/lib/navegacionEstado";
 
 export interface ProgresoSerie {
   /** Identificador del último capítulo abierto, tal como lo guarda la fuente. */
@@ -57,23 +58,39 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
     if (!externalId) return;
     let cancelado = false;
 
+    const posicionReciente = () => {
+      const pos =
+        typeof leerPosicionLector === "function"
+          ? leerPosicionLector(`prog:${source}:${externalId}`)
+          : null;
+      return pos && Date.now() - pos.updatedAt < 60_000 ? pos : null;
+    };
+
     const aplicarLocal = () => {
       const local = buscarHistorialLocal(source, externalId);
-      if (!local) {
+      const pos = posicionReciente();
+      if (!local && !pos) {
         setProgreso(VACIO);
         return;
       }
-      const numero = Number(local.last_chapter_name ?? local.last_chapter_id);
+      const idLocal = pos?.chapterId ?? local?.last_chapter_id ?? null;
+      const pagLocal = pos?.page ?? local?.last_page_number ?? null;
+      const numero = Number(local?.last_chapter_name ?? idLocal);
+      const paginas = { ...(local?.paginas ?? {}) };
+      if (idLocal && pagLocal) paginas[idLocal] = pagLocal;
+
       setProgreso({
-        ultimoId: local.last_chapter_id,
-        ultimoNombre: local.last_chapter_name ?? null,
+        ultimoId: idLocal,
+        ultimoNombre: local?.last_chapter_name ?? idLocal ?? null,
         ultimoNumero: Number.isFinite(numero) ? numero : null,
-        ultimaPagina: local.last_page_number,
+        ultimaPagina: pagLocal,
         guardada: false,
-        paginas: local.paginas ?? (local.last_chapter_id && local.last_page_number ? { [local.last_chapter_id]: local.last_page_number } : {}),
+        paginas,
         readThroughNumber: Number.isFinite(numero) ? numero : null,
       });
     };
+
+    aplicarLocal();
 
     const cargar = async () => {
       const res = await fetch(`/api/externo/progreso?source=${encodeURIComponent(source)}&id=${encodeURIComponent(externalId)}`, {
@@ -99,17 +116,33 @@ export function useProgresoSerie(source: string, externalId: string): ProgresoSe
       }
 
       const local = buscarHistorialLocal(source, externalId);
+      const pos = posicionReciente();
+      const usarPosReciente = Boolean(pos?.chapterId);
+      const ultimoId =
+        (usarPosReciente ? pos?.chapterId : null) ??
+        serie.last_chapter_id ??
+        local?.last_chapter_id ??
+        null;
+      const ultimaPagina =
+        (usarPosReciente ? pos?.page : null) ??
+        serie.last_page_number ??
+        local?.last_page_number ??
+        null;
+      const paginasMerged: Record<string, number> = {
+        ...(local?.paginas ?? {}),
+        ...Object.fromEntries((serie.chapters ?? []).map((c) => [c.id, c.page])),
+      };
+      if (pos?.chapterId && pos.page) {
+        paginasMerged[pos.chapterId] = pos.page;
+      }
       const numero = Number(serie.last_chapter_name ?? serie.last_chapter_id);
       setProgreso({
-        ultimoId: serie.last_chapter_id ?? local?.last_chapter_id ?? null,
+        ultimoId,
         ultimoNombre: serie.last_chapter_name ?? local?.last_chapter_name ?? null,
         ultimoNumero: Number.isFinite(numero) ? numero : null,
-        ultimaPagina: serie.last_page_number ?? local?.last_page_number ?? null,
+        ultimaPagina,
         guardada: true,
-        paginas: {
-          ...(local?.paginas ?? {}),
-          ...Object.fromEntries((serie.chapters ?? []).map(c => [c.id, c.page])),
-        },
+        paginas: paginasMerged,
         readThroughNumber: serie.read_through_number,
       });
     };

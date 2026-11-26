@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { VolverFuente } from "@/components/library/VolverFuente";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { use } from "react";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
@@ -10,6 +11,7 @@ import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { escribirUrlHistorial, normalizarClaveRuta, useEstadoFicha, useRestaurarScroll } from "@/lib/navegacionEstado";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
@@ -38,12 +40,18 @@ interface CapituloOlympus {
 
 export default function SerieOlympusPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = use(props.params);
+  const pathname = usePathname() || `/externo/olympus/${slug}`;
+  const searchParamsStr = useSearchParams().toString();
   const [serie, setSerie] = useState<SerieOlympus | null>(null);
   const [capitulos, setCapitulos] = useState<CapituloOlympus[]>([]);
   const [error, setError] = useState(false);
-  const [orden, setOrden] = useState<"asc" | "desc">("asc");
+  const [estadoFicha, setEstadoFicha] = useEstadoFicha(`olympus:${slug}`, { orden: "asc" });
+  const orden = estadoFicha.orden === "desc" ? "desc" : "asc";
+  const setOrden = (o: "asc" | "desc") => setEstadoFicha({ orden: o });
   const progreso = useProgresoSerie("olympus", slug);
   const solicitud = useRef(0);
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, searchParamsStr), [pathname, searchParamsStr]);
+  useRestaurarScroll(claveRuta, Boolean(serie), true);
 
   const cargar = useCallback(async (fresco = false) => {
     const actual = ++solicitud.current;
@@ -92,7 +100,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
     if (serie?.slug && serie.slug !== slug && typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.pathname = `/externo/olympus/${encodeURIComponent(serie.slug)}`;
-      window.history.replaceState(null, "", url.toString());
+      escribirUrlHistorial(url, "replace");
     }
   }, [serie?.slug, slug]);
 
@@ -100,7 +108,7 @@ export default function SerieOlympusPage(props: { params: Promise<{ slug: string
     return (
       <Surface className="p-10 text-center">
         <p className="text-lg font-bold text-ink">No se pudo cargar la serie</p>
-<VolverFuente href="/explorar" className="mt-3 inline-block text-sm text-accent-ink hover:underline">
+        <VolverFuente href="/explorar?fuente=olympus" className="mt-3 inline-block text-sm text-accent-ink hover:underline">
           Volver a Explorar
         </VolverFuente>
       </Surface>

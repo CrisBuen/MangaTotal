@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { ReadingMode } from "./types";
 
 /**
@@ -21,21 +21,48 @@ export function AjustesLectura({
   onModo: (modo: ReadingMode) => void;
   onCerrar: () => void;
 }) {
-  // con el panel abierto, el gesto de atrás lo cierra en vez de sacarte del
-  // capítulo: es lo que uno espera de una hoja que se abre por encima
+  const onCerrarRef = useRef(onCerrar);
+  onCerrarRef.current = onCerrar;
+
+  // Con el panel abierto, el gesto de atrás lo cierra en vez de sacarte del capítulo.
   useEffect(() => {
     if (!abierto) return;
+    const baseUrl = window.location.pathname + window.location.search;
+    if (window.location.hash !== "#ajustes-lector") {
+      window.history.pushState(window.history.state, "", `${baseUrl}#ajustes-lector`);
+    }
     const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCerrar();
+      if (e.key === "Escape") {
+        if (window.location.hash === "#ajustes-lector") window.history.back();
+        else onCerrarRef.current();
+      }
+    };
+    const alPopState = () => {
+      if (window.location.hash !== "#ajustes-lector") onCerrarRef.current();
     };
     window.addEventListener("keydown", alTeclear);
-    return () => window.removeEventListener("keydown", alTeclear);
-  }, [abierto, onCerrar]);
+    window.addEventListener("popstate", alPopState);
+    return () => {
+      window.removeEventListener("keydown", alTeclear);
+      window.removeEventListener("popstate", alPopState);
+      if (window.location.hash === "#ajustes-lector") {
+        window.history.replaceState(window.history.state, "", baseUrl);
+      }
+    };
+  }, [abierto]);
+
+  const cerrarSuave = useCallback(() => {
+    if (window.location.hash === "#ajustes-lector") {
+      window.history.back();
+    } else {
+      onCerrarRef.current();
+    }
+  }, []);
 
   return (
     <>
       <div
-        onClick={onCerrar}
+        onClick={cerrarSuave}
         aria-hidden={!abierto}
         className={`fixed inset-0 z-[60] bg-black/60 transition-opacity duration-200 ${
           abierto ? "opacity-100" : "pointer-events-none opacity-0"
@@ -88,7 +115,7 @@ export function AjustesLectura({
           </div>
 
           <button
-            onClick={onCerrar}
+            onClick={cerrarSuave}
             className="mt-6 min-h-11 w-full rounded-md border border-line font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink"
           >
             Cerrar

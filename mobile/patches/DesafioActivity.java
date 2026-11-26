@@ -2,6 +2,7 @@ package app.mangatotal.android;
 
 import android.app.Activity;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +16,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 /**
  * La ventana donde la persona toca la casilla de Cloudflare.
@@ -42,6 +45,16 @@ public class DesafioActivity extends Activity {
     private Runnable revisar;
     private long desde;
     private boolean terminada;
+    private Object callbackAtras;
+
+    private void manejarAtras() {
+        if (navegador != null && navegador.canGoBack()) {
+            navegador.goBack();
+        } else {
+            // Si la cerró a mano, se corta y la web avisa que no quedó resuelto.
+            cerrar(false);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,6 +123,15 @@ public class DesafioActivity extends Activity {
             }
         };
         reloj.postDelayed(revisar, CADA_MS);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            OnBackInvokedCallback cb = this::manejarAtras;
+            callbackAtras = cb;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                cb
+            );
+        }
     }
 
     /** Aviso arriba y el sitio abajo, para que se entienda qué hay que hacer. */
@@ -155,14 +177,20 @@ public class DesafioActivity extends Activity {
         finish();
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public void onBackPressed() {
-        // si la cerró a mano, se corta y la web avisa que no quedó resuelto
-        cerrar(false);
+        manejarAtras();
     }
 
     @Override
     protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && callbackAtras != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
+                (OnBackInvokedCallback) callbackAtras
+            );
+            callbackAtras = null;
+        }
         if (reloj != null && revisar != null) {
             reloj.removeCallbacks(revisar);
         }

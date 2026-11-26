@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { VolverFuente } from "@/components/library/VolverFuente";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { LC_NOMBRE, serieLc, paginasLc } from "@/lib/leercapitulo";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
+import { normalizarClaveRuta, useEstadoFicha, useRestaurarScroll } from "@/lib/navegacionEstado";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
@@ -20,10 +22,16 @@ export default function SerieLcPage(props: {
   params: Promise<{ id: string; slug: string }>;
 }) {
   const { id, slug } = use(props.params);
+  const pathname = usePathname() || `/externo/leercapitulo/${id}/${slug}`;
+  const searchParamsStr = useSearchParams().toString();
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [orden, setOrden] = useState<"asc" | "desc">("desc");
+  const [estadoFicha, setEstadoFicha] = useEstadoFicha(`leercapitulo:${id}:${slug}`, { orden: "desc" });
+  const orden = estadoFicha.orden === "asc" ? "asc" : "desc";
+  const setOrden = (o: "asc" | "desc") => setEstadoFicha({ orden: o });
   const progreso = useProgresoSerie("leercapitulo", `${id}/${slug}`);
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, searchParamsStr), [pathname, searchParamsStr]);
+  useRestaurarScroll(claveRuta, Boolean(ficha), true);
 
   const cargar = useCallback(async (fresco = false) => {
     if (!fresco) setError(null);
@@ -52,7 +60,7 @@ export default function SerieLcPage(props: {
   }, [cargar]);
 
   if (error) {
-    return <AvisoFuente error={error} onReintentar={cargar} />;
+    return <AvisoFuente error={error} volverA="/explorar?fuente=leercapitulo" onReintentar={cargar} />;
   }
 
   if (!ficha) {
@@ -68,8 +76,8 @@ export default function SerieLcPage(props: {
   // la misma serie sirve para guardarla y para anotarla en el historial
   const serieGuardable = {
     source: "leercapitulo" as const,
-    external_id: `${ficha.id}/${ficha.slug}`,
-    slug: ficha.slug,
+    external_id: `${id}/${slug}`,
+    slug,
     title: ficha.title,
     cover_url: ficha.cover_url,
     type: ficha.tipo ?? "normal",
@@ -132,8 +140,8 @@ export default function SerieLcPage(props: {
             </a>
             <BotonMigrar
               fuente="leercapitulo"
-              externalId={`${ficha.id}/${ficha.slug}`}
-              slug={ficha.slug}
+              externalId={`${id}/${slug}`}
+              slug={slug}
               titulo={ficha.title}
             />
           </div>
@@ -195,7 +203,7 @@ export default function SerieLcPage(props: {
                       last_chapter_name: String(c.numero),
                     })
                   }
-                  href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
+                  href={`/leer-externo/leercapitulo/${c.numero}?serie=${encodeURIComponent(id)}&slug=${encodeURIComponent(slug)}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
                   className="min-w-0 flex-1"
                 >
                   <p className="truncate text-sm font-semibold text-ink">
@@ -227,7 +235,7 @@ export default function SerieLcPage(props: {
                       last_chapter_name: String(c.numero),
                     })
                   }
-                  href={`/leer-externo/leercapitulo/${c.numero}?serie=${ficha.id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
+                  href={`/leer-externo/leercapitulo/${c.numero}?serie=${encodeURIComponent(id)}&slug=${encodeURIComponent(slug)}${paginaCapitulo(progreso, String(c.numero)) ? "&" + paginaCapitulo(progreso, String(c.numero)) : ""}`}
                   className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
                 >
                   Leer →

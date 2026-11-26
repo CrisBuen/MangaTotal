@@ -5,12 +5,26 @@ import { useSearchParams } from "next/navigation";
 import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { retryThroughProxy } from "@/components/reader/pageImage";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { Chip } from "@/components/ui/Chip";
 import { fieldControlClass } from "@/components/ui/Field";
+import { useExperience } from "@/components/experience/ExperienceShell";
 import { isAndroidApp, isPlayStoreApp } from "@/lib/appVersion";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  guardarEstadoFuente,
+  guardarScrollRuta,
+  guardarUltimaFuente,
+  guardarUltimoExplorar,
+  leerEstadoFuente,
+  leerUltimaFuente,
+  marcarScrollArriba,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 import {
   cargarConCacheAndroid,
   fetchConLimiteAndroid,
@@ -86,6 +100,7 @@ function decodificarHtml(texto: string): string {
 const cargandoAnime = () => <p role="status" className="py-12 text-center text-subtle">Cargando catálogo de anime...</p>;
 const AnimeDiscover = dynamic(() => import("@/components/discover/AnimeDiscover").then((m) => m.AnimeDiscover), { loading: cargandoAnime });
 const HentaitvCatalog = dynamic(() => import("@/components/anime/HentaitvCatalog").then((m) => m.HentaitvCatalog), { loading: cargandoAnime });
+const MiListaAnime = dynamic(() => import("@/components/library/SeccionAnimeExterno").then((m) => m.SeccionAnimeExterno), { loading: cargandoAnime });
 
 interface ExternalSeries {
   id: string;
@@ -149,12 +164,54 @@ interface Genre {
 type SeccionExplorar = "lectura" | "animada";
 type FuenteAnime = "jkanime" | "tioanime" | "mundodonghua" | "hentaitv";
 
+const FUENTES_LECTURA_VALIDAS = new Set([
+  "mangadex",
+  "olympus",
+  "tmo",
+  ...(LC_HABILITADA ? ["leercapitulo"] : []),
+  "catharsis",
+  "ikigai",
+  "ehentai",
+  "hitomi",
+]);
+
+function esFuenteAnimeValida(valor: string | null): valor is FuenteAnime {
+  return valor === "jkanime" || valor === "tioanime" || valor === "mundodonghua" || valor === "hentaitv";
+}
+
+function esFuenteLecturaDisponible(valor: string | null): valor is string {
+  if (!valor || !FUENTES_LECTURA_VALIDAS.has(valor)) return false;
+  if (valor === "ikigai" && typeof window !== "undefined" && !ikigaiDisponible()) return false;
+  if ((valor === "ehentai" || valor === "hitomi") && typeof window !== "undefined" && isPlayStoreApp()) return false;
+  return true;
+}
+
+const LIMPIAR_PARAMS_ANIME = [
+  "vista",
+  "q",
+  "genre",
+  "genero",
+  "sort",
+  "status",
+  "type",
+  "year",
+  "year_from",
+  "year_to",
+  "season",
+  "letter",
+  "anime_page",
+  "demographic",
+  "category",
+  "order",
+];
+
 function MarcaGuardada({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return <span className="absolute left-2 top-2 z-10 rounded-md border border-line bg-panel px-2 py-1 text-[11px] font-semibold text-ink shadow-sm" aria-label="En biblioteca">▣ En biblioteca</span>;
 }
 
 export default function ExplorarPage() {
+  const experience = useExperience();
   const navigation = useSearchParams();
   const seccion: SeccionExplorar = navigation.get("seccion") === "animada" ? "animada" : "lectura";
   const [guardadas, setGuardadas] = useState<ReferenciaBiblioteca[]>([]);
@@ -188,7 +245,7 @@ export default function ExplorarPage() {
   const [fuente, setFuente] = useState("mangadex");
   const [restaurado, setRestaurado] = useState(false);
   const [animeFuente, setAnimeFuente] = useState<FuenteAnime>("jkanime");
-  const [animeHabilitado, setAnimeHabilitado] = useState(false);
+  const [animeHabilitado, setAnimeHabilitado] = useState(() => experience.animeEnabled);
   const [animeAdultoHabilitado, setAnimeAdultoHabilitado] = useState(false);
   const [adultoComprobado, setAdultoComprobado] = useState(false);
   const lecturaActiva = restaurado && !(seccion === "animada" && animeHabilitado);
@@ -368,7 +425,7 @@ export default function ExplorarPage() {
   }, [cwPage, cwOrden, search, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "catharsis") return;
+    if (!lecturaActiva || fuente !== "catharsis") return;
     const solicitud = nuevaSolicitud("catharsis");
     if (!pedirFresco.current) setCw(null);
     const t = setTimeout(() => void cargarCw(solicitud), search ? 400 : 0);
@@ -376,21 +433,7 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("catharsis", solicitud);
     };
-  }, [cargarCw, search, fuente, nuevaSolicitud, cancelarSolicitud]);
-
-  const prevCwFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ search, cwOrden });
-    if (prevCwFiltros.current === null) {
-      prevCwFiltros.current = clave;
-      return;
-    }
-    if (prevCwFiltros.current !== clave) {
-      prevCwFiltros.current = clave;
-      setCwPage(1);
-    }
-  }, [restaurado, search, cwOrden]);
+  }, [cargarCw, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
   const cargarLc = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("leercapitulo", solicitud)) return;
@@ -438,7 +481,7 @@ export default function ExplorarPage() {
   }, [lcPage, search, lcGenero, lcInicial, lcLista, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "leercapitulo") return;
+    if (!lecturaActiva || fuente !== "leercapitulo") return;
     const solicitud = nuevaSolicitud("leercapitulo");
     // al refrescar no se vacía la grilla: se reemplaza cuando llega
     if (!pedirFresco.current) setLc(null);
@@ -447,21 +490,7 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("leercapitulo", solicitud);
     };
-  }, [cargarLc, search, fuente, nuevaSolicitud, cancelarSolicitud]);
-
-  const prevLcFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ search, lcGenero, lcInicial, lcLista });
-    if (prevLcFiltros.current === null) {
-      prevLcFiltros.current = clave;
-      return;
-    }
-    if (prevLcFiltros.current !== clave) {
-      prevLcFiltros.current = clave;
-      setLcPage(1);
-    }
-  }, [restaurado, search, lcGenero, lcInicial, lcLista]);
+  }, [cargarLc, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
   const refrescar = useCallback(() => {
     pedirFresco.current = true;
@@ -473,24 +502,37 @@ export default function ExplorarPage() {
     setIkigaiHay(ikigaiDisponible());
   }, []);
 
+  const verificadoAdultoDefinitivo = useRef(false);
+
   useEffect(() => {
     // La fuente adulta depende siempre de la preferencia comprobada por el
     // servidor. En Play tampoco se conserva un permiso de la edición local.
     const enAndroid = isAndroidApp();
     if (!isPlayStoreApp()) setAnimeHabilitado(true);
-    const aplicar = (me: {
-      anime_enabled?: boolean;
-      show_adult_content?: boolean;
-      play_store_app?: boolean;
-    } | null) => {
+    const aplicar = (
+      me: {
+        anime_enabled?: boolean;
+        show_adult_content?: boolean;
+        play_store_app?: boolean;
+      } | null,
+      definitivo: boolean
+    ) => {
       if (enAndroid) {
         const habilitado = me ? Boolean(me.anime_enabled) : !isPlayStoreApp();
         setAnimeHabilitado(habilitado);
       }
-      setAnimeAdultoHabilitado(
-        Boolean(me?.show_adult_content) && !me?.play_store_app && !isPlayStoreApp()
-      );
-      setAdultoComprobado(true);
+      const adulto =
+        Boolean(me?.show_adult_content) && !me?.play_store_app && !isPlayStoreApp();
+      if (definitivo) {
+        verificadoAdultoDefinitivo.current = true;
+        setAnimeAdultoHabilitado(adulto);
+        setAdultoComprobado(true);
+      } else if (adulto || isPlayStoreApp()) {
+        // Si la caché ya habilitaba +18 (o es Play Store), no hacemos esperar
+        // la carga de E-Hentai/Hitomi/HentaiTV al regresar a ellos.
+        setAnimeAdultoHabilitado(adulto);
+        setAdultoComprobado(adulto || isPlayStoreApp());
+      }
     };
     void (async () => {
       const guardada = await leerCacheAndroid<{
@@ -501,26 +543,32 @@ export default function ExplorarPage() {
         privateData: true,
         maxAgeMs: 30 * 24 * 60 * 60 * 1000,
       });
-      if (guardada) aplicar(guardada.value);
+      if (guardada) aplicar(guardada.value, false);
       try {
         const res = await fetchConLimiteAndroid("/api/auth/me", {}, 8_000);
-        if (!res.ok) { if (res.status === 401) aplicar(null); return; }
+        if (!res.ok) {
+          if (res.status === 401) aplicar(null, true);
+          return;
+        }
         const me = (await res.json()) as {
           anime_enabled?: boolean;
           show_adult_content?: boolean;
           play_store_app?: boolean;
         };
-        aplicar(me);
+        aplicar(me, true);
         await guardarCacheAndroid("sesion:me", me, { privateData: true });
       } catch {
-        // Con mala señal se conserva la preferencia comprobada anteriormente.
-        setAdultoComprobado(true);
+        // Con fallo de red transitorio no expulsamos al usuario a MangaDex pág. 1.
       }
     })();
   }, []);
 
   useEffect(() => {
-    if (adultoComprobado && animeFuente === "hentaitv" && !animeAdultoHabilitado) {
+    if (
+      ((adultoComprobado && verificadoAdultoDefinitivo.current) || isPlayStoreApp()) &&
+      animeFuente === "hentaitv" &&
+      !animeAdultoHabilitado
+    ) {
       setAnimeFuente("jkanime");
     }
   }, [adultoComprobado, animeAdultoHabilitado, animeFuente]);
@@ -532,7 +580,7 @@ export default function ExplorarPage() {
 
   // lo más leído de la semana, tal como lo publica ZonaTMO
   useEffect(() => {
-    if (fuente !== "tmo" || tmoPopulares.length > 0) return;
+    if (!lecturaActiva || fuente !== "tmo" || tmoPopulares.length > 0) return;
     cargarConCacheAndroid(
       "explorar:tmo:populares:week",
       () => popularesTmo("week"),
@@ -540,7 +588,7 @@ export default function ExplorarPage() {
     )
       .then(setTmoPopulares)
       .catch(() => setTmoPopulares([]));
-  }, [fuente, tmoPopulares.length]);
+  }, [lecturaActiva, fuente, tmoPopulares.length]);
 
   const cargarTmo = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("tmo", solicitud)) return;
@@ -590,7 +638,7 @@ export default function ExplorarPage() {
   }, [tmoPage, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "tmo") return;
+    if (!lecturaActiva || fuente !== "tmo") return;
     const solicitud = nuevaSolicitud("tmo");
     if (!pedirFresco.current) setTmo(null);
     const t = setTimeout(() => void cargarTmo(solicitud), search ? 400 : 0);
@@ -598,21 +646,7 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("tmo", solicitud);
     };
-  }, [cargarTmo, search, fuente, nuevaSolicitud, cancelarSolicitud]);
-
-  const prevTmoFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden });
-    if (prevTmoFiltros.current === null) {
-      prevTmoFiltros.current = clave;
-      return;
-    }
-    if (prevTmoFiltros.current !== clave) {
-      prevTmoFiltros.current = clave;
-      setTmoPage(1);
-    }
-  }, [restaurado, search, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden]);
+  }, [cargarTmo, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
   const [iki, setIki] = useState<SerieIkigai[] | null>(null);
   const [ikiPage, setIkiPage] = useState(1);
@@ -657,7 +691,7 @@ export default function ExplorarPage() {
   }, [ikiPage, search, ikiTipo, ikiGenero, ikiOrden, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "ikigai") return;
+    if (!lecturaActiva || fuente !== "ikigai") return;
     const solicitud = nuevaSolicitud("ikigai");
     if (!pedirFresco.current) setIki(null);
     const t = setTimeout(() => void cargarIki(solicitud), search ? 400 : 0);
@@ -665,21 +699,7 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("ikigai", solicitud);
     };
-  }, [cargarIki, search, fuente, nuevaSolicitud, cancelarSolicitud]);
-
-  const prevIkiFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ search, ikiTipo, ikiGenero, ikiOrden });
-    if (prevIkiFiltros.current === null) {
-      prevIkiFiltros.current = clave;
-      return;
-    }
-    if (prevIkiFiltros.current !== clave) {
-      prevIkiFiltros.current = clave;
-      setIkiPage(1);
-    }
-  }, [restaurado, search, ikiTipo, ikiGenero, ikiOrden]);
+  }, [cargarIki, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
   const [olyOpciones, setOlyOpciones] = useState<{
     generos: { id: number; name: string }[];
@@ -723,334 +743,441 @@ export default function ExplorarPage() {
   // Permite que retroceder (gesto de Android o botón atrás en mouse/navegador)
   // vuelva paso a paso entre páginas (10 -> 9 -> 8...) y preserve filtros.
   const navegandoPorPopState = useRef(false);
+  const scrollAlCambiarPaso = useRef(false);
   const prevRef = useRef<{
-    url: string;
-    fuente: string;
-    pagina: number;
-    tag: string | null;
-    orden: string;
+    claveUrl: string;
+    pasoClave: string;
   } | null>(null);
 
-  const aplicarEstadoDesdeUrl = useCallback((p: URLSearchParams) => {
-    const leer = (k: string) => p.get(k) || null;
+  const aplicarEstadoDesdeUrl = useCallback(
+    (
+      p: URLSearchParams,
+      opciones?: { desdePopState?: boolean; fuenteForzada?: string; restaurarGuardadoSiVacio?: boolean }
+    ) => {
+      const leer = (k: string) => p.get(k) || null;
+      const seccionUrl = leer("seccion") === "animada" ? "animada" : "lectura";
 
-    const fuenteAnime = leer("anime_fuente");
-    if (fuenteAnime === "tioanime" || fuenteAnime === "mundodonghua" || fuenteAnime === "hentaitv") setAnimeFuente(fuenteAnime);
-    const f = leer("fuente") || (typeof window !== "undefined" ? sessionStorage.getItem("mangatotal:fuente-lectura") : null);
-    if (f) setFuente(f);
-    const q = leer("q");
-    setSearch(q ?? "");
-    setSelectedGenres(p.getAll("md_genre"));
-
-    const pagina = Number(leer("p")) || 1;
-    if (leer("md_order")) setOrder(leer("md_order")!);
-    if (leer("md_lang")) setLang(leer("md_lang")!);
-    const st = p.getAll("md_status");
-    setStatus(st);
-    const or = p.getAll("md_origin");
-    setOrigin(or);
-    if (f === "mangadex" || !f) {
-      setOffset(pagina > 1 ? (pagina - 1) * 24 : 0);
-    }
-
-    if (leer("oly_orden")) setOlyOrden(leer("oly_orden")!);
-    setOlyGenero(leer("oly_genero") ? Number(leer("oly_genero")) : null);
-    setOlyEstado(leer("oly_estado") ? Number(leer("oly_estado")) : null);
-    setOlyTipo(leer("oly_tipo"));
-    if (f === "olympus") setOlympusPage(pagina);
-
-    setTmoTipo(leer("tmo_tipo"));
-    setTmoDemo(leer("tmo_demo"));
-    setTmoEstado(leer("tmo_estado"));
-    setTmoGenero(leer("tmo_genero"));
-    setTmoOrden(leer("tmo_orden"));
-    if (f === "tmo") setTmoPage(pagina);
-
-    setIkiTipo(leer("iki_tipo"));
-    setIkiGenero(leer("iki_genero"));
-    if (leer("iki_orden")) setIkiOrden(leer("iki_orden")!);
-    if (f === "ikigai") setIkiPage(pagina);
-
-    setLcGenero(leer("lc_genero"));
-    setLcInicial(leer("lc_inicial"));
-    setLcLista(leer("lc_lista") ?? "");
-    if (f === "leercapitulo") setLcPage(pagina);
-
-    if (leer("cw_orden")) setCwOrden(leer("cw_orden")! as OrdenCw);
-    if (f === "catharsis") setCwPage(pagina);
-
-    const ehCatUrl = leer("eh_cat") ?? "todos";
-    setEhCat(ehCatUrl);
-    const ehLangUrl = leer("eh_lang") ?? "todos";
-    setEhLang(ehLangUrl);
-    const ehTagUrl = leer("eh_tag");
-    setEhTag(ehTagUrl);
-    const ehNextUrl = leer("eh_next");
-    prevEhFiltros.current = JSON.stringify({
-      search: q ?? "",
-      ehCat: ehCatUrl,
-      ehLang: ehLangUrl,
-      ehTag: ehTagUrl,
-    });
-    if (f === "ehentai") {
-      try {
-        const claveCursores = `mangatotal:ehcursors:${JSON.stringify([(q ?? "").trim(), ehCatUrl, ehLangUrl, ehTagUrl ?? ""])}`;
-        const guardados = JSON.parse(sessionStorage.getItem(claveCursores) || "{}") as Record<number, string | null>;
-        ehCursors.current = { 1: null, ...guardados };
-      } catch {
-        ehCursors.current = { 1: null };
+      if (seccionUrl === "animada") {
+        const fa = leer("anime_fuente");
+        if (esFuenteAnimeValida(fa)) {
+          setAnimeFuente(fa);
+          guardarUltimaFuente("anime", fa);
+        } else if (opciones?.desdePopState) {
+          setAnimeFuente("jkanime");
+          guardarUltimaFuente("anime", "jkanime");
+        } else {
+          const guardadaAnime = leerUltimaFuente("anime");
+          const elegida: FuenteAnime =
+            esFuenteAnimeValida(guardadaAnime) &&
+            (guardadaAnime !== "hentaitv" || !isPlayStoreApp())
+              ? guardadaAnime
+              : "jkanime";
+          setAnimeFuente(elegida);
+          const tieneOtrosParamsAnime = LIMPIAR_PARAMS_ANIME.some((k) => Boolean(p.get(k)));
+          if (opciones?.restaurarGuardadoSiVacio && !tieneOtrosParamsAnime) {
+            const urlGuardada = leerEstadoFuente("anime", elegida);
+            if (urlGuardada && normalizarClaveRuta("/explorar", urlGuardada) !== normalizarClaveRuta("/explorar", p.toString())) {
+              escribirUrlHistorial(urlGuardada, "replace");
+            }
+          }
+        }
+        return;
       }
-      setEhPage(pagina);
-      if (pagina > 1 && ehNextUrl) {
-        ehCursors.current[pagina] = ehNextUrl;
-        setEhNextCursor(ehNextUrl);
+
+      let paramsEfectivos = p;
+      let f = opciones?.fuenteForzada ?? leer("fuente");
+      const tieneParamsExplicitos =
+        Boolean(leer("fuente")) ||
+        Boolean(leer("p")) ||
+        Boolean(leer("q")) ||
+        Boolean(leer("md_order")) ||
+        Boolean(leer("md_lang")) ||
+        p.getAll("md_genre").length > 0 ||
+        p.getAll("md_status").length > 0 ||
+        p.getAll("md_origin").length > 0;
+
+      if (!f) {
+        if (opciones?.desdePopState || tieneParamsExplicitos) {
+          f = "mangadex";
+        } else {
+          const ultima = leerUltimaFuente("lectura");
+          f = esFuenteLecturaDisponible(ultima) ? ultima : "mangadex";
+        }
+      }
+
+      if (!esFuenteLecturaDisponible(f) && f !== "ehentai" && f !== "hitomi") {
+        f = "mangadex";
+      }
+
+      if (!opciones?.desdePopState && !tieneParamsExplicitos && opciones?.restaurarGuardadoSiVacio) {
+        const estadoGuardado = leerEstadoFuente("lectura", f);
+        if (estadoGuardado) {
+          try {
+            const u = new URL(estadoGuardado, window.location.origin);
+            paramsEfectivos = u.searchParams;
+          } catch {}
+        }
+      }
+
+      const leerEf = (k: string) => paramsEfectivos.get(k) || null;
+      setFuente(f);
+      guardarUltimaFuente("lectura", f);
+
+      const q = leerEf("q") ?? "";
+      setSearch(q);
+      const pagina = Math.max(1, Math.floor(Number(leerEf("p")) || 1));
+
+      setSelectedGenres(paramsEfectivos.getAll("md_genre"));
+      setOrder(leerEf("md_order") ?? "latest");
+      setLang(leerEf("md_lang") ?? "es");
+      setStatus(paramsEfectivos.getAll("md_status"));
+      setOrigin(paramsEfectivos.getAll("md_origin"));
+      setOffset(f === "mangadex" && pagina > 1 ? (pagina - 1) * 24 : 0);
+
+      setOlyOrden(leerEf("oly_orden") ?? "novedades");
+      setOlyGenero(leerEf("oly_genero") ? Number(leerEf("oly_genero")) : null);
+      setOlyEstado(leerEf("oly_estado") ? Number(leerEf("oly_estado")) : null);
+      setOlyTipo(leerEf("oly_tipo"));
+      setOlympusPage(f === "olympus" ? pagina : 1);
+
+      setTmoTipo(leerEf("tmo_tipo"));
+      setTmoDemo(leerEf("tmo_demo"));
+      setTmoEstado(leerEf("tmo_estado"));
+      setTmoGenero(leerEf("tmo_genero"));
+      setTmoOrden(leerEf("tmo_orden"));
+      setTmoPage(f === "tmo" ? pagina : 1);
+
+      setIkiTipo(leerEf("iki_tipo"));
+      setIkiGenero(leerEf("iki_genero"));
+      setIkiOrden(leerEf("iki_orden") ?? "recientes");
+      setIkiPage(f === "ikigai" ? pagina : 1);
+
+      setLcGenero(leerEf("lc_genero"));
+      setLcInicial(leerEf("lc_inicial"));
+      setLcLista(leerEf("lc_lista") ?? "");
+      setLcPage(f === "leercapitulo" ? pagina : 1);
+
+      setCwOrden((leerEf("cw_orden") as OrdenCw) ?? "novedades");
+      setCwPage(f === "catharsis" ? pagina : 1);
+
+      const ehCatUrl = leerEf("eh_cat") ?? "todos";
+      const ehLangUrl = leerEf("eh_lang") ?? "todos";
+      const ehTagUrl = leerEf("eh_tag");
+      const ehNextUrl = leerEf("eh_next");
+      setEhCat(ehCatUrl);
+      setEhLang(ehLangUrl);
+      setEhTag(ehTagUrl);
+      if (f === "ehentai") {
+        try {
+          const claveCursores = `mangatotal:ehcursors:${JSON.stringify([q.trim(), ehCatUrl, ehLangUrl, ehTagUrl ?? ""])}`;
+          const guardados = JSON.parse(sessionStorage.getItem(claveCursores) || "{}") as Record<number, string | null>;
+          ehCursors.current = { 1: null, ...guardados };
+        } catch {
+          ehCursors.current = { 1: null };
+        }
+        setEhPage(pagina);
+        if (pagina > 1 && ehNextUrl) {
+          ehCursors.current[pagina] = ehNextUrl;
+          setEhNextCursor(ehNextUrl);
+        } else {
+          setEhNextCursor(ehCursors.current[pagina] ?? null);
+        }
       } else {
-        setEhNextCursor(ehCursors.current[pagina] ?? null);
+        ehCursors.current = { 1: null };
+        setEhPage(1);
+        setEhNextCursor(null);
       }
-    }
 
-    const hitomiTipoUrl = leer("hitomi_tipo");
-    if (hitomiTipoUrl) setHitomiTipo(hitomiTipoUrl);
-    const hitomiOrdenUrl = leer("hitomi_orden") || leer("hitomi_order") || leer("hi_orden");
-    if (hitomiOrdenUrl) setHitomiOrden(hitomiOrdenUrl as HitomiOrden);
-    const hitomiLangUrl = leer("hitomi_lang");
-    setHitomiLang(hitomiLangUrl ?? "spanish");
-    const hitomiTagUrl = leer("hitomi_tag") || leer("hi_tag");
-    setHitomiTag(hitomiTagUrl);
-    if (f === "hitomi") {
-      setHitomiPage(pagina);
-    }
-  }, []);
+      setHitomiTipo(leerEf("hitomi_tipo") ?? "todos");
+      setHitomiOrden(
+        (leerEf("hitomi_orden") ||
+          leerEf("hitomi_order") ||
+          leerEf("hi_orden") ||
+          "date_added") as HitomiOrden
+      );
+      setHitomiLang(leerEf("hitomi_lang") ?? "spanish");
+      setHitomiTag(leerEf("hitomi_tag") || leerEf("hi_tag"));
+      setHitomiPage(f === "hitomi" ? pagina : 1);
 
-  // Restauración inicial al montar y al llegar por enlace externo (ej. click en tag dentro de una ficha)
+      if (opciones?.desdePopState) {
+        // Limpiamos inmediatamente las listas previas en popstate para que
+        // useRestaurarScroll no ejecute contra la altura de la página anterior.
+        setSeries(null);
+        setOlympus(null);
+        setTmo(null);
+        setIki(null);
+        setLc(null);
+        setCw(null);
+        setEhGalleries(null);
+        setHitomiSeries(null);
+      }
+    },
+    []
+  );
+
+  // Restauración inicial al montar y sincronización ante enlaces externos (ej. tag o barra móvil)
   const searchParamsStr = navigation.toString();
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     if (!restaurado) {
-      aplicarEstadoDesdeUrl(p);
+      aplicarEstadoDesdeUrl(p, { desdePopState: false, restaurarGuardadoSiVacio: true });
       setRestaurado(true);
       return;
     }
-    const urlActual = window.location.href;
-    if (prevRef.current && prevRef.current.url !== urlActual) {
+    if (fueEscritaPorNosotros(window.location.pathname, window.location.search)) {
+      return;
+    }
+    const claveActual = normalizarClaveRuta(window.location.pathname, window.location.search);
+    if (prevRef.current && prevRef.current.claveUrl !== claveActual) {
       navegandoPorPopState.current = true;
-      aplicarEstadoDesdeUrl(p);
+      aplicarEstadoDesdeUrl(p, { desdePopState: true });
+    } else if (p.get("seccion") === "animada") {
+      aplicarEstadoDesdeUrl(p, { desdePopState: false });
     }
   }, [aplicarEstadoDesdeUrl, searchParamsStr, restaurado]);
 
-  // Manejo del evento popstate (navegación atrás/adelante en navegador o gesto Android)
+  // Manejo del evento popstate (atrás/adelante del navegador, ratón, Tauri o gesto Android)
   useEffect(() => {
     const onPopState = () => {
+      if (window.location.hash !== "#etiquetas-eh") setEhModalTags(false);
+      if (window.location.hash !== "#etiquetas-hitomi") setHitomiModalTags(false);
+      const claveActual = normalizarClaveRuta(window.location.pathname, window.location.search);
+      // Si solo se cerró el hash de un modal sin cambiar catálogo ni query, no reiniciamos flags.
+      if (prevRef.current?.claveUrl === claveActual && window.location.search.indexOf("seccion=animada") === -1) {
+        return;
+      }
       navegandoPorPopState.current = true;
       const p = new URLSearchParams(window.location.search);
-      aplicarEstadoDesdeUrl(p);
+      aplicarEstadoDesdeUrl(p, { desdePopState: true });
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [aplicarEstadoDesdeUrl]);
 
-  // Reflejar el estado en la URL (pushState para cambios de página, tag, fuente u orden; replaceState para búsqueda continua)
+  const paginaActivaLectura =
+    fuente === "olympus"
+      ? olympusPage
+      : fuente === "tmo"
+        ? tmoPage
+        : fuente === "ikigai"
+          ? ikiPage
+          : fuente === "leercapitulo"
+            ? lcPage
+            : fuente === "catharsis"
+              ? cwPage
+              : fuente === "ehentai"
+                ? ehPage
+                : fuente === "hitomi"
+                  ? hitomiPage
+                  : Math.floor(offset / 24) + 1;
+
+  // Reflejar el estado de Lectura en la URL (sin contaminar nunca la sección Anime).
   useEffect(() => {
-    if (!restaurado) return;
+    if (!restaurado || seccion === "animada") return;
     const url = new URL(window.location.href);
+    url.hash = "";
+    const clavesLectura = [
+      "seccion",
+      "anime_fuente",
+      "vista",
+      "fuente",
+      "q",
+      "p",
+      "cw_orden",
+      "md_order",
+      "md_lang",
+      "md_genre",
+      "md_status",
+      "md_origin",
+      "oly_orden",
+      "oly_genero",
+      "oly_estado",
+      "oly_tipo",
+      "tmo_tipo",
+      "tmo_demo",
+      "tmo_estado",
+      "tmo_genero",
+      "tmo_orden",
+      "iki_tipo",
+      "iki_genero",
+      "iki_orden",
+      "lc_genero",
+      "lc_inicial",
+      "lc_lista",
+      "eh_cat",
+      "eh_lang",
+      "eh_tag",
+      "eh_next",
+      "hitomi_tipo",
+      "hitomi_orden",
+      "hitomi_order",
+      "hi_orden",
+      "hitomi_lang",
+      "hitomi_tag",
+      "hi_tag",
+    ];
+    for (const k of clavesLectura) url.searchParams.delete(k);
+
     const poner = (k: string, v: string | number | null | undefined) => {
       if (v === null || v === undefined || v === "" || v === 0) url.searchParams.delete(k);
       else url.searchParams.set(k, String(v));
     };
 
-    poner("seccion", seccion === "animada" ? "animada" : null);
-    poner("anime_fuente", seccion === "animada" && animeFuente !== "jkanime" ? animeFuente : null);
     poner("fuente", fuente === "mangadex" ? null : fuente);
-    if (seccion === "lectura") poner("q", search.trim() || null);
+    poner("q", search.trim() || null);
+    poner("p", paginaActivaLectura > 1 ? paginaActivaLectura : null);
 
-    const pagina =
-      fuente === "olympus"
-        ? olympusPage
-        : fuente === "tmo"
-          ? tmoPage
-          : fuente === "ikigai"
-            ? ikiPage
-            : fuente === "leercapitulo"
-              ? lcPage
-              : fuente === "catharsis"
-                ? cwPage
-                : fuente === "ehentai"
-                  ? ehPage
-                  : fuente === "hitomi"
-                    ? hitomiPage
-                    : Math.floor(offset / 24) + 1;
-    poner("p", pagina > 1 ? pagina : null);
+    if (fuente === "mangadex") {
+      poner("md_order", order === "latest" ? null : order);
+      poner("md_lang", lang === "es" ? null : lang);
+      for (const genre of selectedGenres) url.searchParams.append("md_genre", genre);
+      for (const s of status) url.searchParams.append("md_status", s);
+      for (const o of origin) url.searchParams.append("md_origin", o);
+    } else if (fuente === "olympus") {
+      poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
+      poner("oly_genero", olyGenero);
+      poner("oly_estado", olyEstado);
+      poner("oly_tipo", olyTipo);
+    } else if (fuente === "tmo") {
+      poner("tmo_tipo", tmoTipo);
+      poner("tmo_demo", tmoDemo);
+      poner("tmo_estado", tmoEstado);
+      poner("tmo_genero", tmoGenero);
+      poner("tmo_orden", tmoOrden);
+    } else if (fuente === "ikigai") {
+      poner("iki_tipo", ikiTipo);
+      poner("iki_genero", ikiGenero);
+      poner("iki_orden", ikiOrden === "recientes" ? null : ikiOrden);
+    } else if (fuente === "leercapitulo") {
+      poner("lc_genero", lcGenero);
+      poner("lc_inicial", lcInicial);
+      poner("lc_lista", lcLista || null);
+    } else if (fuente === "catharsis") {
+      poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
+    } else if (fuente === "ehentai") {
+      poner("eh_cat", ehCat === "todos" ? null : ehCat);
+      poner("eh_lang", ehLang === "todos" ? null : ehLang);
+      poner("eh_tag", ehTag);
+      poner(
+        "eh_next",
+        ehPage > 1 ? (ehNextCursor || ehCursors.current[ehPage] || null) : null
+      );
+    } else if (fuente === "hitomi") {
+      poner("hitomi_tipo", hitomiTipo === "todos" ? null : hitomiTipo);
+      poner("hitomi_orden", hitomiOrden === "date_added" ? null : hitomiOrden);
+      poner("hitomi_lang", hitomiLang === "spanish" ? null : hitomiLang);
+      poner("hitomi_tag", hitomiTag);
+    }
 
-    poner("cw_orden", cwOrden === "novedades" ? null : cwOrden);
-    poner("md_order", order === "latest" ? null : order);
-    poner("md_lang", lang === "es" ? null : lang);
-    url.searchParams.delete("md_genre");
-    for (const genre of selectedGenres) url.searchParams.append("md_genre", genre);
-    url.searchParams.delete("md_status");
-    for (const s of status) url.searchParams.append("md_status", s);
-    url.searchParams.delete("md_origin");
-    for (const o of origin) url.searchParams.append("md_origin", o);
+    const rutaRelativa = url.pathname + url.search;
+    const nuevaClaveUrl = normalizarClaveRuta(url.pathname, url.search);
+    const pasoClave = JSON.stringify({
+      fuente,
+      pagina: paginaActivaLectura,
+      ...(fuente === "mangadex" ? { order, lang, selectedGenres, status, origin } : {}),
+      ...(fuente === "olympus" ? { olyOrden, olyGenero, olyEstado, olyTipo } : {}),
+      ...(fuente === "tmo" ? { tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden } : {}),
+      ...(fuente === "ikigai" ? { ikiTipo, ikiGenero, ikiOrden } : {}),
+      ...(fuente === "leercapitulo" ? { lcGenero, lcInicial, lcLista } : {}),
+      ...(fuente === "catharsis" ? { cwOrden } : {}),
+      ...(fuente === "ehentai" ? { ehCat, ehLang, ehTag } : {}),
+      ...(fuente === "hitomi" ? { hitomiTipo, hitomiOrden, hitomiLang, hitomiTag } : {}),
+    });
 
-    poner("oly_orden", olyOrden === "novedades" ? null : olyOrden);
-    poner("oly_genero", olyGenero);
-    poner("oly_estado", olyEstado);
-    poner("oly_tipo", olyTipo);
-    poner("tmo_tipo", tmoTipo);
-    poner("tmo_demo", tmoDemo);
-    poner("tmo_estado", tmoEstado);
-    poner("tmo_genero", tmoGenero);
-    poner("tmo_orden", tmoOrden);
-    poner("iki_tipo", ikiTipo);
-    poner("iki_genero", ikiGenero);
-    poner("iki_orden", ikiOrden === "recientes" ? null : ikiOrden);
-    poner("lc_genero", lcGenero);
-    poner("lc_inicial", lcInicial);
-    poner("lc_lista", lcLista || null);
+    guardarUltimaFuente("lectura", fuente);
+    guardarUltimoExplorar("lectura", rutaRelativa);
+    guardarEstadoFuente("lectura", fuente, rutaRelativa);
 
-    poner("eh_cat", ehCat === "todos" ? null : ehCat);
-    poner("eh_lang", ehLang === "todos" ? null : ehLang);
-    poner("eh_tag", ehTag);
-    poner("eh_next", ehPage > 1 ? (ehNextCursor || ehCursors.current[ehPage] || null) : null);
-
-    poner("hitomi_tipo", hitomiTipo === "todos" ? null : hitomiTipo);
-    poner("hitomi_orden", hitomiOrden === "date_added" ? null : hitomiOrden);
-    poner("hitomi_lang", hitomiLang === "spanish" ? null : hitomiLang);
-    poner("hitomi_tag", hitomiTag);
-
-    const nuevaUrlStr = url.toString();
-    try {
-      sessionStorage.setItem("mangatotal:ultimo-explorar", url.pathname + url.search);
-    } catch {}
-
-    // Si venimos de un evento 'popstate' (el usuario pulsó atrás/adelante en el navegador o gesto en Android),
-    // no creamos una nueva entrada en el historial para respetar la pila de navegación nativa.
     if (navegandoPorPopState.current) {
       navegandoPorPopState.current = false;
-      prevRef.current = {
-        url: nuevaUrlStr,
-        fuente,
-        pagina,
-        tag: fuente === "hitomi" ? hitomiTag : fuente === "ehentai" ? ehTag : selectedGenres.join(","),
-        orden: fuente === "hitomi" ? hitomiOrden : cwOrden,
-      };
+      scrollAlCambiarPaso.current = false;
+      prevRef.current = { claveUrl: nuevaClaveUrl, pasoClave };
       return;
     }
-
-    const tagActual = fuente === "hitomi" ? hitomiTag : fuente === "ehentai" ? ehTag : selectedGenres.join(",");
-    const ordenActual = fuente === "hitomi" ? hitomiOrden : cwOrden;
 
     if (!prevRef.current) {
-      prevRef.current = {
-        url: nuevaUrlStr,
-        fuente,
-        pagina,
-        tag: tagActual,
-        orden: ordenActual,
-      };
-      window.history.replaceState(null, "", nuevaUrlStr);
+      prevRef.current = { claveUrl: nuevaClaveUrl, pasoClave };
+      scrollAlCambiarPaso.current = false;
+      if (normalizarClaveRuta(window.location.pathname, window.location.search) !== nuevaClaveUrl) {
+        escribirUrlHistorial(url, "replace");
+      }
       return;
     }
 
-    if (prevRef.current.url === nuevaUrlStr) return;
-
-    // Si cambió la página, la fuente, la etiqueta o el orden: pushState crea historial
-    // para que retroceder paso a paso (ej: página 10 -> 9 -> 8...) funcione tal como pidió el usuario.
-    const esPasoHistorial =
-      pagina !== prevRef.current.pagina ||
-      fuente !== prevRef.current.fuente ||
-      tagActual !== prevRef.current.tag ||
-      ordenActual !== prevRef.current.orden;
-
-    if (esPasoHistorial) {
-      window.history.pushState(null, "", nuevaUrlStr);
-    } else {
-      window.history.replaceState(null, "", nuevaUrlStr);
+    if (prevRef.current.claveUrl === nuevaClaveUrl) {
+      scrollAlCambiarPaso.current = false;
+      return;
     }
 
-    prevRef.current = {
-      url: nuevaUrlStr,
-      fuente,
-      pagina,
-      tag: tagActual,
-      orden: ordenActual,
-    };
-  }, [
-    restaurado, seccion, animeFuente, fuente, search, offset, order, lang, selectedGenres, origin, status,
-    olympusPage, olyOrden, olyGenero, olyEstado, olyTipo,
-    tmoPage, tmoTipo, tmoDemo, tmoEstado, tmoGenero, tmoOrden,
-    ikiPage, ikiTipo, ikiGenero, ikiOrden,
-    lcPage, lcGenero, lcInicial, lcLista,
-    cwPage, cwOrden,
-    ehPage, ehCat, ehLang, ehTag, ehNextCursor,
-    hitomiPage, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag,
-  ]);
-
-  // Guardar posición de scroll antes de salir de explorar o al hacer scroll
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    const guardarScroll = () => {
-      if (typeof window === "undefined") return;
-      if (window.scrollY > 0) {
-        sessionStorage.setItem("mangatotal:scroll:" + window.location.search, String(window.scrollY));
-      }
-    };
-    const onScroll = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(guardarScroll, 100);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      if (timer) clearTimeout(timer);
-      guardarScroll();
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, []);
-
-  // Restaurar posición de scroll guardada cuando los elementos de la página terminan de cargarse
-  useEffect(() => {
-    const hayItems =
-      (fuente === "mangadex" && series !== null && series.length > 0) ||
-      (fuente === "olympus" && olympus !== null && olympus.length > 0) ||
-      (fuente === "tmo" && ((tmo !== null && tmo.length > 0) || tmoPopulares.length > 0)) ||
-      (fuente === "ikigai" && iki !== null && iki.length > 0) ||
-      (fuente === "leercapitulo" && lc !== null && lc.length > 0) ||
-      (fuente === "catharsis" && cw !== null && cw.length > 0) ||
-      (fuente === "ehentai" && ehGalleries !== null && ehGalleries.length > 0) ||
-      (fuente === "hitomi" && hitomiSeries !== null && hitomiSeries.length > 0);
-
-    if (!hayItems) return;
-
-    const key = "mangatotal:scroll:" + window.location.search;
-    const guardado = typeof window !== "undefined" ? sessionStorage.getItem(key) : null;
-    if (guardado) {
-      const y = parseInt(guardado, 10);
-      if (!isNaN(y) && y > 0) {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
-          setTimeout(() => {
-            if (Math.abs(window.scrollY - y) > 60) {
-              window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
-            }
-          }, 60);
-        });
-      }
+    const esPasoHistorial = pasoClave !== prevRef.current.pasoClave;
+    if (scrollAlCambiarPaso.current) {
+      scrollAlCambiarPaso.current = false;
+      guardarScrollRuta(prevRef.current.claveUrl, window.scrollY);
+      marcarScrollArriba(nuevaClaveUrl);
     }
+
+    const desdeModalEtiquetas = window.location.hash.startsWith("#etiquetas-");
+    const modoHistorial = desdeModalEtiquetas ? "replace" : esPasoHistorial ? "push" : "replace";
+    const modoPila = esPasoHistorial ? "push" : "replace";
+    escribirUrlHistorial(url, modoHistorial, undefined, modoPila);
+    prevRef.current = { claveUrl: nuevaClaveUrl, pasoClave };
   }, [
+    restaurado,
+    seccion,
     fuente,
-    series,
-    olympus,
-    tmo,
-    tmoPopulares,
-    iki,
-    lc,
-    cw,
-    ehGalleries,
-    hitomiSeries,
+    search,
+    paginaActivaLectura,
+    order,
+    lang,
+    selectedGenres,
+    origin,
+    status,
+    olyOrden,
+    olyGenero,
+    olyEstado,
+    olyTipo,
+    tmoTipo,
+    tmoDemo,
+    tmoEstado,
+    tmoGenero,
+    tmoOrden,
+    ikiTipo,
+    ikiGenero,
+    ikiOrden,
+    lcGenero,
+    lcInicial,
+    lcLista,
+    cwOrden,
+    ehCat,
+    ehLang,
+    ehTag,
+    ehPage,
+    ehNextCursor,
+    hitomiTipo,
+    hitomiOrden,
+    hitomiLang,
+    hitomiTag,
   ]);
+
+  const claveRutaLectura = useMemo(() => {
+    return normalizarClaveRuta("/explorar", searchParamsStr);
+  }, [searchParamsStr]);
+
+  const hayItemsLectura =
+    (fuente === "mangadex" && series !== null && series.length > 0) ||
+    (fuente === "olympus" && olympus !== null && olympus.length > 0) ||
+    (fuente === "tmo" && tmo !== null && tmo.length > 0) ||
+    (fuente === "ikigai" && iki !== null && iki.length > 0) ||
+    (fuente === "leercapitulo" && lc !== null && lc.length > 0) ||
+    (fuente === "catharsis" && cw !== null && cw.length > 0) ||
+    (fuente === "ehentai" && ehGalleries !== null && ehGalleries.length > 0) ||
+    (fuente === "hitomi" && hitomiSeries !== null && hitomiSeries.length > 0);
+
+  useRestaurarScroll(claveRutaLectura, hayItemsLectura, lecturaActiva);
 
   const guardarScrollActual = useCallback(() => {
-    if (typeof window !== "undefined" && window.scrollY > 0) {
-      sessionStorage.setItem("mangatotal:scroll:" + window.location.search, String(window.scrollY));
+    if (typeof window !== "undefined") {
+      guardarScrollRuta(normalizarClaveRuta(window.location.pathname, window.location.search), window.scrollY);
     }
   }, []);
 
@@ -1177,35 +1304,6 @@ export default function ExplorarPage() {
     };
   }, [cargarOlympus, search, fuente, lecturaActiva, nuevaSolicitud, cancelarSolicitud]);
 
-  const prevOlyFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ search, olyOrden, olyGenero, olyEstado, olyTipo });
-    if (prevOlyFiltros.current === null) {
-      prevOlyFiltros.current = clave;
-      return;
-    }
-    if (prevOlyFiltros.current !== clave) {
-      prevOlyFiltros.current = clave;
-      setOlympusPage(1);
-    }
-  }, [restaurado, search, olyOrden, olyGenero, olyEstado, olyTipo]);
-
-  // cambiar cualquier filtro vuelve a la primera página solo si se modificó interactivamente
-  const prevMdFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ lang, search, order, status, selectedGenres, origin });
-    if (prevMdFiltros.current === null) {
-      prevMdFiltros.current = clave;
-      return;
-    }
-    if (prevMdFiltros.current !== clave) {
-      prevMdFiltros.current = clave;
-      setOffset(0);
-    }
-  }, [restaurado, lang, search, order, status, selectedGenres, origin]);
-
   const cargarEh = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("ehentai", solicitud)) return;
     setError(false);
@@ -1307,22 +1405,6 @@ export default function ExplorarPage() {
     };
   }, [cargarEh, search, fuente, lecturaActiva, animeAdultoHabilitado, nuevaSolicitud, cancelarSolicitud]);
 
-  const prevEhFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ search, ehCat, ehLang, ehTag });
-    if (prevEhFiltros.current === null) {
-      prevEhFiltros.current = clave;
-      return;
-    }
-    if (prevEhFiltros.current !== clave) {
-      prevEhFiltros.current = clave;
-      ehCursors.current = { 1: null };
-      setEhNextCursor(null);
-      setEhPage(1);
-    }
-  }, [restaurado, search, ehCat, ehLang, ehTag]);
-
   const cargarHitomi = useCallback(async (solicitud: number) => {
     if (!solicitudVigente("hitomi", solicitud)) return;
     setError(false);
@@ -1386,7 +1468,7 @@ export default function ExplorarPage() {
   }, [hitomiPage, search, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag, recarga, solicitudVigente]);
 
   useEffect(() => {
-    if (fuente !== "hitomi" || !animeAdultoHabilitado) return;
+    if (!lecturaActiva || fuente !== "hitomi" || !animeAdultoHabilitado) return;
     const solicitud = nuevaSolicitud("hitomi");
     if (!pedirFresco.current) setHitomiSeries(null);
     const t = setTimeout(() => void cargarHitomi(solicitud), search ? 400 : 0);
@@ -1394,29 +1476,44 @@ export default function ExplorarPage() {
       clearTimeout(t);
       cancelarSolicitud("hitomi", solicitud);
     };
-  }, [cargarHitomi, search, fuente, animeAdultoHabilitado, nuevaSolicitud, cancelarSolicitud]);
-
-  const prevHitomiFiltros = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restaurado) return;
-    const clave = JSON.stringify({ search, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag });
-    if (prevHitomiFiltros.current === null) {
-      prevHitomiFiltros.current = clave;
-      return;
-    }
-    if (prevHitomiFiltros.current !== clave) {
-      prevHitomiFiltros.current = clave;
-      setHitomiPage(1);
-    }
-  }, [restaurado, search, hitomiTipo, hitomiOrden, hitomiLang, hitomiTag]);
+  }, [cargarHitomi, search, fuente, lecturaActiva, animeAdultoHabilitado, nuevaSolicitud, cancelarSolicitud]);
 
   useEffect(() => {
-    if (adultoComprobado && (fuente === "ehentai" || fuente === "hitomi") && !animeAdultoHabilitado) {
-      setFuente("mangadex");
+    if (
+      ((adultoComprobado && verificadoAdultoDefinitivo.current) || isPlayStoreApp()) &&
+      (fuente === "ehentai" || fuente === "hitomi") &&
+      !animeAdultoHabilitado
+    ) {
+      aplicarEstadoDesdeUrl(new URLSearchParams(), {
+        desdePopState: true,
+        fuenteForzada: "mangadex",
+      });
     }
-  }, [adultoComprobado, animeAdultoHabilitado, fuente]);
+  }, [adultoComprobado, animeAdultoHabilitado, fuente, aplicarEstadoDesdeUrl]);
+
+  const reiniciarPaginaActiva = useCallback(
+    (destinoFuente: string = fuente) => {
+      scrollAlCambiarPaso.current = true;
+      if (destinoFuente === "mangadex") setOffset(0);
+      else if (destinoFuente === "olympus") setOlympusPage(1);
+      else if (destinoFuente === "tmo") setTmoPage(1);
+      else if (destinoFuente === "ikigai") setIkiPage(1);
+      else if (destinoFuente === "leercapitulo") setLcPage(1);
+      else if (destinoFuente === "catharsis") setCwPage(1);
+      else if (destinoFuente === "ehentai") {
+        ehCursors.current = { 1: null };
+        setEhNextCursor(null);
+        setEhPage(1);
+      } else if (destinoFuente === "hitomi") {
+        setHitomiPage(1);
+      }
+    },
+    [fuente]
+  );
 
   function toggleIn(list: string[], value: string, set: (v: string[]) => void) {
+    scrollAlCambiarPaso.current = true;
+    setOffset(0);
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   }
 
@@ -1427,23 +1524,100 @@ export default function ExplorarPage() {
 
   const cambiarFuente = (siguiente: string) => {
     if (siguiente === fuente) return;
-    try { sessionStorage.setItem("mangatotal:fuente-lectura", siguiente); } catch {}
-    setSearch("");
-    setFuente(siguiente);
+    guardarScrollActual();
+    guardarEstadoFuente(
+      "lectura",
+      fuente,
+      window.location.pathname + window.location.search
+    );
+    guardarUltimaFuente("lectura", siguiente);
+
+    const estadoGuardado = leerEstadoFuente("lectura", siguiente);
+    const paramsSiguiente = estadoGuardado
+      ? new URL(estadoGuardado, window.location.origin).searchParams
+      : new URLSearchParams(siguiente === "mangadex" ? "" : `fuente=${encodeURIComponent(siguiente)}`);
+    if (siguiente === "mangadex") paramsSiguiente.delete("fuente");
+    else paramsSiguiente.set("fuente", siguiente);
+
+    // No pisar el scroll guardado de la fuente a la que regresamos.
+    scrollAlCambiarPaso.current = false;
+    aplicarEstadoDesdeUrl(paramsSiguiente, {
+      desdePopState: true,
+      fuenteForzada: siguiente,
+    });
   };
 
   const cambiarFuenteAnime = (siguiente: FuenteAnime) => {
     if (siguiente === animeFuente) return;
-    // Los nombres y valores de los filtros pertenecen a cada fuente.
-    const url = new URL(location.href);
-    for (const key of ["vista", "q", "genre", "sort", "status", "type", "year", "year_from", "year_to", "season", "letter", "anime_page", "demographic", "category", "order"]) url.searchParams.delete(key);
+    guardarScrollActual();
+    guardarEstadoFuente(
+      "anime",
+      animeFuente,
+      window.location.pathname + window.location.search
+    );
+    guardarUltimaFuente("anime", siguiente);
+
+    const url = new URL(window.location.href);
+    url.hash = "";
+    for (const key of LIMPIAR_PARAMS_ANIME) url.searchParams.delete(key);
+    url.searchParams.set("seccion", "animada");
     url.searchParams.set("anime_fuente", siguiente);
-    history.replaceState(history.state, "", url);
-    setSearch("");
+
+    const estadoGuardado = leerEstadoFuente("anime", siguiente);
+    if (estadoGuardado) {
+      try {
+        const uGuardada = new URL(estadoGuardado, window.location.origin);
+        uGuardada.searchParams.forEach((v, k) => {
+          if (k !== "seccion" && k !== "anime_fuente" && v) {
+            url.searchParams.set(k, v);
+          }
+        });
+      } catch {}
+    }
+
+    escribirUrlHistorial(url, "push");
     setAnimeFuente(siguiente);
   };
 
+  const abrirModalEhTags = () => {
+    setEhModalTags(true);
+    if (typeof window !== "undefined" && window.location.hash !== "#etiquetas-eh") {
+      window.history.pushState(
+        window.history.state,
+        "",
+        window.location.pathname + window.location.search + "#etiquetas-eh"
+      );
+    }
+  };
+  const cerrarModalEhTags = () => {
+    if (typeof window !== "undefined" && window.location.hash === "#etiquetas-eh") {
+      window.history.back();
+    } else {
+      setEhModalTags(false);
+    }
+  };
+
+  const abrirModalHitomiTags = () => {
+    setHitomiModalTags(true);
+    if (typeof window !== "undefined" && window.location.hash !== "#etiquetas-hitomi") {
+      window.history.pushState(
+        window.history.state,
+        "",
+        window.location.pathname + window.location.search + "#etiquetas-hitomi"
+      );
+    }
+  };
+  const cerrarModalHitomiTags = () => {
+    if (typeof window !== "undefined" && window.location.hash === "#etiquetas-hitomi") {
+      window.history.back();
+    } else {
+      setHitomiModalTags(false);
+    }
+  };
+
   if (seccion === "animada" && animeHabilitado) {
+    const vistaHentai = navigation.get("vista");
+    const hentaiPersonal = vistaHentai === "milista" || vistaHentai === "historial";
     return (
       <div className="od-explore space-y-6">
         <h1 className="sr-only">Explorar anime</h1>
@@ -1484,7 +1658,48 @@ export default function ExplorarPage() {
         </div>
 
         {animeFuente === "hentaitv" && animeAdultoHabilitado ? (
-          <HentaitvCatalog />
+          <div className="od-discover space-y-6">
+            <nav className="od-tabs hidden md:flex" aria-label="HentaiTV">
+              <Link
+                aria-current={!hentaiPersonal ? "page" : undefined}
+                href="/explorar?seccion=animada&anime_fuente=hentaitv"
+                prefetch={false}
+              >
+                Todos los títulos
+              </Link>
+              <Link
+                aria-current={hentaiPersonal ? "page" : undefined}
+                href="/explorar?seccion=animada&anime_fuente=hentaitv&vista=milista"
+                prefetch={false}
+              >
+                Mi lista
+              </Link>
+            </nav>
+            {hentaiPersonal ? (
+              <>
+                <div className="mb-5 flex justify-end">
+                  <Link
+                    className="od-outline"
+                    href={
+                      vistaHentai === "historial"
+                        ? "/explorar?seccion=animada&anime_fuente=hentaitv&vista=milista"
+                        : "/explorar?seccion=animada&anime_fuente=hentaitv&vista=historial"
+                    }
+                    prefetch={false}
+                  >
+                    {vistaHentai === "historial" ? "← Volver a Mi lista" : "Ver historial"}
+                  </Link>
+                </div>
+                <MiListaAnime
+                  busqueda={navigation.get("q") ?? ""}
+                  soloGuardados={vistaHentai === "milista"}
+                  soloHistorial={vistaHentai === "historial"}
+                />
+              </>
+            ) : (
+              <HentaitvCatalog />
+            )}
+          </div>
         ) : (
           <AnimeDiscover
             key={animeFuente}
@@ -1556,7 +1771,10 @@ export default function ExplorarPage() {
           {LANGS.map((l) => (
             <button
               key={l.key}
-              onClick={() => setLang(l.key)}
+              onClick={() => {
+                setLang(l.key);
+                reiniciarPaginaActiva("mangadex");
+              }}
               className={`min-h-9 rounded-sm px-4 text-sm font-medium transition-colors ${
                 lang === l.key ? "bg-accent text-[var(--on-accent)]" : "text-subtle hover:text-ink"
               }`}
@@ -1569,7 +1787,10 @@ export default function ExplorarPage() {
         {fuente === "mangadex" && (
         <select
           value={order}
-          onChange={(e) => setOrder(e.target.value)}
+          onChange={(e) => {
+            setOrder(e.target.value);
+            reiniciarPaginaActiva("mangadex");
+          }}
           disabled={Boolean(search.trim())}
           className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink disabled:opacity-40"
           title={search.trim() ? "Al buscar, el orden es por relevancia" : "Ordenar por"}
@@ -1598,7 +1819,10 @@ export default function ExplorarPage() {
           <>
             <select
               value={olyOrden}
-              onChange={(e) => setOlyOrden(e.target.value)}
+              onChange={(e) => {
+                setOlyOrden(e.target.value);
+                reiniciarPaginaActiva("olympus");
+              }}
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
             >
               {olyOpciones.ordenes.map((o) => (
@@ -1626,7 +1850,10 @@ export default function ExplorarPage() {
         {fuente === "ikigai" && (
           <select
             value={ikiOrden}
-            onChange={(e) => setIkiOrden(e.target.value)}
+            onChange={(e) => {
+              setIkiOrden(e.target.value);
+              reiniciarPaginaActiva("ikigai");
+            }}
             className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             {IKIGAI_ORDENES.map((o) => (
@@ -1640,7 +1867,10 @@ export default function ExplorarPage() {
         {fuente === "leercapitulo" && (
           <select
             value={lcLista}
-            onChange={(e) => setLcLista(e.target.value)}
+            onChange={(e) => {
+              setLcLista(e.target.value);
+              reiniciarPaginaActiva("leercapitulo");
+            }}
             className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             {LC_LISTAS.map((o) => (
@@ -1654,7 +1884,10 @@ export default function ExplorarPage() {
         {fuente === "catharsis" && (
           <select
             value={cwOrden}
-            onChange={(e) => setCwOrden(e.target.value as OrdenCw)}
+            onChange={(e) => {
+              setCwOrden(e.target.value as OrdenCw);
+              reiniciarPaginaActiva("catharsis");
+            }}
             className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             <option value="novedades">Novedades</option>
@@ -1666,7 +1899,10 @@ export default function ExplorarPage() {
         {fuente === "tmo" && (
           <select
             value={tmoOrden ?? ""}
-            onChange={(e) => setTmoOrden(e.target.value || null)}
+            onChange={(e) => {
+              setTmoOrden(e.target.value || null);
+              reiniciarPaginaActiva("tmo");
+            }}
             className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
           >
             {TMO_ORDENES.map((o) => (
@@ -1682,10 +1918,8 @@ export default function ExplorarPage() {
             <select
               value={ehCat}
               onChange={(e) => {
-                ehCursors.current = { 1: null };
-                setEhNextCursor(null);
                 setEhCat(e.target.value);
-                setEhPage(1);
+                reiniciarPaginaActiva("ehentai");
               }}
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
             >
@@ -1700,10 +1934,8 @@ export default function ExplorarPage() {
             <select
               value={ehLang}
               onChange={(e) => {
-                ehCursors.current = { 1: null };
-                setEhNextCursor(null);
                 setEhLang(e.target.value);
-                setEhPage(1);
+                reiniciarPaginaActiva("ehentai");
               }}
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
             >
@@ -1716,7 +1948,7 @@ export default function ExplorarPage() {
 
             <button
               type="button"
-              onClick={() => setEhModalTags(true)}
+              onClick={abrirModalEhTags}
               className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
                 ehTag
                   ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -1729,10 +1961,8 @@ export default function ExplorarPage() {
               <button
                 type="button"
                 onClick={() => {
-                  ehCursors.current = { 1: null };
-                  setEhNextCursor(null);
                   setEhTag(null);
-                  setEhPage(1);
+                  reiniciarPaginaActiva("ehentai");
                 }}
                 className="text-xs font-semibold text-danger hover:underline"
                 title="Quitar filtro de etiqueta"
@@ -1749,7 +1979,7 @@ export default function ExplorarPage() {
               value={hitomiLang}
               onChange={(e) => {
                 setHitomiLang(e.target.value);
-                setHitomiPage(1);
+                reiniciarPaginaActiva("hitomi");
               }}
               aria-label="Idioma de Hitomi.la"
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
@@ -1765,7 +1995,7 @@ export default function ExplorarPage() {
               value={hitomiOrden}
               onChange={(e) => {
                 setHitomiOrden(e.target.value as HitomiOrden);
-                setHitomiPage(1);
+                reiniciarPaginaActiva("hitomi");
               }}
               aria-label="Ordenar por"
               className="min-h-11 rounded-md border border-line-strong bg-panel px-3 text-sm text-ink outline-none transition-colors focus:border-accent-ink"
@@ -1779,7 +2009,7 @@ export default function ExplorarPage() {
 
             <button
               type="button"
-              onClick={() => setHitomiModalTags(true)}
+              onClick={abrirModalHitomiTags}
               className={`min-h-11 rounded-md border px-4 text-sm font-medium transition-colors ${
                 hitomiTag
                   ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -1788,12 +2018,25 @@ export default function ExplorarPage() {
             >
               {hitomiTag ? `🏷️ Tag: ${hitomiTag}` : "🏷️ Etiquetas (+100)"}
             </button>
+            {hitomiTipo !== "todos" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setHitomiTipo("todos");
+                  reiniciarPaginaActiva("hitomi");
+                }}
+                className="text-xs font-semibold text-danger hover:underline"
+                title="Quitar filtro de tipo"
+              >
+                ✕ Tipo: {HITOMI_TIPOS.find((t) => t.id === hitomiTipo)?.label ?? hitomiTipo}
+              </button>
+            )}
             {hitomiTag && (
               <button
                 type="button"
                 onClick={() => {
                   setHitomiTag(null);
-                  setHitomiPage(1);
+                  reiniciarPaginaActiva("hitomi");
                 }}
                 className="text-xs font-semibold text-danger hover:underline"
                 title="Quitar filtro de etiqueta"
@@ -1840,7 +2083,10 @@ export default function ExplorarPage() {
 
         <input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            reiniciarPaginaActiva();
+          }}
           placeholder="Buscar serie..."
           className={`ml-auto max-w-sm ${fieldControlClass}`}
         />
@@ -1919,6 +2165,7 @@ export default function ExplorarPage() {
                 setStatus([]);
                 setSelectedGenres([]);
                 setOrigin([]);
+                reiniciarPaginaActiva("mangadex");
               }}
               className="text-sm font-medium text-subtle transition-colors hover:text-accent-ink"
             >
@@ -2002,8 +2249,8 @@ export default function ExplorarPage() {
           <button
             disabled={offset === 0}
             onClick={() => {
+              scrollAlCambiarPaso.current = true;
               setOffset(Math.max(0, offset - 24));
-              window.scrollTo({ top: 0, behavior: "instant" });
             }}
             className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
@@ -2015,8 +2262,8 @@ export default function ExplorarPage() {
           <button
             disabled={page >= lastPage}
             onClick={() => {
+              scrollAlCambiarPaso.current = true;
               setOffset(offset + 24);
-              window.scrollTo({ top: 0, behavior: "instant" });
             }}
             className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
@@ -2035,7 +2282,10 @@ export default function ExplorarPage() {
               {olyOpciones.tipos.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setOlyTipo(olyTipo === t.id ? null : t.id)}
+                  onClick={() => {
+                    setOlyTipo(olyTipo === t.id ? null : t.id);
+                    reiniciarPaginaActiva("olympus");
+                  }}
                   className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     olyTipo === t.id
                       ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -2056,7 +2306,10 @@ export default function ExplorarPage() {
               {olyOpciones.estados.map((e) => (
                 <button
                   key={e.id}
-                  onClick={() => setOlyEstado(olyEstado === e.id ? null : e.id)}
+                  onClick={() => {
+                    setOlyEstado(olyEstado === e.id ? null : e.id);
+                    reiniciarPaginaActiva("olympus");
+                  }}
                   className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     olyEstado === e.id
                       ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -2077,7 +2330,10 @@ export default function ExplorarPage() {
               {olyOpciones.generos.map((g) => (
                 <button
                   key={g.id}
-                  onClick={() => setOlyGenero(olyGenero === g.id ? null : g.id)}
+                  onClick={() => {
+                    setOlyGenero(olyGenero === g.id ? null : g.id);
+                    reiniciarPaginaActiva("olympus");
+                  }}
                   className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                     olyGenero === g.id
                       ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -2096,6 +2352,7 @@ export default function ExplorarPage() {
                 setOlyGenero(null);
                 setOlyEstado(null);
                 setOlyTipo(null);
+                reiniciarPaginaActiva("olympus");
               }}
               className="text-sm font-medium text-subtle transition-colors hover:text-accent-ink"
             >
@@ -2167,8 +2424,8 @@ export default function ExplorarPage() {
                 <button
                   disabled={olympusPage <= 1}
                   onClick={() => {
+                    scrollAlCambiarPaso.current = true;
                     setOlympusPage(olympusPage - 1);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
@@ -2180,8 +2437,8 @@ export default function ExplorarPage() {
                 <button
                   disabled={olympusPage >= olympusLastPage}
                   onClick={() => {
+                    scrollAlCambiarPaso.current = true;
                     setOlympusPage(olympusPage + 1);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
@@ -2219,7 +2476,10 @@ export default function ExplorarPage() {
                 {grupo.opciones.map((o) => (
                   <button
                     key={o.id}
-                    onClick={() => grupo.set(grupo.valor === o.id ? null : o.id)}
+                    onClick={() => {
+                      grupo.set(grupo.valor === o.id ? null : o.id);
+                      reiniciarPaginaActiva();
+                    }}
                     className={`relative inline-flex h-9 items-center rounded-md border px-3 text-[13px] transition-colors after:absolute after:-inset-1 after:content-[''] ${
                       grupo.valor === o.id
                         ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -2243,6 +2503,7 @@ export default function ExplorarPage() {
               setIkiGenero(null);
               setLcGenero(null);
               setLcInicial(null);
+              reiniciarPaginaActiva();
             }}
             className="text-sm font-medium text-subtle transition-colors hover:text-accent-ink"
           >
@@ -2343,8 +2604,8 @@ export default function ExplorarPage() {
                 <button
                   disabled={cwPage <= 1}
                   onClick={() => {
+                    scrollAlCambiarPaso.current = true;
                     setCwPage(cwPage - 1);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
@@ -2356,8 +2617,8 @@ export default function ExplorarPage() {
                 <button
                   disabled={cwPage >= cwPaginas}
                   onClick={() => {
+                    scrollAlCambiarPaso.current = true;
                     setCwPage(cwPage + 1);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
@@ -2421,8 +2682,8 @@ export default function ExplorarPage() {
                 <button
                   disabled={lcPage <= 1}
                   onClick={() => {
+                    scrollAlCambiarPaso.current = true;
                     setLcPage(lcPage - 1);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
@@ -2434,8 +2695,8 @@ export default function ExplorarPage() {
                 <button
                   disabled={!lcMas}
                   onClick={() => {
+                    scrollAlCambiarPaso.current = true;
                     setLcPage(lcPage + 1);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }}
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
                 >
@@ -2498,8 +2759,8 @@ export default function ExplorarPage() {
               <button
                 disabled={tmoPage <= 1}
                 onClick={() => {
+                  scrollAlCambiarPaso.current = true;
                   setTmoPage(tmoPage - 1);
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2511,8 +2772,8 @@ export default function ExplorarPage() {
               <button
                 disabled={!tmoMas}
                 onClick={() => {
+                  scrollAlCambiarPaso.current = true;
                   setTmoPage(tmoPage + 1);
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2568,8 +2829,8 @@ export default function ExplorarPage() {
               <button
                 disabled={ikiPage <= 1}
                 onClick={() => {
+                  scrollAlCambiarPaso.current = true;
                   setIkiPage(ikiPage - 1);
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2581,8 +2842,8 @@ export default function ExplorarPage() {
               <button
                 disabled={!ikiMas}
                 onClick={() => {
+                  scrollAlCambiarPaso.current = true;
                   setIkiPage(ikiPage + 1);
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2658,11 +2919,8 @@ export default function ExplorarPage() {
                           key={t}
                           type="button"
                           onClick={() => {
-                            ehCursors.current = { 1: null };
-                            setEhNextCursor(null);
                             setEhTag(t);
-                            setEhPage(1);
-                            window.scrollTo({ top: 0, behavior: "instant" });
+                            reiniciarPaginaActiva("ehentai");
                           }}
                           className="rounded-full border border-line bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] text-subtle transition hover:border-accent hover:text-accent-ink"
                           title={`Filtrar por ${t}`}
@@ -2681,9 +2939,9 @@ export default function ExplorarPage() {
                 disabled={ehPage <= 1}
                 onClick={() => {
                   const ant = Math.max(1, ehPage - 1);
+                  scrollAlCambiarPaso.current = true;
                   setEhNextCursor(ehCursors.current[ant] ?? null);
                   setEhPage(ant);
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2696,9 +2954,9 @@ export default function ExplorarPage() {
                 disabled={!ehHayMas}
                 onClick={() => {
                   const sig = ehPage + 1;
+                  scrollAlCambiarPaso.current = true;
                   setEhNextCursor(ehCursors.current[sig] ?? null);
                   setEhPage(sig);
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -2714,7 +2972,7 @@ export default function ExplorarPage() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => setEhModalTags(false)}
+          onClick={cerrarModalEhTags}
         >
           <div
             className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-line bg-panel shadow-2xl"
@@ -2730,7 +2988,7 @@ export default function ExplorarPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setEhModalTags(false)}
+                onClick={cerrarModalEhTags}
                 className="rounded-md p-1.5 text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                 aria-label="Cerrar modal"
               >
@@ -2748,12 +3006,9 @@ export default function ExplorarPage() {
                   const limpio = ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
                   if (e.key === "Enter" && limpio) {
                     e.preventDefault();
-                    ehCursors.current = { 1: null };
-                    setEhNextCursor(null);
                     setEhTag(limpio);
-                    setEhPage(1);
+                    reiniciarPaginaActiva("ehentai");
                     setEhModalTags(false);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }
                 }}
                 placeholder="Serie, personaje, artista, grupo o etiqueta (ej: kobayashi, kanna, female:maid, full color)..."
@@ -2791,12 +3046,9 @@ export default function ExplorarPage() {
                     onClick={() => {
                       const limpio = ehTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
                       if (!limpio) return;
-                      ehCursors.current = { 1: null };
-                      setEhNextCursor(null);
                       setEhTag(limpio);
-                      setEhPage(1);
+                      reiniciarPaginaActiva("ehentai");
                       setEhModalTags(false);
-                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
                   >
@@ -2828,10 +3080,8 @@ export default function ExplorarPage() {
                                 .split(",")
                                 .map((x) => x.trim())
                                 .filter((x) => x && x.toLowerCase() !== limpio.toLowerCase());
-                              ehCursors.current = { 1: null };
-                              setEhNextCursor(null);
                               setEhTag(restantes.length > 0 ? restantes.join(", ") : null);
-                              setEhPage(1);
+                              reiniciarPaginaActiva("ehentai");
                             }}
                             className="ml-0.5 text-danger hover:opacity-80"
                             title={`Quitar ${limpio}`}
@@ -2845,13 +3095,10 @@ export default function ExplorarPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      ehCursors.current = { 1: null };
-                      setEhNextCursor(null);
                       setEhTag(null);
                       setEhTagBusqueda("");
-                      setEhPage(1);
+                      reiniciarPaginaActiva("ehentai");
                       setEhModalTags(false);
-                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="text-xs font-semibold text-danger hover:underline"
                   >
@@ -2890,8 +3137,6 @@ export default function ExplorarPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                ehCursors.current = { 1: null };
-                                setEhNextCursor(null);
                                 if (ehTagBusqueda.includes(",")) {
                                   const previas = ehTagBusqueda
                                     .split(",")
@@ -2905,8 +3150,7 @@ export default function ExplorarPage() {
                                   setEhTag(t.tag);
                                   setEhModalTags(false);
                                 }
-                                setEhPage(1);
-                                window.scrollTo({ top: 0, behavior: "instant" });
+                                reiniciarPaginaActiva("ehentai");
                               }}
                               className="px-3 py-1.5 text-left"
                             >
@@ -2931,11 +3175,9 @@ export default function ExplorarPage() {
                                   ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
                                   : [...base, t.tag];
                                 const textoFinal = nueva.join(", ");
-                                ehCursors.current = { 1: null };
-                                setEhNextCursor(null);
                                 setEhTag(textoFinal || null);
                                 setEhTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
-                                setEhPage(1);
+                                reiniciarPaginaActiva("ehentai");
                               }}
                               title={estaActiva ? `Quitar ${t.tag} de la combinación` : `Agregar ${t.tag} a la búsqueda múltiple`}
                               className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
@@ -2993,8 +3235,6 @@ export default function ExplorarPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                ehCursors.current = { 1: null };
-                                setEhNextCursor(null);
                                 if (ehTagBusqueda.includes(",")) {
                                   const previas = ehTagBusqueda
                                     .split(",")
@@ -3008,8 +3248,7 @@ export default function ExplorarPage() {
                                   setEhTag(t.tag);
                                   setEhModalTags(false);
                                 }
-                                setEhPage(1);
-                                window.scrollTo({ top: 0, behavior: "instant" });
+                                reiniciarPaginaActiva("ehentai");
                               }}
                               className="px-3 py-1.5 text-left"
                             >
@@ -3034,11 +3273,9 @@ export default function ExplorarPage() {
                                   ? base.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
                                   : [...base, t.tag];
                                 const textoFinal = nueva.join(", ");
-                                ehCursors.current = { 1: null };
-                                setEhNextCursor(null);
                                 setEhTag(textoFinal || null);
                                 setEhTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
-                                setEhPage(1);
+                                reiniciarPaginaActiva("ehentai");
                               }}
                               title={estaActiva ? `Quitar ${t.tag} de la combinación` : `Agregar ${t.tag} a la búsqueda múltiple`}
                               className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
@@ -3058,7 +3295,7 @@ export default function ExplorarPage() {
             <div className="flex justify-end border-t border-line px-5 py-3">
               <button
                 type="button"
-                onClick={() => setEhModalTags(false)}
+                onClick={cerrarModalEhTags}
                 className="rounded-md border border-line px-4 py-1.5 text-xs font-medium text-subtle hover:border-line-strong hover:text-ink"
               >
                 Cerrar
@@ -3073,7 +3310,7 @@ export default function ExplorarPage() {
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => setHitomiModalTags(false)}
+          onClick={cerrarModalHitomiTags}
         >
           <div
             className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-line bg-panel shadow-2xl"
@@ -3089,7 +3326,7 @@ export default function ExplorarPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setHitomiModalTags(false)}
+                onClick={cerrarModalHitomiTags}
                 className="rounded-md p-1.5 text-subtle hover:bg-[var(--surface-raised)] hover:text-ink"
                 aria-label="Cerrar modal"
               >
@@ -3108,9 +3345,8 @@ export default function ExplorarPage() {
                   if (e.key === "Enter" && limpio) {
                     e.preventDefault();
                     setHitomiTag(limpio);
-                    setHitomiPage(1);
+                    reiniciarPaginaActiva("hitomi");
                     setHitomiModalTags(false);
-                    window.scrollTo({ top: 0, behavior: "instant" });
                   }
                 }}
                 placeholder="Etiqueta o varias separadas por coma (ej: female:maid, full color, series:blue archive)..."
@@ -3128,9 +3364,8 @@ export default function ExplorarPage() {
                       const limpio = hitomiTagBusqueda.trim().replace(/[,;]+\s*$/, "").trim();
                       if (!limpio) return;
                       setHitomiTag(limpio);
-                      setHitomiPage(1);
+                      reiniciarPaginaActiva("hitomi");
                       setHitomiModalTags(false);
-                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-[var(--on-accent)] transition-opacity hover:opacity-90"
                   >
@@ -3163,7 +3398,7 @@ export default function ExplorarPage() {
                                 .map((x) => x.trim())
                                 .filter((x) => x && x.toLowerCase() !== limpio.toLowerCase());
                               setHitomiTag(restantes.length > 0 ? restantes.join(", ") : null);
-                              setHitomiPage(1);
+                              reiniciarPaginaActiva("hitomi");
                             }}
                             className="ml-0.5 text-danger hover:opacity-80"
                             title={`Quitar ${limpio}`}
@@ -3179,9 +3414,8 @@ export default function ExplorarPage() {
                     onClick={() => {
                       setHitomiTag(null);
                       setHitomiTagBusqueda("");
-                      setHitomiPage(1);
+                      reiniciarPaginaActiva("hitomi");
                       setHitomiModalTags(false);
-                      window.scrollTo({ top: 0, behavior: "instant" });
                     }}
                     className="text-xs font-semibold text-danger hover:underline"
                   >
@@ -3227,8 +3461,7 @@ export default function ExplorarPage() {
                                 setHitomiTag(t.tag);
                                 setHitomiModalTags(false);
                               }
-                              setHitomiPage(1);
-                              window.scrollTo({ top: 0, behavior: "instant" });
+                              reiniciarPaginaActiva("hitomi");
                             }}
                             className="px-3 py-1.5 text-left"
                           >
@@ -3255,7 +3488,7 @@ export default function ExplorarPage() {
                               const textoFinal = nueva.join(", ");
                               setHitomiTag(textoFinal || null);
                               setHitomiTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
-                              setHitomiPage(1);
+                              reiniciarPaginaActiva("hitomi");
                             }}
                             title={estaActiva ? `Quitar ${t.tag}` : `Agregar ${t.tag} a la búsqueda múltiple`}
                             className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
@@ -3307,8 +3540,7 @@ export default function ExplorarPage() {
                               setHitomiTag(t.tag);
                               setHitomiModalTags(false);
                             }
-                            setHitomiPage(1);
-                            window.scrollTo({ top: 0, behavior: "instant" });
+                            reiniciarPaginaActiva("hitomi");
                           }}
                           className="px-3 py-1.5 text-left"
                         >
@@ -3335,7 +3567,7 @@ export default function ExplorarPage() {
                             const textoFinal = nueva.join(", ");
                             setHitomiTag(textoFinal || null);
                             setHitomiTagBusqueda(textoFinal ? `${textoFinal}, ` : "");
-                            setHitomiPage(1);
+                            reiniciarPaginaActiva("hitomi");
                           }}
                           title={estaActiva ? `Quitar ${t.tag}` : `Agregar ${t.tag} a la búsqueda múltiple`}
                           className="border-l border-line px-2 font-mono text-xs font-bold text-subtle hover:bg-[var(--accent-soft)] hover:text-accent-ink"
@@ -3353,7 +3585,7 @@ export default function ExplorarPage() {
             <div className="flex justify-end border-t border-line px-5 py-3">
               <button
                 type="button"
-                onClick={() => setHitomiModalTags(false)}
+                onClick={cerrarModalHitomiTags}
                 className="rounded-md border border-line px-4 py-1.5 text-xs font-medium text-subtle hover:border-line-strong hover:text-ink"
               >
                 Cerrar
@@ -3432,8 +3664,7 @@ export default function ExplorarPage() {
                           type="button"
                           onClick={() => {
                             setHitomiTag(t);
-                            setHitomiPage(1);
-                            window.scrollTo({ top: 0, behavior: "instant" });
+                            reiniciarPaginaActiva("hitomi");
                           }}
                           className="rounded-full border border-line bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] text-subtle transition hover:border-accent hover:text-accent-ink"
                           title={`Filtrar por ${t}`}
@@ -3452,8 +3683,8 @@ export default function ExplorarPage() {
               <button
                 disabled={hitomiPage <= 1}
                 onClick={() => {
+                  scrollAlCambiarPaso.current = true;
                   setHitomiPage((p) => Math.max(1, p - 1));
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >
@@ -3465,8 +3696,8 @@ export default function ExplorarPage() {
               <button
                 disabled={!hitomiHayMas || (hitomiTotalPaginas > 0 && hitomiPage >= hitomiTotalPaginas)}
                 onClick={() => {
+                  scrollAlCambiarPaso.current = true;
                   setHitomiPage((p) => p + 1);
-                  window.scrollTo({ top: 0, behavior: "instant" });
                 }}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium text-subtle transition-colors hover:border-line-strong hover:text-ink disabled:opacity-40"
               >

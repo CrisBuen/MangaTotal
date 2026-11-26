@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { use, useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { VolverFuente } from "@/components/library/VolverFuente";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
+import { paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { Surface } from "@/components/ui/Surface";
 import { anotarHistorial } from "@/components/library/historial";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { normalizarClaveRuta, useRestaurarScroll } from "@/lib/navegacionEstado";
 import type { FichaEhentai } from "@/lib/ehentai";
 import { pedirFichaEhentai, pedirPaginasEhentai } from "@/lib/ehentaiCliente";
 
@@ -29,9 +32,14 @@ export default function SerieEhentaiPage(props: {
   params: Promise<{ gid: string; token: string }>;
 }) {
   const { gid, token } = use(props.params);
+  const pathname = usePathname() || `/externo/ehentai/${gid}/${token}`;
+  const searchParamsStr = useSearchParams().toString();
   const [ficha, setFicha] = useState<FichaEhentai | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  const progreso = useProgresoSerie("ehentai", `${gid}/${token}`);
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, searchParamsStr), [pathname, searchParamsStr]);
+  useRestaurarScroll(claveRuta, !cargando && Boolean(ficha), true);
 
   const obtenerPaginas = useCallback(async (): Promise<string[]> => {
     return cargarConCacheAndroid<string[]>(
@@ -184,6 +192,11 @@ export default function SerieEhentaiPage(props: {
           </h2>
         </div>
 
+        {(() => {
+          const capId = `${gid}/${token}`;
+          const pagQuery = paginaCapitulo(progreso, capId);
+          const hrefLeer = `/leer-externo/ehentai/${gid}/${token}${pagQuery ? `?${pagQuery}` : ""}`;
+          return (
         <ul className="divide-y divide-line overflow-hidden rounded-[10px] border border-line bg-panel">
           <li>
             <div className="flex items-center gap-3 px-5 py-4 transition hover:bg-[var(--surface-raised)]">
@@ -191,15 +204,20 @@ export default function SerieEhentaiPage(props: {
                 onClick={() =>
                   void anotarHistorial({
                     ...serieGuardable,
-                    last_chapter_id: `${gid}/${token}`,
+                    last_chapter_id: capId,
                     last_chapter_name: "Capítulo Completo",
                   })
                 }
-                href={`/leer-externo/ehentai/${gid}/${token}`}
+                href={hrefLeer}
                 className="min-w-0 flex-1"
               >
                 <p className="truncate text-sm font-semibold text-ink">
                   Capítulo Completo
+                  {progreso.ultimaPagina && progreso.ultimaPagina > 1 && (
+                    <span className="ml-2 font-mono text-[11px] tracking-[0.1em] text-accent-ink">
+                      pág. {progreso.ultimaPagina}
+                    </span>
+                  )}
                 </p>
                 <p className="mt-0.5 font-mono text-[11px] tracking-[0.06em] text-subtle">
                   {ficha.filecount} páginas · Calidad original FullHD
@@ -218,18 +236,20 @@ export default function SerieEhentaiPage(props: {
                 onClick={() =>
                   void anotarHistorial({
                     ...serieGuardable,
-                    last_chapter_id: `${gid}/${token}`,
+                    last_chapter_id: capId,
                     last_chapter_name: "Capítulo Completo",
                   })
                 }
-                href={`/leer-externo/ehentai/${gid}/${token}`}
+                href={hrefLeer}
                 className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
               >
-                Leer →
+                {progreso.ultimaPagina && progreso.ultimaPagina > 1 ? `Pág. ${progreso.ultimaPagina} →` : "Leer →"}
               </Link>
             </div>
           </li>
         </ul>
+          );
+        })()}
       </section>
 
       <p className="border-t border-line pt-6 text-center font-mono text-[11px] tracking-[0.06em] text-subtle">

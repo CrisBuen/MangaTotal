@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.webkit.WebView;
 import android.widget.Toast;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.BridgeActivity;
 import java.io.File;
@@ -58,6 +59,21 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PantallaPlugin.class);
         registerPlugin(ActualizacionPlugin.class);
         super.onCreate(savedInstanceState);
+        // En Android 13–16 (targetSdk 36) OnBackPressedDispatcher reemplaza a onBackPressed()
+        // para manejar el gesto Atrás dentro del WebView en vez de cerrar la app.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                WebView wv = webViewPrincipal();
+                if (wv != null && wv.canGoBack()) {
+                    wv.goBack();
+                    return;
+                }
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
         FuentesPlugin.asegurarCarpetasMangaTotal(this);
 
         WebView webView = webViewPrincipal();
@@ -286,6 +302,16 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onPause() {
+        // Guardamos progreso y scroll pendientes al pasar la app a segundo plano.
+        WebView webView = webViewPrincipal();
+        if (webView != null) {
+            webView.evaluateJavascript("window.__mtFlushProgress && window.__mtFlushProgress();", null);
+        }
+        super.onPause();
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         FuentesPlugin.asegurarCarpetasMangaTotal(this);
@@ -307,17 +333,5 @@ public class MainActivity extends BridgeActivity {
             webView.onPause();
         }
         super.onDestroy();
-    }
-
-    @Override
-    public void onBackPressed() {
-        WebView webView = webViewPrincipal();
-
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-            return;
-        }
-
-        super.onBackPressed();
     }
 }

@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { VolverFuente } from "@/components/library/VolverFuente";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { IKIGAI_NOMBRE, ikigaiDisponible, serieIkigai, lecturaIkigai } from "@/lib/ikigai";
+import { normalizarClaveRuta, useEstadoFicha, useRestaurarScroll } from "@/lib/navegacionEstado";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
@@ -20,10 +21,16 @@ type Ficha = Awaited<ReturnType<typeof serieIkigai>>;
 export default function SerieIkigaiPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = use(props.params);
   const router = useRouter();
+  const pathname = usePathname() || `/externo/ikigai/${slug}`;
+  const searchParamsStr = useSearchParams().toString();
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [orden, setOrden] = useState<"asc" | "desc">("asc");
+  const [estadoFicha, setEstadoFicha] = useEstadoFicha(`ikigai:${slug}`, { orden: "asc" });
+  const orden = estadoFicha.orden === "desc" ? "desc" : "asc";
+  const setOrden = (o: "asc" | "desc") => setEstadoFicha({ orden: o });
   const progreso = useProgresoSerie("ikigai", slug);
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, searchParamsStr), [pathname, searchParamsStr]);
+  useRestaurarScroll(claveRuta, Boolean(ficha), true);
 
   const cargar = useCallback(async (fresco = false) => {
     if (!fresco) setError(null);
@@ -46,7 +53,7 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
   }, [cargar]);
 
   if (error) {
-    return <AvisoFuente error={error} onReintentar={cargar} />;
+    return <AvisoFuente error={error} volverA="/explorar?fuente=ikigai" onReintentar={cargar} />;
   }
 
   if (!ficha) {
@@ -76,8 +83,8 @@ export default function SerieIkigaiPage(props: { params: Promise<{ slug: string 
         </div>
       )}
       {refresco.aviso && <p className="text-sm text-subtle" role="status">{refresco.aviso}</p>}
-<VolverFuente
-        href="/explorar"
+      <VolverFuente
+        href="/explorar?fuente=ikigai"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar

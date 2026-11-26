@@ -1,9 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimeGridCard, type AnimeCard } from "@/components/anime/AnimeGridCard";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  guardarScrollRuta,
+  marcarScrollArriba,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 
 const SORTS = [
   { key: "popular", label: "Populares" },
@@ -41,49 +50,184 @@ const GENRE_ES: Record<string, string> = {
   Sports: "Deportes", Supernatural: "Sobrenatural", Thriller: "Suspenso",
 };
 
-export default function AnimePage() {
+function leerEstadoAnilist(sp: Pick<URLSearchParams, "get" | "getAll">) {
+  const genreParam = sp.getAll("genre");
+  const genres =
+    genreParam.length > 0
+      ? genreParam.flatMap((g) => g.split(",")).map((g) => g.trim()).filter(Boolean)
+      : [];
+  const rawPage = Number(sp.get("page") ?? "1");
+  return {
+    search: sp.get("q") ?? "",
+    sort: sp.get("sort") ?? "popular",
+    season: sp.get("season") === "actual" || sp.get("season") === "1",
+    format: sp.get("format") || null,
+    status: sp.get("status") || null,
+    genres,
+    page: Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1,
+  };
+}
+
+function construirUrlAnilist(
+  pathname: string,
+  estado: {
+    search: string;
+    sort: string;
+    season: boolean;
+    format: string | null;
+    status: string | null;
+    genres: string[];
+    page: number;
+  }
+): string {
+  const sp = new URLSearchParams();
+  if (estado.search.trim()) sp.set("q", estado.search);
+  if (estado.sort && estado.sort !== "popular") sp.set("sort", estado.sort);
+  if (estado.season) sp.set("season", "actual");
+  if (estado.format) sp.set("format", estado.format);
+  if (estado.status) sp.set("status", estado.status);
+  for (const g of estado.genres) sp.append("genre", g);
+  if (estado.page > 1) sp.set("page", String(estado.page));
+  const qs = sp.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
+}
+
+function AnimePageContent() {
+  const pathname = usePathname() || "/anime";
+  const searchParams = useSearchParams();
+  const searchParamsStr = searchParams.toString();
+
+  const inicial = useMemo(
+    () => leerEstadoAnilist(new URLSearchParams(searchParamsStr)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const [anime, setAnime] = useState<AnimeCard[] | null>(null);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("popular");
-  const [season, setSeason] = useState(false);
-  const [format, setFormat] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [genres, setGenres] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(inicial.search);
+  const [sort, setSort] = useState(inicial.sort);
+  const [season, setSeason] = useState(inicial.season);
+  const [format, setFormat] = useState<string | null>(inicial.format);
+  const [status, setStatus] = useState<string | null>(inicial.status);
+  const [genres, setGenres] = useState<string[]>(inicial.genres);
+  const [showFilters, setShowFilters] = useState(
+    Boolean(inicial.format || inicial.status || inicial.genres.length || inicial.season)
+  );
+  const [page, setPage] = useState(inicial.page);
   const [lastPage, setLastPage] = useState(1);
   const [error, setError] = useState(false);
+  const [claveCargada, setClaveCargada] = useState("");
+  const requestId = useRef(0);
+  const modoUrlRef = useRef<"skip" | "push" | "replace">("skip");
 
-  const load = useCallback(async () => {
-    setError(false);
+  const estadoActual = useMemo(
+    () => ({ search, sort, season, format, status, genres, page }),
+    [search, sort, season, format, status, genres, page]
+  );
+
+  const claveConsultaActual = useMemo(() => {
     const params = new URLSearchParams({ sort, page: String(page) });
     if (search.trim()) params.set("q", search.trim());
     if (season) params.set("season", "actual");
     if (format) params.set("format", format);
     if (status) params.set("status", status);
     for (const g of genres) params.append("genre", g);
-
-    try {
-      const res = await fetch(`/api/anime?${params}`);
-      if (!res.ok) throw new Error("fallo");
-      const data = await res.json();
-      setAnime(data.anime);
-      setLastPage(data.last_page);
-    } catch {
-      setError(true);
-      setAnime([]);
-    }
+    return params.toString();
   }, [search, sort, season, format, status, genres, page]);
 
-  useEffect(() => {
+  const claveRutaActual = useMemo(() => {
+    const url = construirUrlAnilist(pathname, estadoActual);
+    const idx = url.indexOf("?");
+    return normalizarClaveRuta(pathname, idx >= 0 ? url.slice(idx + 1) : "");
+  }, [pathname, estadoActual]);
+
+  useRestaurarScroll(
+    claveRutaActual,
+    anime !== null && anime.length > 0 && claveCargada === claveConsultaActual,
+    true
+  );
+
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    setError(false);
     setAnime(null);
-    const t = setTimeout(load, search ? 350 : 0);
-    return () => clearTimeout(t);
-  }, [load, search]);
+    try {
+      const res = await fetch(`/api/anime?${claveConsultaActual}`);
+      if (id !== requestId.current) return;
+      if (!res.ok) throw new Error("fallo");
+      const data = await res.json();
+      if (id !== requestId.current) return;
+      setAnime(data.anime);
+      setLastPage(data.last_page);
+      setClaveCargada(claveConsultaActual);
+    } catch {
+      if (id !== requestId.current) return;
+      setError(true);
+      setAnime([]);
+      setClaveCargada(claveConsultaActual);
+    }
+  }, [claveConsultaActual]);
 
   useEffect(() => {
-    setPage(1);
-  }, [search, sort, season, format, status, genres]);
+    const t = setTimeout(load, search ? 350 : 0);
+    return () => {
+      clearTimeout(t);
+      requestId.current++;
+    };
+  }, [load, search]);
+
+  const aplicarParams = useCallback((sp: URLSearchParams, limpiarLista: boolean) => {
+    const next = leerEstadoAnilist(sp);
+    modoUrlRef.current = "skip";
+    if (limpiarLista) setAnime(null);
+    setSearch(next.search);
+    setSort(next.sort);
+    setSeason(next.season);
+    setFormat(next.format);
+    setStatus(next.status);
+    setGenres(next.genres);
+    if (next.format || next.status || next.genres.length || next.season) setShowFilters(true);
+    setPage(next.page);
+  }, []);
+
+  useEffect(() => {
+    if (fueEscritaPorNosotros(pathname, searchParamsStr)) return;
+    aplicarParams(new URLSearchParams(searchParamsStr), false);
+  }, [pathname, searchParamsStr, aplicarParams]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      aplicarParams(new URLSearchParams(window.location.search), true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [aplicarParams]);
+
+  useEffect(() => {
+    const urlRelativa = construirUrlAnilist(pathname, estadoActual);
+    const claveDestino = normalizarClaveRuta(
+      pathname,
+      urlRelativa.includes("?") ? urlRelativa.slice(urlRelativa.indexOf("?") + 1) : ""
+    );
+    const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
+    const modo = modoUrlRef.current;
+    modoUrlRef.current = "skip";
+    if (modo !== "skip" && claveDestino !== claveVentana) {
+      escribirUrlHistorial(urlRelativa, modo);
+    }
+  }, [pathname, estadoActual]);
+
+  const prepararNavegacionPaso = useCallback(
+    (siguienteEstado: typeof estadoActual, modo: "push" | "replace") => {
+      guardarScrollRuta(claveRutaActual, window.scrollY);
+      const urlDestino = construirUrlAnilist(pathname, siguienteEstado);
+      const qsDestino = urlDestino.includes("?") ? urlDestino.slice(urlDestino.indexOf("?") + 1) : "";
+      const claveDestino = normalizarClaveRuta(pathname, qsDestino);
+      if (modo === "push") marcarScrollArriba(claveDestino);
+      modoUrlRef.current = modo;
+    },
+    [claveRutaActual, pathname]
+  );
 
   const activeFilters = (format ? 1 : 0) + (status ? 1 : 0) + genres.length + (season ? 1 : 0);
 
@@ -106,7 +250,12 @@ export default function AnimePage() {
       <div className="flex flex-wrap items-center gap-3">
         <select
           value={sort}
-          onChange={(e) => setSort(e.target.value)}
+          onChange={(e) => {
+            const nextSort = e.target.value;
+            prepararNavegacionPaso({ ...estadoActual, sort: nextSort, page: 1 }, "push");
+            setSort(nextSort);
+            setPage(1);
+          }}
           disabled={Boolean(search.trim())}
           className="rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-ink outline-none focus:border-accent disabled:opacity-40"
         >
@@ -118,7 +267,12 @@ export default function AnimePage() {
         </select>
 
         <button
-          onClick={() => setSeason((v) => !v)}
+          onClick={() => {
+            const nextSeason = !season;
+            prepararNavegacionPaso({ ...estadoActual, season: nextSeason, page: 1 }, "push");
+            setSeason(nextSeason);
+            setPage(1);
+          }}
           className={`rounded-md border px-4 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] transition ${
             season
               ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -141,7 +295,12 @@ export default function AnimePage() {
 
         <input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            const nextSearch = e.target.value;
+            prepararNavegacionPaso({ ...estadoActual, search: nextSearch, page: 1 }, "replace");
+            setSearch(nextSearch);
+            setPage(1);
+          }}
           placeholder="Buscar anime…"
           className="ml-auto w-full max-w-sm rounded-md border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
         />
@@ -157,7 +316,12 @@ export default function AnimePage() {
               {FORMATS.map((f) => (
                 <button
                   key={f.key}
-                  onClick={() => setFormat(format === f.key ? null : f.key)}
+                  onClick={() => {
+                    const nextFormat = format === f.key ? null : f.key;
+                    prepararNavegacionPaso({ ...estadoActual, format: nextFormat, page: 1 }, "push");
+                    setFormat(nextFormat);
+                    setPage(1);
+                  }}
                   className={`rounded-full border px-3 py-1 text-[13px] transition ${
                     format === f.key
                       ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -178,7 +342,12 @@ export default function AnimePage() {
               {STATUSES.map((s) => (
                 <button
                   key={s.key}
-                  onClick={() => setStatus(status === s.key ? null : s.key)}
+                  onClick={() => {
+                    const nextStatus = status === s.key ? null : s.key;
+                    prepararNavegacionPaso({ ...estadoActual, status: nextStatus, page: 1 }, "push");
+                    setStatus(nextStatus);
+                    setPage(1);
+                  }}
                   className={`rounded-full border px-3 py-1 text-[13px] transition ${
                     status === s.key
                       ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -199,9 +368,12 @@ export default function AnimePage() {
               {GENRES.map((g) => (
                 <button
                   key={g}
-                  onClick={() =>
-                    setGenres(genres.includes(g) ? genres.filter((x) => x !== g) : [...genres, g])
-                  }
+                  onClick={() => {
+                    const nextGenres = genres.includes(g) ? genres.filter((x) => x !== g) : [...genres, g];
+                    prepararNavegacionPaso({ ...estadoActual, genres: nextGenres, page: 1 }, "push");
+                    setGenres(nextGenres);
+                    setPage(1);
+                  }}
                   className={`rounded-full border px-3 py-1 text-[13px] transition ${
                     genres.includes(g)
                       ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -217,10 +389,12 @@ export default function AnimePage() {
           {activeFilters > 0 && (
             <button
               onClick={() => {
+                prepararNavegacionPaso({ ...estadoActual, format: null, status: null, genres: [], season: false, page: 1 }, "push");
                 setFormat(null);
                 setStatus(null);
                 setGenres([]);
                 setSeason(false);
+                setPage(1);
               }}
               className="font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
             >
@@ -257,7 +431,11 @@ export default function AnimePage() {
         <div className="flex items-center justify-center gap-3 pt-4">
           <button
             disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
+            onClick={() => {
+              const siguiente = Math.max(1, page - 1);
+              prepararNavegacionPaso({ ...estadoActual, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
             className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             ← Anterior
@@ -267,7 +445,11 @@ export default function AnimePage() {
           </span>
           <button
             disabled={page >= lastPage}
-            onClick={() => setPage(page + 1)}
+            onClick={() => {
+              const siguiente = page + 1;
+              prepararNavegacionPaso({ ...estadoActual, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
             className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:border-line-strong hover:text-ink disabled:opacity-40"
           >
             Siguiente →
@@ -279,5 +461,13 @@ export default function AnimePage() {
         Datos de anime provistos por AniList · MangaTotal no aloja ni reproduce video
       </p>
     </div>
+  );
+}
+
+export default function AnimePage() {
+  return (
+    <Suspense fallback={<p className="py-16 text-center font-mono text-[13px] tracking-[0.08em] text-subtle">Cargando catálogo...</p>}>
+      <AnimePageContent />
+    </Suspense>
   );
 }

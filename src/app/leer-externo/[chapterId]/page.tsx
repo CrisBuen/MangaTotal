@@ -135,6 +135,7 @@ export default async function LeerExternoPage(props: {
 
   return (
     <ExternalReader
+      key={chapter.id}
       chapter={{
         id: chapter.id,
         number: chapter.number,

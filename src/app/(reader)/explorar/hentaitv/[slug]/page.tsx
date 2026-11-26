@@ -1,10 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { use, useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { SaveExternalAnimeButton } from "@/components/anime/SaveExternalAnimeButton";
+import { VolverFuente } from "@/components/library/VolverFuente";
 import { Surface } from "@/components/ui/Surface";
 import { fichaHentaitvDesdePublica, type FichaHentaitv } from "@/lib/hentaitv";
+import { normalizarClaveRuta, useRestaurarScroll } from "@/lib/navegacionEstado";
+
+function minuto(segundos: number): string {
+  const total = Math.max(0, Math.floor(segundos));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
 
 interface ProgresoEpisodio {
   episode_id: string;
@@ -15,16 +23,38 @@ interface ProgresoEpisodio {
 
 export default function FichaHentaitvPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = use(props.params);
+  const pathname = usePathname() || `/explorar/hentaitv/${slug}`;
+  const searchParams = useSearchParams();
+  const searchParamsStr = searchParams.toString();
+
   const [ficha, setFicha] = useState<FichaHentaitv | null>(null);
   const [progresos, setProgresos] = useState<ProgresoEpisodio[]>([]);
   const [fichaParcial, setFichaParcial] = useState(false);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const externalIdRef = useRef<string | null>(null);
+  const slugCargadoRef = useRef<string | null>(null);
+
+  const cargarProgreso = useCallback(async (idExt: string) => {
+    try {
+      const params = new URLSearchParams({ source: "hentaitv", id: idExt });
+      const progresoRes = await fetch(`/api/anime/externo/progreso?${params}`, { cache: "no-store" });
+      if (progresoRes.ok) {
+        const progreso = await progresoRes.json();
+        setProgresos(Array.isArray(progreso?.episodes) ? progreso.episodes : []);
+      }
+    } catch {}
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
-    setFicha(null);
-    setProgresos([]);
-    setFichaParcial(false);
+    setCargando(true);
+    if (slugCargadoRef.current !== slug) {
+      setFicha(null);
+      setProgresos([]);
+      setFichaParcial(false);
+      externalIdRef.current = null;
+    }
     try {
       const res = await fetch(`/api/anime/hentaitv/${encodeURIComponent(slug)}`, { cache: "no-store" });
       let data: FichaHentaitv;
@@ -48,20 +78,38 @@ export default function FichaHentaitvPage(props: { params: Promise<{ slug: strin
         if (!res.ok) throw new Error(respuesta?.error ?? "No se pudo cargar el anime");
         data = respuesta as FichaHentaitv;
       }
+      slugCargadoRef.current = slug;
       setFicha(data);
-
-      const params = new URLSearchParams({ source: "hentaitv", id: data.slug });
-      const progresoRes = await fetch(`/api/anime/externo/progreso?${params}`, { cache: "no-store" });
-      if (progresoRes.ok) {
-        const progreso = await progresoRes.json();
-        setProgresos(Array.isArray(progreso?.episodes) ? progreso.episodes : []);
-      }
+      externalIdRef.current = data.slug;
+      await cargarProgreso(data.slug);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar el anime");
+    } finally {
+      setCargando(false);
     }
-  }, [slug]);
+  }, [slug, cargarProgreso]);
 
   useEffect(() => void load(), [load]);
+
+  useEffect(() => {
+    const refrescar = () => {
+      if (externalIdRef.current) void cargarProgreso(externalIdRef.current);
+    };
+    window.addEventListener("focus", refrescar);
+    window.addEventListener("pageshow", refrescar);
+    window.addEventListener("popstate", refrescar);
+    return () => {
+      window.removeEventListener("focus", refrescar);
+      window.removeEventListener("pageshow", refrescar);
+      window.removeEventListener("popstate", refrescar);
+    };
+  }, [cargarProgreso]);
+
+  const claveRuta = useMemo(
+    () => normalizarClaveRuta(pathname, searchParamsStr),
+    [pathname, searchParamsStr]
+  );
+  useRestaurarScroll(claveRuta, Boolean(ficha) && !cargando, true);
 
   if (error) {
     return (
@@ -79,7 +127,7 @@ export default function FichaHentaitvPage(props: { params: Promise<{ slug: strin
 
   return (
     <div className="space-y-9">
-      <Link href="/explorar?seccion=animada&anime_fuente=hentaitv" className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink">← Explorar anime +18</Link>
+      <VolverFuente mundo="anime" href="/explorar?seccion=animada&anime_fuente=hentaitv" className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink">← Explorar anime +18</VolverFuente>
 
       <div className="flex flex-col gap-7 sm:flex-row">
         <div className="w-full shrink-0 sm:w-52">
@@ -143,7 +191,7 @@ export default function FichaHentaitvPage(props: { params: Promise<{ slug: strin
             {ficha.episodes.map((episode) => {
               const progreso = progresos.find((item) => item.episode_id === episode.id || item.episode_number === episode.number);
               return (
-                <Link key={episode.id} href={`/explorar/hentaitv/${ficha.slug}/${episode.number}`} className="group overflow-hidden rounded-[10px] border border-line bg-panel transition hover:border-line-strong">
+                <EpisodeWatchLink key={episode.id} href={`/explorar/hentaitv/${ficha.slug}/${episode.number}`} className="group overflow-hidden rounded-[10px] border border-line bg-panel transition hover:border-line-strong">
                   <div className="relative aspect-video bg-[var(--surface-raised)]">
                     {episode.image_url && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -154,9 +202,15 @@ export default function FichaHentaitvPage(props: { params: Promise<{ slug: strin
                     <p className="font-mono text-[11px] font-bold tracking-[0.06em] text-accent-ink">Episodio {episode.number}</p>
                     <p className="mt-1 line-clamp-2 text-sm font-semibold text-ink">{episode.title}</p>
                     {episode.published_at && <p className="mt-2 font-mono text-[11px] text-faint">{episode.published_at}</p>}
-                    {progreso && <p className="mt-2 font-mono text-[11px] font-bold text-accent-ink">Abierto</p>}
+                    {progreso?.completed ? (
+                      <p className="mt-2 font-mono text-[11px] font-bold text-subtle">Ya visto</p>
+                    ) : progreso && progreso.position_seconds > 0 ? (
+                      <p className="mt-2 font-mono text-[11px] font-bold text-accent-ink">{minuto(progreso.position_seconds)}</p>
+                    ) : progreso ? (
+                      <p className="mt-2 font-mono text-[11px] font-bold text-accent-ink">Abierto</p>
+                    ) : null}
                   </div>
-                </Link>
+                </EpisodeWatchLink>
               );
             })}
           </div>

@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { VolverFuente } from "@/components/library/VolverFuente";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import { normalizarClaveRuta, useEstadoFicha, useRestaurarScroll } from "@/lib/navegacionEstado";
 
 interface ExternalSeries {
   id: string;
@@ -43,14 +45,21 @@ interface ChapterEntry {
 
 export default function ExternalSeriePage(props: { params: Promise<{ id: string }> }) {
   const { id } = use(props.params);
+  const pathname = usePathname() || `/externo/${id}`;
+  const searchParamsStr = useSearchParams().toString();
   const [series, setSeries] = useState<ExternalSeries | null>(null);
   const [chapters, setChapters] = useState<ChapterEntry[]>([]);
   const [openVersions, setOpenVersions] = useState<string | null>(null);
-  const [lang, setLang] = useState("es");
+  const [estadoFicha, setEstadoFicha] = useEstadoFicha(`mangadex:${id}`, { orden: "asc", lang: "es" });
+  const lang = estadoFicha.lang === "en" ? "en" : "es";
+  const orden = estadoFicha.orden === "desc" ? "desc" : "asc";
+  const setLang = (l: string) => setEstadoFicha({ lang: l });
+  const setOrden = (o: "asc" | "desc") => setEstadoFicha({ orden: o });
   const [loading, setLoading] = useState(true);
-  const [orden, setOrden] = useState<"asc" | "desc">("asc");
   const progreso = useProgresoSerie("mangadex", id);
   const [error, setError] = useState<string | null>(null);
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, searchParamsStr), [pathname, searchParamsStr]);
+  useRestaurarScroll(claveRuta, Boolean(series), true);
 
   const load = useCallback(async (fresco = false) => {
     if (!fresco) setLoading(true);
@@ -206,21 +215,29 @@ export default function ExternalSeriePage(props: { params: Promise<{ id: string 
           )}
 
           <div className="flex flex-wrap items-center gap-3">
-            {chapters.length > 0 && (
-              <Link
-                onClick={() =>
-                  anotarHistorial({
-                    ...serieGuardable,
-                    last_chapter_id: String(chapters[0].chosen.id),
-                    last_chapter_name: String(chapters[0].number ?? chapters[0].chosen.id),
-                  })
-                }
-                href={`/leer-externo/${chapters[0].chosen.id}`}
-                className="rounded-md bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
-              >
-                Empezar a leer
-              </Link>
-            )}
+            {chapters.length > 0 && (() => {
+              const retomable = progreso.ultimoId
+                ? chapters.find((e) => String(e.chosen.id) === progreso.ultimoId) ?? chapters[0]
+                : chapters[0];
+              const pagQuery = paginaCapitulo(progreso, String(retomable.chosen.id));
+              return (
+                <Link
+                  onClick={() =>
+                    anotarHistorial({
+                      ...serieGuardable,
+                      last_chapter_id: String(retomable.chosen.id),
+                      last_chapter_name: String(retomable.number ?? retomable.chosen.id),
+                    })
+                  }
+                  href={`/leer-externo/${retomable.chosen.id}${pagQuery ? `?${pagQuery}` : ""}`}
+                  className="rounded-md bg-accent px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.06em] text-[var(--on-accent)] transition hover:opacity-90"
+                >
+                  {progreso.ultimoId && retomable.chosen.id === progreso.ultimoId
+                    ? `Seguir en el ${retomable.number ?? retomable.chosen.id}`
+                    : "Empezar a leer"}
+                </Link>
+              );
+            })()}
             <SaveExternalButton serie={serieGuardable} />
             <BotonMigrar fuente="mangadex" externalId={id} titulo={series.title} />
             <div className="flex gap-1 rounded-md border border-line bg-[var(--surface-raised)] p-1">

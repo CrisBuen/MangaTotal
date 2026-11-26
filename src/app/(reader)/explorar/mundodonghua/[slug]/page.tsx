@@ -1,11 +1,29 @@
 "use client";
 
-import Link from "next/link";
-import { use, useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EpisodeWatchLink } from "@/components/anime/EpisodeWatchLink";
 import { SaveExternalAnimeButton } from "@/components/anime/SaveExternalAnimeButton";
+import { VolverFuente } from "@/components/library/VolverFuente";
 import { Surface } from "@/components/ui/Surface";
 import type { FichaMundodonghua } from "@/lib/mundodonghua";
+import {
+  escribirUrlHistorial,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
+
+function leerPaginaInicialEpisodios(slug: string, param: string | null): number {
+  const nUrl = Number(param);
+  if (Number.isFinite(nUrl) && nUrl >= 1) return Math.floor(nUrl);
+  if (typeof window !== "undefined") {
+    try {
+      const saved = Number(window.sessionStorage.getItem(`mt:animeEpPage:mundodonghua:${slug}`));
+      if (Number.isFinite(saved) && saved >= 1) return Math.floor(saved);
+    } catch {}
+  }
+  return 1;
+}
 
 interface ProgresoEpisodio {
   episode_id: string;
@@ -22,35 +40,93 @@ function minuto(segundos: number): string {
 
 export default function FichaMundodonghuaPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = use(props.params);
+  const pathname = usePathname() || `/explorar/mundodonghua/${slug}`;
+  const searchParams = useSearchParams();
+  const searchParamsStr = searchParams.toString();
+
   const [ficha, setFicha] = useState<FichaMundodonghua | null>(null);
   const [progresos, setProgresos] = useState<ProgresoEpisodio[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => leerPaginaInicialEpisodios(slug, searchParams.get("ep_page")));
+  const [cargandoEpisodios, setCargandoEpisodios] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const externalIdRef = useRef<string | null>(null);
+  const slugCargadoRef = useRef<string | null>(null);
+
+  const cargarProgreso = useCallback(async (idExt: string) => {
+    try {
+      const params = new URLSearchParams({ source: "mundodonghua", id: idExt });
+      const progresoRes = await fetch(`/api/anime/externo/progreso?${params}`, { cache: "no-store" });
+      if (progresoRes.ok) {
+        const progreso = await progresoRes.json();
+        setProgresos(Array.isArray(progreso?.episodes) ? progreso.episodes : []);
+      }
+    } catch {}
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
-    setFicha(null);
-    setProgresos([]);
+    setCargandoEpisodios(true);
+    if (slugCargadoRef.current !== slug) {
+      setFicha(null);
+      setProgresos([]);
+      externalIdRef.current = null;
+    }
     try {
       const res = await fetch(`/api/anime/mundodonghua/${encodeURIComponent(slug)}?page=${page}`, {
         cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "No se pudo cargar el donghua");
+      slugCargadoRef.current = slug;
       setFicha(data);
-
-      const params = new URLSearchParams({ source: "mundodonghua", id: data.slug });
-      const progresoRes = await fetch(`/api/anime/externo/progreso?${params}`, { cache: "no-store" });
-      if (progresoRes.ok) {
-        const progreso = await progresoRes.json();
-        setProgresos(Array.isArray(progreso?.episodes) ? progreso.episodes : []);
-      }
+      externalIdRef.current = data.slug;
+      await cargarProgreso(data.slug);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar el donghua");
+    } finally {
+      setCargandoEpisodios(false);
     }
-  }, [page, slug]);
+  }, [page, slug, cargarProgreso]);
 
   useEffect(() => void load(), [load]);
+
+  useEffect(() => {
+    const refrescar = () => {
+      if (externalIdRef.current) void cargarProgreso(externalIdRef.current);
+    };
+    const onPopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const nextPage = leerPaginaInicialEpisodios(slug, sp.get("ep_page"));
+      setPage(nextPage);
+      refrescar();
+    };
+    window.addEventListener("focus", refrescar);
+    window.addEventListener("pageshow", refrescar);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("focus", refrescar);
+      window.removeEventListener("pageshow", refrescar);
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [slug, cargarProgreso]);
+
+  const cambiarPagina = useCallback((nextPage: number) => {
+    const clamped = Math.max(1, nextPage);
+    setPage(clamped);
+    try {
+      window.sessionStorage.setItem(`mt:animeEpPage:mundodonghua:${slug}`, String(clamped));
+    } catch {}
+    const url = new URL(window.location.href);
+    if (clamped > 1) url.searchParams.set("ep_page", String(clamped));
+    else url.searchParams.delete("ep_page");
+    escribirUrlHistorial(url, "replace");
+  }, [slug]);
+
+  const claveRuta = useMemo(
+    () => normalizarClaveRuta(pathname, searchParamsStr),
+    [pathname, searchParamsStr]
+  );
+  useRestaurarScroll(claveRuta, Boolean(ficha) && !cargandoEpisodios, true);
 
   if (error) {
     return (
@@ -78,12 +154,13 @@ export default function FichaMundodonghuaPage(props: { params: Promise<{ slug: s
 
   return (
     <div className="space-y-9">
-      <Link
+      <VolverFuente
+        mundo="anime"
         href="/explorar?seccion=animada&anime_fuente=mundodonghua"
         className="inline-block font-mono text-[11px] font-bold tracking-[0.06em] text-subtle transition hover:text-accent-ink"
       >
         ← Explorar Donghuas
-      </Link>
+      </VolverFuente>
 
       <div className="flex flex-col gap-7 sm:flex-row">
         <div className="w-full shrink-0 sm:w-52">
@@ -230,16 +307,16 @@ export default function FichaMundodonghuaPage(props: { params: Promise<{ slug: s
           <div className="mt-7 flex items-center justify-center gap-3">
             <button
               type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((value) => value - 1)}
+              disabled={cargandoEpisodios || page <= 1}
+              onClick={() => cambiarPagina(page - 1)}
               className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-40"
             >
               ← Anterior
             </button>
             <button
               type="button"
-              disabled={page >= ficha.last_page}
-              onClick={() => setPage((value) => value + 1)}
+              disabled={cargandoEpisodios || page >= ficha.last_page}
+              onClick={() => cambiarPagina(page + 1)}
               className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold text-subtle disabled:opacity-40"
             >
               Siguiente →

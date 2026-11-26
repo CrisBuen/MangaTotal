@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
 import { actualizarProgresoHistorialLocal } from "@/components/library/historial";
+import {
+  claveHistorialPendiente,
+  escribirUrlHistorial,
+  esperarHistorialPendiente,
+  guardarPosicionLector,
+  registrarFlusherProgreso,
+} from "@/lib/navegacionEstado";
 
 const GUARDAR_MS = 1500;
 
@@ -11,7 +17,8 @@ const GUARDAR_MS = 1500;
  * biblioteca del usuario y en el historial local (invitado o con sesión).
  *
  * También va anotando por qué página va, con una pausa entre avisos para no
- * mandar un pedido por cada imagen que pasa.
+ * mandar un pedido por cada imagen que pasa, y realiza flush inmediato al
+ * ocultar la pestaña/app o salir del capítulo.
  */
 export function useProgresoExterno(entrada: {
   source: "mangadex" | "olympus" | "tmo" | "ikigai" | "leercapitulo" | "catharsis" | "ehentai" | "hitomi";
@@ -24,43 +31,49 @@ export function useProgresoExterno(entrada: {
   const { source, externalId, chapterId, chapterName, pageNumber } = entrada;
 
   // la serie está anotada (en la biblioteca o en el historial): hasta
-  // saberlo no se manda nada
+  // saberlo no se manda solo_pagina antes de tiempo.
   const anotada = useRef(false);
-  // la página con la que se entró: al abrir el capítulo se reafirma esa, no
-  // la 1, o abrir y salir borraría por dónde ibas
-  const paginaDeEntrada = useRef(pageNumber ?? 1);
+  const paginaActualRef = useRef(pageNumber ?? 1);
+  if (pageNumber && pageNumber > 0) {
+    paginaActualRef.current = pageNumber;
+  }
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ultimaPagina = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelado = false;
     anotada.current = false;
+    ultimaPagina.current = null;
+    const pagInicial = pageNumber && pageNumber > 0 ? Math.trunc(pageNumber) : 1;
+    paginaActualRef.current = pagInicial;
 
     actualizarProgresoHistorialLocal({
       source,
       externalId,
       chapterId,
       chapterName,
-      pageNumber: paginaDeEntrada.current,
+      pageNumber: pagInicial,
+    });
+    guardarPosicionLector(`prog:${source}:${externalId}`, {
+      page: pagInicial,
+      chapterId,
     });
 
-    (async () => {
-      // ?todo=1 incluye las del historial: si abriste un capítulo, el avance
-      // se guarda aunque todavía no la hayas puesto en la biblioteca
-      const res = await fetch("/api/externo/biblioteca?todo=1").catch(() => null);
-      if (!res?.ok || cancelado) return;
-
-      const anotadas: ReferenciaBiblioteca[] = await res
-        .json()
-        .catch(() => []);
-
-      const existe = buscarReferenciaBiblioteca(anotadas, source, externalId);
-      if (!existe || cancelado) return;
-      anotada.current = true;
-
-      // sin título a propósito: así la ruta lo toma como aviso de avance y no
-      // como un guardado a mano. Si se mandara el título, una serie del
-      // historial pasaría sola a la biblioteca con solo abrir un capítulo.
+    const flush = () => {
+      const pag = Math.max(1, Math.trunc(paginaActualRef.current || 1));
+      actualizarProgresoHistorialLocal({
+        source,
+        externalId,
+        chapterId,
+        chapterName,
+        pageNumber: pag,
+      });
+      guardarPosicionLector(`prog:${source}:${externalId}`, {
+        page: pag,
+        chapterId,
+      });
+      if (!anotada.current || ultimaPagina.current === pag) return;
+      ultimaPagina.current = pag;
       fetch("/api/externo/biblioteca", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -68,21 +81,80 @@ export function useProgresoExterno(entrada: {
           source,
           external_id: externalId,
           last_chapter_id: chapterId,
-          last_chapter_name: chapterName,
-          last_page_number: paginaDeEntrada.current,
+          last_page_number: pag,
+          solo_pagina: true,
+          silencioso: true,
         }),
         keepalive: true,
       }).catch(() => {});
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    const quitarFlusher = registrarFlusherProgreso(flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+
+    (async () => {
+      // Esperamos brevemente a que POST /api/externo/historial cree la fila si venimos
+      // de tocar un capítulo nuevo, evitando el GET ?todo=1 redundante en cada apertura.
+      await esperarHistorialPendiente(claveHistorialPendiente(source, externalId));
+      if (cancelado) return;
+
+      const paginaEnvio = Math.max(1, Math.trunc(paginaActualRef.current || 1));
+      const res = await fetch("/api/externo/biblioteca", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source,
+          external_id: externalId,
+          last_chapter_id: chapterId,
+          last_chapter_name: chapterName,
+          last_page_number: paginaEnvio,
+          silencioso: true,
+        }),
+        keepalive: true,
+      }).catch(() => null);
+
+      if (!res?.ok || cancelado) return;
+      const json = (await res.json().catch(() => null)) as { tracked?: boolean } | null;
+      if (json && json.tracked === false) return;
+      anotada.current = true;
+      ultimaPagina.current = paginaEnvio;
     })();
 
     return () => {
       cancelado = true;
+      flush();
+      quitarFlusher();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, externalId, chapterId, chapterName]);
 
-  // avance dentro del capítulo
+  // Avance dentro del capítulo y sincronización silenciosa de ?page=N en la URL.
   useEffect(() => {
-    if (!pageNumber || pageNumber === ultimaPagina.current) return;
+    if (!pageNumber || pageNumber < 1) return;
+    const pag = Math.trunc(pageNumber);
+    paginaActualRef.current = pag;
+
+    try {
+      const url = new URL(window.location.href);
+      const actualUrl = url.searchParams.get("page");
+      if (pag > 1 && actualUrl !== String(pag)) {
+        url.searchParams.set("page", String(pag));
+        escribirUrlHistorial(url, "replace");
+      } else if (pag === 1 && actualUrl && actualUrl !== "1") {
+        url.searchParams.set("page", "1");
+        escribirUrlHistorial(url, "replace");
+      }
+    } catch {}
+
+    if (pag === ultimaPagina.current) return;
     if (temporizador.current) clearTimeout(temporizador.current);
 
     actualizarProgresoHistorialLocal({
@@ -90,12 +162,16 @@ export function useProgresoExterno(entrada: {
       externalId,
       chapterId,
       chapterName,
-      pageNumber,
+      pageNumber: pag,
+    });
+    guardarPosicionLector(`prog:${source}:${externalId}`, {
+      page: pag,
+      chapterId,
     });
 
     temporizador.current = setTimeout(() => {
       if (!anotada.current) return;
-      ultimaPagina.current = pageNumber;
+      ultimaPagina.current = pag;
       fetch("/api/externo/biblioteca", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -104,8 +180,9 @@ export function useProgresoExterno(entrada: {
           external_id: externalId,
           // sin título: el servidor lo toma como aviso de avance a secas
           last_chapter_id: chapterId,
-          last_page_number: pageNumber,
+          last_page_number: pag,
           solo_pagina: true,
+          silencioso: true,
         }),
         keepalive: true,
       }).catch(() => {});

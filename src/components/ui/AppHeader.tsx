@@ -85,7 +85,9 @@ export function AppHeader({
         </nav>}
 
         <div className="ml-auto flex min-h-9 sm:min-h-11 items-center gap-1 sm:gap-1.5" data-od-id="account-actions">
-          {mode !== "admin" && <Link href="/?elegir=1" className="od-switch-world" aria-label="Cambiar entre lectura y anime">⇄ <span>Cambiar sección</span></Link>}
+          {mode !== "admin" && experience.animeEnabled && (
+            <Link href="/?elegir=1" className="od-switch-world" aria-label="Cambiar entre lectura y anime">⇄ <span>Cambiar sección</span></Link>
+          )}
           {mode !== "admin" && (
             <Link
               href="/mas"

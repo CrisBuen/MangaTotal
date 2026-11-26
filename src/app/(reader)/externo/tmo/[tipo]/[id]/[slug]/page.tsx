@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { VolverFuente } from "@/components/library/VolverFuente";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { TMO_NOMBRE, serieTmo, capituloTmo } from "@/lib/zonatmo";
 import { cargarConCacheAndroid, guardarCacheAndroid } from "@/lib/androidCache";
+import { normalizarClaveRuta, useEstadoFicha, useRestaurarScroll } from "@/lib/navegacionEstado";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
@@ -20,10 +22,16 @@ export default function SerieTmoPage(props: {
   params: Promise<{ tipo: string; id: string; slug: string }>;
 }) {
   const { tipo, id, slug } = use(props.params);
+  const pathname = usePathname() || `/externo/tmo/${tipo}/${id}/${slug}`;
+  const searchParamsStr = useSearchParams().toString();
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [orden, setOrden] = useState<"asc" | "desc">("asc");
+  const [estadoFicha, setEstadoFicha] = useEstadoFicha(`tmo:${tipo}:${id}:${slug}`, { orden: "asc" });
+  const orden = estadoFicha.orden === "desc" ? "desc" : "asc";
+  const setOrden = (o: "asc" | "desc") => setEstadoFicha({ orden: o });
   const progreso = useProgresoSerie("tmo", `${tipo}/${id}/${slug}`);
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, searchParamsStr), [pathname, searchParamsStr]);
+  useRestaurarScroll(claveRuta, Boolean(ficha), true);
 
   const cargar = useCallback(async (fresco = false) => {
     if (!fresco) setError(null);
@@ -52,7 +60,7 @@ export default function SerieTmoPage(props: {
   }, [cargar]);
 
   if (error) {
-    return <AvisoFuente error={error} onReintentar={cargar} />;
+    return <AvisoFuente error={error} volverA="/explorar?fuente=tmo" onReintentar={cargar} />;
   }
 
   if (!ficha) {
@@ -185,7 +193,7 @@ export default function SerieTmoPage(props: {
                       last_chapter_name: String(c.numero ?? c.id),
                     })
                   }
-                  href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${encodeURIComponent(slug)}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
                   className="min-w-0 flex-1"
                 >
                   <p className="truncate text-sm font-semibold text-ink">
@@ -221,7 +229,7 @@ export default function SerieTmoPage(props: {
                       last_chapter_name: String(c.numero ?? c.id),
                     })
                   }
-                  href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${ficha.slug}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
+                  href={`/leer-externo/tmo/${c.id}?tipo=${tipo}&id=${id}&slug=${encodeURIComponent(slug)}${paginaCapitulo(progreso, String(c.id)) ? "&" + paginaCapitulo(progreso, String(c.id)) : ""}`}
                   className="shrink-0 font-mono text-[11px] tracking-[0.1em] text-accent-ink"
                 >
                   Leer →

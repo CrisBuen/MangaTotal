@@ -5,6 +5,7 @@ import { AndroidUpdateBanner } from "@/components/pwa/AndroidUpdateBanner";
 import { DesktopUpdater } from "@/components/pwa/DesktopUpdater";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import { ActualizacionesBiblioteca } from "@/components/library/ActualizacionesBiblioteca";
+import { NavigationTracker } from "@/components/layout/NavigationTracker";
 import "./globals.css";
 import "./opendesign.css";
 
@@ -75,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://ehgt.org" />
       </head>
       <body>
+        <NavigationTracker />
         <ActualizacionesBiblioteca>{children}</ActualizacionesBiblioteca>
         <AnalyticsTracker />
         <UpdatePrompt />

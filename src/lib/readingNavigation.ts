@@ -20,3 +20,19 @@ export function readingTab(path: string, params: Pick<URLSearchParams, "get">): 
   if (path === "/aleatorio") return "aleatorio";
   return null;
 }
+
+/**
+ * Rutas que pertenecen inequívocamente al mundo de Lectura. A diferencia de
+ * readingTab(), excluye /anime, /noticias y /aleatorio para que visitarlas desde
+ * el modo Anime no cambie silenciosamente la experiencia activa a Lectura.
+ */
+export function esRutaExclusivaLectura(
+  path: string,
+  params: Pick<URLSearchParams, "get">
+): boolean {
+  if (path === "/lectura" || path.startsWith("/lectura/")) return true;
+  if (path === "/biblioteca" || path === "/fuentes") return true;
+  if (path.startsWith("/externo/") || path.startsWith("/serie/")) return true;
+  if (path === "/explorar" && params.get("seccion") !== "animada") return true;
+  return false;
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { marcarCambioCapituloLector, marcarSiguienteComoReemplazo } from "@/lib/navegacionEstado";
 
 /**
  * Enlace de un capítulo al siguiente o al anterior.
@@ -42,6 +43,8 @@ export function EnlaceCapitulo({
         // se respeta abrir en otra pestaña: ctrl/cmd, botón del medio, etc.
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
+        marcarCambioCapituloLector();
+        marcarSiguienteComoReemplazo();
         onNavegar?.();
         router.replace(href);
       }}

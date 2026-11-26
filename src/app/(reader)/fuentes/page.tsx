@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
 import { SectionHeading, Surface } from "@/components/ui/Surface";
 import { fichaHref } from "@/lib/externas";
 import { FUENTES_BIBLIOTECA } from "@/lib/fuentesBiblioteca";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
+import { guardarScrollRuta, normalizarClaveRuta, useRestaurarScroll } from "@/lib/navegacionEstado";
 import { enAppAndroid } from "@/lib/pantalla";
 import { isPlayStoreApp } from "@/lib/appVersion";
 
@@ -17,7 +18,9 @@ interface Guardada {
 }
 
 function ListaFuentes() {
+  const pathname = usePathname() || "/fuentes";
   const params = useSearchParams();
+  const paramsStr = params.toString();
   const seleccion = params.get("fuente");
   const [enPlay, setEnPlay] = useState(false);
   const fuentesVisibles = FUENTES_BIBLIOTECA.filter(
@@ -32,7 +35,9 @@ function ListaFuentes() {
   const [serieMenu, setSerieMenu] = useState<Guardada | null>(null);
   const longPressRef = useRef<NodeJS.Timeout | null>(null);
   const fueLongPressRef = useRef(false);
-  const claveScroll = `mangatotal:fuentes:scroll:${seleccion ?? "indice"}`;
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, paramsStr), [pathname, paramsStr]);
+
+  useRestaurarScroll(claveRuta, series !== null, true);
 
   useEffect(() => {
     setEnPlay(isPlayStoreApp());
@@ -54,17 +59,8 @@ function ListaFuentes() {
     return () => controller.abort();
   }, [intento]);
 
-  useLayoutEffect(() => {
-    if (!series) return;
-    // Solo se recuerda la posición, nunca se copia la biblioteca al almacenamiento.
-    let y = 0;
-    try { y = Number(sessionStorage.getItem(claveScroll)) || 0; } catch { /* almacenamiento bloqueado */ }
-    const frame = requestAnimationFrame(() => window.scrollTo(0, y));
-    return () => cancelAnimationFrame(frame);
-  }, [series, claveScroll]);
-
   function recordarScroll() {
-    try { sessionStorage.setItem(claveScroll, String(window.scrollY)); } catch { /* almacenamiento bloqueado */ }
+    guardarScrollRuta(claveRuta, window.scrollY);
   }
 
   function handleTouchStart(s: Guardada) {
@@ -233,14 +229,20 @@ function ListaFuentes() {
           <div className="space-y-2 pt-1">
             <Link
               href={`/migrar?fuente=${encodeURIComponent(serieMenu.source)}&id=${encodeURIComponent(serieMenu.external_id)}${serieMenu.slug ? `&slug=${encodeURIComponent(serieMenu.slug)}` : ""}&titulo=${encodeURIComponent(serieMenu.title)}`}
-              onClick={() => setSerieMenu(null)}
+              onClick={() => {
+                recordarScroll();
+                setSerieMenu(null);
+              }}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3 font-mono text-xs font-bold uppercase tracking-wider text-[var(--on-accent)] transition hover:opacity-90 active:scale-98"
             >
               🔄 Migrar obra
             </Link>
             <Link
               href={`${fichaHref(serieMenu.source, serieMenu.external_id, serieMenu.slug)}?bibliotecaFuente=${fuente?.id ?? serieMenu.source}`}
-              onClick={() => setSerieMenu(null)}
+              onClick={() => {
+                recordarScroll();
+                setSerieMenu(null);
+              }}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-[var(--surface-raised)] py-3 text-xs font-semibold text-ink transition hover:border-line-strong active:scale-98"
             >
               📖 Ver obra

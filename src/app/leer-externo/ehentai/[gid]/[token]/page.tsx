@@ -102,7 +102,7 @@ function LectorEhentaiContenido(props: {
       }}
       grupo="E-Hentai"
       source="ehentai"
-      externalId={gid}
+      externalId={`${gid}/${token}`}
       initialPage={initialPage}
       hrefVolver={volverA}
       hrefCapitulo={() => volverA}

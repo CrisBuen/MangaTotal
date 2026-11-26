@@ -1,14 +1,19 @@
 "use client";
 
-import Link from "next/link";
+import { BotonVolver } from "./BotonVolver";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  guardarPosicionLector,
+  leerPosicionLector,
+  registrarFlusherProgreso,
+} from "@/lib/navegacionEstado";
 import { retryThroughProxy } from "./pageImage";
 import type { ChapterLink, ReaderPage } from "./types";
 
 /** Cuánto insistir con el salto a la página guardada antes de rendirse. */
-const REINTENTO_MS = 12000;
+const REINTENTO_MS = 8000;
 
 /**
  * Proporción del hueco de una página cuando todavía no se sabe nada: ni la
@@ -38,6 +43,8 @@ export function CascadeReader({
   seriesSlug,
   seriesHref,
   onPageVisible,
+  progressKey,
+  headerOffset = 56,
 }: {
   pages: ReaderPage[];
   initialPage: number;
@@ -46,6 +53,10 @@ export function CascadeReader({
   /** Destino del botón "Volver": series externas no tienen slug propio. */
   seriesHref?: string;
   onPageVisible: (pageNumber: number) => void;
+  /** Clave local del capítulo para recordar también el desplazamiento vertical sub-página. */
+  progressKey?: string;
+  /** Altura estimada de la barra superior fija para alinear el desplazamiento al restaurar. */
+  headerOffset?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -78,16 +89,28 @@ export function CascadeReader({
     return paginas.length > 0 ? medidas[Number(paginas[0])] : null;
   }, [medidas]);
 
+  const posGuardadaInicial = useMemo(
+    () => (progressKey ? leerPosicionLector(progressKey) : null),
+    [progressKey]
+  );
+  const ratioInicial =
+    posGuardadaInicial && posGuardadaInicial.page === initialPage
+      ? Math.min(0.96, Math.max(0, posGuardadaInicial.ratio ?? 0))
+      : 0;
+
   // mientras se acomoda en la página guardada no se reporta el avance, o se
   // guardaría una página cualquiera del camino
-  const restaurando = useRef(initialPage > 1);
+  const restaurando = useRef(initialPage > 1 || ratioInicial > 0.01);
   const objetivo = useRef(initialPage);
+  const ratioObjetivo = useRef(ratioInicial);
+  const onPageVisibleRef = useRef(onPageVisible);
+  onPageVisibleRef.current = onPageVisible;
 
   const terminarRestauracion = useCallback(() => {
     restaurando.current = false;
   }, []);
 
-  /** Lleva el scroll a la página guardada, si ya se puede saber dónde está. */
+  /** Lleva el scroll a la página (y fracción interna) guardada, si ya se puede saber dónde está. */
   const irAlObjetivo = useCallback(() => {
     if (!restaurando.current) return;
     const el = pageRefs.current.get(objetivo.current);
@@ -97,16 +120,20 @@ export function CascadeReader({
     // sin alto real todavía no sabe dónde está: se reintenta más tarde
     if (rect.height < 40) return;
 
-    const destino = rect.top + window.scrollY;
-    if (destino <= 0) return;
-    window.scrollTo({ top: destino });
-  }, []);
+    const extraPx = ratioObjetivo.current * rect.height;
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const calculado = rect.top + window.scrollY - headerOffset + extraPx;
+    const destino = Math.min(maxScroll, Math.max(0, calculado));
+    if (destino <= 0 && ratioObjetivo.current <= 0.01) return;
+    window.scrollTo({ top: destino, behavior: "instant" as ScrollBehavior });
+  }, [headerOffset]);
 
-  // Salto a la página guardada. Se insiste mientras van cargando las
-  // imágenes de arriba, porque cada una que carga corre el resto hacia abajo.
+  // Salto inicial e insistencia mientras cargan las imágenes superiores (también reacciona
+  // a cambios de medidas / proporcionTipica en tiras largas de webtoon).
   useEffect(() => {
     if (!restaurando.current) return;
 
+    const raf = requestAnimationFrame(() => irAlObjetivo());
     const desde = Date.now();
     const t = setInterval(() => {
       if (!restaurando.current || Date.now() - desde > REINTENTO_MS) {
@@ -117,17 +144,27 @@ export function CascadeReader({
       irAlObjetivo();
     }, 250);
 
-    return () => clearInterval(t);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(t);
+    };
   }, [irAlObjetivo, terminarRestauracion]);
+
+  useEffect(() => {
+    if (!restaurando.current) return;
+    irAlObjetivo();
+  }, [medidas, proporcionTipica, irAlObjetivo]);
 
   // si la persona toca el scroll, se deja de pelear con ella
   useEffect(() => {
     if (!restaurando.current) return;
     const soltar = () => terminarRestauracion();
+    window.addEventListener("pointerdown", soltar, { passive: true });
     window.addEventListener("wheel", soltar, { passive: true });
     window.addEventListener("touchmove", soltar, { passive: true });
     window.addEventListener("keydown", soltar);
     return () => {
+      window.removeEventListener("pointerdown", soltar);
       window.removeEventListener("wheel", soltar);
       window.removeEventListener("touchmove", soltar);
       window.removeEventListener("keydown", soltar);
@@ -136,41 +173,94 @@ export function CascadeReader({
 
   /**
    * Qué página se está viendo: la última cuyo borde superior ya pasó por el
-   * tercio alto de la pantalla. Se calcula mirando las posiciones reales en
-   * vez de escuchar intersecciones, que con recuadros de alto cero se
-   * disparan todas juntas y dejan la última página como "actual".
+   * tercio alto de la pantalla. Además calcula la fracción vertical recorrida
+   * dentro de esa página para reanudar exactamente en el mismo cuadro en tiras
+   * largas de webtoon.
    */
   useEffect(() => {
     let pendiente = false;
+    let haScrolleado = false;
+    let ultimoGuardadoTs = 0;
+    let timerGuardado: ReturnType<typeof setTimeout> | null = null;
 
-    const calcular = () => {
-      pendiente = false;
-      if (restaurando.current) return;
-
+    const medirPosicion = (): { page: number; ratio: number } | null => {
       const corte = window.innerHeight * 0.35;
       let actual = 0;
+      let rectActual: DOMRect | null = null;
       for (const [n, el] of pageRefs.current) {
         const r = el.getBoundingClientRect();
         if (r.height < 40) continue; // todavía sin cargar: no cuenta
-        if (r.top <= corte) actual = Math.max(actual, n);
+        if (r.top <= corte && n >= actual) {
+          actual = n;
+          rectActual = r;
+        }
       }
-      if (actual > 0) onPageVisible(actual);
+      if (actual <= 0 || !rectActual) return null;
+      const ratio = Math.min(0.96, Math.max(0, (headerOffset - rectActual.top) / rectActual.height));
+      return { page: actual, ratio };
     };
 
-    const alMover = () => {
+    const persistirSubpagina = () => {
+      if (restaurando.current || !progressKey) return;
+      // Evita que un montaje inicial transitorio en y<=10 (antes de que el lector padre
+      // remonte CascadeReader en la página reanudada) pise el progreso guardado con page=1, ratio=0.
+      if (!haScrolleado && window.scrollY <= 10) return;
+      const medido = medirPosicion();
+      if (!medido) return;
+      ultimoGuardadoTs = Date.now();
+      guardarPosicionLector(progressKey, { page: medido.page, ratio: medido.ratio });
+    };
+
+    const calcular = (desdeScrollReal: boolean) => {
+      pendiente = false;
+      if (restaurando.current) return;
+      const medido = medirPosicion();
+      if (!medido) return;
+      onPageVisibleRef.current(medido.page);
+
+      if (progressKey && (desdeScrollReal || haScrolleado || window.scrollY > 10)) {
+        const ahora = Date.now();
+        if (ahora - ultimoGuardadoTs >= 300) {
+          persistirSubpagina();
+        } else {
+          if (timerGuardado) clearTimeout(timerGuardado);
+          timerGuardado = setTimeout(persistirSubpagina, 300);
+        }
+      }
+    };
+
+    const alMover = (evento?: Event) => {
+      if (evento?.type === "scroll" && !restaurando.current) {
+        if (window.scrollY > 0 || haScrolleado) {
+          haScrolleado = true;
+        }
+      }
       if (pendiente) return;
       pendiente = true;
-      requestAnimationFrame(calcular);
+      const desdeScroll = evento?.type === "scroll";
+      requestAnimationFrame(() => calcular(desdeScroll));
     };
 
+    const alOcultar = () => {
+      if (document.visibilityState === "hidden") persistirSubpagina();
+    };
+
+    const quitarFlusher = registrarFlusherProgreso(persistirSubpagina);
     window.addEventListener("scroll", alMover, { passive: true });
     window.addEventListener("resize", alMover);
+    document.addEventListener("visibilitychange", alOcultar);
+    window.addEventListener("pagehide", persistirSubpagina);
     alMover();
     return () => {
+      persistirSubpagina();
+      quitarFlusher();
+      if (timerGuardado) clearTimeout(timerGuardado);
       window.removeEventListener("scroll", alMover);
       window.removeEventListener("resize", alMover);
+      document.removeEventListener("visibilitychange", alOcultar);
+      window.removeEventListener("pagehide", persistirSubpagina);
     };
-  }, [onPageVisible, pages.length]);
+  }, [pages.length, progressKey, headerOffset]);
 
   return (
     <div ref={containerRef} className="mx-auto flex max-w-3xl flex-col items-center" data-od-id="cascade-reader">
@@ -233,12 +323,12 @@ export function CascadeReader({
             Siguiente capítulo ({nextChapter.number}) →
           </EnlaceCapitulo>
         ) : (
-          <Link
+          <BotonVolver
             href={seriesHref ?? `/serie/${seriesSlug}`}
             className="inline-flex min-h-11 items-center rounded-md border border-line bg-panel px-5 text-[13px] font-bold tracking-[0.08em] text-ink transition hover:border-line-strong hover:bg-[var(--surface-raised)]"
           >
             Volver a la serie
-          </Link>
+          </BotonVolver>
         )}
       </div>
     </div>

@@ -25,6 +25,7 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
 
   const cargar = useCallback(async () => {
     setError(null);
+    setCapitulo(null);
     try {
       const cap = await cargarConCacheAndroid<Capitulo>(
         `capitulo:tmo:${slug}:${slugCapitulo}`,
@@ -78,6 +79,7 @@ export default function LeerTmoPage(props: { params: Promise<{ id: string }> }) 
 
   return (
     <OlympusReader
+      key={`${slug}:${slugCapitulo}`}
       chapter={{
         id: slugCapitulo,
         name: capitulo.numero ?? "",

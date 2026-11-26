@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  guardarEstadoFuente,
+  guardarUltimaFuente,
+  guardarUltimoExplorar,
+  marcarScrollArriba,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 import { HeroCarousel, type HeroItem } from "./HeroCarousel";
 import { MediaRail } from "./MediaRail";
 import { DISCOVER_GENRES } from "./DiscoverMenu";
@@ -103,15 +111,33 @@ function LazyRail({ title, source, query, load, onPreview, isSaved }: {
       {!data && !error && Array.from({ length: 8 }, (_, i) => <div key={i} className="od-card-skeleton" aria-hidden="true" />)}
     </MediaRail>
     {error && <div className="od-message" role="status"><p>{error}</p><button onClick={() => setAttempt(value => value + 1)}>Reintentar {title}</button></div>}
-    {data?.series.length === 0 && <p className="od-message">La fuente no tiene resultados en esta sección. <a href={catalogUrl(source)}>Ver catálogo completo</a></p>}
+    {data?.series.length === 0 && <p className="od-message">La fuente no tiene resultados en esta sección. <Link href={catalogUrl(source)} prefetch={false}>Ver catálogo completo</Link></p>}
   </div>;
+}
+
+function leerPaginaSheet(source: Source, slug: string): number {
+  if (typeof window === "undefined") return 1;
+  try {
+    const raw = window.sessionStorage.getItem(`mt:animeSheetPage:${source}:${slug}`);
+    const n = raw ? Number.parseInt(raw, 10) : 1;
+    return Number.isFinite(n) && n >= 1 ? n : 1;
+  } catch {
+    return 1;
+  }
 }
 
 function AnimeSheet({ source, item, close, onLibraryChange }: { source: Source; item: Series; close: () => void; onLibraryChange: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [progress, setProgress] = useState<Progress[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPageState] = useState(() => leerPaginaSheet(source, item.slug));
+  const setPage = useCallback((next: number) => {
+    const clamped = Math.max(1, next);
+    setPageState(clamped);
+    try {
+      window.sessionStorage.setItem(`mt:animeSheetPage:${source}:${item.slug}`, String(clamped));
+    } catch {}
+  }, [source, item.slug]);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -191,8 +217,11 @@ function AnimeSheet({ source, item, close, onLibraryChange }: { source: Source; 
 export function AnimeDiscover({ source }: { source: Source }) {
   // La barra móvil navega sin recargar: la vista debe seguir la URL, también
   // con Atrás/Adelante. Los filtros internos del catálogo conservan su estado.
+  const router = useRouter();
+  const pathname = usePathname() || "/explorar";
   const params = useSearchParams();
-  const initial = Object.fromEntries(params);
+  const initial = useMemo(() => Object.fromEntries(params), [params]);
+  const paramsTexto = params.toString();
   const directory = initial.vista === "catalogo";
   const myList = initial.vista === "milista";
   const historyView = initial.vista === "historial";
@@ -206,7 +235,43 @@ export function AnimeDiscover({ source }: { source: Source }) {
   const [accountError, setAccountError] = useState("");
   const [accountVersion, setAccountVersion] = useState(0);
   const [selected, setSelected] = useState<Series | null>(null);
-  const [seasonalHeroes, setSeasonalHeroes] = useState<HeroItem[] | null>(null);
+  type AniCard = {
+    id: number;
+    title: string;
+    cover_url: string | null;
+    banner_url: string | null;
+    description: string | null;
+    format: string | null;
+    status: string | null;
+    genres?: string[];
+  };
+  const [seasonalPool, setSeasonalPool] = useState<AniCard[] | null>(null);
+  useEffect(() => {
+    // Si el usuario cambia de fuente o pasa al catálogo, cerramos el modal abierto
+    // y reemplazamos su hash para no dejar una ficha huérfana en el historial.
+    if (location.hash === "#ficha-anime") {
+      const sheet = history.state?.odAnimeSheet;
+      if (sheet?.source !== source || directory || personalView) {
+        history.replaceState(history.state, "", location.pathname + location.search);
+      }
+    }
+    setSelected(null);
+  }, [source, directory, personalView]);
+  useEffect(() => {
+    // Persistimos la vista de Descubrir / Mi lista para regresar al mismo lugar.
+    if (directory) return;
+    const urlActual = paramsTexto
+      ? `/explorar?${paramsTexto}`
+      : `/explorar?seccion=animada&anime_fuente=${source}`;
+    guardarUltimaFuente("anime", source);
+    guardarEstadoFuente("anime", source, urlActual);
+    guardarUltimoExplorar("anime", urlActual);
+  }, [source, directory, paramsTexto]);
+  const claveScrollDiscover = useMemo(
+    () => normalizarClaveRuta(pathname, paramsTexto || `seccion=animada&anime_fuente=${source}`),
+    [pathname, paramsTexto, source]
+  );
+  useRestaurarScroll(claveScrollDiscover, recent !== null, !directory && !personalView);
   useEffect(() => {
     // El gesto Atrás cierra la ficha; Adelante restaura esa misma ficha sin
     // agregar otra entrada. Al reproducir se reemplaza solo la entrada modal.
@@ -222,6 +287,11 @@ export function AnimeDiscover({ source }: { source: Source }) {
   // La caché pertenece a esta vista/cuenta; nunca se comparte progreso en una caché pública.
   const requests = useRef(new Map<string, Promise<Catalog>>());
   const controllers = useRef(new Set<AbortController>());
+  useEffect(() => {
+    requests.current.clear();
+    setRecent(null);
+    setError("");
+  }, [source]);
   const load = useCallback((query: string) => {
     const existing = requests.current.get(query);
     if (existing) return existing;
@@ -273,74 +343,69 @@ export function AnimeDiscover({ source }: { source: Source }) {
   }, [source, directory, personalView, accountVersion, cargarBiblioteca]);
 
   // Cargamos animes aleatorios de la temporada actual desde AniList con arte oficial verificado
+  // separados del estado `recent` para no duplicar pedidos ni rebarajar cuando llega Novedades.
   useEffect(() => {
-    if (directory || personalView || source === "mundodonghua") return;
+    if (directory || personalView || source === "mundodonghua" || seasonalPool) return;
     const controller = new AbortController();
     fetch("/api/anime?season=actual&sort=trending", { signal: controller.signal })
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (controller.signal.aborted || !data?.anime?.length) return;
-        type AniCard = {
-          id: number;
-          title: string;
-          cover_url: string | null;
-          banner_url: string | null;
-          description: string | null;
-          format: string | null;
-          status: string | null;
-          genres?: string[];
-        };
         const list: AniCard[] = data.anime;
         // Priorizamos animes de la temporada en emisión que cuenten con arte oficial de estudio
         const conBanner = list.filter(a => Boolean(a.banner_url));
         const pool = conBanner.length >= 4 ? conBanner : list;
         // Barajamos aleatoriamente para que en cada recarga/visita no se repitan de forma estática
         const aleatorios = [...pool].sort(() => Math.random() - 0.5).slice(0, 6);
-
-        const items: HeroItem[] = aleatorios.map(anime => {
-          const matchingRecent = recent?.find(r =>
-            r.title.toLowerCase().trim() === anime.title.toLowerCase().trim() ||
-            r.title.toLowerCase().includes(anime.title.toLowerCase()) ||
-            anime.title.toLowerCase().includes(r.title.toLowerCase())
-          );
-
-          const targetHref = matchingRecent
-            ? `/explorar/${source}/${matchingRecent.slug}`
-            : `/explorar?seccion=animada&anime_fuente=${source}&vista=catalogo&q=${encodeURIComponent(anime.title)}`;
-
-          const genresEs = (anime.genres ?? [])
-            .slice(0, 3)
-            .map(g => ANILIST_GENRES_ES[g] ?? g)
-            .join(" · ");
-
-          return {
-            id: `seasonal-${anime.id}`,
-            title: anime.title,
-            image: anime.cover_url,
-            backdrop: anime.banner_url,
-            artworkTitle: anime.title,
-            poster: true,
-            description: anime.description,
-            badges: ["TEMPORADA ACTUAL", anime.format ? anime.format.toUpperCase() : "TV"],
-            meta: genresEs || [SOURCE_NAMES[source], anime.format, anime.status].filter(Boolean).join(" · "),
-            href: targetHref,
-            action: "Ver serie",
-            extra: matchingRecent ? (
-              <button className="od-outline" onClick={() => setSelected(matchingRecent)}>
-                ⓘ Episodios y detalles
-              </button>
-            ) : (
-              <Link className="od-outline" href={targetHref} prefetch={false}>
-                Buscar en {SOURCE_NAMES[source]} →
-              </Link>
-            ),
-          };
-        });
-        setSeasonalHeroes(items);
+        setSeasonalPool(aleatorios);
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [source, directory, personalView, recent]);
+  }, [source, directory, personalView, seasonalPool]);
+
+  const title = SOURCE_NAMES[source];
+  const seasonalHeroes = useMemo<HeroItem[] | null>(() => {
+    if (source === "mundodonghua" || !seasonalPool?.length) return null;
+    return seasonalPool.map(anime => {
+      const matchingRecent = recent?.find(r =>
+        r.title.toLowerCase().trim() === anime.title.toLowerCase().trim() ||
+        r.title.toLowerCase().includes(anime.title.toLowerCase()) ||
+        anime.title.toLowerCase().includes(r.title.toLowerCase())
+      );
+
+      const targetHref = matchingRecent
+        ? `/explorar/${source}/${matchingRecent.slug}`
+        : `/explorar?seccion=animada&anime_fuente=${source}&vista=catalogo&q=${encodeURIComponent(anime.title)}`;
+
+      const genresEs = (anime.genres ?? [])
+        .slice(0, 3)
+        .map(g => ANILIST_GENRES_ES[g] ?? g)
+        .join(" · ");
+
+      return {
+        id: `seasonal-${anime.id}`,
+        title: anime.title,
+        image: anime.cover_url,
+        backdrop: anime.banner_url,
+        artworkTitle: anime.title,
+        poster: true,
+        description: anime.description,
+        badges: ["TEMPORADA ACTUAL", anime.format ? anime.format.toUpperCase() : "TV"],
+        meta: genresEs || [title, anime.format, anime.status].filter(Boolean).join(" · "),
+        href: targetHref,
+        action: "Ver serie",
+        extra: matchingRecent ? (
+          <button className="od-outline" onClick={() => setSelected(matchingRecent)}>
+            ⓘ Episodios y detalles
+          </button>
+        ) : (
+          <Link className="od-outline" href={targetHref} prefetch={false}>
+            Buscar en {title} →
+          </Link>
+        ),
+      };
+    });
+  }, [source, seasonalPool, recent, title]);
 
   const isItemSaved = useCallback(
     (item: Series) => {
@@ -358,7 +423,6 @@ export function AnimeDiscover({ source }: { source: Source }) {
     [library]
   );
   const continuing = historyItems.filter(entry => !entry.completed && entry.resume_href);
-  const title = SOURCE_NAMES[source];
   const genre = (id: string) => source === "tioanime" ? TIO_GENRES[id] ?? id : source === "mundodonghua" ? DONGHUA_GENRES[id] ?? id : id;
 
   const heroItems: HeroItem[] | null = (seasonalHeroes && seasonalHeroes.length > 0)
@@ -380,21 +444,30 @@ export function AnimeDiscover({ source }: { source: Source }) {
       : null);
   return <div className="od-discover" data-od-id="anime-discover">
     <nav className="od-tabs hidden md:flex" aria-label="Descubrir anime">
-      <a aria-current={!directory && !personalView ? "page" : undefined} href={`/explorar?seccion=animada&anime_fuente=${source}`}>Descubrir</a>
-      <a aria-current={directory && (!initial.sort || initial.sort === "recent") && !initial.status ? "page" : undefined} href={catalogUrl(source)}>Todos los títulos</a>
-      {source === "jkanime" && <a aria-current={directory && initial.sort === "popularidad" ? "page" : undefined} href={catalogUrl(source, { sort: "popularidad" })}>Populares</a>}
-      <a aria-current={directory && initial.status === (source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision") ? "page" : undefined} href={catalogUrl(source, { status: source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision" })}>En emisión</a>
-      {source === "mundodonghua" && <a aria-current={directory && initial.status === "finalizados" ? "page" : undefined} href={catalogUrl(source, { status: "finalizados" })}>Finalizadas</a>}
-      {source === "jkanime" && <a aria-current={directory && initial.sort === "nombre" ? "page" : undefined} href={catalogUrl(source, { sort: "nombre" })}>A–Z</a>}
-      <a aria-current={personalView ? "page" : undefined} href={listUrl}>Mi lista</a>
+      <Link aria-current={!directory && !personalView ? "page" : undefined} href={`/explorar?seccion=animada&anime_fuente=${source}`} prefetch={false}>Descubrir</Link>
+      <Link aria-current={directory && (!initial.sort || initial.sort === "recent") && !initial.status ? "page" : undefined} href={catalogUrl(source)} prefetch={false}>Todos los títulos</Link>
+      {source === "jkanime" && <Link aria-current={directory && initial.sort === "popularidad" ? "page" : undefined} href={catalogUrl(source, { sort: "popularidad" })} prefetch={false}>Populares</Link>}
+      <Link aria-current={directory && initial.status === (source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision") ? "page" : undefined} href={catalogUrl(source, { status: source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision" })} prefetch={false}>En emisión</Link>
+      {source === "mundodonghua" && <Link aria-current={directory && initial.status === "finalizados" ? "page" : undefined} href={catalogUrl(source, { status: "finalizados" })} prefetch={false}>Finalizadas</Link>}
+      {source === "jkanime" && <Link aria-current={directory && initial.sort === "nombre" ? "page" : undefined} href={catalogUrl(source, { sort: "nombre" })} prefetch={false}>A–Z</Link>}
+      <Link aria-current={personalView ? "page" : undefined} href={listUrl} prefetch={false}>Mi lista</Link>
     </nav>
     {personalView ? <>
-      <div className="mb-5 flex justify-end"><a className="od-outline" href={historyView ? listUrl : historyUrl}>{historyView ? "← Volver a Mi lista" : "Ver historial"}</a></div>
+      <div className="mb-5 flex justify-end"><Link className="od-outline" href={historyView ? listUrl : historyUrl} prefetch={false}>{historyView ? "← Volver a Mi lista" : "Ver historial"}</Link></div>
       <MiLista busqueda={initial.q ?? ""} soloGuardados={myList} soloHistorial={historyView} />
     </> : directory ? <>{source === "jkanime" ? <JkanimeCatalog initial={initial} /> : source === "tioanime" ? <TioanimeCatalog initial={initial} /> : <MundodonghuaCatalog initial={initial} />}</> : <>
       {heroItems?.length ? <div className="od-fullbleed"><HeroCarousel heading="h2" items={heroItems} /></div> : !error && recent === null ? <div className="od-hero-skeleton" role="status">Cargando novedades de {title}…</div> : null}
-      <form className="od-discover-tools mt-4 md:mt-6" action="/explorar" role="search" aria-label={`Buscar en ${title}`}>
-        <input type="hidden" name="seccion" value="animada" /><input type="hidden" name="anime_fuente" value={source} /><input type="hidden" name="vista" value="catalogo" />
+      <form
+        className="od-discover-tools mt-4 md:mt-6"
+        role="search"
+        aria-label={`Buscar en ${title}`}
+        onSubmit={event => {
+          event.preventDefault();
+          const destino = search.trim() ? catalogUrl(source, { q: search.trim() }) : catalogUrl(source);
+          marcarScrollArriba(destino);
+          router.push(destino);
+        }}
+      >
         <input name="q" value={search} onChange={event => setSearch(event.target.value)} placeholder={`Buscar todas las series de ${title}…`} aria-label={`Buscar todas las series de ${title}`} type="search" />
         <button className="od-outline" type="submit">Buscar →</button>
       </form>
@@ -413,14 +486,14 @@ export function AnimeDiscover({ source }: { source: Source }) {
         </div>)}
       </MediaRail>}
       {recent && <MediaRail title={`Novedades de ${title}`} href={catalogUrl(source)}>{recent.map(item => <Poster key={item.slug} item={item} onPreview={setSelected} saved={isItemSaved(item)} />)}</MediaRail>}
-      <section className="od-genres" aria-labelledby="od-genres-title"><h2 id="od-genres-title">¿Qué te gustaría ver?</h2><p>Elegí un género y explorá su catálogo completo.</p><div className="od-genre-grid">{DISCOVER_GENRES.map(([id, label]) => <a key={id} href={catalogUrl(source, { genre: genre(id) })}>{label}<span aria-hidden="true">↗</span></a>)}</div></section>
+      <section className="od-genres" aria-labelledby="od-genres-title"><h2 id="od-genres-title">¿Qué te gustaría ver?</h2><p>Elegí un género y explorá su catálogo completo.</p><div className="od-genre-grid">{DISCOVER_GENRES.map(([id, label]) => <Link key={id} href={catalogUrl(source, { genre: genre(id) })} prefetch={false}>{label}<span aria-hidden="true">↗</span></Link>)}</div></section>
       {recent && source === "jkanime" && <LazyRail title="Populares en JKAnime" source={source} query="sort=popularidad" load={load} onPreview={setSelected} isSaved={isItemSaved} />}
       {recent && <LazyRail title="En emisión" source={source} query={`status=${source === "jkanime" ? "emision" : source === "tioanime" ? "1" : "emision"}`} load={load} onPreview={setSelected} isSaved={isItemSaved} />}
       {recent && source === "mundodonghua" && <LazyRail title="Series finalizadas" source={source} query="status=finalizados" load={load} onPreview={setSelected} isSaved={isItemSaved} />}
       {recent && source === "mundodonghua" && <LazyRail title="Cultivación y Artes Marciales" source={source} query="genre=Cultivación" load={load} onPreview={setSelected} isSaved={isItemSaved} />}
       {library.length > 0 && <MediaRail title="Tu lista" href={listUrl}>{library.map(item => <Poster key={item.external_id} item={item} saved onPreview={setSelected} />)}</MediaRail>}
       {recent && [["accion", "Acción sin pausa"], ["fantasia", "Mundos de fantasía"], ["romance", "Historias de romance"], ["comedia", "Un momento de comedia"], ["sci-fi", "Ciencia ficción"]].map(([id, label]) => <LazyRail key={id} title={label} source={source} query={`genre=${genre(id)}`} load={load} onPreview={setSelected} isSaved={isItemSaved} />)}
-      <div className="od-catalog-cta"><h2>Hay mucho más por descubrir</h2><p>Todos los títulos, filtros por género y episodios disponibles en {title}.</p><a href={catalogUrl(source)} className="od-primary">Explorar catálogo completo →</a></div>
+      <div className="od-catalog-cta"><h2>Hay mucho más por descubrir</h2><p>Todos los títulos, filtros por género y episodios disponibles en {title}.</p><Link href={catalogUrl(source)} className="od-primary" prefetch={false}>Explorar catálogo completo →</Link></div>
       <p className="od-source-credit">Catálogo, fichas y episodios de <a href={source === "jkanime" ? "https://jkanime.net/" : source === "tioanime" ? "https://tioanime.com/" : "https://www.mundodonghua.com/"} target="_blank" rel="noopener noreferrer">{title} ↗</a>, con su permiso. Disponibilidad según la fuente.</p>
     </>}
     {selected && <AnimeSheet key={selected.slug} source={source} item={selected} close={() => setSelected(null)} onLibraryChange={() => setAccountVersion(value => value + 1)} />}

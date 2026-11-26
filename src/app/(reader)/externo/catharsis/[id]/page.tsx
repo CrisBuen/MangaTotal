@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { VolverFuente } from "@/components/library/VolverFuente";
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { AvisoFuente } from "@/components/fuentes/AvisoFuente";
 import { anotarHistorial } from "@/components/library/historial";
 import { SaveExternalButton } from "@/components/library/SaveExternalButton";
 import { useRefrescoSerie } from "@/components/library/useRefrescoSerie";
 import { capituloLeido, estiloCapitulo, paginaCapitulo, useProgresoSerie } from "@/components/library/useProgresoSerie";
 import { CW_NOMBRE, CW_WEB, imagenCw, serieCw, type FichaCw } from "@/lib/catharsis";
+import { normalizarClaveRuta, useEstadoFicha, useRestaurarScroll } from "@/lib/navegacionEstado";
 import { BotonDescargaCapitulo } from "@/components/reader/BotonDescargaCapitulo";
 import { BotonMigrar } from "@/components/library/BotonMigrar";
 import { BotonFlotanteLectura } from "@/components/reader/BotonFlotanteLectura";
@@ -24,12 +26,18 @@ import { cargarConCacheAndroid } from "@/lib/androidCache";
  */
 export default function SerieCwPage(props: { params: Promise<{ id: string }> }) {
   const { id } = use(props.params);
+  const pathname = usePathname() || `/externo/catharsis/${id}`;
+  const searchParamsStr = useSearchParams().toString();
 
   const [ficha, setFicha] = useState<FichaCw | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [orden, setOrden] = useState<"asc" | "desc">("desc");
+  const [estadoFicha, setEstadoFicha] = useEstadoFicha(`catharsis:${id}`, { orden: "desc" });
+  const orden = estadoFicha.orden === "asc" ? "asc" : "desc";
+  const setOrden = (o: "asc" | "desc") => setEstadoFicha({ orden: o });
 
   const progreso = useProgresoSerie("catharsis", id);
+  const claveRuta = useMemo(() => normalizarClaveRuta(pathname, searchParamsStr), [pathname, searchParamsStr]);
+  useRestaurarScroll(claveRuta, Boolean(ficha), true);
 
   const cargar = useCallback(
     async (fresco = false) => {
@@ -65,7 +73,7 @@ export default function SerieCwPage(props: { params: Promise<{ id: string }> }) 
   }, [cargar]);
 
   if (error) {
-    return <AvisoFuente error={error} onReintentar={() => cargar()} />;
+    return <AvisoFuente error={error} volverA="/explorar?fuente=catharsis" onReintentar={() => cargar()} />;
   }
 
   if (!ficha) {

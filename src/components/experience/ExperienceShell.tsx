@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { MobileNav } from "@/components/ui/MobileNav";
 import { ReadingNavigation } from "./ReadingNavigation";
-import { readingTab } from "@/lib/readingNavigation";
+import { esRutaExclusivaLectura } from "@/lib/readingNavigation";
 
 export type ExperienceMode = "lectura" | "anime";
 export interface ExperienceUser { nickname: string; avatarPath: string | null; isAdmin: boolean; animeEnabled: boolean }
@@ -17,7 +17,7 @@ export function ExperienceShell({ user, animeEnabled, children }: { user: Experi
   const params = useSearchParams();
   const [previous, setPrevious] = useState<ExperienceMode>("lectura");
   const animeRoute = /^\/(explorar|anime)\/(jkanime|tioanime|mundodonghua|hentaitv)(\/|$)/.test(path) || (path === "/explorar" && params.get("seccion") === "animada");
-  const readingRoute = readingTab(path, params) !== null;
+  const readingRoute = esRutaExclusivaLectura(path, params);
   const mode = animeRoute ? "anime" : readingRoute ? "lectura" : previous;
   useEffect(() => {
     if (animeRoute || readingRoute) {

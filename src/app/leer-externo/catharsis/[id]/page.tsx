@@ -36,6 +36,7 @@ export default function LeerCwPage(props: { params: Promise<{ id: string }> }) {
 
   const cargar = useCallback(async () => {
     setError(null);
+    setPaginas(null);
     try {
       // Cargamos primero la ficha (o en paralelo tolerando el fallo del visor)
       // para conservar siempre el enlace directo al capítulo oficial en Catharsis World.
@@ -178,6 +179,7 @@ export default function LeerCwPage(props: { params: Promise<{ id: string }> }) {
 
   return (
     <OlympusReader
+      key={id}
       chapter={{
         id,
         name: actual?.etiqueta ?? "",

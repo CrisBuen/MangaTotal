@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import {
+  guardarUltimaFuente,
+  leerUltimaFuente,
+  leerUltimoExplorar,
+} from "@/lib/navegacionEstado";
 import { READING_TABS, readingTab } from "@/lib/readingNavigation";
 
 export function ReadingNavigation() {
@@ -10,20 +15,20 @@ export function ReadingNavigation() {
   const params = useSearchParams();
   const active = readingTab(path, params);
   const [fuente, setFuente] = useState<string | null>(null);
+  const [ultimoExplorar, setUltimoExplorar] = useState<string | null>(null);
   const nav = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const urlFuente = params.get("fuente");
-    if (urlFuente) {
+    if (urlFuente && params.get("seccion") !== "animada") {
       setFuente(urlFuente);
-      try { sessionStorage.setItem("mangatotal:fuente-lectura", urlFuente); } catch {}
+      guardarUltimaFuente("lectura", urlFuente);
     } else {
-      try {
-        const stored = sessionStorage.getItem("mangatotal:fuente-lectura");
-        if (stored) setFuente(stored);
-      } catch {}
+      const stored = leerUltimaFuente("lectura");
+      if (stored) setFuente(stored);
     }
-  }, [params]);
+    setUltimoExplorar(leerUltimoExplorar("lectura"));
+  }, [path, params]);
 
   useEffect(() => {
     const root = nav.current;
@@ -41,9 +46,9 @@ export function ReadingNavigation() {
       {READING_TABS.map(tab => {
         let href: string = tab.href;
         if (tab.id === "descubrir" && fuente && fuente !== "mangadex") {
-          href = `/lectura/descubrir?fuente=${fuente}`;
-        } else if (tab.id === "catalogo" && fuente) {
-          href = `/explorar?fuente=${fuente}`;
+          href = `/lectura/descubrir?fuente=${encodeURIComponent(fuente)}`;
+        } else if (tab.id === "catalogo") {
+          href = ultimoExplorar || (fuente ? `/explorar?fuente=${encodeURIComponent(fuente)}` : tab.href);
         }
         return (
           <Link key={tab.id} href={href} prefetch={false} aria-current={active === tab.id ? "page" : undefined}>

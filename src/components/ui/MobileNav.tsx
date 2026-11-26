@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useExperience } from "@/components/experience/ExperienceShell";
+import {
+  leerEstadoFuente,
+  leerUltimaFuente,
+  leerUltimoExplorar,
+} from "@/lib/navegacionEstado";
 
 /**
  * Barra de navegación inferior para teléfonos. En pantallas altas (S26
@@ -69,25 +75,109 @@ const ANIME_ITEMS = [
   },
 ];
 
+const ANIME_SOURCES = new Set(["jkanime", "tioanime", "mundodonghua", "hentaitv"]);
+
+function fuenteAnimeDePathname(pathname: string): string | null {
+  const m = /^\/(?:explorar|anime)\/(jkanime|tioanime|mundodonghua|hentaitv)(?:\/|$)/.exec(pathname);
+  return m ? m[1] : null;
+}
+
 export function MobileNav() {
   const pathname = usePathname();
   const params = useSearchParams();
   const { mode } = useExperience();
+  const [ultimoLectura, setUltimoLectura] = useState<string | null>(null);
+  const [ultimaFuenteAnimeGuardada, setUltimaFuenteAnimeGuardada] = useState<string | null>(null);
+  const [ultimoCatalogoAnime, setUltimoCatalogoAnime] = useState<string | null>(null);
 
   const isAnime = mode === "anime";
-  const animeSource = params.get("anime_fuente");
-  const sourceSuffix =
-    animeSource === "tioanime" || animeSource === "jkanime" || animeSource === "mundodonghua"
-      ? `&anime_fuente=${animeSource}`
-      : "";
+  const paramAnimeSource = params.get("anime_fuente");
+  const pathAnimeSource = fuenteAnimeDePathname(pathname);
+  const animeSource =
+    (paramAnimeSource && ANIME_SOURCES.has(paramAnimeSource) ? paramAnimeSource : null) ??
+    pathAnimeSource ??
+    ultimaFuenteAnimeGuardada ??
+    "jkanime";
 
+  useEffect(() => {
+    setUltimoLectura(leerUltimoExplorar("lectura"));
+    const fAnime =
+      (paramAnimeSource && ANIME_SOURCES.has(paramAnimeSource) ? paramAnimeSource : null) ??
+      pathAnimeSource ??
+      leerUltimaFuente("anime") ??
+      "jkanime";
+    setUltimaFuenteAnimeGuardada(fAnime);
+
+    const estado = leerEstadoFuente("anime", fAnime) ?? leerUltimoExplorar("anime");
+    if (estado && estado.startsWith("/explorar")) {
+      try {
+        const u = new URL(estado, "http://localhost");
+        const ef = u.searchParams.get("anime_fuente") || "jkanime";
+        const vista = u.searchParams.get("vista");
+        if (ef === fAnime && (fAnime === "hentaitv" ? vista !== "milista" && vista !== "historial" : vista === "catalogo")) {
+          setUltimoCatalogoAnime(estado);
+        } else {
+          setUltimoCatalogoAnime(null);
+        }
+      } catch {
+        setUltimoCatalogoAnime(null);
+      }
+    } else {
+      setUltimoCatalogoAnime(null);
+    }
+  }, [pathname, params, paramAnimeSource, pathAnimeSource]);
+
+  const statusEmision = animeSource === "tioanime" ? "1" : "emision";
   const items = isAnime
-    ? ANIME_ITEMS.map(it => it.href.includes("?") ? { ...it, href: it.href + sourceSuffix } : it)
-    : LECTURA_ITEMS;
+    ? ANIME_ITEMS.map((it) => {
+        if (it.href === "/mas") return it;
+        if (it.label === "Descubrir") {
+          return {
+            ...it,
+            href: animeSource === "hentaitv"
+              ? `/explorar?seccion=animada&anime_fuente=hentaitv`
+              : `/explorar?seccion=animada&anime_fuente=${animeSource}`,
+          };
+        }
+        if (it.label === "Catálogo") {
+          return {
+            ...it,
+            href:
+              ultimoCatalogoAnime ??
+              (animeSource === "hentaitv"
+                ? `/explorar?seccion=animada&anime_fuente=hentaitv`
+                : `/explorar?seccion=animada&anime_fuente=${animeSource}&vista=catalogo`),
+          };
+        }
+        if (it.label === "Mi lista") {
+          return {
+            ...it,
+            href: `/explorar?seccion=animada&anime_fuente=${animeSource}&vista=milista`,
+          };
+        }
+        if (it.label === "En emisión") {
+          if (animeSource === "hentaitv") {
+            return {
+              ...it,
+              label: "Recientes",
+              href: `/explorar?seccion=animada&anime_fuente=hentaitv&sort=modified_desc`,
+            };
+          }
+          return {
+            ...it,
+            href: `/explorar?seccion=animada&anime_fuente=${animeSource}&vista=catalogo&status=${statusEmision}`,
+          };
+        }
+        return it;
+      })
+    : LECTURA_ITEMS.map((it) =>
+        it.href === "/explorar" && ultimoLectura ? { ...it, href: ultimoLectura } : it
+      );
 
   const currentVista = params.get("vista") || null;
   const currentSeccion = params.get("seccion") || null;
   const currentStatus = params.get("status") || null;
+  const currentSort = params.get("sort") || null;
 
   return (
     <nav
@@ -102,17 +192,26 @@ export function MobileNav() {
           const itemPath = itemUrl.pathname;
           const itemVista = itemUrl.searchParams.get("vista") || null;
           const itemStatus = itemUrl.searchParams.get("status") || null;
+          const itemSort = itemUrl.searchParams.get("sort") || null;
 
           let active = false;
           if (item.href === "/mas") {
             active = pathname === "/mas" || pathname === "/perfil" || pathname === "/ajustes" || pathname === "/noticias" || pathname === "/aleatorio";
           } else if (isAnime) {
             if (itemStatus) {
-              active = currentStatus === itemStatus;
-            } else if (itemVista) {
-              active = currentVista === itemVista && !currentStatus;
+              active = pathname === "/explorar" && currentSeccion === "animada" && currentStatus === itemStatus;
+            } else if (item.label === "Recientes" && itemSort) {
+              active = pathname === "/explorar" && currentSeccion === "animada" && currentSort === itemSort;
+            } else if (item.label === "Mi lista") {
+              active = pathname === "/explorar" && currentSeccion === "animada" && (currentVista === "milista" || currentVista === "historial");
+            } else if (item.label === "Catálogo") {
+              active = pathname === "/explorar" && currentSeccion === "animada" && !currentStatus && (
+                animeSource === "hentaitv"
+                  ? !currentVista && !currentSort
+                  : currentVista === "catalogo"
+              );
             } else if (item.exact) {
-              active = pathname === "/explorar" && currentSeccion === "animada" && !currentVista && !currentStatus;
+              active = pathname === "/explorar" && currentSeccion === "animada" && !currentVista && !currentStatus && animeSource !== "hentaitv";
             }
           } else {
             if (item.exact) {
@@ -132,7 +231,7 @@ export function MobileNav() {
             <li key={item.label} className="flex-1">
               <Link
                 href={item.href}
-                prefetch
+                prefetch={false}
                 aria-current={active ? "page" : undefined}
                 className={`relative flex min-h-[3.6rem] flex-col items-center justify-center gap-1 transition-colors ${
                   active ? "text-[var(--accent-fg)] font-bold" : "text-[#8a92a6] hover:text-[#e0e4ef]"

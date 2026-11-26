@@ -40,15 +40,36 @@ export default async function LeerPage(props: {
   ]);
 
   const requestedPage = page ? parseInt(page, 10) : NaN;
+  let savedPage = 1;
+  if (!Number.isInteger(requestedPage) && user) {
+    const [leidoCap, progSerie] = await Promise.all([
+      db.readChapter.findUnique({
+        where: { userId_chapterId: { userId: user.id, chapterId } },
+        select: { pageNumber: true },
+      }),
+      db.readingProgress.findUnique({
+        where: { userId_seriesId: { userId: user.id, seriesId: chapter.seriesId } },
+        select: { chapterId: true, lastPageNumber: true },
+      }),
+    ]);
+    if (progSerie?.chapterId === chapter.id && progSerie.lastPageNumber > 1) {
+      savedPage = progSerie.lastPageNumber;
+    } else if (leidoCap && leidoCap.pageNumber > 1) {
+      savedPage = leidoCap.pageNumber;
+    }
+  }
+
+  const maxPage = Math.max(1, chapter.pageCount);
   const initialPage =
-    Number.isInteger(requestedPage) && requestedPage >= 1 && requestedPage <= chapter.pageCount
+    Number.isInteger(requestedPage) && requestedPage >= 1 && requestedPage <= maxPage
       ? requestedPage
-      : 1;
+      : Math.min(maxPage, Math.max(1, savedPage));
 
   const initialMode = user?.preferredReadingMode === "rtl" ? "rtl" : "cascade";
 
   return (
     <Reader
+      key={chapter.id}
       chapter={{
         id: chapter.id,
         number: chapter.number,

@@ -1,9 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  guardarEstadoFuente,
+  guardarScrollRuta,
+  guardarUltimaFuente,
+  guardarUltimoExplorar,
+  marcarScrollArriba,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 import { GENEROS_TIOANIME, type SerieTioanime } from "@/lib/tioanime";
 
 const TIPOS = [
@@ -33,21 +45,88 @@ function alternar(lista: string[], valor: string): string[] {
   return lista.includes(valor) ? lista.filter((item) => item !== valor) : [...lista, valor];
 }
 
+function leerEstadoTioanime(getParam: (key: string) => string | null) {
+  const rawPage = Number(getParam("anime_page") ?? getParam("page") ?? "1");
+  const typeRaw = getParam("type") ?? "";
+  const genreRaw = getParam("genre") ?? "";
+  return {
+    search: getParam("q") ?? "",
+    sort: getParam("sort") ?? "recent",
+    types: typeRaw ? typeRaw.split(",").filter(Boolean) : [],
+    genres: genreRaw ? genreRaw.split(",").filter(Boolean) : [],
+    status: getParam("status") ?? "",
+    yearFrom: getParam("year_from") ?? "",
+    yearTo: getParam("year_to") ?? "",
+    page: Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1,
+  };
+}
+
+function construirUrlTioanime(
+  pathname: string,
+  baseSearch: string,
+  estado: {
+    search: string;
+    sort: string;
+    types: string[];
+    genres: string[];
+    status: string;
+    yearFrom: string;
+    yearTo: string;
+    page: number;
+  }
+): string {
+  const sp = new URLSearchParams(baseSearch);
+  sp.set("seccion", "animada");
+  sp.set("anime_fuente", "tioanime");
+  sp.set("vista", "catalogo");
+  sp.delete("page");
+
+  const entradas: [string, string][] = [
+    ["genre", estado.genres.join(",")],
+    ["type", estado.types.join(",")],
+    ["q", estado.search.trim() ? estado.search : ""],
+    ["sort", estado.sort && estado.sort !== "recent" ? estado.sort : ""],
+    ["status", estado.status],
+    ["year_from", estado.yearFrom],
+    ["year_to", estado.yearTo],
+    ["anime_page", estado.page > 1 ? String(estado.page) : ""],
+  ];
+  for (const [k, v] of entradas) {
+    if (v) sp.set(k, v);
+    else sp.delete(k);
+  }
+  const qs = sp.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
+}
+
 export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, string> }) {
+  const pathname = usePathname() || "/explorar";
+  const searchParams = useSearchParams();
+  const searchParamsStr = searchParams.toString();
+
+  const estadoInicial = useMemo(
+    () => leerEstadoTioanime((key) => initial[key] ?? null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const [series, setSeries] = useState<SerieTioanime[] | null>(null);
-  const [search, setSearch] = useState(initial.q ?? "");
-  const sort = initial.sort ?? "recent";
-  const [types, setTypes] = useState<string[]>(initial.type ? initial.type.split(",") : []);
-  const [genres, setGenres] = useState<string[]>(initial.genre ? initial.genre.split(",") : []);
-  const [status, setStatus] = useState(initial.status ?? "");
-  const [yearFrom, setYearFrom] = useState(initial.year_from ?? "");
-  const [yearTo, setYearTo] = useState(initial.year_to ?? "");
-  const [showFilters, setShowFilters] = useState(Boolean(initial.genre || initial.status));
-  const [page, setPage] = useState(() => Math.max(1, Math.floor(Number(initial.anime_page) || 1)));
+  const [search, setSearch] = useState(estadoInicial.search);
+  const [sort, setSort] = useState(estadoInicial.sort);
+  const [types, setTypes] = useState<string[]>(estadoInicial.types);
+  const [genres, setGenres] = useState<string[]>(estadoInicial.genres);
+  const [status, setStatus] = useState(estadoInicial.status);
+  const [yearFrom, setYearFrom] = useState(estadoInicial.yearFrom);
+  const [yearTo, setYearTo] = useState(estadoInicial.yearTo);
+  const [showFilters, setShowFilters] = useState(
+    Boolean(estadoInicial.genres.length || estadoInicial.status || estadoInicial.types.length || estadoInicial.yearFrom || estadoInicial.yearTo)
+  );
+  const [page, setPage] = useState(estadoInicial.page);
   const [lastPage, setLastPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [claveCargada, setClaveCargada] = useState("");
   const [guardadas, setGuardadas] = useState<{ slug?: string | null; external_id: string; title?: string }[]>([]);
   const reloadBiblioteca = useCallback(() => {
     let vigente = true;
@@ -77,13 +156,17 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
 
   const fresh = useRef(false);
   const requestId = useRef(0);
-  const lastFilters = useRef(JSON.stringify([genres, search, sort, status, types, yearFrom, yearTo]));
+  const modoUrlRef = useRef<"skip" | "push" | "replace">("skip");
 
   const activeFilters = types.length + genres.length + Number(Boolean(status)) +
     Number(Boolean(yearFrom || yearTo));
 
-  const load = useCallback(async () => {
-    const id = ++requestId.current;
+  const estadoActual = useMemo(
+    () => ({ search, sort, types, genres, status, yearFrom, yearTo, page }),
+    [search, sort, types, genres, status, yearFrom, yearTo, page]
+  );
+
+  const claveConsultaActual = useMemo(() => {
     const params = new URLSearchParams({ page: String(page), sort });
     if (search.trim()) params.set("q", search.trim());
     for (const type of types) params.append("type", type);
@@ -95,15 +178,32 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
       params.set("year_from", String(Math.min(desde, hasta)));
       params.set("year_to", String(Math.max(desde, hasta)));
     }
+    return params.toString();
+  }, [genres, page, search, sort, status, types, yearFrom, yearTo]);
+
+  const claveRutaActual = useMemo(() => {
+    const url = construirUrlTioanime(pathname, searchParamsStr, estadoActual);
+    const idx = url.indexOf("?");
+    return normalizarClaveRuta(pathname, idx >= 0 ? url.slice(idx + 1) : "");
+  }, [pathname, searchParamsStr, estadoActual]);
+
+  useRestaurarScroll(
+    claveRutaActual,
+    series !== null && series.length > 0 && claveCargada === claveConsultaActual,
+    true
+  );
+
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    const params = new URLSearchParams(claveConsultaActual);
     if (fresh.current) params.set("fresh", "1");
 
     setError(null);
     if (!fresh.current) setSeries(null);
     try {
       const forzar = fresh.current;
-      const cacheKey = params.toString().replace(/&?fresh=1/, "");
       const data = await cargarConCacheAndroid<CatalogResponse>(
-        `explorar:tioanime:${cacheKey}`,
+        `explorar:tioanime:${claveConsultaActual}`,
         async (signal) => {
           const res = await fetch(`/api/anime/tioanime?${params}`, { signal });
           const respuesta = (await res.json()) as CatalogResponse;
@@ -116,49 +216,108 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
           onCached: (guardado) => {
             if (id !== requestId.current) return;
             setSeries(guardado.series);
-            setPage(guardado.page);
             setLastPage(guardado.lastPage);
+            setClaveCargada(claveConsultaActual);
           },
         }
       );
       if (id !== requestId.current) return;
       setSeries(data.series);
-      setPage(data.page);
+      if (data.page > 0 && data.page !== page) setPage(data.page);
       setLastPage(data.lastPage);
+      setClaveCargada(claveConsultaActual);
     } catch (err) {
       if (id !== requestId.current) return;
       setSeries([]);
+      setClaveCargada(claveConsultaActual);
       setError(err instanceof Error ? err.message : "No se pudo cargar TioAnime");
     } finally {
       if (id === requestId.current) { fresh.current = false; setRefreshing(false); }
     }
-  }, [genres, page, reload, search, sort, status, types, yearFrom, yearTo]);
+  }, [claveConsultaActual, page, reload]);
 
   useEffect(() => {
     const timer = setTimeout(load, search ? 350 : 0);
     return () => { clearTimeout(timer); requestId.current++; };
   }, [load, search]);
 
-  useEffect(() => {
-    const key = JSON.stringify([genres, search, sort, status, types, yearFrom, yearTo]);
-    if (key !== lastFilters.current) { lastFilters.current = key; setPage(1); }
-  }, [genres, search, sort, status, types, yearFrom, yearTo]);
+  const aplicarParams = useCallback((sp: URLSearchParams, limpiarLista: boolean) => {
+    if (sp.get("seccion") !== "animada" || sp.get("vista") !== "catalogo") return;
+    const f = sp.get("anime_fuente");
+    if (f && f !== "tioanime") return;
+    const next = leerEstadoTioanime((k) => sp.get(k));
+    modoUrlRef.current = "skip";
+    if (limpiarLista) setSeries(null);
+    setSearch(next.search);
+    setSort(next.sort);
+    setTypes(next.types);
+    setGenres(next.genres);
+    setStatus(next.status);
+    setYearFrom(next.yearFrom);
+    setYearTo(next.yearTo);
+    if (next.genres.length || next.status || next.types.length || next.yearFrom || next.yearTo) {
+      setShowFilters(true);
+    }
+    setPage(next.page);
+  }, []);
 
   useEffect(() => {
-    const url = new URL(location.href);
-    if (url.searchParams.get("vista") !== "catalogo") return;
-    for (const [key, value] of Object.entries({ genre: genres.join(","), type: types.join(","), q: search, sort, status, year_from: yearFrom, year_to: yearTo, anime_page: String(page) })) {
-      if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+    if (fueEscritaPorNosotros(pathname, searchParamsStr)) return;
+    aplicarParams(new URLSearchParams(searchParamsStr), false);
+  }, [pathname, searchParamsStr, aplicarParams]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      aplicarParams(new URLSearchParams(window.location.search), true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [aplicarParams]);
+
+  useEffect(() => {
+    const currentUrl = new URL(location.href);
+    if (currentUrl.searchParams.get("vista") !== "catalogo") return;
+    const urlRelativa = construirUrlTioanime(pathname, currentUrl.search, estadoActual);
+    const claveDestino = normalizarClaveRuta(
+      pathname,
+      urlRelativa.includes("?") ? urlRelativa.slice(urlRelativa.indexOf("?") + 1) : ""
+    );
+    const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
+
+    guardarUltimaFuente("anime", "tioanime");
+    guardarEstadoFuente("anime", "tioanime", urlRelativa);
+    guardarUltimoExplorar("anime", urlRelativa);
+
+    const modo = modoUrlRef.current;
+    modoUrlRef.current = "skip";
+    if (modo !== "skip" && claveDestino !== claveVentana) {
+      escribirUrlHistorial(urlRelativa, modo);
     }
-    history.replaceState(history.state, "", url);
-  }, [genres, search, sort, status, types, yearFrom, yearTo, page]);
+  }, [pathname, estadoActual]);
+
+  const prepararNavegacionPaso = useCallback(
+    (siguienteEstado: typeof estadoActual, modo: "push" | "replace") => {
+      guardarScrollRuta(claveRutaActual, window.scrollY);
+      const urlDestino = construirUrlTioanime(pathname, window.location.search, siguienteEstado);
+      const qsDestino = urlDestino.includes("?") ? urlDestino.slice(urlDestino.indexOf("?") + 1) : "";
+      const claveDestino = normalizarClaveRuta(pathname, qsDestino);
+      if (modo === "push") marcarScrollArriba(claveDestino);
+      modoUrlRef.current = modo;
+    },
+    [claveRutaActual, pathname]
+  );
 
   function limpiar() {
+    prepararNavegacionPaso(
+      { search, sort, types: [], genres: [], status: "", yearFrom: "", yearTo: "", page: 1 },
+      "push"
+    );
     setTypes([]);
     setGenres([]);
     setStatus("");
     setYearFrom("");
     setYearTo("");
+    setPage(1);
   }
 
   return (
@@ -187,7 +346,12 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
         </button>
         <input
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            const nextSearch = event.target.value;
+            prepararNavegacionPaso({ ...estadoActual, search: nextSearch, page: 1 }, "replace");
+            setSearch(nextSearch);
+            setPage(1);
+          }}
           placeholder="Buscar anime..."
           className="ml-auto w-full max-w-sm rounded-md border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
         />
@@ -202,7 +366,12 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
                 <button
                   type="button"
                   key={value}
-                  onClick={() => setTypes((current) => alternar(current, value))}
+                  onClick={() => {
+                    const nextTypes = alternar(types, value);
+                    prepararNavegacionPaso({ ...estadoActual, types: nextTypes, page: 1 }, "push");
+                    setTypes(nextTypes);
+                    setPage(1);
+                  }}
                   className={`rounded-full border px-3 py-2 text-[13px] transition ${
                     types.includes(value) ? "border-accent bg-[var(--accent-soft)] text-accent-ink" : "border-line text-subtle hover:text-ink"
                   }`}
@@ -216,20 +385,47 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="space-y-2">
               <span className="block font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">Estado</span>
-              <select value={status} onChange={(event) => setStatus(event.target.value)} className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent">
+              <select
+                value={status}
+                onChange={(event) => {
+                  const nextStatus = event.target.value;
+                  prepararNavegacionPaso({ ...estadoActual, status: nextStatus, page: 1 }, "push");
+                  setStatus(nextStatus);
+                  setPage(1);
+                }}
+                className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+              >
                 {ESTADOS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
             <label className="space-y-2">
               <span className="block font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">Desde el año</span>
-              <select value={yearFrom} onChange={(event) => setYearFrom(event.target.value)} className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent">
+              <select
+                value={yearFrom}
+                onChange={(event) => {
+                  const nextYearFrom = event.target.value;
+                  prepararNavegacionPaso({ ...estadoActual, yearFrom: nextYearFrom, page: 1 }, "push");
+                  setYearFrom(nextYearFrom);
+                  setPage(1);
+                }}
+                className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+              >
                 <option value="">Cualquiera</option>
                 {[...ANIOS].reverse().map((year) => <option key={year} value={year}>{year}</option>)}
               </select>
             </label>
             <label className="space-y-2">
               <span className="block font-mono text-[11px] font-bold tracking-[0.08em] text-subtle">Hasta el año</span>
-              <select value={yearTo} onChange={(event) => setYearTo(event.target.value)} className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent">
+              <select
+                value={yearTo}
+                onChange={(event) => {
+                  const nextYearTo = event.target.value;
+                  prepararNavegacionPaso({ ...estadoActual, yearTo: nextYearTo, page: 1 }, "push");
+                  setYearTo(nextYearTo);
+                  setPage(1);
+                }}
+                className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+              >
                 <option value="">Cualquiera</option>
                 {ANIOS.map((year) => <option key={year} value={year}>{year}</option>)}
               </select>
@@ -243,7 +439,12 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
                 <button
                   type="button"
                   key={value}
-                  onClick={() => setGenres((current) => alternar(current, value))}
+                  onClick={() => {
+                    const nextGenres = alternar(genres, value);
+                    prepararNavegacionPaso({ ...estadoActual, genres: nextGenres, page: 1 }, "push");
+                    setGenres(nextGenres);
+                    setPage(1);
+                  }}
                   className={`rounded-full border px-3 py-1.5 text-[13px] transition ${
                     genres.includes(value) ? "border-accent bg-[var(--accent-soft)] text-accent-ink" : "border-line text-subtle hover:text-ink"
                   }`}
@@ -313,9 +514,31 @@ export function TioanimeCatalog({ initial = {} }: { initial?: Record<string, str
 
       {series && series.length > 0 && lastPage > 1 && (
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40">← Anterior</button>
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => {
+              const siguiente = Math.max(1, page - 1);
+              prepararNavegacionPaso({ ...estadoActual, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
+            className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
+          >
+            ← Anterior
+          </button>
           <span className="font-mono text-[11px] tracking-[0.06em] text-subtle">Página {page} de {lastPage}</span>
-          <button type="button" disabled={page >= lastPage} onClick={() => setPage((value) => value + 1)} className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40">Siguiente →</button>
+          <button
+            type="button"
+            disabled={page >= lastPage}
+            onClick={() => {
+              const siguiente = page + 1;
+              prepararNavegacionPaso({ ...estadoActual, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
+            className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
+          >
+            Siguiente →
+          </button>
         </div>
       )}
 

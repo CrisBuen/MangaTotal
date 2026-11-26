@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Surface } from "@/components/ui/Surface";
 import { cargarConCacheAndroid } from "@/lib/androidCache";
 import { GENEROS_MUNDODONGHUA, type SerieMundodonghua } from "@/lib/mundodonghua";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  guardarEstadoFuente,
+  guardarScrollRuta,
+  guardarUltimaFuente,
+  guardarUltimoExplorar,
+  marcarScrollArriba,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 
 const ESTADOS = [
   ["", "Todas las series"],
@@ -21,17 +33,64 @@ interface CatalogResponse {
   error?: string;
 }
 
+function leerEstadoMundodonghua(getParam: (key: string) => string | null) {
+  const rawPage = Number(getParam("anime_page") ?? getParam("page") ?? "1");
+  return {
+    search: getParam("q") ?? "",
+    status: getParam("status") ?? "",
+    genero: getParam("genre") ?? getParam("genero") ?? "",
+    page: Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1,
+  };
+}
+
+function construirUrlMundodonghua(
+  pathname: string,
+  baseSearch: string,
+  estado: { search: string; status: string; genero: string; page: number }
+): string {
+  const sp = new URLSearchParams(baseSearch);
+  sp.set("seccion", "animada");
+  sp.set("anime_fuente", "mundodonghua");
+  sp.set("vista", "catalogo");
+  sp.delete("page");
+  sp.delete("genero");
+
+  const entradas: [string, string][] = [
+    ["q", estado.search.trim() ? estado.search : ""],
+    ["status", estado.status],
+    ["genre", estado.genero],
+    ["anime_page", estado.page > 1 ? String(estado.page) : ""],
+  ];
+  for (const [k, v] of entradas) {
+    if (v) sp.set(k, v);
+    else sp.delete(k);
+  }
+  const qs = sp.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
+}
+
 export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string, string> }) {
+  const pathname = usePathname() || "/explorar";
+  const searchParams = useSearchParams();
+  const searchParamsStr = searchParams.toString();
+
+  const estadoInicial = useMemo(
+    () => leerEstadoMundodonghua((key) => initial[key] ?? null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const [series, setSeries] = useState<SerieMundodonghua[] | null>(null);
-  const [search, setSearch] = useState(initial.q ?? "");
-  const [status, setStatus] = useState(initial.status ?? "");
-  const [genero, setGenero] = useState(initial.genre ?? initial.genero ?? "");
-  const [showFilters, setShowFilters] = useState(Boolean(initial.status || initial.genre || initial.genero));
-  const [page, setPage] = useState(() => Math.max(1, Math.floor(Number(initial.anime_page) || 1)));
+  const [search, setSearch] = useState(estadoInicial.search);
+  const [status, setStatus] = useState(estadoInicial.status);
+  const [genero, setGenero] = useState(estadoInicial.genero);
+  const [showFilters, setShowFilters] = useState(Boolean(estadoInicial.status || estadoInicial.genero));
+  const [page, setPage] = useState(estadoInicial.page);
   const [lastPage, setLastPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [claveCargada, setClaveCargada] = useState("");
   const [guardadas, setGuardadas] = useState<{ slug?: string | null; external_id: string; title?: string }[]>([]);
 
   const reloadBiblioteca = useCallback(() => {
@@ -62,25 +121,46 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
 
   const fresh = useRef(false);
   const requestId = useRef(0);
-  const lastFilters = useRef(JSON.stringify([search, status, genero]));
+  const modoUrlRef = useRef<"skip" | "push" | "replace">("skip");
 
   const activeFilters = Number(Boolean(status)) + Number(Boolean(genero));
 
-  const load = useCallback(async () => {
-    const id = ++requestId.current;
+  const estadoActual = useMemo(
+    () => ({ search, status, genero, page }),
+    [search, status, genero, page]
+  );
+
+  const claveConsultaActual = useMemo(() => {
     const params = new URLSearchParams({ page: String(page) });
     if (search.trim()) params.set("q", search.trim());
     if (status) params.set("status", status);
     if (genero) params.set("genre", genero);
+    return params.toString();
+  }, [genero, page, search, status]);
+
+  const claveRutaActual = useMemo(() => {
+    const url = construirUrlMundodonghua(pathname, searchParamsStr, estadoActual);
+    const idx = url.indexOf("?");
+    return normalizarClaveRuta(pathname, idx >= 0 ? url.slice(idx + 1) : "");
+  }, [pathname, searchParamsStr, estadoActual]);
+
+  useRestaurarScroll(
+    claveRutaActual,
+    series !== null && series.length > 0 && claveCargada === claveConsultaActual,
+    true
+  );
+
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    const params = new URLSearchParams(claveConsultaActual);
     if (fresh.current) params.set("fresh", "1");
 
     setError(null);
     if (!fresh.current) setSeries(null);
     try {
       const forzar = fresh.current;
-      const cacheKey = params.toString().replace(/&?fresh=1/, "");
       const data = await cargarConCacheAndroid<CatalogResponse>(
-        `explorar:mundodonghua:${cacheKey}`,
+        `explorar:mundodonghua:${claveConsultaActual}`,
         async (signal) => {
           const res = await fetch(`/api/anime/mundodonghua?${params}`, { signal });
           const respuesta = (await res.json()) as CatalogResponse;
@@ -93,18 +173,20 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
           onCached: (guardado) => {
             if (id !== requestId.current) return;
             setSeries(guardado.series);
-            setPage(guardado.page);
             setLastPage(guardado.lastPage);
+            setClaveCargada(claveConsultaActual);
           },
         }
       );
       if (id !== requestId.current) return;
       setSeries(data.series);
-      setPage(data.page);
+      if (data.page > 0 && data.page !== page) setPage(data.page);
       setLastPage(data.lastPage);
+      setClaveCargada(claveConsultaActual);
     } catch (err) {
       if (id !== requestId.current) return;
       setSeries([]);
+      setClaveCargada(claveConsultaActual);
       setError(err instanceof Error ? err.message : "No se pudo cargar MundoDonghua");
     } finally {
       if (id === requestId.current) {
@@ -112,7 +194,7 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
         setRefreshing(false);
       }
     }
-  }, [genero, page, reload, search, status]);
+  }, [claveConsultaActual, page, reload]);
 
   useEffect(() => {
     const timer = setTimeout(load, search ? 350 : 0);
@@ -122,32 +204,75 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
     };
   }, [load, search]);
 
+  const aplicarParams = useCallback((sp: URLSearchParams, limpiarLista: boolean) => {
+    if (sp.get("seccion") !== "animada" || sp.get("vista") !== "catalogo") return;
+    const f = sp.get("anime_fuente");
+    if (f && f !== "mundodonghua") return;
+    const next = leerEstadoMundodonghua((k) => sp.get(k));
+    modoUrlRef.current = "skip";
+    if (limpiarLista) setSeries(null);
+    setSearch(next.search);
+    setStatus(next.status);
+    setGenero(next.genero);
+    if (next.status || next.genero) setShowFilters(true);
+    setPage(next.page);
+  }, []);
+
   useEffect(() => {
-    const key = JSON.stringify([search, status, genero]);
-    if (key !== lastFilters.current) {
-      lastFilters.current = key;
-      setPage(1);
-    }
-  }, [genero, search, status]);
+    if (fueEscritaPorNosotros(pathname, searchParamsStr)) return;
+    aplicarParams(new URLSearchParams(searchParamsStr), false);
+  }, [pathname, searchParamsStr, aplicarParams]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      aplicarParams(new URLSearchParams(window.location.search), true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [aplicarParams]);
 
   useEffect(() => {
     const url = new URL(location.href);
-    if (url.searchParams.get("seccion") !== "animada") return;
-    for (const [key, value] of Object.entries({
-      q: search,
-      status,
-      genre: genero,
-      anime_page: String(page),
-    })) {
-      if (value) url.searchParams.set(key, value);
-      else url.searchParams.delete(key);
+    // Verificar explícitamente vista=catalogo y seccion=animada para no pisar otros modos/fuentes.
+    if (url.searchParams.get("seccion") !== "animada" || url.searchParams.get("vista") !== "catalogo") return;
+    const fa = url.searchParams.get("anime_fuente");
+    if (fa && fa !== "mundodonghua") return;
+
+    const urlRelativa = construirUrlMundodonghua(pathname, url.search, estadoActual);
+    const claveDestino = normalizarClaveRuta(
+      pathname,
+      urlRelativa.includes("?") ? urlRelativa.slice(urlRelativa.indexOf("?") + 1) : ""
+    );
+    const claveVentana = normalizarClaveRuta(window.location.pathname, window.location.search);
+
+    guardarUltimaFuente("anime", "mundodonghua");
+    guardarEstadoFuente("anime", "mundodonghua", urlRelativa);
+    guardarUltimoExplorar("anime", urlRelativa);
+
+    const modo = modoUrlRef.current;
+    modoUrlRef.current = "skip";
+    if (modo !== "skip" && claveDestino !== claveVentana) {
+      escribirUrlHistorial(urlRelativa, modo);
     }
-    history.replaceState(history.state, "", url);
-  }, [genero, page, search, status]);
+  }, [pathname, estadoActual]);
+
+  const prepararNavegacionPaso = useCallback(
+    (siguienteEstado: typeof estadoActual, modo: "push" | "replace") => {
+      guardarScrollRuta(claveRutaActual, window.scrollY);
+      const urlDestino = construirUrlMundodonghua(pathname, window.location.search, siguienteEstado);
+      const qsDestino = urlDestino.includes("?") ? urlDestino.slice(urlDestino.indexOf("?") + 1) : "";
+      const claveDestino = normalizarClaveRuta(pathname, qsDestino);
+      if (modo === "push") marcarScrollArriba(claveDestino);
+      modoUrlRef.current = modo;
+    },
+    [claveRutaActual, pathname]
+  );
 
   function limpiar() {
+    prepararNavegacionPaso({ search, status: "", genero: "", page: 1 }, "push");
     setStatus("");
     setGenero("");
+    setPage(1);
   }
 
   return (
@@ -178,7 +303,12 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
         </button>
         <input
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            const nextSearch = event.target.value;
+            prepararNavegacionPaso({ ...estadoActual, search: nextSearch, page: 1 }, "replace");
+            setSearch(nextSearch);
+            setPage(1);
+          }}
           placeholder="Buscar donghua..."
           className="ml-auto w-full max-w-sm rounded-md border border-line bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-ink placeholder-subtle outline-none focus:border-accent"
         />
@@ -193,7 +323,12 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
               </span>
               <select
                 value={status}
-                onChange={(event) => setStatus(event.target.value)}
+                onChange={(event) => {
+                  const nextStatus = event.target.value;
+                  prepararNavegacionPaso({ ...estadoActual, status: nextStatus, page: 1 }, "push");
+                  setStatus(nextStatus);
+                  setPage(1);
+                }}
                 className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
               >
                 {ESTADOS.map(([value, label]) => (
@@ -210,7 +345,12 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
               </span>
               <select
                 value={genero}
-                onChange={(event) => setGenero(event.target.value)}
+                onChange={(event) => {
+                  const nextGenero = event.target.value;
+                  prepararNavegacionPaso({ ...estadoActual, genero: nextGenero, page: 1 }, "push");
+                  setGenero(nextGenero);
+                  setPage(1);
+                }}
                 className="w-full rounded-md border border-line bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
               >
                 <option value="">Todos los géneros</option>
@@ -232,7 +372,12 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
                 <button
                   type="button"
                   key={value}
-                  onClick={() => setGenero((curr) => (curr === value ? "" : value))}
+                  onClick={() => {
+                    const nextGenero = genero === value ? "" : value;
+                    prepararNavegacionPaso({ ...estadoActual, genero: nextGenero, page: 1 }, "push");
+                    setGenero(nextGenero);
+                    setPage(1);
+                  }}
                   className={`rounded-full border px-3 py-1.5 text-[13px] transition ${
                     genero === value
                       ? "border-accent bg-[var(--accent-soft)] text-accent-ink"
@@ -338,7 +483,11 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
           <button
             type="button"
             disabled={page <= 1}
-            onClick={() => setPage((value) => value - 1)}
+            onClick={() => {
+              const siguiente = Math.max(1, page - 1);
+              prepararNavegacionPaso({ ...estadoActual, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
             className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
           >
             ← Anterior
@@ -349,7 +498,11 @@ export function MundodonghuaCatalog({ initial = {} }: { initial?: Record<string,
           <button
             type="button"
             disabled={page >= lastPage}
-            onClick={() => setPage((value) => value + 1)}
+            onClick={() => {
+              const siguiente = page + 1;
+              prepararNavegacionPaso({ ...estadoActual, page: siguiente }, "push");
+              setPage(siguiente);
+            }}
             className="rounded-md border border-line px-4 py-2 font-mono text-[11px] font-bold tracking-[0.06em] text-subtle disabled:opacity-40"
           >
             Siguiente →

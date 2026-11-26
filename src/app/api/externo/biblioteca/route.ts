@@ -45,6 +45,7 @@ export async function PUT(req: NextRequest) {
     last_chapter_name?: string | null;
     last_page_number?: number | null;
     solo_pagina?: boolean;
+    silencioso?: boolean;
   };
   try {
     body = await req.json();
@@ -71,7 +72,10 @@ export async function PUT(req: NextRequest) {
   // serie que ya está guardada, sin pisar portada ni nombre.
   if (!title) {
     const existente = await db.externalSeries.findUnique({ where: llave });
-    if (!existente) return NextResponse.json({ error: "La serie no está guardada" }, { status: 404 });
+    if (!existente) {
+      if (body.silencioso) return NextResponse.json({ tracked: false });
+      return NextResponse.json({ error: "La serie no está guardada" }, { status: 404 });
+    }
 
     const chapterId = body.last_chapter_id ?? existente.lastChapterId;
     const page = body.last_page_number == null ? 1 : Math.max(1, Math.min(1_000_000, Math.trunc(body.last_page_number)));

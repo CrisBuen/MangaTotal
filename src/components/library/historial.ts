@@ -1,6 +1,11 @@
 "use client";
 
 import { capituloHref, fichaHref } from "@/lib/externas";
+import {
+  claveHistorialPendiente,
+  guardarPosicionLector,
+  registrarPromesaHistorial,
+} from "@/lib/navegacionEstado";
 
 const CLAVE_HISTORIAL_LOCAL = "mangatotal:historial:local";
 const MAX_HISTORIAL_LOCAL = 80;
@@ -113,6 +118,10 @@ export function actualizarProgresoHistorialLocal(entrada: {
 
   const resto = lista.filter((_, i) => i !== idx);
   guardarHistorialLocal([actualizado, ...resto]);
+  guardarPosicionLector(`prog:${entrada.source}:${entrada.externalId}`, {
+    page: pagina,
+    chapterId: entrada.chapterId,
+  });
 }
 
 export function migrarHistorialLocal(
@@ -249,15 +258,24 @@ export async function anotarHistorial(serie: {
       (x) => !(x.source === serie.source && x.external_id === serie.external_id)
     );
     guardarHistorialLocal([nueva, ...sinActual]);
+    if (chapterId && pageNumber) {
+      guardarPosicionLector(`prog:${serie.source}:${serie.external_id}`, {
+        page: pageNumber,
+        chapterId,
+      });
+    }
   } catch {
     /* continuar con el envío al servidor */
   }
 
-  await fetch("/api/externo/historial", {
+  const clavePendiente = claveHistorialPendiente(serie.source, serie.external_id);
+  const peticion = fetch("/api/externo/historial", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(serie),
     // el clic navega enseguida: sin esto el pedido se cancelaría a medias
     keepalive: true,
   }).catch(() => undefined);
+  registrarPromesaHistorial(clavePendiente, peticion);
+  await peticion;
 }

@@ -1,12 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BotonVolver } from "./BotonVolver";
 import { CascadeReader } from "./CascadeReader";
+import { EnlaceCapitulo } from "./EnlaceCapitulo";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { AjustesLectura, BotonAjustes } from "./AjustesLectura";
+import {
+  esCambioCapituloLector,
+  guardarModoLecturaPreferido,
+  leerModoLecturaPreferido,
+  leerPosicionLector,
+} from "@/lib/navegacionEstado";
 import {
   activarPantallaCompleta,
   pantallaCompletaEsTotal,
@@ -53,8 +58,13 @@ export function ExternalReader({
   /** Página por la que iba la lectura, para retomarla donde quedó. */
   initialPage?: number;
 }) {
+  const maxPage = Math.max(1, pages.length);
+  const paginaSegura = Math.min(maxPage, Math.max(1, Math.trunc(initialPage || 1)));
+  const progressKey = `cap:mangadex:${seriesId ?? "unknown"}:${chapter.id}`;
+
   const [mode, setMode] = useState<ReadingMode>(initialMode);
-  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [currentPage, setCurrentPage] = useState(paginaSegura);
+  const [cascadeKey, setCascadeKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
   // en Android el puente esconde además las barras del sistema
@@ -67,10 +77,29 @@ export function ExternalReader({
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const onPageChange = useCallback((pageNumber: number) => setCurrentPage(pageNumber), []);
+  useEffect(() => {
+    setMode(leerModoLecturaPreferido(initialMode));
+    const sp = new URLSearchParams(window.location.search);
+    if (!sp.has("page") && paginaSegura <= 1) {
+      const local = leerPosicionLector(progressKey);
+      if (local && local.page > 1) {
+        const clamped = Math.min(maxPage, local.page);
+        if (clamped > 1) {
+          setCurrentPage(clamped);
+          setCascadeKey((k) => k + 1);
+        }
+      }
+    }
+  }, [initialMode, maxPage, paginaSegura, progressKey]);
+
+  const onPageChange = useCallback(
+    (pageNumber: number) => setCurrentPage(Math.min(maxPage, Math.max(1, Math.trunc(pageNumber || 1)))),
+    [maxPage]
+  );
 
   const changeMode = useCallback((next: ReadingMode) => {
     setMode(next);
+    guardarModoLecturaPreferido(next);
     fetch("/api/auth/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -88,7 +117,7 @@ export function ExternalReader({
       setIsFullscreen(!saliendo);
       setControlsVisible(saliendo);
     }
-  }, []);
+  }, [isFullscreen, inmersivaNativa]);
 
   useEffect(() => {
     function onChange() {
@@ -134,7 +163,7 @@ export function ExternalReader({
     setControlsVisible(false);
 
     return () => {
-      salirPantallaCompleta();
+      if (!esCambioCapituloLector(true)) salirPantallaCompleta();
     };
   }, []);
 
@@ -206,12 +235,14 @@ export function ExternalReader({
       <div onClick={revealControls}>
         {mode === "cascade" ? (
           <CascadeReader
+            key={cascadeKey}
             pages={pages}
-            initialPage={initialPage}
+            initialPage={currentPage}
             nextChapter={null}
             seriesSlug=""
             seriesHref={backHref}
             onPageVisible={onPageChange}
+            progressKey={progressKey}
           />
         ) : (
           <RtlReader
@@ -236,12 +267,12 @@ export function ExternalReader({
             ← Capítulo {prevChapter.number ?? "anterior"}
           </EnlaceCapitulo>
         )}
-        <Link
+        <BotonVolver
           href={backHref}
           className="rounded-md border border-line px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.1em] text-subtle transition hover:border-line-strong hover:text-ink"
         >
           Ver capítulos
-        </Link>
+        </BotonVolver>
         {nextChapter && (
           <EnlaceCapitulo
             href={`/leer-externo/${nextChapter.id}`}

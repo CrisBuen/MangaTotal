@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PortadaExterna } from "@/components/fuentes/PortadaExterna";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  leerPosicionLector,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 import { buttonStyles } from "@/components/ui/Button";
 import { fieldControlClass } from "@/components/ui/Field";
 import { Surface } from "@/components/ui/Surface";
@@ -112,7 +119,9 @@ function combinarHistorial(remoto: EntradaHistorial[], local: EntradaHistorial[]
 
 export default function BibliotecaPage() {
   const router = useRouter();
+  const pathname = usePathname() || "/biblioteca";
   const urlParams = useSearchParams();
+  const urlParamsStr = urlParams.toString();
   const [me, setMe] = useState<Me | null>(null);
   const [continues, setContinues] = useState<ContinueItem[]>([]);
   const [filter, setFilter] = useState<Filter>("normal");
@@ -121,7 +130,7 @@ export default function BibliotecaPage() {
   const [restored, setRestored] = useState(false);
   const [guardadas, setGuardadas] = useState<SerieGuardada[]>([]);
   const [historial, setHistorial] = useState<EntradaHistorial[]>([]);
-  const regresoDeLectura = useRef(false);
+  const omitirEscrituraUrlRef = useRef(true);
   const { usuario, trabajos, iniciar } = useActualizaciones();
   const { opciones, cambiar, favorito } = useOpcionesBiblioteca("lectura");
   const trabajo = trabajos.lectura;
@@ -157,7 +166,55 @@ export default function BibliotecaPage() {
 
   useEffect(() => {
     const refrescarLocal = () => {
-      setHistorial((prev) => combinarHistorial(prev, leerHistorialLocal()));
+      const localLista = leerHistorialLocal();
+      setHistorial((prev) => combinarHistorial(prev, localLista));
+      setGuardadas((prev) =>
+        prev.map((g) => {
+          const entradaLocal = localLista.find(
+            (x) => x.source === g.source && x.external_id === g.external_id
+          );
+          const pos = leerPosicionLector(`prog:${g.source}:${g.external_id}`);
+          const usarPos = pos && Date.now() - pos.updatedAt < 60_000 ? pos : null;
+          if (!entradaLocal && !usarPos) return g;
+
+          const tLocal = entradaLocal ? Date.parse(entradaLocal.updated_at ?? "") || 0 : 0;
+          const esReciente = Boolean(usarPos) || (tLocal > 0 && Date.now() - tLocal < 120_000);
+          if (!esReciente) return g;
+
+          const chapterId = usarPos?.chapterId ?? entradaLocal?.last_chapter_id ?? null;
+          const chapterName =
+            entradaLocal && (!usarPos || entradaLocal.last_chapter_id === usarPos.chapterId)
+              ? (entradaLocal.last_chapter_name ?? g.last_chapter_name)
+              : (g.last_chapter_name ?? chapterId);
+          const pageNumber = usarPos?.page ?? entradaLocal?.last_page_number ?? g.last_page_number;
+
+          let hrefContinuar = g.href_continuar;
+          const baseHref =
+            entradaLocal?.href_continuar && (!usarPos || entradaLocal.last_chapter_id === usarPos.chapterId)
+              ? entradaLocal.href_continuar
+              : g.href_continuar;
+          if (baseHref) {
+            if (pageNumber && pageNumber > 1) {
+              try {
+                const u = new URL(baseHref, window.location.origin);
+                u.searchParams.set("page", String(pageNumber));
+                hrefContinuar = `${u.pathname}${u.search}`;
+              } catch {
+                hrefContinuar = baseHref;
+              }
+            } else {
+              hrefContinuar = baseHref;
+            }
+          }
+
+          return {
+            ...g,
+            last_chapter_name: chapterName,
+            last_page_number: pageNumber,
+            href_continuar: hrefContinuar,
+          };
+        })
+      );
     };
     window.addEventListener("focus", refrescarLocal);
     window.addEventListener("pageshow", refrescarLocal);
@@ -184,17 +241,15 @@ export default function BibliotecaPage() {
     ).catch(() => {});
   }
 
-  useEffect(() => {
-    regresoDeLectura.current = sessionStorage.getItem("biblioteca:regreso") === "1";
-    sessionStorage.removeItem("biblioteca:regreso");
-    if (regresoDeLectura.current) window.scrollTo(0, 0);
-  }, []);
-  useEffect(() => {
-    if (!regresoDeLectura.current || guardadas.length === 0) return;
-    requestAnimationFrame(() => window.scrollTo(0, 0));
-    regresoDeLectura.current = false;
-  }, [guardadas.length]);
-  const abrirDesdeBiblioteca = () => sessionStorage.setItem("biblioteca:regreso", "1");
+  const claveRuta = useMemo(
+    () => normalizarClaveRuta(pathname, urlParamsStr),
+    [pathname, urlParamsStr]
+  );
+  useRestaurarScroll(
+    claveRuta,
+    restored && (guardadas.length > 0 || historial.length > 0 || continues.length > 0 || me !== null),
+    true
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -270,27 +325,47 @@ export default function BibliotecaPage() {
     }
     const urlSearch = params.get("q");
     if (urlSearch) setSearch(urlSearch);
+    omitirEscrituraUrlRef.current = true;
     setRestored(true);
   }, [router, cargarHistorial]);
 
   // La barra común cambia Mi biblioteca/Favoritos sin desmontar esta página.
   // También se restaura Atrás/Adelante; no se toca la colección ni su progreso.
-  useEffect(() => {
-    if (!restored) return;
-    const section = urlParams.get("s");
+  const aplicarDesdeSearch = useCallback((sp: Pick<URLSearchParams, "get">) => {
+    omitirEscrituraUrlRef.current = true;
+    const section = sp.get("s");
     setSeccion(section === "animadas" || section === "animelist" ? "animelist" : "lectura");
-    const nextFilter = urlParams.get("f");
+    const nextFilter = sp.get("f");
     setFilter(
       nextFilter === "adult" || nextFilter === "favoritos" || nextFilter === "historial"
         ? nextFilter
         : "normal"
     );
-    setSearch(urlParams.get("q") ?? "");
-  }, [urlParams, restored]);
+    setSearch(sp.get("q") ?? "");
+  }, []);
 
-  // reflejar el estado en la URL (replaceState: no ensucia el historial)
   useEffect(() => {
     if (!restored) return;
+    if (fueEscritaPorNosotros(pathname, urlParamsStr)) return;
+    aplicarDesdeSearch(new URLSearchParams(urlParamsStr));
+  }, [pathname, urlParamsStr, restored, aplicarDesdeSearch]);
+
+  useEffect(() => {
+    if (!restored) return;
+    const onPopState = () => {
+      aplicarDesdeSearch(new URLSearchParams(window.location.search));
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [restored, aplicarDesdeSearch]);
+
+  // reflejar el estado en la URL manteniendo el estado interno del Router de Next.js
+  useEffect(() => {
+    if (!restored) return;
+    if (omitirEscrituraUrlRef.current) {
+      omitirEscrituraUrlRef.current = false;
+      return;
+    }
     const url = new URL(window.location.href);
     if (seccion !== "lectura") url.searchParams.set("s", seccion);
     else url.searchParams.delete("s");
@@ -298,7 +373,13 @@ export default function BibliotecaPage() {
     else url.searchParams.delete("f");
     if (search.trim()) url.searchParams.set("q", search.trim());
     else url.searchParams.delete("q");
-    window.history.replaceState(null, "", url.toString());
+
+    if (
+      normalizarClaveRuta(url.pathname, url.search) !==
+      normalizarClaveRuta(window.location.pathname, window.location.search)
+    ) {
+      escribirUrlHistorial(url, "replace");
+    }
   }, [restored, seccion, filter, search]);
 
   const claveDe = (g: SerieGuardada) => `${g.source}-${g.external_id}`;
@@ -567,7 +648,6 @@ export default function BibliotecaPage() {
                             </button>
                             <Link
                               href={h.href_continuar}
-                              onClick={abrirDesdeBiblioteca}
                               className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
                             >
                               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
@@ -609,7 +689,6 @@ export default function BibliotecaPage() {
                             <div className="mt-2 flex items-center justify-between px-1">
                               <Link
                                 href={h.href}
-                                onClick={abrirDesdeBiblioteca}
                                 title="Ver ficha y capítulos"
                                 className="text-xs text-subtle transition hover:text-accent-ink"
                               >
@@ -617,7 +696,6 @@ export default function BibliotecaPage() {
                               </Link>
                               <Link
                                 href={h.href_continuar}
-                                onClick={abrirDesdeBiblioteca}
                                 className="rounded border border-line px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-ink transition hover:border-accent"
                               >
                                 Continuar
@@ -649,7 +727,6 @@ export default function BibliotecaPage() {
                           >
                             <Link
                               href={g.href_continuar}
-                              onClick={abrirDesdeBiblioteca}
                               className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
                             >
                               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
@@ -683,7 +760,6 @@ export default function BibliotecaPage() {
                             <div className="mt-2 flex items-center justify-between px-1">
                               <Link
                                 href={g.href}
-                                onClick={abrirDesdeBiblioteca}
                                 title="Ver ficha y capítulos"
                                 className="text-xs text-subtle transition hover:text-accent-ink"
                               >
@@ -691,7 +767,6 @@ export default function BibliotecaPage() {
                               </Link>
                               <Link
                                 href={g.href_continuar}
-                                onClick={abrirDesdeBiblioteca}
                                 className="rounded border border-line px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-ink transition hover:border-accent"
                               >
                                 Continuar
@@ -726,7 +801,6 @@ export default function BibliotecaPage() {
                           <div key={c.series.id} className="group w-40 shrink-0">
                             <Link
                               href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
-                              onClick={abrirDesdeBiblioteca}
                               className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                             >
                               <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
@@ -745,14 +819,12 @@ export default function BibliotecaPage() {
                               <div className="flex items-center gap-2">
                                 <Link
                                   href={`/leer/${c.chapter.id}?page=${c.lastPageNumber}`}
-                                  onClick={abrirDesdeBiblioteca}
                                   className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
                                 >
                                   {c.series.title}
                                 </Link>
                                 <Link
-                                  href={`/series/${c.series.slug}`}
-                                  onClick={abrirDesdeBiblioteca}
+                                  href={`/serie/${c.series.slug}`}
                                   title="Ver ficha y capítulos"
                                   aria-label={`Ver ficha de ${c.series.title}`}
                                   className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
@@ -771,7 +843,6 @@ export default function BibliotecaPage() {
                           <div key={`${g.source}-${g.external_id}`} className="group w-40 shrink-0">
                             <Link
                               href={g.href_continuar}
-                              onClick={abrirDesdeBiblioteca}
                               className="block transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                             >
                               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">
@@ -795,14 +866,12 @@ export default function BibliotecaPage() {
                               <div className="flex items-center gap-2">
                                 <Link
                                   href={g.href_continuar}
-                                  onClick={abrirDesdeBiblioteca}
                                   className="min-w-0 flex-1 truncate text-base font-semibold text-ink hover:text-accent-ink"
                                 >
                                   {g.title}
                                 </Link>
                                 <Link
                                   href={g.href}
-                                  onClick={abrirDesdeBiblioteca}
                                   title="Ver ficha y capítulos"
                                   aria-label={`Ver ficha de ${g.title}`}
                                   className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-line text-sm text-subtle transition hover:border-line-strong hover:text-accent-ink"
@@ -880,7 +949,6 @@ export default function BibliotecaPage() {
                           <div key={`${g.source}-${g.external_id}`} className="relative min-w-0 pb-8">
                             <Link
                               href={g.href}
-                              onClick={abrirDesdeBiblioteca}
                               className="biblioteca-tarjeta group block rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ink"
                             >
                               <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-line bg-[var(--surface-raised)] transition-colors group-hover:border-line-strong">

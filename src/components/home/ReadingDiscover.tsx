@@ -1,12 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MediaRail } from "@/components/discover/MediaRail";
 import { Chip } from "@/components/ui/Chip";
 import { ImagenFuente } from "@/components/fuentes/ImagenFuente";
 import { buscarReferenciaBiblioteca, type ReferenciaBiblioteca } from "@/lib/identidadBiblioteca";
+import {
+  escribirUrlHistorial,
+  fueEscritaPorNosotros,
+  guardarUltimaFuente,
+  leerUltimaFuente,
+  marcarScrollArriba,
+  normalizarClaveRuta,
+  useRestaurarScroll,
+} from "@/lib/navegacionEstado";
 import { LC_HABILITADA, LC_LISTAS, catalogoLc } from "@/lib/leercapitulo";
 import { TMO_TIPOS, catalogoTmo, popularesTmo } from "@/lib/zonatmo";
 import { catalogoCw, imagenCw } from "@/lib/catharsis";
@@ -256,19 +265,26 @@ function UniversalRail({
 }
 
 export function ReadingDiscover() {
+  const router = useRouter();
+  const pathname = usePathname() || "/lectura";
   const params = useSearchParams();
+  const paramsStr = params.toString();
   const urlFuente = params.get("fuente");
 
-  const [fuente, setFuente] = useState<string>("mangadex");
+  const [fuente, setFuente] = useState<string>(() => urlFuente || "mangadex");
   const [genres, setGenres] = useState<Genre[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [guardadas, setGuardadas] = useState<ReferenciaBiblioteca[]>([]);
   const [ikigaiActivo, setIkigaiActivo] = useState(false);
   const [adultoHabilitado, setAdultoHabilitado] = useState(false);
-
+  const [adultoComprobado, setAdultoComprobado] = useState(false);
+  const inicializadoRef = useRef(false);
 
   useEffect(() => {
-    if (isPlayStoreApp()) return;
+    if (isPlayStoreApp()) {
+      setAdultoComprobado(true);
+      return;
+    }
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((me) => {
@@ -276,7 +292,8 @@ export function ReadingDiscover() {
           setAdultoHabilitado(true);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAdultoComprobado(true));
   }, []);
 
   useEffect(() => {
@@ -307,16 +324,53 @@ export function ReadingDiscover() {
     [guardadas]
   );
 
+  // Sincronización unidireccional con la URL: elimina el rebote entre urlFuente y estado local.
   useEffect(() => {
-    if (urlFuente && urlFuente !== fuente) {
-      setFuente(urlFuente);
-    } else {
-      try {
-        const stored = sessionStorage.getItem("mangatotal:fuente-lectura");
-        if (stored && stored !== fuente) setFuente(stored);
-      } catch {}
+    if (!inicializadoRef.current) {
+      inicializadoRef.current = true;
+      const inicial = urlFuente || leerUltimaFuente("lectura") || "mangadex";
+      setFuente(inicial);
+      guardarUltimaFuente("lectura", inicial);
+      if (!urlFuente && inicial !== "mangadex") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("fuente", inicial);
+        escribirUrlHistorial(url, "replace");
+      }
+      return;
     }
-  }, [urlFuente, fuente]);
+    if (fueEscritaPorNosotros(pathname, paramsStr)) return;
+    const siguiente = urlFuente || leerUltimaFuente("lectura") || "mangadex";
+    setFuente(siguiente);
+    guardarUltimaFuente("lectura", siguiente);
+  }, [pathname, paramsStr, urlFuente]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const siguiente = sp.get("fuente") || "mangadex";
+      setFuente(siguiente);
+      guardarUltimaFuente("lectura", siguiente);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!adultoComprobado || adultoHabilitado) return;
+    if (fuente === "ehentai" || fuente === "hitomi") {
+      setFuente("mangadex");
+      guardarUltimaFuente("lectura", "mangadex");
+      const url = new URL(window.location.href);
+      url.searchParams.set("fuente", "mangadex");
+      escribirUrlHistorial(url, "replace");
+    }
+  }, [adultoComprobado, adultoHabilitado, fuente]);
+
+  const claveRuta = useMemo(
+    () => normalizarClaveRuta(pathname, paramsStr || (fuente !== "mangadex" ? `fuente=${fuente}` : "")),
+    [pathname, paramsStr, fuente]
+  );
+  useRestaurarScroll(claveRuta, true, true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -329,18 +383,16 @@ export function ReadingDiscover() {
     return () => controller.abort();
   }, []);
 
-
-
   const cambiarFuente = (nueva: string) => {
     if (nueva === fuente) return;
     if ((nueva === "ehentai" || nueva === "hitomi") && !adultoHabilitado) return;
     setFuente(nueva);
-    try {
-      sessionStorage.setItem("mangatotal:fuente-lectura", nueva);
-    } catch {}
+    guardarUltimaFuente("lectura", nueva);
     const url = new URL(window.location.href);
     url.searchParams.set("fuente", nueva);
-    window.history.replaceState(window.history.state, "", url.toString());
+    const claveDestino = normalizarClaveRuta(url.pathname, url.search);
+    marcarScrollArriba(claveDestino);
+    escribirUrlHistorial(url, "push");
   };
 
   const fuentesLista = [
@@ -402,12 +454,18 @@ export function ReadingDiscover() {
 
       {/* Buscador dinámico adaptado a la fuente seleccionada */}
       <form
-        action="/explorar"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const sp = new URLSearchParams({ fuente });
+          if (searchQuery.trim()) sp.set("q", searchQuery.trim());
+          const destino = `/explorar?${sp.toString()}`;
+          marcarScrollArriba(destino);
+          router.push(destino);
+        }}
         className="od-discover-tools"
         role="search"
         aria-label={`Buscar en ${fuenteInfo.name}`}
       >
-        <input type="hidden" name="fuente" value={fuente} />
         <input
           name="q"
           value={searchQuery}
